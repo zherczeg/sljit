@@ -46,6 +46,7 @@
 
 // Architecture selection
 #define SLJIT_CONFIG_X86_32
+//#define SLJIT_CONFIG_ARM
 
 // General libraries
 #include <stdlib.h>
@@ -179,7 +180,7 @@ struct sljit_jump {
 };
 
 struct sljit_const {
-	struct sljit_consts *next;
+	struct sljit_const *next;
 	sljit_uw addr;
 };
 
@@ -323,13 +324,18 @@ void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label);
 void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);
+struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w constant);
 
 // After the code generation the address for label, jump and const instructions
-// are computed. These addresses must be saved elsewhere if we plan to use them
-// later after sljitFreeCompiler
+// are computed. Since these structures are freed sljit_free_compiler, the
+// addresses must be preserved by the user program elsewere
 #define sljit_get_label_addr(label)	(label->addr)
 #define sljit_get_jump_addr(jump)	(jump->addr)
-#define sljit_get_const_addr(cons)	(cons->addr)
+#define sljit_get_const_addr(const_)	(const_->addr)
+
+// Only the addresses are required to rewrite the code
+void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr);
+void sljit_set_const(sljit_uw addr, sljit_w constant);
 
 #endif
 

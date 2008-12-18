@@ -428,6 +428,84 @@ static void test9(void)
 	printf("test9 ok\n");
 }
 
+static void test10(void)
+{
+	// Test rewriteable constants and jumps
+	union executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	struct sljit_const* const1;
+	struct sljit_label *label1;
+	struct sljit_label *label2;
+	struct sljit_label *label3;
+	struct sljit_jump *jump1;
+	struct sljit_jump *jump2;
+	struct sljit_jump *jump3;
+	sljit_uw const1_addr;
+	sljit_uw jump1_addr;
+	sljit_uw label1_addr;
+	sljit_uw label2_addr;
+	sljit_w buf[1];
+
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 0;
+
+	T(sljit_emit_enter(compiler, CALL_TYPE_CDECL, 2, 2));
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_NO_REG, 0, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 10));
+	jump1 = sljit_emit_jump(compiler, SLJIT_LONG_JUMP | SLJIT_C_SIG_GREATER);
+	T(compiler->error);
+	// Default handler
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 5));
+	jump2 = sljit_emit_jump(compiler, SLJIT_JUMP);
+	T(compiler->error);
+	// Handler 1
+	label1 = sljit_emit_label(compiler);
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 6));
+	jump3 = sljit_emit_jump(compiler, SLJIT_JUMP);
+	T(compiler->error);
+	// Handler 2
+	label2 = sljit_emit_label(compiler);
+	T(compiler->error);
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 7));
+	// Exit
+	label3 = sljit_emit_label(compiler);
+	T(compiler->error);
+	sljit_set_label(jump2, label3);
+	sljit_set_label(jump3, label3);
+	// By default, set to handler 1
+	sljit_set_label(jump1, label1);
+	const1 = sljit_emit_const(compiler, SLJIT_PREF_RET_REG, 0, 1234);
+	T(compiler->error);
+	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	jump1_addr = sljit_get_jump_addr(jump1);
+	label1_addr = sljit_get_label_addr(label1);
+	label2_addr = sljit_get_label_addr(label2);
+	const1_addr = sljit_get_const_addr(const1);
+	sljit_free_compiler(compiler);
+
+	FAILED(code.func2((sljit_w)&buf, 4) != 1234, "test10 case 1 failed\n")
+	FAILED(buf[0] != 5, "test10 case 2 failed\n");
+
+	sljit_set_const(const1_addr, 2345);
+	FAILED(code.func2((sljit_w)&buf, 11) != 2345, "test10 case 3 failed\n")
+	FAILED(buf[0] != 6, "test10 case 4 failed\n");
+
+	sljit_set_const(const1_addr, 4567);
+	sljit_set_jump_addr(jump1_addr, label2_addr);
+	FAILED(code.func2((sljit_w)&buf, 12) != 4567, "test10 case 5 failed\n")
+	FAILED(buf[0] != 7, "test10 case 6 failed\n");
+
+	sljit_set_const(const1_addr, 6789);
+	sljit_set_jump_addr(jump1_addr, label1_addr);
+	FAILED(code.func2((sljit_w)&buf, 13) != 6789, "test10 case 7 failed\n")
+	FAILED(buf[0] != 6, "test10 case 8 failed\n");
+
+	sljit_free_code(code.code);
+	printf("test10 ok\n");
+}
+
 void sljit_test(void)
 {
 	test1();
@@ -439,5 +517,6 @@ void sljit_test(void)
 	test7();
 	test8();
 	test9();
+	test10();
 }
 

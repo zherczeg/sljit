@@ -291,12 +291,18 @@ static char* jump_names[] = {
 	"jump",
 };
 #define sljit_emit_jump_verbose() \
-	if (compiler->verbose) fprintf(compiler->verbose, "  %s %s\n", jump_names[type & 0xff], (type & SLJIT_LONG_JUMP) ? "(long)" : "");
+	if (compiler->verbose) fprintf(compiler->verbose, "  jump <%s> %s\n", jump_names[type & 0xff], (type & SLJIT_LONG_JUMP) ? "(long)" : "");
 #define sljit_emit_set_cond_verbose() \
 	if (compiler->verbose) { \
 		fprintf(compiler->verbose, "  cond_set "); \
 		sljit_verbose_param(dst, dstw); \
 		fprintf(compiler->verbose, ", %s\n", jump_names[type]); \
+	}
+#define sljit_emit_const_verbose() \
+	if (compiler->verbose) { \
+		fprintf(compiler->verbose, "  const "); \
+		sljit_verbose_param(dst, dstw); \
+		fprintf(compiler->verbose, ", #%d\n", constant); \
 	}
 
 #else
@@ -308,6 +314,7 @@ static char* jump_names[] = {
 #define sljit_emit_label_verbose()
 #define sljit_emit_jump_verbose()
 #define sljit_emit_set_cond_verbose()
+#define sljit_emit_const_verbose()
 
 #endif
 
@@ -317,6 +324,8 @@ static char* jump_names[] = {
 
 #if defined(SLJIT_CONFIG_X86_32)
 	#include "sljitNativeX86_32.c"
+#elif defined(SLJIT_CONFIG_ARM)
+	#include "sljitNativeARM.c"
 #else
 	#error "Unknown native code generation method"
 #endif

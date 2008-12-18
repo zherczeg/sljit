@@ -29,9 +29,6 @@ static sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
    0, 0, 1, 2, 3, 6, 7, 5
 };
 
-// Inst format: page 33
-// Mod R/M: page 39
-
 #define INC_SIZE(s)			(*buf++ = (s), compiler->size += (s))
 
 #define MOD(mod, reg, rm)		(*buf++ = (mod) << 6 | (reg) << 3 | (rm))
@@ -42,7 +39,59 @@ static sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
 // r32, r/m32
 #define MOV_RM(mod, reg, rm)		(*buf++ = (0x8B), MOD(mod, reg, rm))
 
-//static void calc
+static sljit_ub get_jump_code(int type)
+{
+	switch (type) {
+	case SLJIT_C_EQUAL:
+		return 0x84;
+
+	case SLJIT_C_NOT_EQUAL:
+		return 0x85;
+
+	case SLJIT_C_LESS:
+		return 0x82;
+
+	case SLJIT_C_NOT_LESS:
+		return 0x83;
+
+	case SLJIT_C_GREATER:
+		return 0x87;
+
+	case SLJIT_C_NOT_GREATER:
+		return 0x86;
+
+	case SLJIT_C_SIG_LESS:
+		return 0x8c;
+
+	case SLJIT_C_SIG_NOT_LESS:
+		return 0x8d;
+
+	case SLJIT_C_SIG_GREATER:
+		return 0x8f;
+
+	case SLJIT_C_SIG_NOT_GREATER:
+		return 0x8e;
+
+	case SLJIT_C_CARRY:
+		return 0x82;
+
+	case SLJIT_C_NOT_CARRY:
+		return 0x83;
+
+	case SLJIT_C_ZERO:
+		return 0x84;
+
+	case SLJIT_C_NOT_ZERO:
+		return 0x85;
+
+	case SLJIT_C_OVERFLOW:
+		return 0x80;
+
+	case SLJIT_C_NOT_OVERFLOW:
+		return 0x81;
+	}
+	return 0;
+}
 
 static sljit_ub* generate_jump_code(struct sljit_jump *jump, sljit_ub *code_ptr, sljit_ub *code, int type)
 {
@@ -55,14 +104,21 @@ static sljit_ub* generate_jump_code(struct sljit_jump *jump, sljit_ub *code_ptr,
 		label_addr = (sljit_uw)(code + jump->label->size);
 		short_jump = (sljit_w)(label_addr - (jump->addr + 2)) >= -128 && (sljit_w)(label_addr - (jump->addr + 2)) <= 127;
 
-		switch (type) {
-		case SLJIT_JUMP:
+		if (type == SLJIT_JUMP) {
 			if (short_jump)
 				*code_ptr++ = 0xeb;
 			else
 				*code_ptr++ = 0xe9;
 			jump->addr++;
-			break;
+		}
+		else if (short_jump) {
+			*code_ptr++ = get_jump_code(type) - 0x10;
+			jump->addr++;
+		}
+		else {
+			*code_ptr++ = 0x0f;
+			*code_ptr++ = get_jump_code(type);
+			jump->addr += 2;
 		}
 
 		if (short_jump) {
@@ -76,11 +132,14 @@ static sljit_ub* generate_jump_code(struct sljit_jump *jump, sljit_ub *code_ptr,
 	else {
 		SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
 
-		switch (type) {
-		case SLJIT_JUMP:
+		if (type == SLJIT_JUMP) {
 			*code_ptr++ = 0xe9;
 			jump->addr++;
-			break;
+		}
+		else {
+			*code_ptr++ = 0x0f;
+			*code_ptr++ = get_jump_code(type);
+			jump->addr += 2;
 		}
 
 		if (jump->flags & JUMP_LABEL)
@@ -103,6 +162,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 	struct sljit_label *label;
 	struct sljit_jump *jump;
+	struct sljit_const *const_;
 
 	FUNCTION_ENTRY();
 	reverse_buf(compiler);
@@ -114,6 +174,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	code_ptr = code;
 	label = compiler->labels;
 	jump = compiler->jumps;
+	const_ = compiler->consts;
 	do {
 		buf_ptr = buf->memory;
 		buf_end = buf_ptr + buf->used_size;
@@ -126,15 +187,19 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				buf_ptr += len;
 			}
 			else {
-				if (*buf_ptr > 0) {
+				if (*buf_ptr > 1) {
 					jump->addr = (sljit_uw)code_ptr;
-					code_ptr = generate_jump_code(jump, code_ptr, code, *buf_ptr - 1);
+					code_ptr = generate_jump_code(jump, code_ptr, code, *buf_ptr - 2);
 					jump = jump->next;
 				}
-				else {
+				else if (*buf_ptr == 0) {
 					label->addr = (sljit_uw)code_ptr;
 					label->size = code_ptr - code;
 					label = label->next;
+				}
+				else {
+					const_->addr = ((sljit_uw)code_ptr) - sizeof(sljit_w);
+					const_ = const_->next;
 				}
 				buf_ptr++;
 			}
@@ -153,7 +218,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		jump = jump->next;
 	}
 
-	// Maybe a little lower for short jumps
+	// Maybe we waste some space because of short jumps
 	SLJIT_ASSERT(code_ptr <= code + compiler->size);
 	compiler->error = SLJIT_CODE_GENERATED;
 	return (void*)code;
@@ -1159,13 +1224,14 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 		compiler->jumps = jump;
 	compiler->last_jump = jump;
 
+	// Worst case size
 	compiler->size += (type == SLJIT_JUMP) ? 5 : 6;
 
 	buf = ensure_buf(compiler, 2);
 	TEST_MEM_ERROR2(buf);
 
 	*buf++ = 0;
-	*buf++ = type + 1;
+	*buf++ = type + 2;
 
 	return jump;
 }
@@ -1292,4 +1358,49 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 
 	return SLJIT_NO_ERROR;
 }
+
+struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w constant)
+{
+	sljit_ub *buf;
+	struct sljit_const *const_;
+
+	FUNCTION_ENTRY();
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_DST(dst, dstw);
+#endif
+	sljit_emit_const_verbose();
+
+	const_ = ensure_abuf(compiler, sizeof(struct sljit_const));
+	TEST_MEM_ERROR2(const_);
+
+	const_->next = NULL;
+	if (compiler->last_const)
+		compiler->last_const->next = const_;
+	else
+		compiler->consts = const_;
+	compiler->last_const = const_;
+
+	if (emit_mov(compiler, dst, dstw, SLJIT_IMM, constant))
+		return NULL;
+
+	buf = ensure_buf(compiler, 2);
+	TEST_MEM_ERROR2(buf);
+
+	*buf++ = 0;
+	*buf++ = 1;
+
+	return const_;
+}
+
+void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
+{
+	*(sljit_w*)addr = new_addr - (addr + 4);
+}
+
+void sljit_set_const(sljit_uw addr, sljit_w constant)
+{
+	*(sljit_w*)addr = constant;
+}
+
+
 
