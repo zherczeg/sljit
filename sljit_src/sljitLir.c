@@ -41,6 +41,10 @@
 #define PATCH_MW	0x8
 #endif
 
+#ifdef SLJIT_CONFIG_ARM
+#define CPOOL_SIZE	256
+#endif
+
 // ---------------------------------------------------------------------
 //  Public functions
 // ---------------------------------------------------------------------
@@ -81,6 +85,19 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->general = -1;
 	compiler->size = 0;
 
+#ifdef SLJIT_CONFIG_ARM
+	compiler->cpool = SLJIT_MALLOC(CPOOL_SIZE * sizeof(sljit_uw));
+	if (!compiler->cpool) {
+		SLJIT_FREE(compiler->buf);
+		SLJIT_FREE(compiler->abuf);
+		SLJIT_FREE(compiler);
+		return NULL;
+	}
+	compiler->cpool_diff = 0xffffffff;
+	compiler->cpool_fill = 0;
+	compiler->cpool_index = 0;
+#endif
+
 #ifdef SLJIT_VERBOSE
 	compiler->verbose = NULL;
 #endif
@@ -106,6 +123,9 @@ void sljit_free_compiler(struct sljit_compiler *compiler)
 		SLJIT_FREE(curr);
 	}
 
+#ifdef SLJIT_CONFIG_ARM
+	//SLJIT_FREE(compiler->cpool);
+#endif
 	SLJIT_FREE(compiler);
 }
 
@@ -189,7 +209,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) == SLJIT_IMM) \
 		; \
-	else if ((p) & SLJIT_LOAD_FLAG) { \
+	else if ((p) & SLJIT_MEM_FLAG) { \
 		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_GENERAL_REG3); \
 		if (((p) & 0xf) != 0) \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_GENERAL_REG3); \
@@ -203,7 +223,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 #define FUNCTION_CHECK_DST(p, i) \
 	if ((p) >= SLJIT_NO_REG && (p) <= SLJIT_GENERAL_REG3) \
 		SLJIT_ASSERT(i == 0); \
-	else if ((p) & SLJIT_LOAD_FLAG) { \
+	else if ((p) & SLJIT_MEM_FLAG) { \
 		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_GENERAL_REG3); \
 		if (((p) & 0xf) != 0) \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_GENERAL_REG3); \
@@ -233,7 +253,7 @@ static char* reg_names[] = {
 #define sljit_verbose_param(p, i) \
 	if ((p) & SLJIT_IMM_FLAG) \
 		fprintf(compiler->verbose, "#%d", (i)); \
-	else if ((p) & SLJIT_LOAD_FLAG) { \
+	else if ((p) & SLJIT_MEM_FLAG) { \
 		if ((p) & 0xF) { \
 			if ((i) != 0) { \
 				if (((p) >> 4) & 0xF) \

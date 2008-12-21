@@ -44,8 +44,8 @@
 //  Configuration
 // ---------------------------------------------------------------------
 
-// Architecture selection
-#define SLJIT_CONFIG_X86_32
+// Architecture selection (here, or using -D preprocessor option)
+//#define SLJIT_CONFIG_X86_32
 //#define SLJIT_CONFIG_ARM
 
 // General libraries
@@ -102,6 +102,8 @@ typedef int sljit_32b;
 #endif
 
 // ABI (Application Binary Interface) types
+#ifndef SLJIT_CONFIG_ARM
+
 #ifdef __GNUC__
 #define SLJIT_CDECL __attribute__ ((cdecl))
 #else
@@ -112,6 +114,13 @@ typedef int sljit_32b;
 #define SLJIT_FASTCALL __attribute__ ((fastcall))
 #else
 #define SLJIT_FASTCALL __fastcall
+#endif
+
+#else // SLJIT_CONFIG_ARM
+
+#define SLJIT_CDECL
+#define SLJIT_FASTCALL
+
 #endif
 
 // ---------------------------------------------------------------------
@@ -201,6 +210,14 @@ struct sljit_compiler {
 	int general;
 	int size;
 
+#ifdef SLJIT_CONFIG_ARM
+	// Constant pool handling
+	sljit_uw *cpool;
+	sljit_uw cpool_diff;
+	sljit_uw cpool_fill;
+	sljit_uw cpool_index;
+#endif
+
 #ifdef SLJIT_VERBOSE
 	FILE* verbose;
 #endif
@@ -241,16 +258,16 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 //  [reg+imm]     - indirect memory address
 //  [reg+reg+imm] - two level indirect addressing
 
-#define SLJIT_LOAD_FLAG		0x100
+#define SLJIT_MEM_FLAG		0x100
 #define SLJIT_IMM_FLAG		0x200
 
 // Helper defines
 // Register output: simply the name of the register
 // For destination, you can use SLJIT_NO_REG as well
 #define SLJIT_IMM		SLJIT_IMM_FLAG
-#define SLJIT_MEM0()		SLJIT_LOAD_FLAG
-#define SLJIT_MEM1(r1)		SLJIT_LOAD_FLAG | (r1)
-#define SLJIT_MEM2(r1, r2)	SLJIT_LOAD_FLAG | (r1) | ((r2) << 4)
+#define SLJIT_MEM0()		SLJIT_MEM_FLAG
+#define SLJIT_MEM1(r1)		SLJIT_MEM_FLAG | (r1)
+#define SLJIT_MEM2(r1, r2)	SLJIT_MEM_FLAG | (r1) | ((r2) << 4)
 
 // Most of the following instructions are also set the CPU status-flags
 // Common flags for all architectures (x86, ARM, PPC)
