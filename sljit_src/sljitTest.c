@@ -506,6 +506,46 @@ static void test10(void)
 	printf("test10 ok\n");
 }
 
+static void test11(void)
+{
+	// Test arm constant pool
+	union executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	int i;
+	sljit_w buf[5];
+
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 0;
+	buf[1] = 0;
+	buf[2] = 0;
+	buf[3] = 0;
+	buf[4] = 0;
+
+	T(sljit_emit_enter(compiler, CALL_TYPE_CDECL, 1, 1));
+	for (i = 0; i <= 0xfff; i++) {
+		T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x81818000 | i));
+		T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x81818000 | i));
+		if ((i & 0x3ff) == 0)
+			T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), (i >> 10) * sizeof(sljit_w), SLJIT_TEMPORARY_REG1, 0));
+	}
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 4 * sizeof(sljit_w), SLJIT_TEMPORARY_REG1, 0));
+	T(sljit_emit_return(compiler, SLJIT_NO_REG));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_w)&buf);
+	FAILED(buf[0] != 0x81818000, "test11 case 1 failed\n");
+	FAILED(buf[1] != 0x81818400, "test11 case 2 failed\n");
+	FAILED(buf[2] != 0x81818800, "test11 case 3 failed\n");
+	FAILED(buf[3] != 0x81818c00, "test11 case 4 failed\n");
+	FAILED(buf[4] != 0x81818fff, "test11 case 5 failed\n");
+
+	sljit_free_code(code.code);
+	printf("test11 ok\n");
+}
+
 void sljit_test(void)
 {
 	test1();
@@ -518,5 +558,6 @@ void sljit_test(void)
 	test8();
 	test9();
 	test10();
+	test11();
 }
 

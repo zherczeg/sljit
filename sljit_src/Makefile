@@ -1,13 +1,13 @@
-CC = gcc
-
 # -fshort-wchar is not necessary
 # general:
-CFLAGS = -O2 -Wall
+CC = gcc
+CFLAGS = -O2 -Wall -DSLJIT_CONFIG_X86_32
 LDFLAGS=
 
 # ARM
-#CC = arm-elf-gcc
-#CFLAGS = -O2 -Wall -DTARGET_ARM
+#CC = arm-linux-gcc
+#CFLAGS = -O2 -Wall -DSLJIT_CONFIG_ARM
+#LDFLAGS=
 
 TARGET = sljit_test
 BINDIR = ../sljit_bin
@@ -24,7 +24,7 @@ $(addprefix $(BINDIR)/, %.o) : %.c $(BINDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(BINDIR)/*.o $(addprefix $(BINDIR)/, $(TARGETS))
+	rm -f $(BINDIR)/*.o $(addprefix $(BINDIR)/, $(TARGET))
 
 sljit_test: $(addprefix $(BINDIR)/, main.o sljitTest.o sljitLir.o)
 	$(CC) $(LDFLAGS) $^ -o $(BINDIR)/$@ -lm

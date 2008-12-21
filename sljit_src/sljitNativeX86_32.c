@@ -165,10 +165,15 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	struct sljit_const *const_;
 
 	FUNCTION_ENTRY();
+	SLJIT_ASSERT(compiler->size > 0);
 	reverse_buf(compiler);
 
 	// Second code generation pass
 	code = SLJIT_MALLOC(compiler->size);
+	if (!code) {
+		compiler->error = SLJIT_MEMORY_ERROR;
+		return NULL;
+	}
 	buf = compiler->buf;
 
 	code_ptr = code;
@@ -334,7 +339,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
-	if (b & SLJIT_LOAD_FLAG) {
+	if (b & SLJIT_MEM_FLAG) {
 		if ((b & 0xf0) != 0)
 			total_size += 1; // SIB byte
 
@@ -366,7 +371,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	else 
 		*buf_ptr = reg_map[a] << 3;
 
-	if (!(b & SLJIT_LOAD_FLAG))
+	if (!(b & SLJIT_MEM_FLAG))
 		*buf_ptr++ |= 0xc0 + reg_map[b];
 	else if ((b & 0x0f) != SLJIT_NO_REG) {
 		if (immb != 0) {
@@ -416,7 +421,7 @@ static sljit_ub* emit_x86_bin_instruction(struct sljit_compiler *compiler, int s
 
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
-	if (b & SLJIT_LOAD_FLAG) {
+	if (b & SLJIT_MEM_FLAG) {
 		if ((b & 0xf0) != 0)
 			total_size += 1; // SIB byte
 
@@ -457,7 +462,7 @@ static sljit_ub* emit_x86_bin_instruction(struct sljit_compiler *compiler, int s
 	else 
 		*buf_ptr = reg_map[a] << 3;
 
-	if (!(b & SLJIT_LOAD_FLAG))
+	if (!(b & SLJIT_MEM_FLAG))
 		*buf_ptr++ |= 0xc0 + reg_map[b];
 	else if ((b & 0x0f) != SLJIT_NO_REG) {
 		if (immb != 0) {
@@ -510,7 +515,7 @@ static sljit_ub* emit_x86_shift_instruction(struct sljit_compiler *compiler,
 
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
-	if (b & SLJIT_LOAD_FLAG) {
+	if (b & SLJIT_MEM_FLAG) {
 		if ((b & 0xf0) != 0)
 			total_size += 1; // SIB byte
 
@@ -551,7 +556,7 @@ static sljit_ub* emit_x86_shift_instruction(struct sljit_compiler *compiler,
 		*buf_ptr++ = 0xd3;
 	*buf_ptr = 0;
 
-	if (!(b & SLJIT_LOAD_FLAG))
+	if (!(b & SLJIT_MEM_FLAG))
 		*buf_ptr++ |= 0xc0 + reg_map[b];
 	else if ((b & 0x0f) != SLJIT_NO_REG) {
 		if (immb != 0) {
@@ -596,7 +601,7 @@ static int emit_mov(struct sljit_compiler *compiler,
 
 	if (dst == SLJIT_NO_REG) {
 		// No destination, doesn't need to setup flags
-		if (src & SLJIT_LOAD_FLAG) {
+		if (src & SLJIT_MEM_FLAG) {
 			code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src, srcw);
 			TEST_MEM_ERROR(code);
 			*code = 0x8b;
