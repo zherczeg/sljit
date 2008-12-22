@@ -96,6 +96,7 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->cpool_diff = 0xffffffff;
 	compiler->cpool_fill = 0;
 	compiler->cpool_index = 0;
+	compiler->patches = 0;
 #endif
 
 #ifdef SLJIT_VERBOSE

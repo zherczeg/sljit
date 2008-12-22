@@ -1203,7 +1203,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 	*buf++ = 0;
 	*buf++ = 0;
 
-	return label;     
+	return label;
 }
 
 struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
@@ -1374,6 +1374,9 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
 	sljit_emit_const_verbose();
+
+	if (dst == SLJIT_NO_REG)
+		dst = TMP_REGISTER;
 
 	const_ = ensure_abuf(compiler, sizeof(struct sljit_const));
 	TEST_MEM_ERROR2(const_);

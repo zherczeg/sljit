@@ -243,25 +243,24 @@ static void test6(void)
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 4, SLJIT_TEMPORARY_REG1, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 5000));
 	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 4, SLJIT_TEMPORARY_REG1, 0));
-	T(sljit_emit_op2(compiler, SLJIT_ADDC, SLJIT_TEMPORARY_REG2, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG2, 0));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG2, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG2, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 5, SLJIT_TEMPORARY_REG2, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_RET_REG, 0, SLJIT_IMM, 10));
 	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_PREF_RET_REG, 0, SLJIT_PREF_RET_REG, 0, SLJIT_IMM, 5));
 	T(sljit_emit_op2(compiler, SLJIT_SUBC, SLJIT_PREF_RET_REG, 0, SLJIT_PREF_RET_REG, 0, SLJIT_IMM, 2));
-	T(sljit_emit_op2(compiler, SLJIT_ADDC, SLJIT_PREF_RET_REG, 0, SLJIT_PREF_RET_REG, 0, SLJIT_IMM, 6));
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code.code = sljit_generate_code(compiler);
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
-	FAILED(code.func1((sljit_w)&buf) != 9, "test6 case 1 failed\n");
+	FAILED(code.func1((sljit_w)&buf) != 3, "test6 case 1 failed\n");
 	FAILED(buf[0] != 1, "test6 case 2 failed\n");
 	FAILED(buf[1] != 5, "test6 case 3 failed\n");
 	FAILED(buf[2] != 50, "test6 case 4 failed\n");
 	FAILED(buf[3] != 4, "test6 case 5 failed\n");
 	FAILED(buf[4] != 50, "test6 case 6 failed\n");
-	FAILED(buf[5] != 51, "test6 case 7 failed\n");
+	FAILED(buf[5] != 50, "test6 case 7 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test6 ok\n");
@@ -497,9 +496,9 @@ static void test10(void)
 	FAILED(code.func2((sljit_w)&buf, 12) != 4567, "test10 case 5 failed\n")
 	FAILED(buf[0] != 7, "test10 case 6 failed\n");
 
-	sljit_set_const(const1_addr, 6789);
+	sljit_set_const(const1_addr, 67);
 	sljit_set_jump_addr(jump1_addr, label1_addr);
-	FAILED(code.func2((sljit_w)&buf, 13) != 6789, "test10 case 7 failed\n")
+	FAILED(code.func2((sljit_w)&buf, 13) != 67, "test10 case 7 failed\n")
 	FAILED(buf[0] != 6, "test10 case 8 failed\n");
 
 	sljit_free_code(code.code);
