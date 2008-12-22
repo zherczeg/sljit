@@ -37,6 +37,8 @@
 //      - Fast paths can be modified runtime reflecting the fastest execution
 //        way of the dynamic language
 //      - SLJIT supports complex memory addressing modes
+//      - mainly position independent code except for far jumps
+//        (I don't see any problems to change it to PIC in the future)
 //    - Optimizations (later)
 //      - Only for basic blocks
 
@@ -66,40 +68,14 @@
 
 #define INLINE __inline
 
-// Byte structure
+// Byte type
 typedef unsigned char sljit_ub;
 typedef char sljit_b;
-// Machine word structure. Can encapsulate a pointer.
+// Machine word type. Can encapsulate a pointer.
 //   32 bit for 32 bit machines
 //   64 bit for 64 bit machines
 typedef unsigned int sljit_uw;
 typedef int sljit_w;
-
-// Machine independent types
-typedef unsigned short sljit_u16b;
-typedef short sljit_16b;
-typedef unsigned int sljit_u32b;
-typedef int sljit_32b;
-
-#ifdef SLJIT_DEBUG
-#define SLJIT_ASSERT(x) \
-	do { \
-		if (!(x)) { \
-			printf("Assertion failed at " __FILE__ ":%d\n", __LINE__); \
-			*((int*)0) = 0; \
-		} \
-	} while (0)
-#define SLJIT_ASSERT_IMPOSSIBLE() \
-	do { \
-		printf("Should never been reached " __FILE__ ":%d\n", __LINE__); \
-		*((int*)0) = 0; \
-	} while (0)
-#else
-#define SLJIT_ASSERT(x) \
-	do { } while (0)
-#define SLJIT_ASSERT_IMPOSSIBLE() \
-	do { } while (0)
-#endif
 
 // ABI (Application Binary Interface) types
 #ifndef SLJIT_CONFIG_ARM
@@ -121,6 +97,31 @@ typedef int sljit_32b;
 #define SLJIT_CDECL
 #define SLJIT_FASTCALL
 
+#endif
+
+// Not required to implement on archs with unified caches, but may required
+// if data and instruction caches are separated (i.e. arm)
+#define INVALIDATE_INSTRUCTION_CACHE(addr)
+
+// Feel free to overwrite these assert defines
+#ifdef SLJIT_DEBUG
+#define SLJIT_ASSERT(x) \
+	do { \
+		if (!(x)) { \
+			printf("Assertion failed at " __FILE__ ":%d\n", __LINE__); \
+			*((int*)0) = 0; \
+		} \
+	} while (0)
+#define SLJIT_ASSERT_IMPOSSIBLE() \
+	do { \
+		printf("Should never been reached " __FILE__ ":%d\n", __LINE__); \
+		*((int*)0) = 0; \
+	} while (0)
+#else
+#define SLJIT_ASSERT(x) \
+	do { } while (0)
+#define SLJIT_ASSERT_IMPOSSIBLE() \
+	do { } while (0)
 #endif
 
 // ---------------------------------------------------------------------
@@ -152,11 +153,15 @@ typedef int sljit_32b;
 // Return with machine word or double machine word
 
 #define SLJIT_PREF_RET_REG	SLJIT_TEMPORARY_REG1
+#ifdef SLJIT_CONFIG_X86_32
 #define SLJIT_PREF_RET_HIREG	SLJIT_TEMPORARY_REG3
+#else
+#define SLJIT_PREF_RET_HIREG	SLJIT_TEMPORARY_REG2
+#endif
 
 // x86 prefers temporary registers for special purposes. If not these
-// registers are used, it costs a little performance drawback. It doeasn't
-// matter for other archs
+// registers are used, it costs a little performance drawback. It
+// doesn't matter for other archs
 
 #define SLJIT_PREF_MUL_BASE	SLJIT_TEMPORARY_REG1
 #define SLJIT_PREF_MUL_WITH	SLJIT_TEMPORARY_REG3
@@ -180,8 +185,8 @@ struct sljit_label {
 
 struct sljit_jump {
 	struct sljit_jump *next;
-	int flags;
 	sljit_uw addr;
+	int flags;
 	union {
 		sljit_uw target;
 		struct sljit_label* label;
@@ -216,6 +221,12 @@ struct sljit_compiler {
 	sljit_uw cpool_diff;
 	sljit_uw cpool_fill;
 	sljit_uw cpool_index;
+	// General fields
+	sljit_uw patches;
+	// Temporary fields
+	sljit_uw shift;
+	sljit_uw cache_reg;
+	sljit_uw cache_imm;
 #endif
 
 #ifdef SLJIT_VERBOSE
@@ -280,6 +291,10 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 //  - no perf penalty for setting the CPU status flags
 //  - you cannot postpone conditional jump instructions depending on
 //    one of these instructions
+//  - the carry flag set/reset depends on arch
+//    i.e: x86 sub operation sets carry, if substraction overflows, while
+//    arm sub sets carry, if the substraction does NOT overflow. I suggest
+//    to use carry mainly for addc and subc operations
 
 // * - CPU flags not set
 #define SLJIT_MOV			0
@@ -333,11 +348,13 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 
 #define SLJIT_JUMP			16
 
-// The target can be redefined later
+// The target can points to anywhere, and may redefined during runtime
 #define SLJIT_LONG_JUMP			0x100
 
 struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type);
+
 void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label);
+// Only for jumps defined with SLJIT_LONG_JUMP flag
 void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);
