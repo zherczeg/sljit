@@ -35,9 +35,10 @@ static sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
 
 #define PUSH_REG(r)			(*buf++ = (0x50 + (r)))
 #define POP_REG(r)			(*buf++ = (0x58 + (r)))
-#define RET()				(*buf++ = (0xC3))
+#define RET()				(*buf++ = (0xc3))
+#define RETN(n)				(*buf++ = (0xc2), *buf++ = n, *buf++ = 0)
 // r32, r/m32
-#define MOV_RM(mod, reg, rm)		(*buf++ = (0x8B), MOD(mod, reg, rm))
+#define MOV_RM(mod, reg, rm)		(*buf++ = (0x8b), MOD(mod, reg, rm))
 
 static sljit_ub get_jump_code(int type)
 {
@@ -234,22 +235,23 @@ void sljit_free_code(void* code)
 	SLJIT_FREE_EXEC(code);
 }
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int type, int args, int general)
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
 {
 	int size;
 	sljit_ub *buf;
 
 	FUNCTION_ENTRY();
 	// TODO: support the others
-	SLJIT_ASSERT(type == CALL_TYPE_CDECL);
 	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(args <= general);
 	SLJIT_ASSERT(compiler->general == -1);
+	SLJIT_ASSERT(compiler->args == -1);
 
 	sljit_emit_enter_verbose();
 
 	compiler->general = general;
+	compiler->args = args;
 
 	size = 1 + general + ((args > 0) ? (2 + args * 3) : 0);
 	buf = ensure_buf(compiler, 1 + size);
@@ -268,22 +270,20 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int type, int args, int ge
 	if (general > 0)
 		PUSH_REG(reg_map[SLJIT_GENERAL_REG1]);
 
-	if (type == CALL_TYPE_CDECL) {
-		if (args > 0) {
-			*buf++ = 0x8b;
-			*buf++ = 0x40 | (reg_map[SLJIT_GENERAL_REG1] << 3) | reg_map[TMP_REGISTER];
-			*buf++ = sizeof(sljit_w) * 2;
-		}
-		if (args > 1) {
-			*buf++ = 0x8b;
-			*buf++ = 0x40 | (reg_map[SLJIT_GENERAL_REG2] << 3) | reg_map[TMP_REGISTER];
-			*buf++ = sizeof(sljit_w) * 3;
-		}
-		if (args > 2) {
-			*buf++ = 0x8b;
-			*buf++ = 0x40 | (reg_map[SLJIT_GENERAL_REG3] << 3) | reg_map[TMP_REGISTER];
-			*buf++ = sizeof(sljit_w) * 4;
-		}
+	if (args > 0) {
+		*buf++ = 0x8b;
+		*buf++ = 0x40 | (reg_map[SLJIT_GENERAL_REG1] << 3) | reg_map[TMP_REGISTER];
+		*buf++ = sizeof(sljit_w) * 2;
+	}
+	if (args > 1) {
+		*buf++ = 0x8b;
+		*buf++ = 0x40 | (reg_map[SLJIT_GENERAL_REG2] << 3) | reg_map[TMP_REGISTER];
+		*buf++ = sizeof(sljit_w) * 3;
+	}
+	if (args > 2) {
+		*buf++ = 0x8b;
+		*buf++ = 0x40 | (reg_map[SLJIT_GENERAL_REG3] << 3) | reg_map[TMP_REGISTER];
+		*buf++ = sizeof(sljit_w) * 4;
 	}
 
 	// Mov arguments to general registers
@@ -298,11 +298,14 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 	FUNCTION_ENTRY();
 	SLJIT_ASSERT(reg >= 0 && reg <= SLJIT_NO_REGISTERS);
 	SLJIT_ASSERT(compiler->general >= 0);
+	SLJIT_ASSERT(compiler->args >= 0);
 
 	sljit_emit_return_verbose();
 
 	size = 2 + compiler->general;
 	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_NO_REG)
+		size += 2;
+	if (compiler->args > 0)
 		size += 2;
 	buf = ensure_buf(compiler, 1 + size);
 	TEST_MEM_ERROR(buf);
@@ -318,7 +321,10 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 	if (compiler->general > 2)
 		POP_REG(reg_map[SLJIT_GENERAL_REG3]);
 	POP_REG(reg_map[TMP_REGISTER]);
-	RET();
+	if (compiler->args > 0)
+		RETN(compiler->args * sizeof(sljit_w));
+	else
+		RET();
 
 	return SLJIT_NO_ERROR;
 }

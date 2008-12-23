@@ -85,6 +85,10 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->general = -1;
 	compiler->size = 0;
 
+#ifdef SLJIT_CONFIG_X86_32
+	compiler->args = -1;
+#endif
+
 #ifdef SLJIT_CONFIG_ARM
 	compiler->cpool = SLJIT_MALLOC(CPOOL_SIZE * sizeof(sljit_uw));
 	if (!compiler->cpool) {

@@ -86,21 +86,14 @@ typedef int sljit_w;
 #ifndef SLJIT_CONFIG_ARM
 
 #ifdef __GNUC__
-#define SLJIT_CDECL __attribute__ ((cdecl))
+#define SLJIT_CALL __attribute__ ((stdcall))
 #else
-#define SLJIT_CDECL __cdecl
-#endif
-
-#ifdef __GNUC__
-#define SLJIT_FASTCALL __attribute__ ((fastcall))
-#else
-#define SLJIT_FASTCALL __fastcall
+#define SLJIT_CALL __stdcall
 #endif
 
 #else // SLJIT_CONFIG_ARM
 
-#define SLJIT_CDECL
-#define SLJIT_FASTCALL
+#define SLJIT_CALL
 
 #endif
 
@@ -215,6 +208,10 @@ struct sljit_compiler {
 	int general;
 	int size;
 
+#ifdef SLJIT_CONFIG_X86_32
+	int args;
+#endif
+
 #ifdef SLJIT_CONFIG_ARM
 	// Constant pool handling
 	sljit_uw *cpool;
@@ -254,11 +251,7 @@ void sljit_free_code(void* code);
 // and will use the first "general" number of general registers.
 // Therefore, "args" must be less or equal than "general"
 
-#define CALL_TYPE_CDECL		0
-#define CALL_TYPE_STDCALL	1
-#define CALL_TYPE_FASTCALL	2
-
-int sljit_emit_enter(struct sljit_compiler *compiler, int type, int args, int general);
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general);
 
 // Return from jit. Return with NO_REG or a register
 int sljit_emit_return(struct sljit_compiler *compiler, int reg);
