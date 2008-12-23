@@ -55,8 +55,13 @@
 #include <string.h>
 #include <stdio.h>
 
+// General allocation
 #define SLJIT_MALLOC(size) malloc(size)
 #define SLJIT_FREE(ptr) free(ptr)
+
+// Executable code allocation
+#define SLJIT_MALLOC_EXEC(size) malloc(size)
+#define SLJIT_FREE_EXEC(ptr) free(ptr)
 
 #define SLJIT_MEMMOVE(dest, src, len) memmove(dest, src, len)
 
@@ -153,19 +158,14 @@ typedef int sljit_w;
 // Return with machine word or double machine word
 
 #define SLJIT_PREF_RET_REG	SLJIT_TEMPORARY_REG1
-#ifdef SLJIT_CONFIG_X86_32
-#define SLJIT_PREF_RET_HIREG	SLJIT_TEMPORARY_REG3
-#else
 #define SLJIT_PREF_RET_HIREG	SLJIT_TEMPORARY_REG2
-#endif
 
 // x86 prefers temporary registers for special purposes. If not these
 // registers are used, it costs a little performance drawback. It
 // doesn't matter for other archs
 
-#define SLJIT_PREF_MUL_BASE	SLJIT_TEMPORARY_REG1
-#define SLJIT_PREF_MUL_WITH	SLJIT_TEMPORARY_REG3
-#define SLJIT_PREF_SHIFT_REG	SLJIT_TEMPORARY_REG2
+#define SLJIT_PREF_MUL_DST	SLJIT_TEMPORARY_REG1
+#define SLJIT_PREF_SHIFT_REG	SLJIT_TEMPORARY_REG3
 
 // ---------------------------------------------------------------------
 //  Main functions
@@ -255,7 +255,8 @@ void sljit_free_code(void* code);
 // Therefore, "args" must be less or equal than "general"
 
 #define CALL_TYPE_CDECL		0
-#define CALL_TYPE_FASTCALL	1
+#define CALL_TYPE_STDCALL	1
+#define CALL_TYPE_FASTCALL	2
 
 int sljit_emit_enter(struct sljit_compiler *compiler, int type, int args, int general);
 
