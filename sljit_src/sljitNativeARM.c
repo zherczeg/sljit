@@ -269,13 +269,12 @@ void sljit_free_code(void* code)
 
 #define MOV_REG(dst, src)	0xe1a00000 | reg_map[src] | (reg_map[dst] << 12)
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int type, int args, int general)
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
 {
 	sljit_uw *inst;
 
 	FUNCTION_ENTRY();
 	// TODO: support the others
-	SLJIT_ASSERT(type == CALL_TYPE_CDECL);
 	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(args <= general);

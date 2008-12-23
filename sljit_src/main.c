@@ -12,10 +12,10 @@ void error(char* str)
 
 union executable_code {
 	void* code;
-	SLJIT_CDECL sljit_w (*func)(sljit_w* a, sljit_w b, sljit_w c);
+	SLJIT_CALL sljit_w (*func)(sljit_w* a, sljit_w b, sljit_w c);
 };
 
-int devel_dummy() { return rand(); }
+int devel_dummy(void) { return rand(); }
 
 void devel(void)
 {
@@ -35,19 +35,7 @@ void devel(void)
 #ifdef SLJIT_VERBOSE
 	sljit_compiler_verbose(compiler, stdout);
 #endif
-	sljit_emit_enter(compiler, CALL_TYPE_CDECL, 3, 3);
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_GENERAL_REG3, 0, SLJIT_GENERAL_REG2, 0);
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 0xC0000000);
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 0xfff44fff);
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w));
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG2), -sizeof(sljit_w) * 2, SLJIT_MEM1(SLJIT_GENERAL_REG2), -sizeof(sljit_w));
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, sizeof(sljit_w));
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), 0);
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 0xfffffff0);
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_IMM, 0xc002);
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 2 * sizeof(sljit_w), SLJIT_IMM, 0xffcfffcf);
-//	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 3 * sizeof(sljit_w), SLJIT_IMM, 0x12345678);
-//	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM0(), &buf[0], SLJIT_MEM0(), &buf[0], SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_GENERAL_REG2), sizeof(sljit_w));
+	sljit_emit_enter(compiler, 3, 3);
 
 	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
 	code.code = sljit_generate_code(compiler);
