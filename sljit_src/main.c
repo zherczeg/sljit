@@ -49,9 +49,6 @@ void devel(void)
 //	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 3 * sizeof(sljit_w), SLJIT_IMM, 0x12345678);
 //	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM0(), &buf[0], SLJIT_MEM0(), &buf[0], SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_GENERAL_REG2), sizeof(sljit_w));
 
-	c = sljit_emit_const(compiler, SLJIT_PREF_RET_REG, 0, 23);
-	c = sljit_emit_const(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, 1000);
-
 	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
 	code.code = sljit_generate_code(compiler);
 	sljit_free_compiler(compiler);
@@ -74,3 +71,4 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
+

@@ -26,7 +26,7 @@
 #define TMP_REGISTER	(SLJIT_GENERAL_REG3 + 1)
 
 static sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
-   0, 0, 1, 2, 3, 6, 7, 5
+   0, 0, 2, 1, 3, 6, 7, 5
 };
 
 #define INC_SIZE(s)			(*buf++ = (s), compiler->size += (s))
@@ -169,7 +169,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	reverse_buf(compiler);
 
 	// Second code generation pass
-	code = SLJIT_MALLOC(compiler->size);
+	code = SLJIT_MALLOC_EXEC(compiler->size);
 	if (!code) {
 		compiler->error = SLJIT_MEMORY_ERROR;
 		return NULL;
@@ -231,7 +231,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 void sljit_free_code(void* code)
 {
-	SLJIT_FREE(code);
+	SLJIT_FREE_EXEC(code);
 }
 
 int sljit_emit_enter(struct sljit_compiler *compiler, int type, int args, int general)
@@ -504,7 +504,7 @@ static sljit_ub* emit_x86_bin_instruction(struct sljit_compiler *compiler, int s
 }
 
 static sljit_ub* emit_x86_shift_instruction(struct sljit_compiler *compiler,
-	// Imm or SLJIT_TEMPORARY_REG2
+	// Imm or SLJIT_PREF_SHIFT_REG
 	int a, sljit_w imma,
 	// The general operand (not immediate)
 	int b, sljit_w immb)
@@ -537,7 +537,7 @@ static sljit_ub* emit_x86_shift_instruction(struct sljit_compiler *compiler,
 			total_size ++;
 	}
 	else
-		SLJIT_ASSERT(a == SLJIT_TEMPORARY_REG2);
+		SLJIT_ASSERT(a == SLJIT_PREF_SHIFT_REG);
 
 	buf = ensure_buf(compiler, 1 + total_size);
 	TEST_MEM_ERROR2(buf);
@@ -924,6 +924,103 @@ static INLINE int sljit_emit_non_cum_binary(struct sljit_compiler *compiler,
 	return SLJIT_NO_ERROR;
 }
 
+static INLINE int sljit_emit_mul(struct sljit_compiler *compiler,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	sljit_ub* code;
+	sljit_ub* buf;
+	int tmp;
+	sljit_w tmpw;
+
+	if (dst != SLJIT_PREF_MUL_DST) {
+		// This is not a good case in x86, it may requires a lot of
+		// operations
+		buf = ensure_buf(compiler, 1 + 1);
+		TEST_MEM_ERROR(buf);
+		INC_SIZE(1);
+		PUSH_REG(reg_map[SLJIT_PREF_MUL_DST]);
+	}
+
+	// Some swap may increase performance (mul is commutative operation)
+	if (src1 != SLJIT_PREF_MUL_DST && src2 == SLJIT_PREF_MUL_DST) {
+		src2 = src1;
+		src2w = src1w;
+		src1 = SLJIT_PREF_MUL_DST;
+		src1w = 0;
+	}
+	else if (((src2 & SLJIT_IMM) && !(src1 & SLJIT_IMM)) || depends_on(src2, SLJIT_PREF_MUL_DST)) {
+		tmp = src1;
+		src1 = src2;
+		src2 = tmp;
+		tmpw = src1w;
+		src1w = src2w;
+		src2w = tmpw;
+	}
+
+	if (src1 != SLJIT_PREF_MUL_DST && depends_on(src2, SLJIT_PREF_MUL_DST)) {
+		// Cross references
+		buf = ensure_buf(compiler, 1 + 1);
+		TEST_MEM_ERROR(buf);
+		INC_SIZE(1);
+		PUSH_REG(reg_map[SLJIT_TEMPORARY_REG2]);
+
+		EMIT_MOV(compiler, TMP_REGISTER, 0, src2, src2w);
+		EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, src1, src1w);
+
+		code = emit_x86_instruction(compiler, 1, 0, 0, TMP_REGISTER, 0);
+		TEST_MEM_ERROR(code);
+		*code = 0xf7;
+		*(code + 1) |= 0x4 << 3;
+
+		buf = ensure_buf(compiler, 1 + 1);
+		TEST_MEM_ERROR(buf);
+		INC_SIZE(1);
+		POP_REG(reg_map[SLJIT_TEMPORARY_REG2]);
+	}
+	else {
+		// "mov reg, reg" is faster than "push reg"
+		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG2, 0);
+
+		if (src1 != SLJIT_PREF_MUL_DST)
+			EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, src1, src1w);
+
+		if (src2 & SLJIT_IMM) {
+			EMIT_MOV(compiler, SLJIT_TEMPORARY_REG2, 0, src2, src2w);
+			src2 = SLJIT_TEMPORARY_REG2;
+			src2w = 0;
+		}
+
+		code = emit_x86_instruction(compiler, 1, 0, 0, src2, src2w);
+		TEST_MEM_ERROR(code);
+		*code = 0xf7;
+		*(code + 1) |= 0x4 << 3;
+
+		EMIT_MOV(compiler, SLJIT_TEMPORARY_REG2, 0, TMP_REGISTER, 0);
+	}
+
+	if (dst != SLJIT_PREF_MUL_DST) {
+		if (depends_on(dst, SLJIT_PREF_MUL_DST)) {
+			EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_PREF_MUL_DST, 0);
+			buf = ensure_buf(compiler, 1 + 1);
+			TEST_MEM_ERROR(buf);
+			INC_SIZE(1);
+			POP_REG(reg_map[SLJIT_PREF_MUL_DST]);
+			EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
+		}
+		else {
+			EMIT_MOV(compiler, dst, dstw, SLJIT_PREF_MUL_DST, 0);
+			buf = ensure_buf(compiler, 1 + 1);
+			TEST_MEM_ERROR(buf);
+			INC_SIZE(1);
+			POP_REG(reg_map[SLJIT_PREF_MUL_DST]);
+		}
+	}
+
+	return SLJIT_NO_ERROR;
+}
+
 static INLINE int sljit_emit_cmp_binary(struct sljit_compiler *compiler,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
@@ -1145,6 +1242,8 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	case SLJIT_SUBC:
 		return sljit_emit_non_cum_binary(compiler, 0x1b, 0x19, 0x3 << 3, 0x1d,
 			dst, dstw, src1, src1w, src2, src2w);
+	case SLJIT_MUL:
+		return sljit_emit_mul(compiler, dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_AND:
 		if (dst == SLJIT_NO_REG)
 			return sljit_emit_test_binary(compiler, src1, src1w, src2, src2w);

@@ -166,7 +166,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 	// Second code generation pass
 	size = compiler->size + compiler->cpool_fill + (compiler->patches << 1);
-	code = SLJIT_MALLOC(size * sizeof(sljit_uw));
+	code = SLJIT_MALLOC_EXEC(size * sizeof(sljit_uw));
 	if (!code) {
 		compiler->error = SLJIT_MEMORY_ERROR;
 		return NULL;
@@ -264,7 +264,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 void sljit_free_code(void* code)
 {
-	SLJIT_FREE(code);
+	SLJIT_FREE_EXEC(code);
 }
 
 #define MOV_REG(dst, src)	0xe1a00000 | reg_map[src] | (reg_map[dst] << 12)
@@ -447,7 +447,18 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		SLJIT_ASSERT((src2 & SRC2_IMM) == 0);
 		inst = alloc_inst(compiler);
 		TEST_MEM_ERROR(inst);
-		*inst = 0xe0100090 | (reg_map[dst] << 16) | (reg_map[src1] << 8) | reg_map[src2];
+		if (dst != src2)
+			*inst = 0xe0100090 | (reg_map[dst] << 16) | (reg_map[src1] << 8) | reg_map[src2];
+		else if (dst != src1)
+			*inst = 0xe0100090 | (reg_map[dst] << 16) | (reg_map[src2] << 8) | reg_map[src1];
+		else {
+			// Rm and Rd must not be the same register
+			SLJIT_ASSERT(dst != TMP_REG1);
+			*inst = EMIT_DATA_PROCESS_INS(0x1a, TMP_REG1, SLJIT_NO_REG, reg_map[src2]);
+			inst = alloc_inst(compiler);
+			TEST_MEM_ERROR(inst);
+			*inst = 0xe0100090 | (reg_map[dst] << 16) | (reg_map[src2] << 8) | reg_map[TMP_REG1];
+		}
 		return SLJIT_NO_ERROR;
 
 	case SLJIT_AND:

@@ -204,6 +204,9 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	compiler->buf = prev;
 }
 
+#define depends_on(exp, reg) \
+	(((exp) & SLJIT_MEM_FLAG) && (((exp) & 0xf) == reg || (((exp) >> 4) & 0xf) == reg))
+
 #ifdef SLJIT_DEBUG
 #define FUNCTION_CHECK_SRC(p, i) \
 	if ((p) >= SLJIT_TEMPORARY_REG1 && (p) <= SLJIT_GENERAL_REG3) \

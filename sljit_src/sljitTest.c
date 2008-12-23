@@ -507,6 +507,57 @@ static void test10(void)
 
 static void test11(void)
 {
+	// Test multiplications
+	union executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	sljit_w buf[6];
+
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 3;
+	buf[1] = 0;
+	buf[2] = 0;
+	buf[3] = 6;
+	buf[4] = -10;
+	buf[5] = 0;
+
+	T(sljit_emit_enter(compiler, CALL_TYPE_CDECL, 1, 1));
+
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_MUL_DST, 0, SLJIT_IMM, 5));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_PREF_MUL_DST, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_PREF_MUL_DST, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_PREF_MUL_DST, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, 7));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_PREF_MUL_DST, 0, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, 8));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_PREF_MUL_DST, 0));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_PREF_MUL_DST, 0, SLJIT_IMM, -3, SLJIT_IMM, -4));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 2, SLJIT_PREF_MUL_DST, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_MUL_DST, 0, SLJIT_IMM, -2));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 3, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 3, SLJIT_PREF_MUL_DST, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_MUL_DST, 0, SLJIT_IMM, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 0));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_PREF_MUL_DST), (sljit_w)&buf[4], SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_PREF_MUL_DST), (sljit_w)&buf[4], SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_PREF_MUL_DST), (sljit_w)&buf[4]));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_MUL_DST, 0, SLJIT_IMM, 9));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_PREF_MUL_DST, 0, SLJIT_PREF_MUL_DST, 0, SLJIT_PREF_MUL_DST, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 5, SLJIT_PREF_MUL_DST, 0));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_PREF_RET_REG, 0, SLJIT_IMM, 11, SLJIT_IMM, 10));
+	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	FAILED(code.func1((sljit_w)&buf) != 110, "test11 case 1 failed\n");
+	FAILED(buf[0] != 15, "test11 case 2 failed\n");
+	FAILED(buf[1] != 56, "test11 case 3 failed\n");
+	FAILED(buf[2] != 12, "test11 case 4 failed\n");
+	FAILED(buf[3] != -12, "test11 case 5 failed\n");
+	FAILED(buf[4] != 100, "test11 case 6 failed\n");
+	FAILED(buf[5] != 81, "test11 case 7 failed\n");
+	sljit_free_code(code.code);
+	printf("test11 ok\n");
+}
+
+static void test14(void)
+{
 	// Test arm constant pool
 	union executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
@@ -535,14 +586,14 @@ static void test11(void)
 	sljit_free_compiler(compiler);
 
 	code.func1((sljit_w)&buf);
-	FAILED(buf[0] != 0x81818000, "test11 case 1 failed\n");
-	FAILED(buf[1] != 0x81818400, "test11 case 2 failed\n");
-	FAILED(buf[2] != 0x81818800, "test11 case 3 failed\n");
-	FAILED(buf[3] != 0x81818c00, "test11 case 4 failed\n");
-	FAILED(buf[4] != 0x81818fff, "test11 case 5 failed\n");
+	FAILED(buf[0] != 0x81818000, "test14 case 1 failed\n");
+	FAILED(buf[1] != 0x81818400, "test14 case 2 failed\n");
+	FAILED(buf[2] != 0x81818800, "test14 case 3 failed\n");
+	FAILED(buf[3] != 0x81818c00, "test14 case 4 failed\n");
+	FAILED(buf[4] != 0x81818fff, "test14 case 5 failed\n");
 
 	sljit_free_code(code.code);
-	printf("test11 ok\n");
+	printf("test14 ok\n");
 }
 
 void sljit_test(void)
@@ -558,5 +609,6 @@ void sljit_test(void)
 	test9();
 	test10();
 	test11();
+	test14();
 }
 
