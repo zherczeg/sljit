@@ -823,7 +823,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 #endif
 	sljit_emit_op1_verbose();
 
-	switch (op) {
+	switch (op & ~SLJIT_32BIT_OPERATION) {
 	case SLJIT_MOV:
 	case SLJIT_NOT:
 		return emit_op(compiler, OP1_OFFSET + op, 2, dst, dstw, TMP_REG1, 0, src, srcw);
@@ -850,7 +850,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 #endif
 	sljit_emit_op2_verbose();
 
-	switch (op) {
+	switch (op & ~SLJIT_32BIT_OPERATION) {
 	case SLJIT_ADD:
 	case SLJIT_ADDC:
 	case SLJIT_SUB:

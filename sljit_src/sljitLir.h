@@ -48,6 +48,7 @@
 
 // Architecture selection (here, or using -D preprocessor option)
 //#define SLJIT_CONFIG_X86_32
+//#define SLJIT_CONFIG_X86_64
 //#define SLJIT_CONFIG_ARM
 
 // General libraries
@@ -60,8 +61,19 @@
 #define SLJIT_FREE(ptr) free(ptr)
 
 // Executable code allocation
+#ifndef SLJIT_CONFIG_X86_64
+
 #define SLJIT_MALLOC_EXEC(size) malloc(size)
 #define SLJIT_FREE_EXEC(ptr) free(ptr)
+
+#else
+
+void* sljit_malloc_exec(int size);
+#define SLJIT_MALLOC_EXEC(size) sljit_malloc_exec(size)
+void sljit_free_exec(void* ptr);
+#define SLJIT_FREE_EXEC(ptr) sljit_free_exec(ptr)
+
+#endif
 
 #define SLJIT_MEMMOVE(dest, src, len) memmove(dest, src, len)
 
@@ -79,11 +91,17 @@ typedef char sljit_b;
 // Machine word type. Can encapsulate a pointer.
 //   32 bit for 32 bit machines
 //   64 bit for 64 bit machines
+
+#ifndef SLJIT_CONFIG_X86_64
 typedef unsigned int sljit_uw;
 typedef int sljit_w;
+#else
+typedef unsigned long int sljit_uw;
+typedef long int sljit_w;
+#endif
 
 // ABI (Application Binary Interface) types
-#ifndef SLJIT_CONFIG_ARM
+#ifdef SLJIT_CONFIG_X86_32
 
 #ifdef __GNUC__
 #define SLJIT_CALL __attribute__ ((stdcall))
@@ -212,6 +230,10 @@ struct sljit_compiler {
 	int args;
 #endif
 
+#ifdef SLJIT_CONFIG_X86_64
+	int mode32;
+#endif
+
 #ifdef SLJIT_CONFIG_ARM
 	// Constant pool handling
 	sljit_uw *cpool;
@@ -263,16 +285,20 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 //  [reg+imm]     - indirect memory address
 //  [reg+reg+imm] - two level indirect addressing
 
-#define SLJIT_MEM_FLAG		0x100
-#define SLJIT_IMM_FLAG		0x200
-
-// Helper defines
 // Register output: simply the name of the register
 // For destination, you can use SLJIT_NO_REG as well
-#define SLJIT_IMM		SLJIT_IMM_FLAG
+#define SLJIT_MEM_FLAG		0x100
+#define SLJIT_IMM		0x200
 #define SLJIT_MEM0()		SLJIT_MEM_FLAG
 #define SLJIT_MEM1(r1)		SLJIT_MEM_FLAG | (r1)
 #define SLJIT_MEM2(r1, r2)	SLJIT_MEM_FLAG | (r1) | ((r2) << 4)
+
+// It may sound suprising, but the default int size on 64bit CPUs is still
+// 32 bit. The 64 bit registers are mostly used for memory addressing.
+// This flag can be combined with the op argument of sljit_emit_op1 and
+// sljit_emit_op2. It does NOT have any effect on 32bit CPUs or the addressing
+// mode on 64 bit CPUs (SLJIT_MEMx macros)
+#define SLJIT_32BIT_OPERATION		0x100
 
 // Most of the following instructions are also set the CPU status-flags
 // Common flags for all architectures (x86, ARM, PPC)
@@ -350,6 +376,15 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type);
 void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label);
 // Only for jumps defined with SLJIT_LONG_JUMP flag
 void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
+
+// Call function or jump anywhere. Both direct and indirect form
+//  args = -1 : jump to any address
+//  args >= 0 and args <= 3 : call function
+//     The function arguments are stored in SLJIT_TEMPORARY_REG1 - REG3
+//     Note: the temporary registers may be destroyed during the function call
+//  Direct call: set src to SLJIT_IMM() and srcw to the address
+//  Indirect call: any other addressing mode 
+int sljit_emit_call(struct sljit_compiler *compiler, int src, sljit_w srcw, int args);
 
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);
 struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w constant);
