@@ -36,13 +36,38 @@
 #define JUMP_LABEL	0x1
 #define JUMP_ADDR	0x2
 
-#ifdef SLJIT_CONFIG_X86_32
+#if defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)
 #define PATCH_MB	0x4
 #define PATCH_MW	0x8
 #endif
 
 #ifdef SLJIT_CONFIG_ARM
 #define CPOOL_SIZE	256
+#endif
+
+#ifdef SLJIT_CONFIG_X86_64
+#include <sys/mman.h>
+
+void* sljit_malloc_exec(int size)
+{
+	void* ptr;
+
+	size += sizeof(int);
+	ptr = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+	if (ptr == MAP_FAILED)
+		return NULL;
+
+	*(int*)ptr = size;
+	ptr = (void*)(((sljit_ub*)ptr) + sizeof(int));
+	return ptr;
+}
+
+void sljit_free_exec(void* ptr)
+{
+	ptr = (void*)(((sljit_ub*)ptr) - sizeof(int));
+	munmap(ptr, *(int*)ptr);
+}
+
 #endif
 
 // ---------------------------------------------------------------------
@@ -254,20 +279,26 @@ static char* reg_names[] = {
 	"<noreg>", "tmp_r1", "tmp_r2", "tmp_r3", "gen_r1", "gen_r2", "gen_r3"
 };
 
+#ifdef SLJIT_CONFIG_X86_64
+	#define SLJIT_PRINT_D	"l"
+#else
+	#define SLJIT_PRINT_D	""
+#endif
+
 #define sljit_emit_enter_verbose() \
 	if (compiler->verbose) fprintf(compiler->verbose, "  enter %d %d\n", args, general);
 #define sljit_emit_return_verbose() \
 	if (compiler->verbose) fprintf(compiler->verbose, "  return %s\n", reg_names[reg]);
 #define sljit_verbose_param(p, i) \
-	if ((p) & SLJIT_IMM_FLAG) \
-		fprintf(compiler->verbose, "#%d", (i)); \
+	if ((p) & SLJIT_IMM) \
+		fprintf(compiler->verbose, "#%"SLJIT_PRINT_D"d", (i)); \
 	else if ((p) & SLJIT_MEM_FLAG) { \
 		if ((p) & 0xF) { \
 			if ((i) != 0) { \
 				if (((p) >> 4) & 0xF) \
-					fprintf(compiler->verbose, "[%s + %s + #%d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], (i)); \
+					fprintf(compiler->verbose, "[%s + %s + #%"SLJIT_PRINT_D"d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], (i)); \
 				else \
-					fprintf(compiler->verbose, "[%s + #%d]", reg_names[(p) & 0xF], (i)); \
+					fprintf(compiler->verbose, "[%s + #%"SLJIT_PRINT_D"d]", reg_names[(p) & 0xF], (i)); \
 			} \
 			else { \
 				if (((p) >> 4) & 0xF) \
@@ -277,7 +308,7 @@ static char* reg_names[] = {
 			} \
 		} \
 		else \
-			fprintf(compiler->verbose, "[#%d]", (i)); \
+			fprintf(compiler->verbose, "[#%"SLJIT_PRINT_D"d]", (i)); \
 	} else \
 		fprintf(compiler->verbose, "%s", reg_names[p]);
 static char* op1_names[] = {
@@ -285,7 +316,7 @@ static char* op1_names[] = {
 };
 #define sljit_emit_op1_verbose() \
 	if (compiler->verbose) { \
-		fprintf(compiler->verbose, "  %s ", op1_names[op]); \
+		fprintf(compiler->verbose, "  %s%s ", op1_names[op & ~SLJIT_32BIT_OPERATION], !(op & SLJIT_32BIT_OPERATION) ? "" : "32"); \
 		sljit_verbose_param(dst, dstw); \
 		fprintf(compiler->verbose, ", "); \
 		sljit_verbose_param(src, srcw); \
@@ -297,7 +328,7 @@ static char* op2_names[] = {
 };
 #define sljit_emit_op2_verbose() \
 	if (compiler->verbose) { \
-		fprintf(compiler->verbose, "  %s ", op2_names[op]); \
+		fprintf(compiler->verbose, "  %s%s ", op2_names[op & ~SLJIT_32BIT_OPERATION], !(op & SLJIT_32BIT_OPERATION) ? "" : "32"); \
 		sljit_verbose_param(dst, dstw); \
 		fprintf(compiler->verbose, ", "); \
 		sljit_verbose_param(src1, src1w); \
@@ -320,6 +351,12 @@ static char* jump_names[] = {
 };
 #define sljit_emit_jump_verbose() \
 	if (compiler->verbose) fprintf(compiler->verbose, "  jump <%s> %s\n", jump_names[type & 0xff], (type & SLJIT_LONG_JUMP) ? "(long)" : "");
+#define sljit_emit_call_verbose() \
+	if (compiler->verbose) { \
+		fprintf(compiler->verbose, (args >= 0) ? "  call " : "  jump "); \
+		sljit_verbose_param(src, srcw); \
+		fprintf(compiler->verbose, ", args:%d\n", args); \
+	}
 #define sljit_emit_set_cond_verbose() \
 	if (compiler->verbose) { \
 		fprintf(compiler->verbose, "  cond_set "); \
@@ -330,7 +367,7 @@ static char* jump_names[] = {
 	if (compiler->verbose) { \
 		fprintf(compiler->verbose, "  const "); \
 		sljit_verbose_param(dst, dstw); \
-		fprintf(compiler->verbose, ", #%d\n", constant); \
+		fprintf(compiler->verbose, ", #%"SLJIT_PRINT_D"d\n", constant); \
 	}
 
 #else
@@ -341,6 +378,7 @@ static char* jump_names[] = {
 #define sljit_emit_op2_verbose()
 #define sljit_emit_label_verbose()
 #define sljit_emit_jump_verbose()
+#define sljit_emit_call_verbose()
 #define sljit_emit_set_cond_verbose()
 #define sljit_emit_const_verbose()
 
@@ -351,11 +389,12 @@ static char* jump_names[] = {
 // ---------------------------------------------------------------------
 
 #if defined(SLJIT_CONFIG_X86_32)
-	#include "sljitNativeX86_32.c"
+	#include "sljitNativeX86_common.c"
+#elif defined(SLJIT_CONFIG_X86_64)
+	#include "sljitNativeX86_common.c"
 #elif defined(SLJIT_CONFIG_ARM)
 	#include "sljitNativeARM.c"
 #else
 	#error "Unknown native code generation method"
 #endif
-
 

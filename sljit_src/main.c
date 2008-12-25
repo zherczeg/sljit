@@ -37,18 +37,37 @@ void devel(void)
 #endif
 	sljit_emit_enter(compiler, 3, 3);
 
-	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
+/*	sljit_emit_op1(compiler, SLJIT_MOV | SLJIT_32BIT_OPERATION, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 0x1234);
+	sljit_emit_op1(compiler, SLJIT_MOV | SLJIT_32BIT_OPERATION, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x1234);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 0x1234567812345678);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_GENERAL_REG1, 0, SLJIT_IMM, 0x1234567812345678);*/
+
+/*	sljit_emit_op1(compiler, SLJIT_MOV | SLJIT_32BIT_OPERATION, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 0x1234);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 0x7fffffffl);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_IMM, -0x80000000l);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 2 * sizeof(sljit_w), SLJIT_IMM, 0x1234567812345678l);*/
+
+/*	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM2(SLJIT_GENERAL_REG2, SLJIT_GENERAL_REG2), 0x1234, SLJIT_GENERAL_REG2, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_GENERAL_REG1), 0x12, SLJIT_GENERAL_REG1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM0(), 0x24, SLJIT_GENERAL_REG1, 0);*/
+
+/*	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM0(), 0x24, SLJIT_GENERAL_REG1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM0(), 0x1234567812345678, SLJIT_GENERAL_REG1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG2), 0x1234567812345678, SLJIT_GENERAL_REG2, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM2(SLJIT_GENERAL_REG2, SLJIT_GENERAL_REG2), 0x1234567812345678, SLJIT_GENERAL_REG2, 0);*/
+
+	sljit_emit_return(compiler, SLJIT_GENERAL_REG3);
 	code.code = sljit_generate_code(compiler);
 	sljit_free_compiler(compiler);
 
-	printf("Code at: %x\n", (unsigned int)code.code);
+	printf("Code at: %p\n", code.code);
 	devel_dummy();
 
-	printf("Function returned with %d\n", code.func(buf, 11, 33));
-	printf("buf[0] = 0x%x\n", buf[0]);
-	printf("buf[1] = 0x%x\n", buf[1]);
-	printf("buf[2] = 0x%x\n", buf[2]);
-	printf("buf[3] = 0x%x\n", buf[3]);
+	printf("Function returned with %ld\n", code.func(buf, 11, 6789));
+	printf("buf[0] = 0x%lx\n", buf[0]);
+	printf("buf[1] = 0x%lx\n", buf[1]);
+	printf("buf[2] = 0x%lx\n", buf[2]);
+	printf("buf[3] = 0x%lx\n", buf[3]);
 	sljit_free_code(code.code);
 }
 
