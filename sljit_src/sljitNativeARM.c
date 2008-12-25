@@ -816,14 +816,15 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 {
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT(op >= SLJIT_MOV && op <= SLJIT_NEG);
+	SLJIT_ASSERT((op & ~SLJIT_32BIT_OPERATION) >= SLJIT_MOV && (op & ~SLJIT_32BIT_OPERATION) <= SLJIT_NEG);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_SRC(src, srcw);
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
 	sljit_emit_op1_verbose();
 
-	switch (op & ~SLJIT_32BIT_OPERATION) {
+	op &= ~SLJIT_32BIT_OPERATION;
+	switch (op) {
 	case SLJIT_MOV:
 	case SLJIT_NOT:
 		return emit_op(compiler, OP1_OFFSET + op, 2, dst, dstw, TMP_REG1, 0, src, srcw);
@@ -842,7 +843,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 {
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT(op >= SLJIT_ADD && op <= SLJIT_ASHR);
+	SLJIT_ASSERT((op & ~SLJIT_32BIT_OPERATION) >= SLJIT_ADD && (op & ~SLJIT_32BIT_OPERATION) <= SLJIT_ASHR);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_SRC(src1, src1w);
 	FUNCTION_CHECK_SRC(src2, src2w);
@@ -850,7 +851,8 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 #endif
 	sljit_emit_op2_verbose();
 
-	switch (op & ~SLJIT_32BIT_OPERATION) {
+	op &= ~SLJIT_32BIT_OPERATION;
+	switch (op) {
 	case SLJIT_ADD:
 	case SLJIT_ADDC:
 	case SLJIT_SUB:
