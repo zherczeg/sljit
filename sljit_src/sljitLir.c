@@ -367,7 +367,7 @@ static char* jump_names[] = {
 	if (compiler->verbose) { \
 		fprintf(compiler->verbose, "  const "); \
 		sljit_verbose_param(dst, dstw); \
-		fprintf(compiler->verbose, ", #%"SLJIT_PRINT_D"d\n", constant); \
+		fprintf(compiler->verbose, ", #%"SLJIT_PRINT_D"d\n", initval); \
 	}
 
 #else

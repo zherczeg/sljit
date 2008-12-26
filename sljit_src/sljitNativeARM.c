@@ -1037,7 +1037,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		return SLJIT_NO_ERROR;
 }
 
-struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w constant)
+struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval)
 {
 	struct sljit_const *const_;
 	sljit_uw *inst;
@@ -1064,7 +1064,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 
 	inst = alloc_const_inst(compiler, 0);
 	TEST_MEM_ERROR2(inst);
-	compiler->cpool[compiler->cpool_index] = constant;
+	compiler->cpool[compiler->cpool_index] = initval;
 	*inst = EMIT_DATA_TRANSFER(1, 1, reg, TMP_PC, compiler->cpool_index << 2);
 	compiler->patches++;
 

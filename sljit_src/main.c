@@ -22,7 +22,6 @@ void devel(void)
 	union executable_code code;
 
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	struct sljit_const *c;
 	sljit_w buf[6];
 
 	if (!compiler)
@@ -37,20 +36,13 @@ void devel(void)
 #endif
 	sljit_emit_enter(compiler, 3, 3);
 
-	/*sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x1234, SLJIT_TEMPORARY_REG1, 0);
-	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x1234567812345678, SLJIT_TEMPORARY_REG1, 0);
-	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_32BIT_OPERATION, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x1234567812345678, SLJIT_TEMPORARY_REG1, 0);*/
-
-	sljit_emit_op2(compiler, SLJIT_SHL | SLJIT_32BIT_OPERATION, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_GENERAL_REG3, 0);
-	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_GENERAL_REG3, 0);
-	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG2, 0, SLJIT_GENERAL_REG3, 0);
+	sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_TEMPORARY_REG3, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 2);
 
 	sljit_emit_return(compiler, SLJIT_GENERAL_REG3);
 	code.code = sljit_generate_code(compiler);
 	sljit_free_compiler(compiler);
 
-	printf("Code at: %p\n", code.code);
-	devel_dummy();
+	printf("Code at: %p\n", code.code); devel_dummy();
 
 	printf("Function returned with %ld\n", code.func(buf, 11, 6789));
 	printf("buf[0] = 0x%lx\n", buf[0]);

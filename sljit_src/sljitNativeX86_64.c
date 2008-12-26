@@ -94,7 +94,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_NO_REG) {
 		*buf++ = REX_W | ((reg_map[reg] >= 8) ? REX_B : 0);
 		*buf++ = 0x8b;
-		*buf++ = 0xC0 | (reg_map[SLJIT_PREF_RET_REG] << 3) | reg_lmap[reg];
+		*buf++ = 0xC0 | (reg_lmap[SLJIT_PREF_RET_REG] << 3) | reg_lmap[reg];
 	}
 
 	if (compiler->general > 0)
@@ -179,7 +179,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 				*buf++ = REX_W | REX_X | REX_R | ((reg_map[(b >> 4) & 0x0f] >= 8) ? REX_B : 0);
 				*buf++ = 0x8d;
 				*buf++ = 0x04 | (reg_lmap[TMP_REG3] << 3);
-				*buf++ = 0x04 | (reg_lmap[TMP_REG3] << 3) | reg_lmap[(b >> 4) & 0x0f];
+				*buf++ = (reg_lmap[TMP_REG3] << 3) | reg_lmap[(b >> 4) & 0x0f];
 				b = (b & ~0xf0) | (TMP_REG3 << 4);
 			}
 		}
@@ -307,7 +307,7 @@ static sljit_ub* emit_x86_bin_instruction(struct sljit_compiler *compiler, int s
 				*buf++ = REX_W | REX_X | REX_R | ((reg_map[(b >> 4) & 0x0f] >= 8) ? REX_B : 0);
 				*buf++ = 0x8d;
 				*buf++ = 0x04 | (reg_lmap[TMP_REG3] << 3);
-				*buf++ = 0x04 | (reg_lmap[TMP_REG3] << 3) | reg_lmap[(b >> 4) & 0x0f];
+				*buf++ = (reg_lmap[TMP_REG3] << 3) | reg_lmap[(b >> 4) & 0x0f];
 				b = (b & ~0xf0) | (TMP_REG3 << 4);
 			}
 		}
@@ -447,7 +447,7 @@ static sljit_ub* emit_x86_shift_instruction(struct sljit_compiler *compiler,
 				*buf++ = REX_W | REX_X | REX_R | ((reg_map[(b >> 4) & 0x0f] >= 8) ? REX_B : 0);
 				*buf++ = 0x8d;
 				*buf++ = 0x04 | (reg_lmap[TMP_REG3] << 3);
-				*buf++ = 0x04 | (reg_lmap[TMP_REG3] << 3) | reg_lmap[(b >> 4) & 0x0f];
+				*buf++ = (reg_lmap[TMP_REG3] << 3) | reg_lmap[(b >> 4) & 0x0f];
 				b = (b & ~0xf0) | (TMP_REG3 << 4);
 			}
 		}

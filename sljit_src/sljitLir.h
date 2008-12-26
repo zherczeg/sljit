@@ -387,7 +387,7 @@ void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 int sljit_emit_call(struct sljit_compiler *compiler, int src, sljit_w srcw, int args);
 
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);
-struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w constant);
+struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval);
 
 // After the code generation the address for label, jump and const instructions
 // are computed. Since these structures are freed sljit_free_compiler, the
