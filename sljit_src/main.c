@@ -15,6 +15,14 @@ union executable_code {
 	SLJIT_CALL sljit_w (*func)(sljit_w* a, sljit_w b, sljit_w c);
 };
 
+/*
+static sljit_w SLJIT_CALL func(sljit_w a, sljit_w b)
+{
+printf("a: %d b: %d\n", a, b);
+	return a + b + 5;
+}
+*/
+
 int devel_dummy(void) { return rand(); }
 
 void devel(void)
@@ -36,19 +44,17 @@ void devel(void)
 #endif
 	sljit_emit_enter(compiler, 3, 3);
 
-	sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_TEMPORARY_REG3, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 2);
-
-	sljit_emit_return(compiler, SLJIT_GENERAL_REG3);
+	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
 	code.code = sljit_generate_code(compiler);
 	sljit_free_compiler(compiler);
 
 	printf("Code at: %p\n", code.code); devel_dummy();
 
-	printf("Function returned with %ld\n", code.func(buf, 11, 6789));
-	printf("buf[0] = 0x%lx\n", buf[0]);
-	printf("buf[1] = 0x%lx\n", buf[1]);
-	printf("buf[2] = 0x%lx\n", buf[2]);
-	printf("buf[3] = 0x%lx\n", buf[3]);
+	printf("Function returned with %ld\n", (long)code.func(buf, 11, 6789));
+	printf("buf[0] = 0x%lx\n", (long)buf[0]);
+	printf("buf[1] = 0x%lx\n", (long)buf[1]);
+	printf("buf[2] = 0x%lx\n", (long)buf[2]);
+	printf("buf[3] = 0x%lx\n", (long)buf[3]);
 	sljit_free_code(code.code);
 }
 

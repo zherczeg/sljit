@@ -244,8 +244,8 @@ struct sljit_compiler {
 	sljit_uw patches;
 	// Temporary fields
 	sljit_uw shift;
-	sljit_uw cache_reg;
-	sljit_uw cache_imm;
+	sljit_uw cache_arg;
+	sljit_uw cache_argw;
 #endif
 
 #ifdef SLJIT_VERBOSE
