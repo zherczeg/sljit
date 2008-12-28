@@ -755,6 +755,74 @@ static void test18(void)
 	printf("test18 ok\n");
 }
 
+static void test19(void)
+{
+	// Test arm partial instruction caching
+	union executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	sljit_w buf[10];
+
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 6;
+	buf[1] = 4;
+	buf[2] = 0;
+	buf[3] = 0;
+	buf[4] = 0;
+	buf[5] = 0;
+	buf[6] = 2;
+	buf[7] = 0;
+
+	T(sljit_emit_enter(compiler, 1, 1));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w)));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg == 0);
+#endif
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM0(), (sljit_w)&buf[2], SLJIT_MEM0(), (sljit_w)&buf[1], SLJIT_MEM0(), (sljit_w)&buf[0]));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg > 0);
+#endif
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, sizeof(sljit_w)));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 3, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), (sljit_w)&buf[0], SLJIT_MEM1(SLJIT_TEMPORARY_REG2), (sljit_w)&buf[0]));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg > 0);
+#endif
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG2), sizeof(sljit_w) * 3, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG2), -sizeof(sljit_w), SLJIT_IMM, 2));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg > 0);
+#endif
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG2), sizeof(sljit_w) * 4, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG2), sizeof(sljit_w), SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), 4 * sizeof(sljit_w)));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg > 0);
+#endif
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 7, SLJIT_IMM, 10));
+	// The last SLJIT_MEM2 is intentionally reversed
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_TEMPORARY_REG1), (sljit_w)&buf[5], SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_TEMPORARY_REG1), (sljit_w)&buf[6], SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_TEMPORARY_REG2), (sljit_w)&buf[5]));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg > 0);
+#endif
+
+	T(sljit_emit_return(compiler, SLJIT_NO_REG));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_w)&buf);
+	FAILED(buf[0] != 10, "test19 case 1 failed\n");
+	FAILED(buf[1] != 4, "test19 case 2 failed\n");
+	FAILED(buf[2] != 14, "test19 case 3 failed\n");
+	FAILED(buf[3] != 14, "test19 case 4 failed\n");
+	FAILED(buf[4] != 8, "test19 case 5 failed\n");
+	FAILED(buf[5] != 6, "test19 case 6 failed\n");
+	FAILED(buf[6] != 12, "test19 case 7 failed\n");
+	FAILED(buf[7] != 10, "test19 case 8 failed\n");
+
+	sljit_free_code(code.code);
+	printf("test19 ok\n");
+}
+
+
 void sljit_test(void)
 {
 	test1();
@@ -771,4 +839,6 @@ void sljit_test(void)
 	test12();
 	test17();
 	test18();
+	test19();
 }
+
