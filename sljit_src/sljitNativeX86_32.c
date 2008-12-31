@@ -14,6 +14,33 @@
 
 // x86 32-bit arch dependent functions
 
+static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_ptr, int type)
+{
+	SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
+
+	if (type == SLJIT_JUMP) {
+		*code_ptr++ = 0xe9;
+		jump->addr++;
+	}
+	else if (type >= SLJIT_CALL0) {
+		*code_ptr++ = 0xe8;
+		jump->addr++;
+	}
+	else {
+		*code_ptr++ = 0x0f;
+		*code_ptr++ = get_jump_code(type);
+		jump->addr += 2;
+	}
+
+	if (jump->flags & JUMP_LABEL)
+		jump->flags |= PATCH_MW;
+	else
+		*(sljit_w*)code_ptr = jump->target - (jump->addr + 4);
+	code_ptr += 4;
+
+	return code_ptr;
+}
+
 int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
 {
 	int size;
@@ -197,6 +224,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	else {
 		*buf_ptr++ |= 0x05;
 		*(sljit_w*)buf_ptr = immb; // 32 bit displacement
+		buf_ptr += sizeof(sljit_w);
 	}
 
 	if (a & SLJIT_IMM)
@@ -288,6 +316,7 @@ static sljit_ub* emit_x86_bin_instruction(struct sljit_compiler *compiler, int s
 	else {
 		*buf_ptr++ |= 0x05;
 		*(sljit_w*)buf_ptr = immb; // 32 bit displacement
+		buf_ptr += sizeof(sljit_w);
 	}
 
 	if (a & SLJIT_IMM) {
@@ -382,10 +411,30 @@ static sljit_ub* emit_x86_shift_instruction(struct sljit_compiler *compiler,
 	else {
 		*buf_ptr++ |= 0x05;
 		*(sljit_w*)buf_ptr = immb; // 32 bit displacement
+		buf_ptr += sizeof(sljit_w);
 	}
 
 	if (a & SLJIT_IMM && (imma != 1))
 		*buf_ptr = imma;
 
 	return buf + 1;
+}
+
+// ---------------------------------------------------------------------
+//  Conditional instructions
+// ---------------------------------------------------------------------
+
+static int call_with_args(struct sljit_compiler *compiler, int type)
+{
+	sljit_ub *buf;
+
+	buf = ensure_buf(compiler, type - SLJIT_CALL0 + 1);
+	TEST_MEM_ERROR(buf);
+	INC_SIZE(type - SLJIT_CALL0);
+	if (type >= SLJIT_CALL3)
+		PUSH_REG(reg_map[SLJIT_TEMPORARY_REG3]);
+	if (type >= SLJIT_CALL2)
+		PUSH_REG(reg_map[SLJIT_TEMPORARY_REG2]);
+	PUSH_REG(reg_map[SLJIT_TEMPORARY_REG1]);
+	return SLJIT_NO_ERROR;
 }

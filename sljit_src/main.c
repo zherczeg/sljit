@@ -15,13 +15,11 @@ union executable_code {
 	SLJIT_CALL sljit_w (*func)(sljit_w* a, sljit_w b, sljit_w c);
 };
 
-/*
-static sljit_w SLJIT_CALL func(sljit_w a, sljit_w b)
+static sljit_w SLJIT_CALL func(sljit_w a, sljit_w b, sljit_w c)
 {
-printf("a: %d b: %d\n", a, b);
-	return a + b + 5;
+printf("a: %ld b: %ld c: %ld\n", (long)a, (long)b, (long)c);
+	return a + b + c + 1;
 }
-*/
 
 int devel_dummy(void) { return rand(); }
 
@@ -44,6 +42,12 @@ void devel(void)
 #endif
 	sljit_emit_enter(compiler, 3, 3);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 5);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 7);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, 9);
+	sljit_emit_ijump(compiler, SLJIT_CALL3, SLJIT_IMM, (sljit_w)&func);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_PREF_RET_REG, 0);
+
 	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
 	code.code = sljit_generate_code(compiler);
 	sljit_free_compiler(compiler);
@@ -65,4 +69,3 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
-
