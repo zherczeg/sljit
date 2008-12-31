@@ -35,6 +35,13 @@ union executable_code {
 		return; \
 	}
 
+#define TP(value) \
+	if ((value) == NULL) { \
+		printf("Compiler error: %d\n", compiler->error); \
+		sljit_free_compiler(compiler); \
+		return; \
+	}
+
 static void test1(void)
 {
 	// Enter and return from an sljit function
@@ -458,84 +465,6 @@ static void test9(void)
 
 static void test10(void)
 {
-	// Test rewriteable constants and jumps
-	union executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler();
-	struct sljit_const* const1;
-	struct sljit_label *label1;
-	struct sljit_label *label2;
-	struct sljit_label *label3;
-	struct sljit_jump *jump1;
-	struct sljit_jump *jump2;
-	struct sljit_jump *jump3;
-	sljit_uw const1_addr;
-	sljit_uw jump1_addr;
-	sljit_uw label1_addr;
-	sljit_uw label2_addr;
-	sljit_w buf[1];
-
-	FAILED(!compiler, "cannot create compiler\n");
-	buf[0] = 0;
-
-	T(sljit_emit_enter(compiler, 2, 2));
-	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_NO_REG, 0, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 10));
-	jump1 = sljit_emit_jump(compiler, SLJIT_LONG_JUMP | SLJIT_C_SIG_GREATER);
-	T(compiler->error);
-	// Default handler
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 5));
-	jump2 = sljit_emit_jump(compiler, SLJIT_JUMP);
-	T(compiler->error);
-	// Handler 1
-	label1 = sljit_emit_label(compiler);
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 6));
-	jump3 = sljit_emit_jump(compiler, SLJIT_JUMP);
-	T(compiler->error);
-	// Handler 2
-	label2 = sljit_emit_label(compiler);
-	T(compiler->error);
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 7));
-	// Exit
-	label3 = sljit_emit_label(compiler);
-	T(compiler->error);
-	sljit_set_label(jump2, label3);
-	sljit_set_label(jump3, label3);
-	// By default, set to handler 1
-	sljit_set_label(jump1, label1);
-	const1 = sljit_emit_const(compiler, SLJIT_PREF_RET_REG, 0, 1234);
-	T(compiler->error);
-	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
-
-	code.code = sljit_generate_code(compiler);
-	FAILED(!code.code, "code generation error\n");
-	jump1_addr = sljit_get_jump_addr(jump1);
-	label1_addr = sljit_get_label_addr(label1);
-	label2_addr = sljit_get_label_addr(label2);
-	const1_addr = sljit_get_const_addr(const1);
-	sljit_free_compiler(compiler);
-
-	FAILED(code.func2((sljit_w)&buf, 4) != 1234, "test10 case 1 failed\n")
-	FAILED(buf[0] != 5, "test10 case 2 failed\n");
-
-	sljit_set_const(const1_addr, 2345);
-	FAILED(code.func2((sljit_w)&buf, 11) != 2345, "test10 case 3 failed\n")
-	FAILED(buf[0] != 6, "test10 case 4 failed\n");
-
-	sljit_set_const(const1_addr, 4567);
-	sljit_set_jump_addr(jump1_addr, label2_addr);
-	FAILED(code.func2((sljit_w)&buf, 12) != 4567, "test10 case 5 failed\n")
-	FAILED(buf[0] != 7, "test10 case 6 failed\n");
-
-	sljit_set_const(const1_addr, 67);
-	sljit_set_jump_addr(jump1_addr, label1_addr);
-	FAILED(code.func2((sljit_w)&buf, 13) != 67, "test10 case 7 failed\n")
-	FAILED(buf[0] != 6, "test10 case 8 failed\n");
-
-	sljit_free_code(code.code);
-	printf("test10 ok\n");
-}
-
-static void test11(void)
-{
 	// Test multiplications
 	union executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
@@ -574,16 +503,135 @@ static void test11(void)
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
-	FAILED(code.func1((sljit_w)&buf) != 110, "test11 case 1 failed\n");
-	FAILED(buf[0] != 15, "test11 case 2 failed\n");
-	FAILED(buf[1] != 56, "test11 case 3 failed\n");
-	FAILED(buf[2] != 12, "test11 case 4 failed\n");
-	FAILED(buf[3] != -12, "test11 case 5 failed\n");
-	FAILED(buf[4] != 100, "test11 case 6 failed\n");
-	FAILED(buf[5] != 81, "test11 case 7 failed\n");
-	
+	FAILED(code.func1((sljit_w)&buf) != 110, "test10 case 1 failed\n");
+	FAILED(buf[0] != 15, "test10 case 2 failed\n");
+	FAILED(buf[1] != 56, "test10 case 3 failed\n");
+	FAILED(buf[2] != 12, "test10 case 4 failed\n");
+	FAILED(buf[3] != -12, "test10 case 5 failed\n");
+	FAILED(buf[4] != 100, "test10 case 6 failed\n");
+	FAILED(buf[5] != 81, "test10 case 7 failed\n");
+
+	sljit_free_code(code.code);
+	printf("test10 ok\n");
+}
+
+static void test11(void)
+{
+	// Test rewritable constants
+	union executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	struct sljit_const* const1;
+	struct sljit_const* const2;
+	struct sljit_const* const3;
+	sljit_uw const1_addr;
+	sljit_uw const2_addr;
+	sljit_uw const3_addr;
+	sljit_w buf[2];
+
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 0;
+	buf[1] = 0;
+
+	T(sljit_emit_enter(compiler, 1, 1));
+
+	const1 = sljit_emit_const(compiler, SLJIT_MEM0(), (sljit_w)&buf[0], 12);
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0));
+	const2 = sljit_emit_const(compiler, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), sizeof(sljit_w), 2345);
+	const3 = sljit_emit_const(compiler, SLJIT_PREF_RET_REG, 0, 3456);
+
+	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	const1_addr = sljit_get_const_addr(const1);
+	const2_addr = sljit_get_const_addr(const2);
+	const3_addr = sljit_get_const_addr(const3);
+	sljit_free_compiler(compiler);
+
+	FAILED(code.func1((sljit_w)&buf) != 3456, "test11 case 1 failed\n");
+	FAILED(buf[0] != 12, "test11 case 2 failed\n");
+	FAILED(buf[1] != 2345, "test11 case 3 failed\n");
+
+	sljit_set_const(const1_addr, 1234567);
+	sljit_set_const(const2_addr, 2345678);
+	sljit_set_const(const3_addr, 34);
+
+	FAILED(code.func1((sljit_w)&buf) != 34, "test11 case 4 failed\n");
+	FAILED(buf[0] != 1234567, "test11 case 5 failed\n");
+	FAILED(buf[1] != 2345678, "test11 case 6 failed\n");
+
 	sljit_free_code(code.code);
 	printf("test11 ok\n");
+}
+
+static void test12(void)
+{
+	// Test rewriteable jumps
+	union executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	struct sljit_label *label1;
+	struct sljit_label *label2;
+	struct sljit_label *label3;
+	struct sljit_jump *jump1;
+	struct sljit_jump *jump2;
+	struct sljit_jump *jump3;
+	sljit_uw jump1_addr;
+	sljit_uw label1_addr;
+	sljit_uw label2_addr;
+	sljit_w buf[1];
+
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 0;
+
+	T(sljit_emit_enter(compiler, 2, 2));
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_NO_REG, 0, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 10));
+	jump1 = sljit_emit_jump(compiler, SLJIT_LONG_JUMP | SLJIT_C_SIG_GREATER);
+	T(compiler->error);
+	// Default handler
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 5));
+	jump2 = sljit_emit_jump(compiler, SLJIT_JUMP);
+	T(compiler->error);
+	// Handler 1
+	label1 = sljit_emit_label(compiler);
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 6));
+	jump3 = sljit_emit_jump(compiler, SLJIT_JUMP);
+	T(compiler->error);
+	// Handler 2
+	label2 = sljit_emit_label(compiler);
+	T(compiler->error);
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 7));
+	// Exit
+	label3 = sljit_emit_label(compiler);
+	T(compiler->error);
+	sljit_set_label(jump2, label3);
+	sljit_set_label(jump3, label3);
+	// By default, set to handler 1
+	sljit_set_label(jump1, label1);
+	T(sljit_emit_return(compiler, SLJIT_NO_REG));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	jump1_addr = sljit_get_jump_addr(jump1);
+	label1_addr = sljit_get_label_addr(label1);
+	label2_addr = sljit_get_label_addr(label2);
+	sljit_free_compiler(compiler);
+
+	code.func2((sljit_w)&buf, 4);
+	FAILED(buf[0] != 5, "test12 case 2 failed\n");
+
+	code.func2((sljit_w)&buf, 11);
+	FAILED(buf[0] != 6, "test12 case 4 failed\n");
+
+	sljit_set_jump_addr(jump1_addr, label2_addr);
+	code.func2((sljit_w)&buf, 12);
+	FAILED(buf[0] != 7, "test12 case 6 failed\n");
+
+	sljit_set_jump_addr(jump1_addr, label1_addr);
+	code.func2((sljit_w)&buf, 13);
+	FAILED(buf[0] != 6, "test12 case 8 failed\n");
+
+	sljit_free_code(code.code);
+	printf("test12 ok\n");
 }
 
 static sljit_w SLJIT_CALL func(sljit_w a, sljit_w b)
@@ -591,7 +639,7 @@ static sljit_w SLJIT_CALL func(sljit_w a, sljit_w b)
 	return a + b + 5;
 }
 
-static void test12(void)
+static void test15(void)
 {
 	// Test function call
 	union executable_code code;
@@ -606,13 +654,13 @@ static void test12(void)
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 5);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 7);
-	sljit_emit_call(compiler, SLJIT_IMM, (sljit_w)&func, 2);
+	sljit_emit_ijump(compiler, SLJIT_CALL2, SLJIT_IMM, (sljit_w)&func);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_PREF_RET_REG, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 10);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 16);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, (sljit_w)&func);
-	sljit_emit_call(compiler, SLJIT_TEMPORARY_REG3, 0, 2);
+	sljit_emit_ijump(compiler, SLJIT_CALL2, SLJIT_TEMPORARY_REG3, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_PREF_RET_REG, 0);
 
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
@@ -621,12 +669,74 @@ static void test12(void)
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
-	FAILED(code.func1((sljit_w)&buf) != 31, "test12 case 1 failed\n");
-	FAILED(buf[0] != 17, "test12 case 2 failed\n");
-	FAILED(buf[1] != 31, "test12 case 3 failed\n");
+	FAILED(code.func1((sljit_w)&buf) != 31, "test15 case 1 failed\n");
+	FAILED(buf[0] != 17, "test15 case 2 failed\n");
+	FAILED(buf[1] != 31, "test15 case 3 failed\n");
 
 	sljit_free_code(code.code);
-	printf("test12 ok\n");
+	printf("test15 ok\n");
+}
+
+static void test16(void)
+{
+	// Ackermann benchmark
+	union executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	struct sljit_label *entry;
+	struct sljit_label *label;
+	struct sljit_jump *jump;
+	struct sljit_jump *jump1;
+	struct sljit_jump *jump2;
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	entry = sljit_emit_label(compiler);
+	T(sljit_emit_enter(compiler, 2, 2));
+	// if x == 0
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_NO_REG, 0, SLJIT_GENERAL_REG1, 0, SLJIT_IMM, 0));
+	jump1 = sljit_emit_jump(compiler, SLJIT_C_EQUAL); TP(jump1);
+	// if y == 0
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_NO_REG, 0, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 0));
+	jump2 = sljit_emit_jump(compiler, SLJIT_C_EQUAL); TP(jump2);
+
+	// Ack(x,y-1)
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_GENERAL_REG1, 0));
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG2, 0, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 1));
+	jump = sljit_emit_jump(compiler, SLJIT_CALL2); TP(jump);
+	sljit_set_label(jump, entry);
+
+	// return Ack(x-1, Ack(x,y-1))
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_PREF_RET_REG, 0));
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG1, 0, SLJIT_GENERAL_REG1, 0, SLJIT_IMM, 1));
+	jump = sljit_emit_jump(compiler, SLJIT_CALL2); TP(jump);
+	sljit_set_label(jump, entry);
+	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
+
+	// return y+1
+	label = sljit_emit_label(compiler); TP(label);
+	sljit_set_label(jump1, label);
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_PREF_RET_REG, 0, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 1));
+	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
+
+	// return Ack(x-1,1)
+	label = sljit_emit_label(compiler); TP(label);
+	sljit_set_label(jump2, label);
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG1, 0, SLJIT_GENERAL_REG1, 0, SLJIT_IMM, 1));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 1));
+	jump = sljit_emit_jump(compiler, SLJIT_CALL2); TP(jump);
+	sljit_set_label(jump, entry);
+	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	FAILED(code.func2(3, 3) != 61, "test16 case 1 failed\n");
+	// For benchmarking
+	//FAILED(code.func2(3, 11) != 16381, "test16 case 1 failed\n");
+
+	sljit_free_code(code.code);
+	printf("test16 ok\n");
 }
 
 static void test17(void)
@@ -787,7 +897,7 @@ static void test19(void)
 #ifdef SLJIT_CONFIG_ARM
 	SLJIT_ASSERT(compiler->cache_arg > 0);
 #endif
-	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG2), sizeof(sljit_w) * 3, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG2), -sizeof(sljit_w), SLJIT_IMM, 2));
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG2), sizeof(sljit_w) * 3, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG2), -(sljit_w)sizeof(sljit_w), SLJIT_IMM, 2));
 #ifdef SLJIT_CONFIG_ARM
 	SLJIT_ASSERT(compiler->cache_arg > 0);
 #endif
@@ -837,6 +947,8 @@ void sljit_test(void)
 	test10();
 	test11();
 	test12();
+	test15();
+	test16();
 	test17();
 	test18();
 	test19();

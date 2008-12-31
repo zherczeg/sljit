@@ -1275,7 +1275,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 
 	FUNCTION_ENTRY();
 	SLJIT_ASSERT((type & ~0x1ff) == 0);
-	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_EQUAL && (type & 0xff) <= SLJIT_JUMP);
+	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_EQUAL && (type & 0xff) <= SLJIT_CALL3);
 
 	sljit_emit_jump_verbose();
 
@@ -1306,14 +1306,14 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	return jump;
 }
 
-int sljit_emit_call(struct sljit_compiler *compiler, int src, sljit_w srcw, int args)
+int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw)
 {
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(args >= -1 && args <= 3);
+	SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL3);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_SRC(src, srcw);
 #endif
-	sljit_emit_call_verbose();
+	sljit_emit_ijump_verbose();
 
 	// In ARM, we don't need to touch the arguments
 

@@ -14,6 +14,62 @@
 
 // x86 64-bit arch dependent functions
 
+static sljit_ub* generate_far_jump_code(struct sljit_compiler *compiler, struct sljit_jump *jump, sljit_ub *code_ptr, int type)
+{
+	SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
+
+	if (type == SLJIT_JUMP) {
+		*code_ptr++ = 0xff;
+		*code_ptr++ = 0x25;
+		*(sljit_hw*)code_ptr = (sljit_uw)compiler->addr_ptr - ((sljit_uw)code_ptr + sizeof(sljit_hw));
+		code_ptr += sizeof(sljit_hw);
+	}
+	else if (type >= SLJIT_CALL0) {
+		*code_ptr++ = 0xff;
+		*code_ptr++ = 0x15;
+		*(sljit_hw*)code_ptr = (sljit_uw)compiler->addr_ptr - ((sljit_uw)code_ptr + sizeof(sljit_hw));
+		code_ptr += sizeof(sljit_hw);
+	}
+	else {
+		// Inverted conditional
+		*code_ptr++ = get_jump_code(type ^ 0x1) - 0x10;
+		*code_ptr++ = 6;
+		// And a jump
+		*code_ptr++ = 0xff;
+		*code_ptr++ = 0x25;
+		*(sljit_hw*)code_ptr = (sljit_uw)compiler->addr_ptr - ((sljit_uw)code_ptr + sizeof(sljit_hw));
+		code_ptr += sizeof(sljit_hw);
+	}
+
+	jump->addr = (sljit_uw)compiler->addr_ptr;
+	if (jump->flags & JUMP_LABEL)
+		jump->flags |= PATCH_MD;
+	else
+		*compiler->addr_ptr = jump->target;
+	compiler->addr_ptr++;
+
+	return code_ptr;
+}
+
+static sljit_ub* generate_fixed_jump(struct sljit_compiler *compiler, sljit_ub *code_ptr, sljit_w addr, int type)
+{
+	sljit_w delta = addr - ((sljit_w)code_ptr + 1 + sizeof(sljit_hw));
+
+	if (delta <= 0x7fffffffl && delta >= -0x80000000l) {
+		*code_ptr++ = (type == 2) ? 0xe8 /* call */ : 0xe9 /* jmp */;
+		*(sljit_w*)code_ptr = delta;
+	}
+	else {
+		*code_ptr++ = 0xff;
+		*code_ptr++ = (type == 2) ? 0x15 /* call */ : 0x25 /* jmp */;
+		*(sljit_hw*)code_ptr = (sljit_uw)compiler->addr_ptr - ((sljit_uw)code_ptr + sizeof(sljit_hw));
+		code_ptr += sizeof(sljit_hw);
+		*compiler->addr_ptr++ = addr;
+	}
+
+	return code_ptr;
+}
+
 int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
 {
 	int size;
@@ -54,17 +110,17 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
 	if (args > 0) {
 		*buf++ = REX_W;
 		*buf++ = 0x8b;
-		*buf++ = 0xC0 | (reg_map[SLJIT_GENERAL_REG1] << 3) | 0x7;
+		*buf++ = 0xc0 | (reg_map[SLJIT_GENERAL_REG1] << 3) | 0x7;
 	}
 	if (args > 1) {
 		*buf++ = REX_W | REX_R;
 		*buf++ = 0x8b;
-		*buf++ = 0xC0 | (reg_lmap[SLJIT_GENERAL_REG2] << 3) | 0x6;
+		*buf++ = 0xc0 | (reg_lmap[SLJIT_GENERAL_REG2] << 3) | 0x6;
 	}
 	if (args > 2) {
 		*buf++ = REX_W | REX_R;
 		*buf++ = 0x8b;
-		*buf++ = 0xC0 | (reg_lmap[SLJIT_GENERAL_REG3] << 3) | 0x2;
+		*buf++ = 0xc0 | (reg_lmap[SLJIT_GENERAL_REG3] << 3) | 0x2;
 	}
 
 	// Mov arguments to general registers
@@ -94,7 +150,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_NO_REG) {
 		*buf++ = REX_W | ((reg_map[reg] >= 8) ? REX_B : 0);
 		*buf++ = 0x8b;
-		*buf++ = 0xC0 | (reg_lmap[SLJIT_PREF_RET_REG] << 3) | reg_lmap[reg];
+		*buf++ = 0xc0 | (reg_lmap[SLJIT_PREF_RET_REG] << 3) | reg_lmap[reg];
 	}
 
 	if (compiler->general > 0)
@@ -270,6 +326,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		*buf_ptr++ |= 0x04;
 		*buf_ptr++ = 0x25;
 		*(sljit_hw*)buf_ptr = immb; // 32 bit displacement
+		buf_ptr += sizeof(sljit_hw);
 	}
 
 	if (a & SLJIT_IMM)
@@ -407,6 +464,7 @@ static sljit_ub* emit_x86_bin_instruction(struct sljit_compiler *compiler, int s
 		*buf_ptr++ |= 0x04;
 		*buf_ptr++ = 0x25;
 		*(sljit_hw*)buf_ptr = immb; // 32 bit displacement
+		buf_ptr += sizeof(sljit_hw);
 	}
 
 	if (a & SLJIT_IMM) {
@@ -545,10 +603,33 @@ static sljit_ub* emit_x86_shift_instruction(struct sljit_compiler *compiler,
 		*buf_ptr++ |= 0x04;
 		*buf_ptr++ = 0x25;
 		*(sljit_w*)buf_ptr = immb; // 32 bit displacement
+		buf_ptr += sizeof(sljit_hw);
 	}
 
 	if (a & SLJIT_IMM && (imma != 1))
 		*buf_ptr = imma;
 
 	return buf + 1;
+}
+
+// ---------------------------------------------------------------------
+//  Conditional instructions
+// ---------------------------------------------------------------------
+
+static int call_with_args(struct sljit_compiler *compiler, int type)
+{
+	sljit_ub *buf;
+
+	buf = ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
+	TEST_MEM_ERROR(buf);
+	INC_SIZE((type < SLJIT_CALL3) ? 3 : 6);
+	if (type >= SLJIT_CALL3) {
+		*buf++ = REX_W;
+		*buf++ = 0x8b;
+		*buf++ = 0xc0 | (0x2 << 3) | reg_lmap[SLJIT_TEMPORARY_REG3];
+	}
+	*buf++ = REX_W;
+	*buf++ = 0x8b;
+	*buf++ = 0xc0 | (0x7 << 3) | reg_lmap[SLJIT_TEMPORARY_REG1];
+	return SLJIT_NO_ERROR;
 }

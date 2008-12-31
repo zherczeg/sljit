@@ -37,8 +37,11 @@
 #define JUMP_ADDR	0x2
 
 #if defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)
-#define PATCH_MB	0x4
-#define PATCH_MW	0x8
+	#define PATCH_MB	0x4
+	#define PATCH_MW	0x8
+#ifdef SLJIT_CONFIG_X86_64
+	#define PATCH_MD	0x10
+#endif
 #endif
 
 #ifdef SLJIT_CONFIG_ARM
@@ -112,6 +115,10 @@ struct sljit_compiler* sljit_create_compiler(void)
 
 #ifdef SLJIT_CONFIG_X86_32
 	compiler->args = -1;
+#endif
+
+#ifdef SLJIT_CONFIG_X86_64
+	compiler->addrs = 0;
 #endif
 
 #ifdef SLJIT_CONFIG_ARM
@@ -348,14 +355,15 @@ static char* jump_names[] = {
 	"c_zero", "c_not_zero",
 	"c_overflow", "c_not_overflow",
 	"jump",
+	"call0", "call1", "call2", "call3"
 };
 #define sljit_emit_jump_verbose() \
 	if (compiler->verbose) fprintf(compiler->verbose, "  jump <%s> %s\n", jump_names[type & 0xff], (type & SLJIT_LONG_JUMP) ? "(long)" : "");
-#define sljit_emit_call_verbose() \
+#define sljit_emit_ijump_verbose() \
 	if (compiler->verbose) { \
-		fprintf(compiler->verbose, (args >= 0) ? "  call " : "  jump "); \
+		fprintf(compiler->verbose, "  ijump <%s> ", jump_names[type]); \
 		sljit_verbose_param(src, srcw); \
-		fprintf(compiler->verbose, ", args:%d\n", args); \
+		fprintf(compiler->verbose, "\n"); \
 	}
 #define sljit_emit_set_cond_verbose() \
 	if (compiler->verbose) { \
@@ -378,7 +386,7 @@ static char* jump_names[] = {
 #define sljit_emit_op2_verbose()
 #define sljit_emit_label_verbose()
 #define sljit_emit_jump_verbose()
-#define sljit_emit_call_verbose()
+#define sljit_emit_ijump_verbose()
 #define sljit_emit_set_cond_verbose()
 #define sljit_emit_const_verbose()
 

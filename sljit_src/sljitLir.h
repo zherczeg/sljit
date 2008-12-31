@@ -231,7 +231,11 @@ struct sljit_compiler {
 #endif
 
 #ifdef SLJIT_CONFIG_X86_64
-	int mode32;
+	sljit_uw addrs;
+	union {
+		sljit_uw *addr_ptr;
+		int mode32;
+	};
 #endif
 
 #ifdef SLJIT_CONFIG_ARM
@@ -357,7 +361,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_C_SIG_LESS		6
 #define SLJIT_C_SIG_NOT_LESS		7
 #define SLJIT_C_SIG_GREATER		8
-#define SLJIT_C_SIG_NOT_GREATER	9
+#define SLJIT_C_SIG_NOT_GREATER		9
 
 #define SLJIT_C_CARRY			10
 #define SLJIT_C_NOT_CARRY		11
@@ -367,8 +371,12 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_C_NOT_OVERFLOW		15
 
 #define SLJIT_JUMP			16
+#define SLJIT_CALL0			17
+#define SLJIT_CALL1			18
+#define SLJIT_CALL2			19
+#define SLJIT_CALL3			20
 
-// The target can points to anywhere, and may redefined during runtime
+// The target may be redefined during runtime
 #define SLJIT_LONG_JUMP			0x100
 
 struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type);
@@ -378,13 +386,10 @@ void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label);
 void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 
 // Call function or jump anywhere. Both direct and indirect form
-//  args = -1 : jump to any address
-//  args >= 0 and args <= 3 : call function
-//     The function arguments are stored in SLJIT_TEMPORARY_REG1 - REG3
-//     Note: the temporary registers may be destroyed during the function call
-//  Direct call: set src to SLJIT_IMM() and srcw to the address
-//  Indirect call: any other addressing mode 
-int sljit_emit_call(struct sljit_compiler *compiler, int src, sljit_w srcw, int args);
+//  type must be between SLJIT_JUMP and SLJIT_CALL3
+//  Direct form: set src to SLJIT_IMM() and srcw to the address
+//  Indirect form: any other valid addressing mode 
+int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw);
 
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);
 struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval);
