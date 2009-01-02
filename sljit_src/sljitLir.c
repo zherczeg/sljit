@@ -45,7 +45,18 @@
 #endif
 
 #ifdef SLJIT_CONFIG_ARM
+	#define PATCH_B		0x4
+	#define IS_BL		0x8
+	#define IS_FIXED	0x10
+
 #define CPOOL_SIZE	256
+#define LIT_NONE	0
+// Normal instruction
+#define LIT_INS		1
+// Instruction with a constant
+#define LIT_CINS	2
+// Instruction with a unique constant
+#define LIT_UCINS	3
 #endif
 
 #ifdef SLJIT_CONFIG_X86_64
@@ -133,6 +144,7 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->cpool_fill = 0;
 	compiler->cpool_index = 0;
 	compiler->patches = 0;
+	compiler->last_type = LIT_NONE;
 #endif
 
 #ifdef SLJIT_VERBOSE

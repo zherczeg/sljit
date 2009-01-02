@@ -617,18 +617,18 @@ static void test12(void)
 	sljit_free_compiler(compiler);
 
 	code.func2((sljit_w)&buf, 4);
-	FAILED(buf[0] != 5, "test12 case 2 failed\n");
+	FAILED(buf[0] != 5, "test12 case 1 failed\n");
 
 	code.func2((sljit_w)&buf, 11);
-	FAILED(buf[0] != 6, "test12 case 4 failed\n");
+	FAILED(buf[0] != 6, "test12 case 2 failed\n");
 
 	sljit_set_jump_addr(jump1_addr, label2_addr);
 	code.func2((sljit_w)&buf, 12);
-	FAILED(buf[0] != 7, "test12 case 6 failed\n");
+	FAILED(buf[0] != 7, "test12 case 3 failed\n");
 
 	sljit_set_jump_addr(jump1_addr, label1_addr);
 	code.func2((sljit_w)&buf, 13);
-	FAILED(buf[0] != 6, "test12 case 8 failed\n");
+	FAILED(buf[0] != 6, "test12 case 4 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test12 ok\n");

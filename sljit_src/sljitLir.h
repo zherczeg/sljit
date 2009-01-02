@@ -34,19 +34,19 @@
 //      - One of the general registers tipically points to a stack interface
 //      - It can jump to any exception handler anytime (even for another
 //        function. It is safe for SLJIT.)
-//      - Fast paths can be modified runtime reflecting the fastest execution
-//        way of the dynamic language
+//      - Fast paths can be modified runtime reflecting the changes of the
+//        fastest execution path of the dynamic language
 //      - SLJIT supports complex memory addressing modes
 //      - mainly position independent code except for far jumps
-//        (I don't see any problems to change it to PIC in the future)
-//    - Optimizations (later)
-//      - Only for basic blocks
+//        (Is it worth to change it into real PIC in the future?)
+//    - Optimizations (perhaps later)
+//      - Only for basic blocks (no labels between LIR instructions)
 
 // ---------------------------------------------------------------------
 //  Configuration
 // ---------------------------------------------------------------------
 
-// Architecture selection (here, or using -D preprocessor option)
+// Architecture selection (comment out here, or use -D preprocessor option)
 //#define SLJIT_CONFIG_X86_32
 //#define SLJIT_CONFIG_X86_64
 //#define SLJIT_CONFIG_ARM
@@ -68,6 +68,7 @@
 
 #else
 
+// We use mmap on x86-64, but that is not OS independent standard C function
 void* sljit_malloc_exec(int size);
 #define SLJIT_MALLOC_EXEC(size) sljit_malloc_exec(size)
 void sljit_free_exec(void* ptr);
@@ -191,7 +192,8 @@ struct sljit_memory_fragment {
 struct sljit_label {
 	struct sljit_label *next;
 	sljit_uw addr;
-	int size;
+	// The maximum size difference
+	sljit_uw size;
 };
 
 struct sljit_jump {
@@ -224,7 +226,7 @@ struct sljit_compiler {
 
 	// Used general registers
 	int general;
-	int size;
+	sljit_uw size;
 
 #ifdef SLJIT_CONFIG_X86_32
 	int args;
@@ -246,8 +248,11 @@ struct sljit_compiler {
 	sljit_uw cpool_index;
 	// General fields
 	sljit_uw patches;
+	sljit_uw last_type;
+	sljit_uw last_ins;
+	sljit_uw last_imm;
 	// Temporary fields
-	sljit_uw shift;
+	sljit_uw shift_imm;
 	sljit_uw cache_arg;
 	sljit_uw cache_argw;
 #endif
@@ -262,6 +267,8 @@ struct sljit_compiler {
 struct sljit_compiler* sljit_create_compiler(void);
 // Free everything except the codes
 void sljit_free_compiler(struct sljit_compiler *compiler);
+
+#define sljit_get_compiler_error(compiler)	(compiler->error)
 
 #ifdef SLJIT_VERBOSE
 // NULL = no verbose
