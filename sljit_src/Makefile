@@ -1,8 +1,12 @@
-# -fshort-wchar is not necessary
-# general:
+# x86-32
 CC = gcc
 CFLAGS = -O2 -Wall -DSLJIT_CONFIG_X86_32
 LDFLAGS=
+
+# x86-64
+#CC = gcc
+#CFLAGS = -O2 -Wall -DSLJIT_CONFIG_X86_64
+#LDFLAGS=
 
 # ARM
 #CC = arm-linux-gcc
