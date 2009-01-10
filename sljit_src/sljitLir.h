@@ -243,9 +243,9 @@ struct sljit_compiler {
 #ifdef SLJIT_CONFIG_ARM
 	// Constant pool handling
 	sljit_uw *cpool;
+	sljit_ub *cpool_unique;
 	sljit_uw cpool_diff;
 	sljit_uw cpool_fill;
-	sljit_uw cpool_index;
 	// General fields
 	sljit_uw patches;
 	sljit_uw last_type;

@@ -133,16 +133,16 @@ struct sljit_compiler* sljit_create_compiler(void)
 #endif
 
 #ifdef SLJIT_CONFIG_ARM
-	compiler->cpool = SLJIT_MALLOC(CPOOL_SIZE * sizeof(sljit_uw));
+	compiler->cpool = SLJIT_MALLOC(CPOOL_SIZE * sizeof(sljit_uw) + CPOOL_SIZE * sizeof(sljit_ub));
 	if (!compiler->cpool) {
 		SLJIT_FREE(compiler->buf);
 		SLJIT_FREE(compiler->abuf);
 		SLJIT_FREE(compiler);
 		return NULL;
 	}
+	compiler->cpool_unique = (sljit_ub*)(compiler->cpool + CPOOL_SIZE);
 	compiler->cpool_diff = 0xffffffff;
 	compiler->cpool_fill = 0;
-	compiler->cpool_index = 0;
 	compiler->patches = 0;
 	compiler->last_type = LIT_NONE;
 #endif
