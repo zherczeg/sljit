@@ -57,8 +57,10 @@ static int push_cpool(struct sljit_compiler *compiler)
 static int push_inst(struct sljit_compiler *compiler)
 {
 	sljit_uw* inst;
+	sljit_uw cpool_index;
 	sljit_uw* cpool_ptr;
 	sljit_uw* cpool_end;
+	sljit_ub* cpool_un_ptr;
 
 	if (compiler->last_type == LIT_INS) {
 		// Test wheter the constant pool must be copied
@@ -77,7 +79,7 @@ static int push_inst(struct sljit_compiler *compiler)
 	}
 	else if (compiler->last_type >= LIT_CINS) {
 		// Test wheter the constant pool must be copied
-		compiler->cpool_index = CPOOL_SIZE;
+		cpool_index = CPOOL_SIZE;
 		if (compiler->cpool_diff != 0xffffffff && compiler->size - compiler->cpool_diff >= (4092 / sizeof(sljit_w))) {
 			if (push_cpool(compiler))
 				return compiler->error;
@@ -85,25 +87,27 @@ static int push_inst(struct sljit_compiler *compiler)
 		else if (compiler->last_type == LIT_CINS && compiler->cpool_fill > 0) {
 			cpool_ptr = compiler->cpool;
 			cpool_end = cpool_ptr + compiler->cpool_fill;
+			cpool_un_ptr = compiler->cpool_unique;
 			do {
-				if (*cpool_ptr == compiler->last_imm) {
-					compiler->cpool_index = cpool_ptr - compiler->cpool;
+				if ((*cpool_ptr == compiler->last_imm) && !(*cpool_un_ptr)) {
+					cpool_index = cpool_ptr - compiler->cpool;
 					break;
 				}
 				cpool_ptr++;
+				cpool_un_ptr++;
 			} while (cpool_ptr < cpool_end);
 		}
 
-		if (compiler->cpool_index == CPOOL_SIZE) {
+		if (cpool_index == CPOOL_SIZE) {
 			// Must allocate a new place
 			if (compiler->cpool_fill < CPOOL_SIZE) {
-				compiler->cpool_index = compiler->cpool_fill;
+				cpool_index = compiler->cpool_fill;
 				compiler->cpool_fill++;
 			}
 			else {
 				if (push_cpool(compiler))
 					return compiler->error;
-				compiler->cpool_index = 0;
+				cpool_index = 0;
 				compiler->cpool_fill = 1;
 			}
 		}
@@ -113,8 +117,9 @@ static int push_inst(struct sljit_compiler *compiler)
 			compiler->error = SLJIT_MEMORY_ERROR;
 			return compiler->error;
 		}
-		compiler->cpool[compiler->cpool_index] = compiler->last_imm;
-		*inst = compiler->last_ins | (compiler->cpool_index << 2);
+		compiler->cpool[cpool_index] = compiler->last_imm;
+		compiler->cpool_unique[cpool_index] = (compiler->last_type == LIT_UCINS);
+		*inst = compiler->last_ins | (cpool_index << 2);
 		compiler->last_type = LIT_NONE;
 		compiler->size++;
 		if (compiler->cpool_diff == 0xffffffff)
@@ -656,13 +661,21 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 // returns 0 if not possible
 static sljit_uw get_immediate(sljit_uw imm)
 {
-	int rol = 0;
+	int rol;
 
-	if (imm == 0)
-		return SRC2_IMM | 0;
+	if (imm <= 0xff)
+		return SRC2_IMM | imm;
 
-	imm = (imm << 24) | (imm >> 8);
-	while ((imm & 0xff000000) == 0) {
+	if ((imm & 0xff000000) == 0) {
+		imm <<= 8;
+		rol = 8;
+	}
+	else {
+		imm = (imm << 24) | (imm >> 8);
+		rol = 0;
+	}
+
+	if ((imm & 0xff000000) == 0) {
 		imm <<= 8;
 		rol += 4;
 	}
@@ -683,85 +696,153 @@ static sljit_uw get_immediate(sljit_uw imm)
 		return 0;
 }
 
+static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, int positive)
+{
+	sljit_uw mask;
+	sljit_uw imm1;
+	sljit_uw imm2;
+	int rol;
+
+	// Step1: Search a zero byte (8 continous zero bit)
+	mask = 0xff000000;
+	rol = 8;
+	while(1) {
+		if ((imm & mask) == 0) {
+			// rol imm by rol
+			imm = (imm << rol) | (imm >> (32 - rol));
+			// calculate arm rol
+			rol = 4 + (rol >> 1);
+			break;
+		}
+		rol += 2;
+		mask >>= 2;
+		if (mask & 0x3) {
+			// rol by 8
+			imm = (imm << 8) | (imm >> 24);
+			mask = 0xff00;
+			rol = 24;
+			while (1) {
+				if ((imm & mask) == 0) {
+					// rol imm by rol
+					imm = (imm << rol) | (imm >> (32 - rol));
+					// calculate arm rol
+					rol = (rol >> 1) - 8;
+					break;
+				}
+				rol += 2;
+				mask >>= 2;
+				if (mask & 0x3)
+					return 0;
+			}
+			break;
+		}
+	}
+
+	// The low 8 bit must be zero
+	SLJIT_ASSERT((imm & 0xff) == 0);
+
+	if ((imm & 0xff000000) == 0) {
+		imm1 = SRC2_IMM | ((imm >> 16) & 0xff) | (((rol + 4) & 0xf) << 8);
+		imm2 = SRC2_IMM | ((imm >> 8) & 0xff) | (((rol + 8) & 0xf) << 8);
+	}
+	else if (imm & 0xc0000000) {
+		imm1 = SRC2_IMM | ((imm >> 24) & 0xff) | ((rol & 0xf) << 8);
+		imm <<= 8;
+		rol += 4;
+
+		if ((imm & 0xff000000) == 0) {
+			imm <<= 8;
+			rol += 4;
+		}
+
+		if ((imm & 0xf0000000) == 0) {
+			imm <<= 4;
+			rol += 2;
+		}
+
+		if ((imm & 0xc0000000) == 0) {
+			imm <<= 2;
+			rol += 1;
+		}
+
+		if ((imm & 0x00ffffff) == 0)
+			imm2 = SRC2_IMM | (imm >> 24) | ((rol & 0xf) << 8);
+		else
+			return 0;
+	}
+	else {
+		if ((imm & 0xf0000000) == 0) {
+			imm <<= 4;
+			rol += 2;
+		}
+
+		if ((imm & 0xc0000000) == 0) {
+			imm <<= 2;
+			rol += 1;
+		}
+
+		imm1 = SRC2_IMM | ((imm >> 24) & 0xff) | ((rol & 0xf) << 8);
+		imm <<= 8;
+		rol += 4;
+
+		if ((imm & 0xf0000000) == 0) {
+			imm <<= 4;
+			rol += 2;
+		}
+
+		if ((imm & 0xc0000000) == 0) {
+			imm <<= 2;
+			rol += 1;
+		}
+
+		if ((imm & 0x00ffffff) == 0)
+			imm2 = SRC2_IMM | (imm >> 24) | ((rol & 0xf) << 8);
+		else
+			return 0;
+	}
+
+	if (push_inst(compiler))
+		return compiler->error;
+	compiler->last_type = LIT_INS;
+	compiler->last_ins = EMIT_DATA_PROCESS_INS(positive ? 0x1a : 0x1e, reg, SLJIT_NO_REG, imm1);
+
+	if (push_inst(compiler))
+		return compiler->error;
+	compiler->last_type = LIT_INS;
+	compiler->last_ins = EMIT_DATA_PROCESS_INS(positive ? 0x18 : 0x1c, reg, reg, imm2);
+	return 1;
+}
+
 static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_uw imm)
 {
-	// Get the immediate at most from two instructions
-	sljit_uw rimm, tmp;
-	int round = 2;
-	int rol1;
-	int rol2;
-	int byte1;
+	sljit_uw tmp;
 
-	rimm = (imm << 24) | (imm >> 8);
-	tmp = rimm;
-	do {
-		rol1 = 0;
-		if (tmp == 0) {
-			if (push_inst(compiler))
-				return compiler->error;
-			compiler->last_type = LIT_INS;
-			compiler->last_ins = EMIT_DATA_PROCESS_INS((round == 2) ? 0x1a : 0x1e, reg, SLJIT_NO_REG, SRC2_IMM | 0);
-			return SLJIT_NO_ERROR;
-		}
+	// Create imm by 1 inst
+	tmp = get_immediate(imm);
+	if (tmp) {
+		if (push_inst(compiler))
+			return compiler->error;
+		compiler->last_type = LIT_INS;
+		compiler->last_ins = EMIT_DATA_PROCESS_INS(0x1a, reg, SLJIT_NO_REG, tmp);
+		return SLJIT_NO_ERROR;
+	}
 
-		while ((tmp & 0xff000000) == 0) {
-			tmp <<= 8;
-			rol1 += 4;
-		}
+	tmp = get_immediate(~imm);
+	if (tmp) {
+		if (push_inst(compiler))
+			return compiler->error;
+		compiler->last_type = LIT_INS;
+		compiler->last_ins = EMIT_DATA_PROCESS_INS(0x1e, reg, SLJIT_NO_REG, tmp);
+		return SLJIT_NO_ERROR;
+	}
 
-		if ((tmp & 0xf0000000) == 0) {
-			tmp <<= 4;
-			rol1 += 2;
-		}
+	// Create imm by 2 inst
+	if (generate_int(compiler, reg, imm, 1))
+		return compiler->error; // Maybe SLJIT_NO_ERROR
+	if (generate_int(compiler, reg, ~imm, 0))
+		return compiler->error; // Maybe SLJIT_NO_ERROR
 
-		if ((tmp & 0xc0000000) == 0) {
-			tmp <<= 2;
-			rol1 += 1;
-		}
-
-		if ((tmp & 0x00ffffff) == 0) {
-			if (push_inst(compiler))
-				return compiler->error;
-			compiler->last_type = LIT_INS;
-			compiler->last_ins = EMIT_DATA_PROCESS_INS((round == 2) ? 0x1a : 0x1e, reg, SLJIT_NO_REG, SRC2_IMM | (tmp >> 24) | (rol1 << 8));
-			return SLJIT_NO_ERROR;
-		}
-
-		rol2 = rol1 + 4;
-		byte1 = tmp >> 24;
-		tmp <<= 8;
-
-		while ((tmp & 0xff000000) == 0) {
-			tmp <<= 8;
-			rol2 += 4;
-		}
-
-		if ((tmp & 0xf0000000) == 0) {
-			tmp <<= 4;
-			rol2 += 2;
-		}
-
-		if ((tmp & 0xc0000000) == 0) {
-			tmp <<= 2;
-			rol2 += 1;
-		}
-
-		if ((tmp & 0x00ffffff) == 0) {
-			if (push_inst(compiler))
-				return compiler->error;
-			compiler->last_type = LIT_INS;
-			compiler->last_ins = EMIT_DATA_PROCESS_INS((round == 2) ? 0x1a : 0x1e, reg, SLJIT_NO_REG, SRC2_IMM | (byte1) | (rol1 << 8));
-
-			if (push_inst(compiler))
-				return compiler->error;
-			compiler->last_type = LIT_INS;
-			compiler->last_ins = EMIT_DATA_PROCESS_INS((round == 2) ? 0x18 : 0x1c, reg, reg, SRC2_IMM | (tmp >> 24) | (rol2 << 8));
-			return SLJIT_NO_ERROR;
-		}
-
-		tmp = ~rimm;
-	} while (--round > 0);
-
+	// Load integer
 	if (push_inst(compiler))
 		return compiler->error;
 	compiler->last_type = LIT_CINS;
@@ -1222,6 +1303,9 @@ static int emit_op(struct sljit_compiler *compiler, int op, int allow_imm,
 			return compiler->error;
 	}
 
+	if (dst_r == 0)
+		dst_r = TMP_REG2;
+
 	if (src1_r == 0) {
 		src1_r = TMP_REG1;
 		if (getput_arg(compiler, ARG_LOAD, TMP_REG1, src1, src1w, 0, 0))
@@ -1229,13 +1313,10 @@ static int emit_op(struct sljit_compiler *compiler, int op, int allow_imm,
 	}
 
 	if (src2_r == 0) {
-		src2_r = TMP_REG2;
-		if (getput_arg(compiler, ARG_LOAD, TMP_REG2, src2, src2w, 0, 0))
+		src2_r = (op != OP1_OFFSET + SLJIT_MOV) ? TMP_REG2 : dst_r;
+		if (getput_arg(compiler, ARG_LOAD, src2_r, src2, src2w, 0, 0))
 			return compiler->error;
 	}
-
-	if (dst_r == 0)
-		dst_r = TMP_REG2;
 
 	if (emit_single_op(compiler, op, flags, dst_r, src1_r, src2_r))
 		return compiler->error;
