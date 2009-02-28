@@ -390,6 +390,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type);
 
 void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label);
 // Only for jumps defined with SLJIT_LONG_JUMP flag
+// Use sljit_emit_ijump for fixed jumps
 void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 
 // Call function or jump anywhere. Both direct and indirect form

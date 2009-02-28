@@ -47,9 +47,8 @@
 #ifdef SLJIT_CONFIG_ARM
 	#define PATCH_B		0x4
 	#define IS_BL		0x8
-	#define IS_FIXED	0x10
 
-#define CPOOL_SIZE	256
+#define CPOOL_SIZE	512
 #define LIT_NONE	0
 // Normal instruction
 #define LIT_INS		1
