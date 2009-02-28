@@ -18,6 +18,15 @@
 #define TMP_REG3	(SLJIT_GENERAL_REG3 + 3)
 #define TMP_PC		(SLJIT_GENERAL_REG3 + 4)
 
+// In ARM instruction words
+#define CONST_POOL_ALIGNMENT	8
+#define CONST_POOL_NO_DIFF	0xffffffff
+
+#define ALIGN_INSTRUCTION(ptr) \
+	(sljit_uw*)(((sljit_uw)(ptr) + (CONST_POOL_ALIGNMENT * sizeof(sljit_uw)) - 1) & ~((CONST_POOL_ALIGNMENT * sizeof(sljit_uw)) - 1))
+#define MAX_DIFFERENCE(max_diff) \
+        (((max_diff) / (int)sizeof(sljit_uw)) - (CONST_POOL_ALIGNMENT - 1))
+
 static sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
    0, 0, 1, 2, 4, 5, 6, 3, 7, 8, 15
 };
@@ -27,8 +36,16 @@ static int push_cpool(struct sljit_compiler *compiler)
 	sljit_uw* inst;
 	sljit_uw* cpool_ptr;
 	sljit_uw* cpool_end;
+	int i;
 
-	SLJIT_ASSERT(compiler->cpool_fill > 0);
+	SLJIT_ASSERT(compiler->cpool_fill > 0 && compiler->cpool_fill <= CPOOL_SIZE);
+	if (compiler->last_label && compiler->last_label->size == compiler->size)
+		compiler->last_label->size += compiler->cpool_fill + (CONST_POOL_ALIGNMENT - 1) + 1;
+	if (compiler->last_jump && compiler->last_jump->addr == compiler->size)
+		compiler->last_jump->addr += compiler->cpool_fill + (CONST_POOL_ALIGNMENT - 1) + 1;
+	if (compiler->last_const && compiler->last_const->addr == compiler->size)
+		compiler->last_const->addr += compiler->cpool_fill + (CONST_POOL_ALIGNMENT - 1) + 1;
+
 	inst = (sljit_uw*)ensure_buf(compiler, sizeof(sljit_uw));
 	if (!inst) {
 		compiler->error = SLJIT_MEMORY_ERROR;
@@ -36,6 +53,16 @@ static int push_cpool(struct sljit_compiler *compiler)
 	}
 	compiler->size++;
 	*inst = 0xff000000 | compiler->cpool_fill;
+
+	for (i = 0; i < CONST_POOL_ALIGNMENT - 1; i++) {
+		inst = (sljit_uw*)ensure_buf(compiler, sizeof(sljit_uw));
+		if (!inst) {
+			compiler->error = SLJIT_MEMORY_ERROR;
+			return 1;
+		}
+		compiler->size++;
+		*inst = 0;
+	}
 
 	cpool_ptr = compiler->cpool;
 	cpool_end = cpool_ptr + compiler->cpool_fill;
@@ -48,7 +75,7 @@ static int push_cpool(struct sljit_compiler *compiler)
 		compiler->size++;
 		*inst = *cpool_ptr++;
 	}
-	compiler->cpool_diff = 0xffffffff;
+	compiler->cpool_diff = CONST_POOL_NO_DIFF;
 	compiler->cpool_fill = 0;
 	return 0;
 }
@@ -64,7 +91,7 @@ static int push_inst(struct sljit_compiler *compiler)
 
 	if (compiler->last_type == LIT_INS) {
 		// Test wheter the constant pool must be copied
-		if (compiler->cpool_diff != 0xffffffff && compiler->size - compiler->cpool_diff >= (4092 / sizeof(sljit_w)))
+		if (compiler->cpool_diff != CONST_POOL_NO_DIFF && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4092))
 			if (push_cpool(compiler))
 				return compiler->error;
 
@@ -80,7 +107,7 @@ static int push_inst(struct sljit_compiler *compiler)
 	else if (compiler->last_type >= LIT_CINS) {
 		// Test wheter the constant pool must be copied
 		cpool_index = CPOOL_SIZE;
-		if (compiler->cpool_diff != 0xffffffff && compiler->size - compiler->cpool_diff >= (4092 / sizeof(sljit_w))) {
+		if (compiler->cpool_diff != CONST_POOL_NO_DIFF && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4092)) {
 			if (push_cpool(compiler))
 				return compiler->error;
 		}
@@ -119,10 +146,11 @@ static int push_inst(struct sljit_compiler *compiler)
 		}
 		compiler->cpool[cpool_index] = compiler->last_imm;
 		compiler->cpool_unique[cpool_index] = (compiler->last_type == LIT_UCINS);
-		*inst = compiler->last_ins | (cpool_index << 2);
+		SLJIT_ASSERT((compiler->last_ins & 0xfff) == 0);
+		*inst = compiler->last_ins | cpool_index;
 		compiler->last_type = LIT_NONE;
 		compiler->size++;
-		if (compiler->cpool_diff == 0xffffffff)
+		if (compiler->cpool_diff == CONST_POOL_NO_DIFF)
 			compiler->cpool_diff = compiler->size;
 	}
 
@@ -136,13 +164,13 @@ static int emit_mov_ln_pc(struct sljit_compiler *compiler)
 
 	if (compiler->last_type == LIT_INS) {
 		// Test wheter the constant pool must be copied
-		if (compiler->cpool_diff != 0xffffffff && compiler->size - compiler->cpool_diff >= (4088 / sizeof(sljit_w)))
+		if (compiler->cpool_diff != CONST_POOL_NO_DIFF && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4088))
 			if (push_cpool(compiler))
 				return compiler->error;
 	}
 	else if (compiler->last_type >= LIT_CINS) {
 		// Test wheter the constant pool must be copied
-		if (compiler->cpool_diff != 0xffffffff && compiler->size - compiler->cpool_diff >= (4088 / sizeof(sljit_w))) {
+		if (compiler->cpool_diff != CONST_POOL_NO_DIFF && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4088)) {
 			if (push_cpool(compiler))
 				return compiler->error;
 		}
@@ -165,28 +193,44 @@ static int emit_mov_ln_pc(struct sljit_compiler *compiler)
 	return SLJIT_NO_ERROR;
 }
 
-static INLINE void patch_pc_rel(sljit_uw *last_pc_patch, sljit_uw *code_ptr)
+static sljit_uw patch_pc_rel(sljit_uw *last_pc_patch, sljit_uw *code_ptr, sljit_uw* const_pool, int copy)
 {
 	sljit_uw diff;
+	sljit_uw index;
+	sljit_uw counter = 0;
+	sljit_uw* clear_const_pool = const_pool;
+	sljit_uw* clear_const_pool_end = const_pool + copy;
+
+	SLJIT_ASSERT(const_pool - code_ptr <= CONST_POOL_ALIGNMENT);
+	while (clear_const_pool < clear_const_pool_end)
+		*clear_const_pool++ = (sljit_uw)-1;
 
 	while (last_pc_patch < code_ptr) {
 		if ((*last_pc_patch & 0x0c0f0000) == 0x040f0000) {
-			diff = code_ptr - last_pc_patch;
-			SLJIT_ASSERT((*last_pc_patch & 0x3) == 0 && (*last_pc_patch & (1 << 25)) == 0);
-			if (diff >= 2 || (*last_pc_patch & 0xfff) > 0) {
-				diff = (diff - 2) << 2;
-				SLJIT_ASSERT((*last_pc_patch & 0xfff) + diff <= 0xfff);
-				*last_pc_patch += diff;
+			diff = const_pool - last_pc_patch;
+			index = *last_pc_patch & 0xfff;
+
+			SLJIT_ASSERT(index < copy && (*last_pc_patch & (1 << 25)) == 0);
+			if ((int)const_pool[index] < 0) {
+				const_pool[index] = counter;
+				index = counter;
+				counter++;
 			}
-			else {
-				// In practice, this should never happen
-				SLJIT_ASSERT(diff == 1);
-				*last_pc_patch |= 0x004;
-				*last_pc_patch &= ~(1 << 23);
+			else
+				index = const_pool[index];
+
+			SLJIT_ASSERT(diff >= 1);
+			if (diff >= 2 || index > 0) {
+				diff = (diff + index - 2) << 2;
+				SLJIT_ASSERT(diff <= 0xfff);
+				*last_pc_patch = (*last_pc_patch & ~0xfff) | diff;
 			}
+			else
+				*last_pc_patch = (*last_pc_patch & ~(0xfff | (1 << 23))) | 0x004;
 		}
 		last_pc_patch++;
 	}
+	return counter;
 }
 
 static INLINE int optimize_jump(struct sljit_jump *jump, sljit_uw *code_ptr, sljit_uw *code)
@@ -199,7 +243,7 @@ static INLINE int optimize_jump(struct sljit_jump *jump, sljit_uw *code_ptr, slj
 	if (jump->flags & IS_BL)
 		code_ptr--;
 
-	if (jump->flags & IS_FIXED)
+	if (jump->flags & JUMP_ADDR)
 		diff = ((sljit_w)jump->target - (sljit_w)(code_ptr + 2)) >> 2;
 	else {
 		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
@@ -222,17 +266,75 @@ static INLINE int optimize_jump(struct sljit_jump *jump, sljit_uw *code_ptr, slj
 	return 0;
 }
 
+// In some rare ocasions we may need future patches. The probability is near 0 in practice
+struct future_patch {
+	struct future_patch* next;
+	int index;
+	int value;
+};
+
+#define PROCESS_CONST_POOL() \
+	if (!first_patch) \
+		value = (int)const_pool_ptr[index]; \
+	else { \
+		curr_patch = first_patch; \
+		prev_patch = 0; \
+		while (1) { \
+			if (!curr_patch) { \
+				value = (int)const_pool_ptr[index]; \
+				break; \
+			} \
+			if (curr_patch->index == index) { \
+				value = curr_patch->value; \
+				if (prev_patch) \
+					prev_patch->next = curr_patch->next; \
+				else \
+					first_patch = curr_patch->next; \
+				SLJIT_FREE(curr_patch); \
+				break; \
+			} \
+			prev_patch = curr_patch; \
+			curr_patch = curr_patch->next; \
+		} \
+	} \
+	\
+	if (value >= 0) { \
+		SLJIT_ASSERT(const_pool_ptr + value <= code_ptr); \
+		if (value > index) { \
+			curr_patch = (struct future_patch*)SLJIT_MALLOC(sizeof(struct future_patch)); \
+			if (!curr_patch) { \
+				while (first_patch) { \
+					curr_patch = first_patch; \
+					first_patch = first_patch->next; \
+					SLJIT_FREE(curr_patch); \
+				} \
+				SLJIT_FREE_EXEC(code); \
+				return NULL; \
+			} \
+			curr_patch->next = first_patch; \
+			curr_patch->index = value; \
+			curr_patch->value = const_pool_ptr[value]; \
+			first_patch = curr_patch; \
+		} \
+		const_pool_ptr[value] = *buf_ptr++; \
+	} \
+	else \
+		buf_ptr++;
+
 void* sljit_generate_code(struct sljit_compiler *compiler)
 {
 	struct sljit_memory_fragment *buf;
 	sljit_uw *code;
 	sljit_uw *code_ptr;
+	sljit_uw *const_pool_ptr;
 	sljit_uw *last_pc_patch;
 	sljit_uw *buf_ptr;
 	sljit_uw *buf_end;
 	sljit_uw size;
 	sljit_uw word_count;
-	sljit_uw copy;
+	sljit_uw copy, skip, index;
+	struct future_patch *first_patch, *curr_patch, *prev_patch;
+	int value;
 
 	struct sljit_label *label;
 	struct sljit_jump *jump;
@@ -248,7 +350,9 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	reverse_buf(compiler);
 
 	// Second code generation pass
-	size = compiler->size + compiler->cpool_fill + (compiler->patches << 1);
+	size = compiler->size + (compiler->patches << 1);
+	if (compiler->cpool_fill > 0)
+		size += compiler->cpool_fill + CONST_POOL_ALIGNMENT - 1;
 	code = SLJIT_MALLOC_EXEC(size * sizeof(sljit_uw));
 	if (!code) {
 		compiler->error = SLJIT_MEMORY_ERROR;
@@ -257,8 +361,12 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	buf = compiler->buf;
 
 	code_ptr = code;
+	const_pool_ptr = 0;
 	last_pc_patch = code;
 	copy = 0;
+	skip = 0;
+	index = 0;
+	first_patch = NULL;
 	word_count = 0;
 	label = compiler->labels;
 	jump = compiler->jumps;
@@ -268,9 +376,17 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		buf_end = buf_ptr + (buf->used_size >> 2);
 		while (buf_ptr < buf_end) {
 			if (copy > 0) {
-				*code_ptr++ = *buf_ptr++;
-				if (--copy == 0)
-					last_pc_patch = code_ptr;
+				if (skip > 0) {
+					buf_ptr++;
+					skip--;
+				}
+				else {
+					PROCESS_CONST_POOL();
+					if (++index >= copy) {
+						SLJIT_ASSERT(!first_patch);
+						copy = 0;
+					}
+				}
 			}
 			else if ((*buf_ptr & 0xf0000000) != 0xf0000000) {
 				*code_ptr = *buf_ptr++;
@@ -281,6 +397,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 					label = label->next;
 				}
 				if (jump && jump->addr == word_count) {
+					SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
 					if (optimize_jump(jump, code_ptr, code))
 						code_ptr--;
 
@@ -297,9 +414,16 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				// Fortunately, no need to shift
 				copy = *buf_ptr++ & 0x00ffffff;
 				SLJIT_ASSERT(copy > 0);
-				// unconditional branch
-				*code_ptr++ = 0xea000000 | ((copy - 1) & 0x00ffffff);
-				patch_pc_rel(last_pc_patch, code_ptr);
+				const_pool_ptr = ALIGN_INSTRUCTION(code_ptr + 1);
+				index = patch_pc_rel(last_pc_patch, code_ptr, const_pool_ptr, copy);
+				if (index > 0) {
+					// unconditional branch
+					*code_ptr = 0xea000000 | (((const_pool_ptr - code_ptr) + index - 2) & 0x00ffffff);
+					code_ptr = const_pool_ptr + index;
+				}
+				skip = CONST_POOL_ALIGNMENT - 1;
+				index = 0;
+				last_pc_patch = code_ptr;
 			}
 			else {
 				SLJIT_ASSERT_IMPOSSIBLE();
@@ -315,12 +439,19 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	SLJIT_ASSERT(copy == 0);
 
 	if (compiler->cpool_fill > 0) {
-		patch_pc_rel(last_pc_patch, code_ptr);
+		const_pool_ptr = ALIGN_INSTRUCTION(code_ptr);
+		index = patch_pc_rel(last_pc_patch, code_ptr, const_pool_ptr, compiler->cpool_fill);
+		if (index > 0)
+			code_ptr = const_pool_ptr + index;
 
 		buf_ptr = compiler->cpool;
 		buf_end = buf_ptr + compiler->cpool_fill;
-		while (buf_ptr < buf_end)
-			*code_ptr++ = *buf_ptr++;
+		index = 0;
+		while (buf_ptr < buf_end) {
+			PROCESS_CONST_POOL();
+			++index;
+		}
+		SLJIT_ASSERT(!first_patch);
 	}
 
 	jump = compiler->jumps;
@@ -330,7 +461,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 		if (!(jump->flags & SLJIT_LONG_JUMP)) {
 			if (jump->flags & PATCH_B) {
-				if (!(jump->flags & IS_FIXED)) {
+				if (!(jump->flags & JUMP_ADDR)) {
 					SLJIT_ASSERT(jump->flags & JUMP_LABEL);
 					SLJIT_ASSERT(((sljit_w)jump->label->addr - (sljit_w)(buf_ptr + 2)) <= 0x01ffffff && ((sljit_w)jump->label->addr - (sljit_w)(buf_ptr + 2)) >= -0x02000000);
 					*buf_ptr |= (((sljit_w)jump->label->addr - (sljit_w)(buf_ptr + 2)) >> 2) & 0x00ffffff;
@@ -342,7 +473,6 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 			}
 		}
 		else {
-			SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
 			code_ptr[0] = (sljit_uw)buf_ptr;
 			code_ptr[1] = *buf_ptr;
 			sljit_set_jump_addr((sljit_uw)code_ptr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target);
@@ -370,6 +500,10 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	}
 
 	SLJIT_ASSERT(code_ptr - code <= size);
+
+	// Just call __ARM_NR_cacheflush in Linux
+	__clear_cache((char *)code, (char *)code_ptr);
+
 	compiler->error = SLJIT_CODE_GENERATED;
 	return code;
 }
@@ -1566,7 +1700,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		TEST_MEM_ERROR(jump);
 
 		jump->next = NULL;
-		jump->flags = IS_FIXED | ((type >= SLJIT_CALL0) ? IS_BL : 0);
+		jump->flags = JUMP_ADDR | ((type >= SLJIT_CALL0) ? IS_BL : 0);
 		jump->target = srcw;
 		if (compiler->last_jump)
 			compiler->last_jump->next = jump;
