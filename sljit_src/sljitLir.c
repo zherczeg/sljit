@@ -284,6 +284,21 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	} \
 	else \
 		SLJIT_ASSERT_IMPOSSIBLE();
+
+#define FUNCTION_FCHECK(p, i) \
+	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG4) \
+		SLJIT_ASSERT(i == 0); \
+	else if ((p) & SLJIT_MEM_FLAG) { \
+		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_FLOAT_REG4); \
+		if (((p) & 0xf) != 0) \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_FLOAT_REG4); \
+		else \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
+		SLJIT_ASSERT(((p) >> 9) == 0); \
+	} \
+	else \
+		SLJIT_ASSERT_IMPOSSIBLE();
+
 #endif
 
 #ifdef SLJIT_VERBOSE
@@ -295,6 +310,10 @@ void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
 
 static char* reg_names[] = {
 	"<noreg>", "tmp_r1", "tmp_r2", "tmp_r3", "gen_r1", "gen_r2", "gen_r3"
+};
+
+static char* freg_names[] = {
+	"<noreg>", "fr1", "fr2", "fr3", "fr4"
 };
 
 #ifdef SLJIT_CONFIG_X86_64
@@ -329,6 +348,26 @@ static char* reg_names[] = {
 			fprintf(compiler->verbose, "[#%"SLJIT_PRINT_D"d]", (i)); \
 	} else \
 		fprintf(compiler->verbose, "%s", reg_names[p]);
+#define sljit_verbose_fparam(p, i) \
+	if ((p) & SLJIT_MEM_FLAG) { \
+		if ((p) & 0xF) { \
+			if ((i) != 0) { \
+				if (((p) >> 4) & 0xF) \
+					fprintf(compiler->verbose, "[%s + %s + #%"SLJIT_PRINT_D"d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], (i)); \
+				else \
+					fprintf(compiler->verbose, "[%s + #%"SLJIT_PRINT_D"d]", reg_names[(p) & 0xF], (i)); \
+			} \
+			else { \
+				if (((p) >> 4) & 0xF) \
+					fprintf(compiler->verbose, "[%s + %s]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF]); \
+				else \
+					fprintf(compiler->verbose, "[%s]", reg_names[(p) & 0xF]); \
+			} \
+		} \
+		else \
+			fprintf(compiler->verbose, "[#%"SLJIT_PRINT_D"d]", (i)); \
+	} else \
+		fprintf(compiler->verbose, "%s", freg_names[p]);
 static char* op1_names[] = {
 	"mov", "not", "neg"
 };
@@ -352,6 +391,30 @@ static char* op2_names[] = {
 		sljit_verbose_param(src1, src1w); \
 		fprintf(compiler->verbose, ", "); \
 		sljit_verbose_param(src2, src2w); \
+		fprintf(compiler->verbose, "\n"); \
+	}
+static char* fop1_names[] = {
+	"fcmp", "fmov", "fneg, fabs"
+};
+#define sljit_emit_fop1_verbose() \
+	if (compiler->verbose) { \
+		fprintf(compiler->verbose, "  %s ", fop1_names[op]); \
+		sljit_verbose_fparam(dst, dstw); \
+		fprintf(compiler->verbose, ", "); \
+		sljit_verbose_fparam(src, srcw); \
+		fprintf(compiler->verbose, "\n"); \
+	}
+static char* fop2_names[] = {
+	"fadd", "fsub", "fmul", "fdiv"
+};
+#define sljit_emit_fop2_verbose() \
+	if (compiler->verbose) { \
+		fprintf(compiler->verbose, "  %s ", fop2_names[op]); \
+		sljit_verbose_fparam(dst, dstw); \
+		fprintf(compiler->verbose, ", "); \
+		sljit_verbose_fparam(src1, src1w); \
+		fprintf(compiler->verbose, ", "); \
+		sljit_verbose_fparam(src2, src2w); \
 		fprintf(compiler->verbose, "\n"); \
 	}
 #define sljit_emit_label_verbose() \
@@ -395,6 +458,8 @@ static char* jump_names[] = {
 #define sljit_emit_return_verbose()
 #define sljit_emit_op1_verbose()
 #define sljit_emit_op2_verbose()
+#define sljit_emit_fop1_verbose()
+#define sljit_emit_fop2_verbose()
 #define sljit_emit_label_verbose()
 #define sljit_emit_jump_verbose()
 #define sljit_emit_ijump_verbose()

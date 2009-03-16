@@ -180,6 +180,21 @@ typedef long int sljit_w;
 #define SLJIT_PREF_SHIFT_REG	SLJIT_TEMPORARY_REG3
 
 // ---------------------------------------------------------------------
+//  Floating point registers
+// ---------------------------------------------------------------------
+
+// SLJIT_NO_REG is not valid for floating point,
+// because there is an individual fpu compare instruction,
+// and floating point operations are not used for (non-)zero testing
+
+// Floating point operations are performed on double precision values
+
+#define SLJIT_FLOAT_REG1	1
+#define SLJIT_FLOAT_REG2	2
+#define SLJIT_FLOAT_REG3	3
+#define SLJIT_FLOAT_REG4	4
+
+// ---------------------------------------------------------------------
 //  Main functions
 // ---------------------------------------------------------------------
 
@@ -350,6 +365,28 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 #define SLJIT_ASHR			10
 
 int sljit_emit_op2(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w);
+
+int sljit_is_fpu_available(void);
+
+// dst is source in case of FCMP
+#define SLJIT_FCMP			0
+#define SLJIT_FMOV			1
+#define SLJIT_FNEG			2
+#define SLJIT_FABS			3
+
+int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw);
+
+#define SLJIT_FADD			0
+#define SLJIT_FSUB			1
+#define SLJIT_FMUL			2
+#define SLJIT_FDIV			3
+
+int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w);

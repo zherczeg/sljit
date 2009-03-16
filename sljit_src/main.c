@@ -12,14 +12,8 @@ void error(char* str)
 
 union executable_code {
 	void* code;
-	SLJIT_CALL sljit_w (*func)(sljit_w* a, sljit_w b, sljit_w c);
+	SLJIT_CALL sljit_w (*func)(sljit_w* a);
 };
-
-static sljit_w SLJIT_CALL func(sljit_w a, sljit_w b, sljit_w c)
-{
-printf("a: %ld b: %ld c: %ld\n", (long)a, (long)b, (long)c);
-	return a + b + c + 1;
-}
 
 int devel_dummy(void) { return rand(); }
 
@@ -28,24 +22,29 @@ void devel(void)
 	union executable_code code;
 
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_w buf[6];
+	double buf[7];
 
 	if (!compiler)
 		error("Not enough of memory");
-	buf[0] = 0;
-	buf[1] = 0;
-	buf[2] = 0;
-	buf[3] = 0;
+	buf[0] = 10.1;
+	buf[1] = 22.1;
+	buf[2] = 0.0;
+	buf[3] = 0.0;
+	buf[4] = 0.0;
+	buf[5] = 0.0;
+	buf[6] = 0.0;
 
 #ifdef SLJIT_VERBOSE
 	sljit_compiler_verbose(compiler, stdout);
 #endif
-	sljit_emit_enter(compiler, 3, 3);
+	sljit_emit_enter(compiler, 1, 3);
 
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 6);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 7);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, 8);
-	sljit_set_target(sljit_emit_jump(compiler, SLJIT_CALL3), (sljit_uw)&func);
+	sljit_emit_fop2(compiler, SLJIT_FADD, SLJIT_MEM0(), (sljit_uw)&buf[2], SLJIT_MEM0(), (sljit_uw)&buf[0], SLJIT_MEM0(), (sljit_uw)&buf[1]);
+	sljit_emit_fop2(compiler, SLJIT_FSUB, SLJIT_FLOAT_REG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double));
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 3, SLJIT_FLOAT_REG2, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG1, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 2);
+	sljit_emit_fop2(compiler, SLJIT_FADD, SLJIT_FLOAT_REG1, 0, SLJIT_FLOAT_REG1, 0, SLJIT_FLOAT_REG2, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 4, SLJIT_FLOAT_REG1, 0);
 
 	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
 	code.code = sljit_generate_code(compiler);
@@ -53,17 +52,20 @@ void devel(void)
 
 	printf("Code at: %p\n", code.code); devel_dummy();
 
-	printf("Function returned with %ld\n", (long)code.func(buf, 11, 6789));
-	printf("buf[0] = 0x%lx\n", (long)buf[0]);
-	printf("buf[1] = 0x%lx\n", (long)buf[1]);
-	printf("buf[2] = 0x%lx\n", (long)buf[2]);
-	printf("buf[3] = 0x%lx\n", (long)buf[3]);
+	printf("Function returned with %ld\n", (long)code.func((sljit_uw*)buf));
+	printf("buf[0] = %lf\n", buf[0]);
+	printf("buf[1] = %lf\n", buf[1]);
+	printf("buf[2] = %lf\n", buf[2]);
+	printf("buf[3] = %lf\n", buf[3]);
+	printf("buf[4] = %lf\n", buf[4]);
+	printf("buf[5] = %lf\n", buf[5]);
+	printf("buf[6] = %lf\n", buf[6]);
 	sljit_free_code(code.code);
 }
 
 int main(int argc, char* argv[])
 {
-//	devel();
+	//devel();
 	sljit_test();
 
 	return 0;
