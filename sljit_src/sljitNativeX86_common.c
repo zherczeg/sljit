@@ -1141,6 +1141,196 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 }
 
 // ---------------------------------------------------------------------
+//  Floating point operators
+// ---------------------------------------------------------------------
+
+int sljit_is_fpu_available(void)
+{
+	// Always available
+	return 1;
+}
+
+static int emit_fld(struct sljit_compiler *compiler,
+	int src, sljit_w srcw)
+{
+	sljit_ub *buf;
+
+	if (src >= SLJIT_FLOAT_REG1 && src <= SLJIT_FLOAT_REG4) {
+		buf = ensure_buf(compiler, 1 + 2);
+		TEST_MEM_ERROR(buf);
+		INC_SIZE(2);
+		*buf++ = 0xd9;
+		*buf = 0xc0 + src - 1;
+		return SLJIT_NO_ERROR;
+	}
+
+	buf = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
+	TEST_MEM_ERROR(buf);
+	*buf = 0xdd;
+	return SLJIT_NO_ERROR;
+}
+
+static int emit_fop(struct sljit_compiler *compiler,
+	sljit_ub st_arg, sljit_ub st_arg2,
+	sljit_ub m64fp_arg, sljit_ub m64fp_arg2,
+	int src, sljit_w srcw)
+{
+	sljit_ub *buf;
+
+	if (src >= SLJIT_FLOAT_REG1 && src <= SLJIT_FLOAT_REG4) {
+		buf = ensure_buf(compiler, 1 + 2);
+		TEST_MEM_ERROR(buf);
+		INC_SIZE(2);
+		*buf++ = st_arg;
+		*buf = st_arg2 + src;
+		return SLJIT_NO_ERROR;
+	}
+
+	buf = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
+	TEST_MEM_ERROR(buf);
+	*buf++ = m64fp_arg;
+	*buf |= m64fp_arg2;
+	return SLJIT_NO_ERROR;
+}
+
+static int emit_fop_regs(struct sljit_compiler *compiler,
+	sljit_ub st_arg, sljit_ub st_arg2,
+	int src)
+{
+	sljit_ub *buf;
+
+	buf = ensure_buf(compiler, 1 + 2);
+	TEST_MEM_ERROR(buf);
+	INC_SIZE(2);
+	*buf++ = st_arg;
+	*buf = st_arg2 + src;
+	return SLJIT_NO_ERROR;
+}
+
+int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw)
+{
+	FUNCTION_ENTRY();
+
+	SLJIT_ASSERT(op >= SLJIT_FCMP && op <= SLJIT_FABS);
+#ifdef SLJIT_DEBUG
+	FUNCTION_FCHECK(src, srcw);
+	FUNCTION_FCHECK(dst, dstw);
+#endif
+	sljit_emit_fop1_verbose();
+
+	if (emit_fld(compiler, src, srcw))
+		return compiler->error;
+
+	switch (op) {
+	case SLJIT_FNEG:
+		if (emit_fop_regs(compiler, 0xd9, 0xe0, 0))
+			return compiler->error;
+		break;
+	case SLJIT_FABS:
+		if (emit_fop_regs(compiler, 0xd9, 0xe1, 0))
+			return compiler->error;
+		break;
+	}
+
+	if (emit_fop(compiler, 0xdd, 0xd8, 0xdd, 0x3 << 3, dst, dstw))
+		return compiler->error;
+
+	return SLJIT_NO_ERROR;
+}
+
+int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	FUNCTION_ENTRY();
+
+	SLJIT_ASSERT(op >= SLJIT_FADD && op <= SLJIT_FDIV);
+#ifdef SLJIT_DEBUG
+	FUNCTION_FCHECK(src1, src1w);
+	FUNCTION_FCHECK(src2, src2w);
+	FUNCTION_FCHECK(dst, dstw);
+#endif
+	sljit_emit_fop2_verbose();
+
+	if (src1 >= SLJIT_FLOAT_REG1 && src1 <= SLJIT_FLOAT_REG4 && dst == src1) {
+		if (emit_fld(compiler, src2, src2w))
+			return compiler->error;
+
+		switch (op) {
+		case SLJIT_FADD:
+			if (emit_fop_regs(compiler, 0xde, 0xc0, src1))
+				return compiler->error;
+			break;
+		case SLJIT_FSUB:
+			if (emit_fop_regs(compiler, 0xde, 0xe8, src1))
+				return compiler->error;
+			break;
+		case SLJIT_FMUL:
+			if (emit_fop_regs(compiler, 0xde, 0xc8, src1))
+				return compiler->error;
+			break;
+		case SLJIT_FDIV:
+			if (emit_fop_regs(compiler, 0xde, 0xf8, src1))
+				return compiler->error;
+			break;
+		}
+		return SLJIT_NO_ERROR;
+	}
+
+	if (emit_fld(compiler, src1, src1w))
+		return compiler->error;
+
+	if (src2 >= SLJIT_FLOAT_REG1 && src2 <= SLJIT_FLOAT_REG4 && dst == src2) {
+		switch (op) {
+		case SLJIT_FADD:
+			if (emit_fop_regs(compiler, 0xde, 0xc0, src2))
+				return compiler->error;
+			break;
+		case SLJIT_FSUB:
+			if (emit_fop_regs(compiler, 0xde, 0xe0, src2))
+				return compiler->error;
+			break;
+		case SLJIT_FMUL:
+			if (emit_fop_regs(compiler, 0xde, 0xc8, src2))
+				return compiler->error;
+			break;
+		case SLJIT_FDIV:
+			if (emit_fop_regs(compiler, 0xde, 0xf0, src2))
+				return compiler->error;
+			break;
+		}
+		return SLJIT_NO_ERROR;
+	}
+
+	switch (op) {
+	case SLJIT_FADD:
+		if (emit_fop(compiler, 0xd8, 0xc0, 0xdc, 0x0 << 3, src2, src2w))
+			return compiler->error;
+		break;
+	case SLJIT_FSUB:
+		if (emit_fop(compiler, 0xd8, 0xe0, 0xdc, 0x4 << 3, src2, src2w))
+			return compiler->error;
+		break;
+	case SLJIT_FMUL:
+		if (emit_fop(compiler, 0xd8, 0xc8, 0xdc, 0x1 << 3, src2, src2w))
+			return compiler->error;
+		break;
+	case SLJIT_FDIV:
+		if (emit_fop(compiler, 0xd8, 0xf0, 0xdc, 0x6 << 3, src2, src2w))
+			return compiler->error;
+		break;
+	}
+
+	if (emit_fop(compiler, 0xdd, 0xd8, 0xdd, 0x3 << 3, dst, dstw))
+		return compiler->error;
+
+	return SLJIT_NO_ERROR;
+}
+
+// ---------------------------------------------------------------------
 //  Conditional instructions
 // ---------------------------------------------------------------------
 

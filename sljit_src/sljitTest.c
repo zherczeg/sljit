@@ -634,6 +634,144 @@ static void test12(void)
 	printf("test12 ok\n");
 }
 
+static void test13(void)
+{
+	// Test rewriteable jumps
+	union executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	double buf[6];
+
+	if (!sljit_is_fpu_available()) {
+		printf("no fpu available, test13 skipped\n");
+		return;
+	}
+
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 7.75;
+	buf[1] = -4.5;
+	buf[2] = 0.0;
+	buf[3] = 0.0;
+	buf[4] = 0.0;
+	buf[5] = 0.0;
+
+	T(sljit_emit_enter(compiler, 1, 1));
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM0(), (sljit_w)&buf[2], SLJIT_MEM0(), (sljit_w)&buf[1]);
+	sljit_emit_fop1(compiler, SLJIT_FABS, SLJIT_MEM1(SLJIT_GENERAL_REG1), 3 * sizeof(double), SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double));
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG1, 0, SLJIT_MEM0(), (sljit_w)&buf[0]);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 2 * sizeof(double));
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG2, 0, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), 0);
+	sljit_emit_fop1(compiler, SLJIT_FNEG, SLJIT_FLOAT_REG3, 0, SLJIT_FLOAT_REG1, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG4, 0, SLJIT_FLOAT_REG3, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM0(), (sljit_w)&buf[4], SLJIT_FLOAT_REG4, 0);
+	sljit_emit_fop1(compiler, SLJIT_FABS, SLJIT_FLOAT_REG3, 0, SLJIT_FLOAT_REG2, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 5 * sizeof(double), SLJIT_FLOAT_REG3, 0);
+
+	T(sljit_emit_return(compiler, SLJIT_NO_REG));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_w)&buf);
+	FAILED(buf[2] != -4.5, "test13 case 1 failed\n");
+	FAILED(buf[3] != 4.5, "test13 case 2 failed\n");
+	FAILED(buf[4] != -7.75, "test13 case 3 failed\n");
+	FAILED(buf[5] != 4.5, "test13 case 4 failed\n");
+
+	sljit_free_code(code.code);
+	printf("test13 ok\n");
+}
+
+static void test14(void)
+{
+	// Test rewriteable jumps
+	union executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	double buf[15];
+
+	if (!sljit_is_fpu_available()) {
+		printf("no fpu available, test14 skipped\n");
+		return;
+	}
+	buf[0] = 7.25;
+	buf[1] = 3.5;
+	buf[2] = 1.75;
+	buf[3] = 0.0;
+	buf[4] = 0.0;
+	buf[5] = 0.0;
+	buf[6] = 0.0;
+	buf[7] = 0.0;
+	buf[8] = 0.0;
+	buf[9] = 0.0;
+	buf[10] = 0.0;
+	buf[11] = 0.0;
+	buf[12] = 8.0;
+	buf[13] = 4.0;
+	buf[14] = 0.0;
+
+	FAILED(!compiler, "cannot create compiler\n");
+	T(sljit_emit_enter(compiler, 1, 1));
+
+	// ADD
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, sizeof(double));
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG1, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double));
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 2);
+	sljit_emit_fop2(compiler, SLJIT_FADD, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 3, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0);
+	sljit_emit_fop2(compiler, SLJIT_FADD, SLJIT_FLOAT_REG1, 0, SLJIT_FLOAT_REG1, 0, SLJIT_FLOAT_REG2, 0);
+	sljit_emit_fop2(compiler, SLJIT_FADD, SLJIT_FLOAT_REG2, 0, SLJIT_FLOAT_REG1, 0, SLJIT_FLOAT_REG2, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 4, SLJIT_FLOAT_REG1, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 5, SLJIT_FLOAT_REG2, 0);
+
+	// SUB
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG3, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG4, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 2);
+	sljit_emit_fop2(compiler, SLJIT_FSUB, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 6, SLJIT_FLOAT_REG4, 0, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), sizeof(double));
+	sljit_emit_fop2(compiler, SLJIT_FSUB, SLJIT_FLOAT_REG3, 0, SLJIT_FLOAT_REG3, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 2);
+	sljit_emit_fop2(compiler, SLJIT_FSUB, SLJIT_FLOAT_REG4, 0, SLJIT_FLOAT_REG3, 0, SLJIT_FLOAT_REG4, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 7, SLJIT_FLOAT_REG3, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 8, SLJIT_FLOAT_REG4, 0);
+
+	// MUL
+	sljit_emit_fop2(compiler, SLJIT_FMUL, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 9, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), 0, SLJIT_FLOAT_REG2, 0);
+	sljit_emit_fop2(compiler, SLJIT_FMUL, SLJIT_FLOAT_REG2, 0, SLJIT_FLOAT_REG2, 0, SLJIT_FLOAT_REG3, 0);
+	sljit_emit_fop2(compiler, SLJIT_FMUL, SLJIT_FLOAT_REG3, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 2, SLJIT_FLOAT_REG3, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 10, SLJIT_FLOAT_REG2, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 11, SLJIT_FLOAT_REG3, 0);
+
+	// DIV
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG1, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 12);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 13);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG3, 0, SLJIT_FLOAT_REG1, 0);
+	sljit_emit_fop2(compiler, SLJIT_FDIV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 12, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 12, SLJIT_FLOAT_REG2, 0);
+	sljit_emit_fop2(compiler, SLJIT_FDIV, SLJIT_FLOAT_REG1, 0, SLJIT_FLOAT_REG1, 0, SLJIT_FLOAT_REG2, 0);
+	sljit_emit_fop2(compiler, SLJIT_FDIV, SLJIT_FLOAT_REG3, 0, SLJIT_FLOAT_REG2, 0, SLJIT_FLOAT_REG3, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 13, SLJIT_FLOAT_REG1, 0);
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 14, SLJIT_FLOAT_REG3, 0);
+
+	T(sljit_emit_return(compiler, SLJIT_NO_REG));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_w)&buf);
+	FAILED(buf[3] != 10.75, "test14 case 1 failed\n");
+	FAILED(buf[4] != 5.25, "test14 case 2 failed\n");
+	FAILED(buf[5] != 7.0, "test14 case 3 failed\n");
+	FAILED(buf[6] != 0.0, "test14 case 4 failed\n");
+	FAILED(buf[7] != 5.5, "test14 case 5 failed\n");
+	FAILED(buf[8] != 3.75, "test14 case 6 failed\n");
+	FAILED(buf[9] != 24.5, "test14 case 7 failed\n");
+	FAILED(buf[10] != 38.5, "test14 case 8 failed\n");
+	FAILED(buf[11] != 9.625, "test14 case 9 failed\n");
+	FAILED(buf[12] != 2.0, "test14 case 10 failed\n");
+	FAILED(buf[13] != 2.0, "test14 case 11 failed\n");
+	FAILED(buf[14] != 0.5, "test14 case 11 failed\n");
+
+	sljit_free_code(code.code);
+	printf("test14 ok\n");
+}
+
 static sljit_w SLJIT_CALL func(sljit_w a, sljit_w b)
 {
 	return a + b + 5;
@@ -947,6 +1085,8 @@ void sljit_test(void)
 	test10();
 	test11();
 	test12();
+	test13();
+	test14();
 	test15();
 	test16();
 	test17();
