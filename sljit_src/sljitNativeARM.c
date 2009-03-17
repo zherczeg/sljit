@@ -18,6 +18,9 @@
 #define TMP_REG3	(SLJIT_GENERAL_REG3 + 3)
 #define TMP_PC		(SLJIT_GENERAL_REG3 + 4)
 
+#define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
+#define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
+
 // In ARM instruction words
 #define CONST_POOL_ALIGNMENT	8
 #define CONST_POOL_NO_DIFF	0xffffffff
@@ -1022,7 +1025,7 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int flags, int reg, 
 
 	// Fast loads/stores
 	if ((arg & 0xf) != 0) {
-		if (((arg >> 4) & 0xf) == 0) {
+		if ((arg & 0xf0) == 0) {
 			if (argw >= 0 && argw <= 0xfff) {
 				if (flags & ARG_TEST)
 					return 1;
@@ -1063,7 +1066,7 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 		return 0;
 
 	if ((arg & 0xf) == 0) {
-		if ((next_arg & SLJIT_MEM_FLAG) && (argw - next_argw <= 4095 || next_argw - argw <= 0xfff))
+		if ((next_arg & SLJIT_MEM_FLAG) && (argw - next_argw <= 0xfff || next_argw - argw <= 0xfff))
 			return 1;
 		return 0;
 	}
@@ -1113,7 +1116,7 @@ static int getput_arg(struct sljit_compiler *compiler, int flags, int reg, int a
 			return SLJIT_NO_ERROR;
 		}
 
-		if ((compiler->cache_arg & SLJIT_IMM) && ((sljit_uw)compiler->cache_argw - (sljit_uw)argw) <= 4095) {
+		if ((compiler->cache_arg & SLJIT_IMM) && ((sljit_uw)compiler->cache_argw - (sljit_uw)argw) <= 0xfff) {
 			if (push_inst(compiler))
 				return compiler->error;
 			compiler->last_type = LIT_INS;
@@ -1121,7 +1124,7 @@ static int getput_arg(struct sljit_compiler *compiler, int flags, int reg, int a
 			return SLJIT_NO_ERROR;
 		}
 
-		if ((next_arg & SLJIT_MEM_FLAG) && (argw - next_argw <= 4095 || next_argw - argw <= 0xfff)) {
+		if ((next_arg & SLJIT_MEM_FLAG) && (argw - next_argw <= 0xfff || next_argw - argw <= 0xfff)) {
 			SLJIT_ASSERT(flags & ARG_LOAD);
 			if (load_immediate(compiler, TMP_REG3, argw))
 				return compiler->error;
@@ -1533,6 +1536,314 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 			compiler->shift_imm = 0x20;
 			return emit_op(compiler, op, 0, dst, dstw, src1, src1w, src2, src2w);
 		}
+	}
+
+	return SLJIT_NO_ERROR;
+}
+
+// ---------------------------------------------------------------------
+//  Floating point operators
+// ---------------------------------------------------------------------
+
+// Two ARM fpus are supported: vfp and fpa
+
+// 0 - no fpu
+// 1 - vfp
+// 2 - fpa
+static int arm_fpu_type = -1;
+
+union stub_detect_fpu {
+	int (*call)();
+	sljit_uw *ptr;
+};
+
+static void detect_cpu_features()
+{
+	/* I know this is a stupid hack, but gas may refuse to compile these instructions */
+	static sljit_uw detect_vfp[3] = { 0xe3a00000 /* mov r0, #0 */, 0xeef00a10 /* fmrx r0, fpsid */ , 0xe1a0f00e /* mov pc, lr */};
+	static sljit_uw detect_fpa[3] = { 0xe3a00000 /* mov r0, #0 */, 0xee300110 /* rfs r0 */ , 0xe1a0f00e /* mov pc, lr */};
+	union stub_detect_fpu call_detect_fpu;
+	sljit_uw status;
+
+	if (arm_fpu_type != -1)
+		return;
+
+	arm_fpu_type = 0;
+
+	call_detect_fpu.ptr = detect_vfp;
+	status = call_detect_fpu.call();
+	if (!(status & (1 << 23)) && (status & 0xff000000) == 0x41000000)
+		arm_fpu_type = 1;
+
+	call_detect_fpu.ptr = detect_fpa;
+	status = call_detect_fpu.call();
+	if ((status & 0x80000000) && (status & 0x7f000000))
+		arm_fpu_type = 2;
+}
+
+int sljit_is_fpu_available(void)
+{
+	if (arm_fpu_type == -1)
+		detect_cpu_features();
+
+	// TODO: should make a test
+	return (arm_fpu_type > 0) ? 1 : 0;
+}
+
+#define EMIT_FPU_DATA_TRANSFER(add, load, base, freg, offs) \
+	(((arm_fpu_type == 1) ? 0xed000b00 : 0xed008100) | ((add) << 23) | ((load) << 20) | (reg_map[base] << 16) | (freg << 12) | (offs))
+#define EMIT_FPU_OPERATION(vfp_opcode, fpa_opcode, dst, src1, src2) \
+	(((arm_fpu_type == 1) ? vfp_opcode : fpa_opcode) | ((dst) << 12) | (src1) | ((src2) << 16))
+
+static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, int load, int arg, sljit_w argw)
+{
+	SLJIT_ASSERT(arg & SLJIT_MEM_FLAG);
+
+	// Fast loads and stores
+	if ((arg & 0xf) != 0 && (arg & 0xf0) == 0) {
+		if (argw >= 0 && argw <= 0x3ff) {
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_FPU_DATA_TRANSFER(1, load, arg & 0xf, fpu_reg, argw >> 2);
+			return SLJIT_NO_ERROR;
+		}
+		if (argw < 0 && argw >= -0x3ff) {
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_FPU_DATA_TRANSFER(0, load, arg & 0xf, fpu_reg, (-argw) >> 2);
+			return SLJIT_NO_ERROR;
+		}
+		if (argw >= 0 && argw <= 0x3ffff) {
+			SLJIT_ASSERT(get_immediate(argw & 0x3fc00) != 0);
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_DATA_PROCESS_INS(0x08, TMP_REG1, arg & 0xf, get_immediate(argw & 0x3fc00));
+			argw &= 0x3ff;
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_FPU_DATA_TRANSFER(1, load, TMP_REG1, fpu_reg, argw >> 2);
+			return SLJIT_NO_ERROR;
+		}
+		if (argw < 0 && argw >= -0x3ffff) {
+			argw = -argw;
+			SLJIT_ASSERT(get_immediate(argw & 0x3fc00) != 0);
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_DATA_PROCESS_INS(0x04, TMP_REG1, arg & 0xf, get_immediate(argw & 0x3fc00));
+			argw &= 0x3ff;
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_FPU_DATA_TRANSFER(0, load, TMP_REG1, fpu_reg, argw >> 2);
+			return SLJIT_NO_ERROR;
+		}
+	}
+
+	if (compiler->cache_arg == arg) {
+		if (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= 0x3ff) {
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_FPU_DATA_TRANSFER(1, load, TMP_REG3, fpu_reg, (argw - compiler->cache_argw) >> 2);
+			return SLJIT_NO_ERROR;
+		}
+		if (((sljit_uw)compiler->cache_argw - (sljit_uw)argw) <= 0x3ff) {
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_FPU_DATA_TRANSFER(0, load, TMP_REG3, fpu_reg, (compiler->cache_argw - argw) >> 2);
+			return SLJIT_NO_ERROR;
+		}
+	}
+
+	compiler->cache_arg = arg;
+	compiler->cache_argw = 0;
+	if ((arg & 0xf0) != 0) {
+		if (push_inst(compiler))
+			return compiler->error;
+		compiler->last_type = LIT_INS;
+		compiler->last_ins = EMIT_DATA_PROCESS_INS(0x08, TMP_REG3, arg & 0xf, reg_map[(arg >> 4) & 0xf]);
+
+		if (argw >= 0 && argw <= 0x3ff) {
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_FPU_DATA_TRANSFER(1, load, TMP_REG3, fpu_reg, argw >> 2);
+			return SLJIT_NO_ERROR;
+		}
+		if (argw < 0 && argw >= -0x3ff) {
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_FPU_DATA_TRANSFER(0, load, TMP_REG3, fpu_reg, (-argw) >> 2);
+			return SLJIT_NO_ERROR;
+		}
+
+		compiler->cache_argw = argw;
+		if (load_immediate(compiler, TMP_REG1, argw))
+			return compiler->error;
+
+		if (push_inst(compiler))
+			return compiler->error;
+		compiler->last_type = LIT_INS;
+		compiler->last_ins = EMIT_DATA_PROCESS_INS(0x08, TMP_REG3, TMP_REG3, reg_map[TMP_REG1]);
+	}
+	else if ((arg & 0xf) != 0) {
+		compiler->cache_argw = argw;
+		if (load_immediate(compiler, TMP_REG1, argw))
+			return compiler->error;
+
+		if (push_inst(compiler))
+			return compiler->error;
+		compiler->last_type = LIT_INS;
+		compiler->last_ins = EMIT_DATA_PROCESS_INS(0x08, TMP_REG3, arg & 0xf, reg_map[TMP_REG1]);
+	}
+	else {
+		compiler->cache_argw = argw;
+		if (load_immediate(compiler, TMP_REG3, argw))
+			return compiler->error;
+	}
+
+	if (push_inst(compiler))
+		return compiler->error;
+	compiler->last_type = LIT_INS;
+	compiler->last_ins = EMIT_FPU_DATA_TRANSFER(1, load, TMP_REG3, fpu_reg, 0);
+	return SLJIT_NO_ERROR;
+}
+
+int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw)
+{
+	int dst_freg;
+
+	FUNCTION_ENTRY();
+
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(op >= SLJIT_FCMP && op <= SLJIT_FABS);
+#ifdef SLJIT_DEBUG
+	FUNCTION_FCHECK(src, srcw);
+	FUNCTION_FCHECK(dst, dstw);
+#endif
+	sljit_emit_fop1_verbose();
+
+	compiler->cache_arg = 0;
+	compiler->cache_argw = 0;
+
+	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+
+	if (src > SLJIT_FLOAT_REG4) {
+		ORDER_IND_REGS(src);
+		emit_fpu_data_transfer(compiler, dst_freg, 1, src, srcw);
+		src = dst_freg;
+	}
+
+	switch (op) {
+		case SLJIT_FMOV:
+			if (src != dst_freg && dst_freg != TMP_FREG1) {
+				if (push_inst(compiler))
+					return compiler->error;
+				compiler->last_type = LIT_INS;
+				compiler->last_ins = EMIT_FPU_OPERATION(0xeeb00b40, 0xee008180, dst_freg, src, 0);
+			}
+			break;
+		case SLJIT_FNEG:
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_FPU_OPERATION(0xeeb10b40, 0xee108180, dst_freg, src, 0);
+			break;
+		case SLJIT_FABS:
+			if (push_inst(compiler))
+				return compiler->error;
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_FPU_OPERATION(0xeeb00bc0, 0xee208180, dst_freg, src, 0);
+			break;
+	}
+
+	if (dst_freg == TMP_FREG1) {
+		ORDER_IND_REGS(dst);
+		if (emit_fpu_data_transfer(compiler, src, 0, dst, dstw))
+			return compiler->error;
+	}
+
+	return SLJIT_NO_ERROR;
+}
+
+int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	int dst_freg;
+
+	FUNCTION_ENTRY();
+
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(op >= SLJIT_FADD && op <= SLJIT_FDIV);
+#ifdef SLJIT_DEBUG
+	FUNCTION_FCHECK(src1, src1w);
+	FUNCTION_FCHECK(src2, src2w);
+	FUNCTION_FCHECK(dst, dstw);
+#endif
+	sljit_emit_fop2_verbose();
+
+	compiler->cache_arg = 0;
+	compiler->cache_argw = 0;
+
+	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+
+	if (src1 > SLJIT_FLOAT_REG4) {
+		ORDER_IND_REGS(src1);
+		emit_fpu_data_transfer(compiler, TMP_FREG1, 1, src1, src1w);
+		src1 = TMP_FREG1;
+	}
+
+	if (src2 > SLJIT_FLOAT_REG4) {
+		ORDER_IND_REGS(src2);
+		emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src2, src2w);
+		src2 = TMP_FREG2;
+	}
+
+	switch (op) {
+	case SLJIT_FADD:
+		if (push_inst(compiler))
+			return compiler->error;
+		compiler->last_type = LIT_INS;
+		compiler->last_ins = EMIT_FPU_OPERATION(0xee300b00, 0xee000180, dst_freg, src2, src1);
+		break;
+
+	case SLJIT_FSUB:
+		if (push_inst(compiler))
+			return compiler->error;
+		compiler->last_type = LIT_INS;
+		compiler->last_ins = EMIT_FPU_OPERATION(0xee300b40, 0xee200180, dst_freg, src2, src1);
+		break;
+
+	case SLJIT_FMUL:
+		if (push_inst(compiler))
+			return compiler->error;
+		compiler->last_type = LIT_INS;
+		compiler->last_ins = EMIT_FPU_OPERATION(0xee200b00, 0xee100180, dst_freg, src2, src1);
+		break;
+
+	case SLJIT_FDIV:
+		if (push_inst(compiler))
+			return compiler->error;
+		compiler->last_type = LIT_INS;
+		compiler->last_ins = EMIT_FPU_OPERATION(0xee800b00, 0xee400180, dst_freg, src2, src1);
+		break;
+	}
+
+	if (dst_freg == TMP_FREG1) {
+		ORDER_IND_REGS(dst);
+		if (emit_fpu_data_transfer(compiler, TMP_FREG1, 0, dst, dstw))
+			return compiler->error;
 	}
 
 	return SLJIT_NO_ERROR;

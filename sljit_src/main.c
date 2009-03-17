@@ -39,13 +39,6 @@ void devel(void)
 #endif
 	sljit_emit_enter(compiler, 1, 3);
 
-	sljit_emit_fop2(compiler, SLJIT_FADD, SLJIT_MEM0(), (sljit_uw)&buf[2], SLJIT_MEM0(), (sljit_uw)&buf[0], SLJIT_MEM0(), (sljit_uw)&buf[1]);
-	sljit_emit_fop2(compiler, SLJIT_FSUB, SLJIT_FLOAT_REG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double));
-	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 3, SLJIT_FLOAT_REG2, 0);
-	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG1, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 2);
-	sljit_emit_fop2(compiler, SLJIT_FADD, SLJIT_FLOAT_REG1, 0, SLJIT_FLOAT_REG1, 0, SLJIT_FLOAT_REG2, 0);
-	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double) * 4, SLJIT_FLOAT_REG1, 0);
-
 	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
 	code.code = sljit_generate_code(compiler);
 	sljit_free_compiler(compiler);

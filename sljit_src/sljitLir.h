@@ -372,6 +372,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 int sljit_is_fpu_available(void);
 
 // dst is source in case of FCMP
+// SLJIT_FCMP is not yet implemented !
 #define SLJIT_FCMP			0
 #define SLJIT_FMOV			1
 #define SLJIT_FNEG			2
