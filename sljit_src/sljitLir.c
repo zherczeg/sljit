@@ -87,6 +87,12 @@ void sljit_free_exec(void* ptr)
 //  Public functions
 // ---------------------------------------------------------------------
 
+#ifdef SLJIT_CONFIG_ARM
+static void detect_cpu_features();
+#else
+#define detect_cpu_features()
+#endif
+
 struct sljit_compiler* sljit_create_compiler(void)
 {
 	struct sljit_compiler *compiler = SLJIT_MALLOC(sizeof(struct sljit_compiler));
@@ -144,11 +150,14 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->cpool_fill = 0;
 	compiler->patches = 0;
 	compiler->last_type = LIT_NONE;
+
 #endif
 
 #ifdef SLJIT_VERBOSE
 	compiler->verbose = NULL;
 #endif
+	detect_cpu_features();
+
 	return compiler;
 }
 
@@ -289,9 +298,9 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG4) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM_FLAG) { \
-		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_FLOAT_REG4); \
+		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_GENERAL_REG3); \
 		if (((p) & 0xf) != 0) \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_FLOAT_REG4); \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_GENERAL_REG3); \
 		else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
 		SLJIT_ASSERT(((p) >> 9) == 0); \
@@ -394,7 +403,7 @@ static char* op2_names[] = {
 		fprintf(compiler->verbose, "\n"); \
 	}
 static char* fop1_names[] = {
-	"fcmp", "fmov", "fneg, fabs"
+	"fcmp", "fmov", "fneg", "fabs"
 };
 #define sljit_emit_fop1_verbose() \
 	if (compiler->verbose) { \

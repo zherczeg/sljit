@@ -21,7 +21,7 @@ all: $(TARGET)
 $(BINDIR) :
 	mkdir $(BINDIR)
 
-BINDIR/sljitLir.o : sljitLir.h sljitNativeX86_32.c
+BINDIR/sljitLir.o : sljitLir.h sljitNativeX86_common.c sljitNativeARM.c sljitNativeX86_32.c sljitNativeX86_64.c
 	$(CC) $(CFLAGS) -c -o $@ sljitLir.c
 
 $(addprefix $(BINDIR)/, %.o) : %.c $(BINDIR)
