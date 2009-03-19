@@ -46,10 +46,41 @@
 //  Configuration
 // ---------------------------------------------------------------------
 
-// Architecture selection (comment out here, or use -D preprocessor option)
+// Architecture selection (comment out one here, use -D preprocessor option, or define SLJIT_CONFIG_AUTO)
 //#define SLJIT_CONFIG_X86_32
 //#define SLJIT_CONFIG_X86_64
 //#define SLJIT_CONFIG_ARM
+
+// Auto select option (requires compiler support)
+#ifdef SLJIT_CONFIG_AUTO
+#ifndef WIN32
+
+#if defined(__i386__) || defined(__i386)
+#define SLJIT_CONFIG_X86_32
+#elif defined(__x86_64__)
+#define SLJIT_CONFIG_X86_64
+#elif defined(__arm__) || defined(__ARM__)
+#define SLJIT_CONFIG_ARM
+//#elif defined(__ppc__) || defined(__powerpc__)
+//#define SLJIT_CONFIG_PPC
+//#elif (__ppc64__) || (__powerpc64__)
+//#define SLJIT_CONFIG_PPC64
+#else
+#error "Unsupported machine"
+#endif
+
+#else // ifndef WIN32
+
+#if defined(_M_X64)
+#define SLJIT_CONFIG_X86_64
+#elif defined(_ARM_)
+#define SLJIT_CONFIG_ARM
+#else
+#define SLJIT_CONFIG_X86_32
+#endif
+
+#endif // ifndef WIN32
+#endif // ifdef SLJIT_CONFIG_AUTO
 
 // General libraries
 #include <stdlib.h>

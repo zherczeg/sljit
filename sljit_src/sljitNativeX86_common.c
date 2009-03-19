@@ -1205,6 +1205,10 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 #endif
 	sljit_emit_fop1_verbose();
 
+#ifdef SLJIT_CONFIG_X86_64
+	compiler->mode32 = 1;
+#endif
+
 	if (emit_fld(compiler, src, srcw))
 		return compiler->error;
 
@@ -1239,6 +1243,10 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	FUNCTION_FCHECK(dst, dstw);
 #endif
 	sljit_emit_fop2_verbose();
+
+#ifdef SLJIT_CONFIG_X86_64
+	compiler->mode32 = 1;
+#endif
 
 	if (src1 >= SLJIT_FLOAT_REG1 && src1 <= SLJIT_FLOAT_REG4 && dst == src1) {
 		if (emit_fld(compiler, src2, src2w))
