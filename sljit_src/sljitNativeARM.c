@@ -13,10 +13,10 @@
  */
 
 // Last register + 1
-#define TMP_REG1	(SLJIT_GENERAL_REG3 + 1)
-#define TMP_REG2	(SLJIT_GENERAL_REG3 + 2)
-#define TMP_REG3	(SLJIT_GENERAL_REG3 + 3)
-#define TMP_PC		(SLJIT_GENERAL_REG3 + 4)
+#define TMP_REG1	(SLJIT_STACK_PTR_REG + 1)
+#define TMP_REG2	(SLJIT_STACK_PTR_REG + 2)
+#define TMP_REG3	(SLJIT_STACK_PTR_REG + 3)
+#define TMP_PC		(SLJIT_STACK_PTR_REG + 4)
 
 #define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
 #define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
@@ -31,7 +31,7 @@
         (((max_diff) / (int)sizeof(sljit_uw)) - (CONST_POOL_ALIGNMENT - 1))
 
 static sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
-   0, 0, 1, 2, 4, 5, 6, 3, 7, 8, 15
+   0, 0, 1, 2, 4, 5, 6, 13, 3, 7, 8, 15
 };
 
 static int push_cpool(struct sljit_compiler *compiler)
@@ -516,15 +516,20 @@ void sljit_free_code(void* code)
 	SLJIT_FREE_EXEC(code);
 }
 
+static int emit_op(struct sljit_compiler *compiler, int op, int allow_imm,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w);
+
 #define MOV_REG(dst, src)	0xe1a00000 | reg_map[src] | (reg_map[dst] << 12)
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
 {
 	FUNCTION_ENTRY();
-	// TODO: support the others
 	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(args <= general);
+	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	SLJIT_ASSERT(compiler->general == -1);
 
 	sljit_emit_enter_verbose();
@@ -543,6 +548,14 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
 		compiler->last_ins |= 0x0030;
 	else if (general >= 1)
 		compiler->last_ins |= 0x0010;
+
+	local_size += (3 + general) * sizeof(sljit_uw);
+	local_size = (local_size + 7) & ~7;
+	local_size -= (3 + general) * sizeof(sljit_uw);
+	compiler->local_size = local_size;
+	if (local_size > 0)
+		if (emit_op(compiler, SLJIT_SUB, 1, SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, local_size))
+			return compiler->error;
 
 	if (args >= 1) {
 		if (push_inst(compiler))
@@ -566,6 +579,24 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
 	return SLJIT_NO_ERROR;
 }
 
+void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+{
+	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(args <= general);
+	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
+	SLJIT_ASSERT(compiler->general == -1);
+
+	sljit_fake_enter_verbose();
+
+	compiler->general = general;
+
+	local_size += (3 + general) * sizeof(sljit_uw);
+	local_size = (local_size + 7) & ~7;
+	local_size -= (3 + general) * sizeof(sljit_uw);
+	compiler->local_size = local_size;
+}
+
 int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 {
 	FUNCTION_ENTRY();
@@ -580,6 +611,10 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 		compiler->last_type = LIT_INS;
 		compiler->last_ins = MOV_REG(SLJIT_PREF_RET_REG, reg);
 	}
+
+	if (compiler->local_size > 0)
+		if (emit_op(compiler, SLJIT_ADD, 1, SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, compiler->local_size))
+			return compiler->error;
 
 	if (push_inst(compiler))
 		return compiler->error;

@@ -43,26 +43,26 @@
 #ifdef SLJIT_CONFIG_X86_32
 
 // Last register + 1
-#define TMP_REGISTER	(SLJIT_GENERAL_REG3 + 1)
+#define TMP_REGISTER	(SLJIT_STACK_PTR_REG + 1)
 
 static sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
-   0, 0, 2, 1, 3, 6, 7, 5
+   0, 0, 2, 1, 3, 6, 7, 4, 5
 };
 
 #else
 
 // Last register + 1
-#define TMP_REGISTER	(SLJIT_GENERAL_REG3 + 1)
-#define TMP_REG2	(SLJIT_GENERAL_REG3 + 2)
-#define TMP_REG3	(SLJIT_GENERAL_REG3 + 3)
+#define TMP_REGISTER	(SLJIT_STACK_PTR_REG + 1)
+#define TMP_REG2	(SLJIT_STACK_PTR_REG + 2)
+#define TMP_REG3	(SLJIT_STACK_PTR_REG + 3)
 
 static sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
-   0, 0, 6, 1, 3, 14, 15, 7, 8, 9
+   0, 0, 6, 1, 3, 14, 15, 4, 7, 8, 9
 };
 
 // re low-map. reg_map & 0x7
 static sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
-   0, 0, 6, 1, 3, 6, 7, 7, 0, 1
+   0, 0, 6, 1, 3, 6, 7, 4, 7, 0, 1
 };
 
 #define REX_W		0x48
@@ -325,6 +325,18 @@ void sljit_free_code(void* code)
 //  Operators
 // ---------------------------------------------------------------------
 
+static int emit_cum_binary(struct sljit_compiler *compiler,
+	sljit_ub op_rm, sljit_ub op_mr, sljit_ub op_imm, sljit_ub op_eax_imm,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w);
+
+static int emit_non_cum_binary(struct sljit_compiler *compiler,
+	sljit_ub op_rm, sljit_ub op_mr, sljit_ub op_imm, sljit_ub op_eax_imm,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w);
+
 #ifdef SLJIT_CONFIG_X86_32
 #include "sljitNativeX86_32.c"
 #elif defined(SLJIT_CONFIG_X86_64)
@@ -543,7 +555,7 @@ static int emit_cum_binary(struct sljit_compiler *compiler,
 			TEST_MEM_ERROR(code);
 			*code = op_rm;
 		}
-		else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_GENERAL_REG3) {
+		else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_STACK_PTR_REG) {
 			code = emit_x86_bin_instruction(compiler, 1, src2, src2w, dst, dstw);
 			TEST_MEM_ERROR(code);
 			*code = op_mr;
@@ -576,7 +588,7 @@ static int emit_cum_binary(struct sljit_compiler *compiler,
 			TEST_MEM_ERROR(code);
 			*code = op_rm;
 		}
-		else if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= SLJIT_GENERAL_REG3) {
+		else if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= SLJIT_STACK_PTR_REG) {
 			code = emit_x86_bin_instruction(compiler, 1, src1, src1w, dst, dstw);
 			TEST_MEM_ERROR(code);
 			*code = op_mr;
@@ -658,7 +670,7 @@ static int emit_non_cum_binary(struct sljit_compiler *compiler,
 			TEST_MEM_ERROR(code);
 			*code = op_rm;
 		}
-		else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_GENERAL_REG3) {
+		else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_STACK_PTR_REG) {
 			code = emit_x86_bin_instruction(compiler, 1, src2, src2w, dst, dstw);
 			TEST_MEM_ERROR(code);
 			*code = op_mr;
@@ -707,9 +719,6 @@ static int emit_mul(struct sljit_compiler *compiler,
 	int src2, sljit_w src2w)
 {
 	sljit_ub* code;
-#ifdef SLJIT_CONFIG_X86_32
-	sljit_ub* buf;
-#endif
 	int tmp;
 	sljit_w tmpw;
 
@@ -720,10 +729,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 		// "mov reg, reg" is faster than "push reg"
 		EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_PREF_MUL_DST, 0);
 #else
-		buf = ensure_buf(compiler, 1 + 1);
-		TEST_MEM_ERROR(buf);
-		INC_SIZE(1);
-		PUSH_REG(reg_map[SLJIT_PREF_MUL_DST]);
+		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_STACK_PTR_REG), -(int)sizeof(sljit_w), SLJIT_PREF_MUL_DST, 0);
 #endif
 	}
 
@@ -750,10 +756,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 		// Cross references
 #ifdef SLJIT_CONFIG_X86_32
 		// rdx is not used by x86-64 at all
-		buf = ensure_buf(compiler, 1 + 1);
-		TEST_MEM_ERROR(buf);
-		INC_SIZE(1);
-		PUSH_REG(reg_map[SLJIT_TEMPORARY_REG2]);
+		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_STACK_PTR_REG), -(int)(sizeof(sljit_w) * 2), SLJIT_TEMPORARY_REG2, 0);
 #endif
 
 		EMIT_MOV(compiler, TMP_REGISTER, 0, src2, src2w);
@@ -765,10 +768,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 		*(code + 1) |= 0x4 << 3;
 
 #ifdef SLJIT_CONFIG_X86_32
-		buf = ensure_buf(compiler, 1 + 1);
-		TEST_MEM_ERROR(buf);
-		INC_SIZE(1);
-		POP_REG(reg_map[SLJIT_TEMPORARY_REG2]);
+		EMIT_MOV(compiler, SLJIT_TEMPORARY_REG2, 0, SLJIT_MEM1(SLJIT_STACK_PTR_REG), -(int)(sizeof(sljit_w) * 2));
 #endif
 	}
 	else {
@@ -807,10 +807,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 #ifdef SLJIT_CONFIG_X86_64
 			EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, TMP_REG2, 0);
 #else
-			buf = ensure_buf(compiler, 1 + 1);
-			TEST_MEM_ERROR(buf);
-			INC_SIZE(1);
-			POP_REG(reg_map[SLJIT_PREF_MUL_DST]);
+			EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, SLJIT_MEM1(SLJIT_STACK_PTR_REG), -(int)sizeof(sljit_w));
 #endif
 			EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
 		}
@@ -819,10 +816,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 #ifdef SLJIT_CONFIG_X86_64
 			EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, TMP_REG2, 0);
 #else
-			buf = ensure_buf(compiler, 1 + 1);
-			TEST_MEM_ERROR(buf);
-			INC_SIZE(1);
-			POP_REG(reg_map[SLJIT_PREF_MUL_DST]);
+			EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, SLJIT_MEM1(SLJIT_STACK_PTR_REG), -(int)sizeof(sljit_w));
 #endif
 		}
 	}
@@ -845,7 +839,7 @@ static int emit_cmp_binary(struct sljit_compiler *compiler,
 		return SLJIT_NO_ERROR;
 	}
 
-	if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= SLJIT_GENERAL_REG3) {
+	if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= SLJIT_STACK_PTR_REG) {
 		if (src2 & SLJIT_IMM) {
 			BINARY_IMM(0x7 << 3, 0x39, src2w, src1, 0);
 		}
@@ -857,7 +851,7 @@ static int emit_cmp_binary(struct sljit_compiler *compiler,
 		return SLJIT_NO_ERROR;
 	}
 
-	if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_GENERAL_REG3 && !(src1 & SLJIT_IMM)) {
+	if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_STACK_PTR_REG && !(src1 & SLJIT_IMM)) {
 		code = emit_x86_bin_instruction(compiler, 1, src2, 0, src1, src1w);
 		TEST_MEM_ERROR(code);
 		*code = 0x39;
@@ -900,7 +894,7 @@ static int emit_test_binary(struct sljit_compiler *compiler,
 		return SLJIT_NO_ERROR;
 	}
 
-	if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= SLJIT_GENERAL_REG3) {
+	if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= SLJIT_STACK_PTR_REG) {
 		if (src2 & SLJIT_IMM) {
 #ifdef SLJIT_CONFIG_X86_64
 			if (IS_HALFWORD(src2w) || compiler->mode32) {
@@ -929,7 +923,7 @@ static int emit_test_binary(struct sljit_compiler *compiler,
 		return SLJIT_NO_ERROR;
 	}
 
-	if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_GENERAL_REG3) {
+	if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_STACK_PTR_REG) {
 		if (src1 & SLJIT_IMM) {
 #ifdef SLJIT_CONFIG_X86_64
 			if (IS_HALFWORD(src1w) || compiler->mode32) {
@@ -994,9 +988,6 @@ static int emit_shift(struct sljit_compiler *compiler,
 	int src2, sljit_w src2w)
 {
 	sljit_ub* code;
-#ifdef SLJIT_CONFIG_X86_32
-	sljit_ub* buf;
-#endif
 
 	if ((src2 & SLJIT_IMM) || (src2 == SLJIT_PREF_SHIFT_REG)) {
 		if (dst == src1 && dstw == src1w) {
@@ -1053,10 +1044,7 @@ static int emit_shift(struct sljit_compiler *compiler,
 #ifdef SLJIT_CONFIG_X86_64
 		EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_PREF_SHIFT_REG, 0);
 #else
-		buf = ensure_buf(compiler, 1 + 1);
-		TEST_MEM_ERROR(buf);
-		INC_SIZE(1);
-		PUSH_REG(reg_map[SLJIT_PREF_SHIFT_REG]);
+		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_STACK_PTR_REG), -(int)sizeof(sljit_w), SLJIT_PREF_SHIFT_REG, 0);
 #endif
 
 		EMIT_MOV(compiler, TMP_REGISTER, 0, src1, src1w);
@@ -1068,10 +1056,7 @@ static int emit_shift(struct sljit_compiler *compiler,
 #ifdef SLJIT_CONFIG_X86_64
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, TMP_REG2, 0);
 #else
-		buf = ensure_buf(compiler, 1 + 1);
-		TEST_MEM_ERROR(buf);
-		INC_SIZE(1);
-		POP_REG(reg_map[SLJIT_PREF_SHIFT_REG]);
+		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, SLJIT_MEM1(SLJIT_STACK_PTR_REG), -(int)sizeof(sljit_w));
 #endif
 		EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
 	}
@@ -1579,30 +1564,26 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		*buf = 0xC0 | (reg_map[dst] << 3) | reg_map[dst];
 	}
 	else {
-		buf = ensure_buf(compiler, 1 + 1 + 3 + 3);
+		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG1, 0);
+
+		buf = ensure_buf(compiler, 1 + 3 + 3);
 		TEST_MEM_ERROR(buf);
-		INC_SIZE(1 + 3 + 3);
-		PUSH_REG(reg_map[SLJIT_TEMPORARY_REG1]);
+		INC_SIZE(3 + 3);
 		// Set al to conditional flag
 		*buf++ = 0x0f;
 		*buf++ = cond_set;
 		*buf++ = 0xC0;
 
-		if (dst >= SLJIT_GENERAL_REG1 && dst <= SLJIT_GENERAL_REG3) {
-			*buf++ = 0x0f;
-			*buf++ = 0xb6;
+		*buf++ = 0x0f;
+		*buf++ = 0xb6;
+		if (dst >= SLJIT_GENERAL_REG1 && dst <= SLJIT_GENERAL_REG3)
 			*buf = 0xC0 | (reg_map[dst] << 3);
-		} else {
-			*buf++ = 0x0f;
-			*buf++ = 0xb6;
+		else {
 			*buf = 0xC0;
 			EMIT_MOV(compiler, dst, dstw, SLJIT_TEMPORARY_REG1, 0);
 		}
 
-		buf = ensure_buf(compiler, 1 + 1);
-		TEST_MEM_ERROR(buf);
-		INC_SIZE(1);
-		POP_REG(reg_map[SLJIT_TEMPORARY_REG1]);
+		EMIT_MOV(compiler, SLJIT_TEMPORARY_REG1, 0, TMP_REGISTER, 0);
 	}
 #endif
 

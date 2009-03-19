@@ -32,6 +32,9 @@
 #define BUF_SIZE	2048
 #define ABUF_SIZE	512
 
+// Max local_size. This could be increased if it is really necessary.
+#define SLJIT_MAX_LOCAL_SIZE	65536
+
 // Jump flags
 #define JUMP_LABEL	0x1
 #define JUMP_ADDR	0x2
@@ -127,6 +130,7 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->abuf->used_size = 0;
 
 	compiler->general = -1;
+	compiler->local_size = 0;
 	compiler->size = 0;
 
 #ifdef SLJIT_CONFIG_X86_32
@@ -265,15 +269,16 @@ static void reverse_buf(struct sljit_compiler *compiler)
 
 #ifdef SLJIT_DEBUG
 #define FUNCTION_CHECK_SRC(p, i) \
-	if ((p) >= SLJIT_TEMPORARY_REG1 && (p) <= SLJIT_GENERAL_REG3) \
+	if ((p) >= SLJIT_TEMPORARY_REG1 && (p) <= SLJIT_STACK_PTR_REG) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) == SLJIT_IMM) \
 		; \
 	else if ((p) & SLJIT_MEM_FLAG) { \
-		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_GENERAL_REG3); \
-		if (((p) & 0xf) != 0) \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_GENERAL_REG3); \
-		else \
+		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_STACK_PTR_REG); \
+		if (((p) & 0xf) != 0) { \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_STACK_PTR_REG); \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_STACK_PTR_REG || ((p) & 0xf) != SLJIT_STACK_PTR_REG); \
+		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
 		SLJIT_ASSERT(((p) >> 9) == 0); \
 	} \
@@ -284,10 +289,11 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	if ((p) >= SLJIT_NO_REG && (p) <= SLJIT_GENERAL_REG3) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM_FLAG) { \
-		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_GENERAL_REG3); \
-		if (((p) & 0xf) != 0) \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_GENERAL_REG3); \
-		else \
+		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_STACK_PTR_REG); \
+		if (((p) & 0xf) != 0) { \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_STACK_PTR_REG); \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_STACK_PTR_REG || ((p) & 0xf) != SLJIT_STACK_PTR_REG); \
+		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
 		SLJIT_ASSERT(((p) >> 9) == 0); \
 	} \
@@ -298,10 +304,11 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG4) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM_FLAG) { \
-		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_GENERAL_REG3); \
-		if (((p) & 0xf) != 0) \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_GENERAL_REG3); \
-		else \
+		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_STACK_PTR_REG); \
+		if (((p) & 0xf) != 0) { \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_STACK_PTR_REG); \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_STACK_PTR_REG || ((p) & 0xf) != SLJIT_STACK_PTR_REG); \
+		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
 		SLJIT_ASSERT(((p) >> 9) == 0); \
 	} \
@@ -318,7 +325,7 @@ void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
 }
 
 static char* reg_names[] = {
-	"<noreg>", "tmp_r1", "tmp_r2", "tmp_r3", "gen_r1", "gen_r2", "gen_r3"
+	"<noreg>", "tmp_r1", "tmp_r2", "tmp_r3", "gen_r1", "gen_r2", "gen_r3", "stack_r"
 };
 
 static char* freg_names[] = {
@@ -332,7 +339,9 @@ static char* freg_names[] = {
 #endif
 
 #define sljit_emit_enter_verbose() \
-	if (compiler->verbose) fprintf(compiler->verbose, "  enter %d %d\n", args, general);
+	if (compiler->verbose) fprintf(compiler->verbose, "  enter args=%d generals=%d locals=%d\n", args, general, local_size);
+#define sljit_fake_enter_verbose() \
+	if (compiler->verbose) fprintf(compiler->verbose, "  fake enter args=%d generals=%d locals=%d\n", args, general, local_size);
 #define sljit_emit_return_verbose() \
 	if (compiler->verbose) fprintf(compiler->verbose, "  return %s\n", reg_names[reg]);
 #define sljit_verbose_param(p, i) \
@@ -464,6 +473,7 @@ static char* jump_names[] = {
 #else
 
 #define sljit_emit_enter_verbose()
+#define sljit_fake_enter_verbose()
 #define sljit_emit_return_verbose()
 #define sljit_emit_op1_verbose()
 #define sljit_emit_op2_verbose()

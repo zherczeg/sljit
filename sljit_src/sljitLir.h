@@ -163,9 +163,13 @@ typedef long int sljit_w;
 #define SLJIT_GENERAL_REG2	5
 #define SLJIT_GENERAL_REG3	6
 
+// Read-only register
+// SLJIT_MEM2(SLJIT_STACK_PTR_REG, SLJIT_STACK_PTR_REG) is unsupported
+#define SLJIT_STACK_PTR_REG	7
+
 #define SLJIT_NO_TMP_REGISTERS	3
 #define SLJIT_NO_GEN_REGISTERS	3
-#define SLJIT_NO_REGISTERS	6
+#define SLJIT_NO_REGISTERS	7
 
 // Return with machine word or double machine word
 
@@ -241,6 +245,7 @@ struct sljit_compiler {
 
 	// Used general registers
 	int general;
+	int local_size;
 	sljit_uw size;
 
 #ifdef SLJIT_CONFIG_X86_32
@@ -298,8 +303,16 @@ void sljit_free_code(void* code);
 // Entry instruction. The instruction has "args" number of arguments
 // and will use the first "general" number of general registers.
 // Therefore, "args" must be less or equal than "general"
+// local_size extra stack space is allocated for the jit code,
+// which can accessed by SLJIT_STACK_PTR_REG (use it as base)
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general);
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size);
+
+// sljit_emit_return uses variables which are initialized by sljit_emit_enter.
+// Sometimes you want to return from a jit code, which entry point is in another jit code.
+// sljit_fake_enter does not emit any instruction, just initialize those variables
+
+void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, int local_size);
 
 // Return from jit. Return with NO_REG or a register
 int sljit_emit_return(struct sljit_compiler *compiler, int reg);
