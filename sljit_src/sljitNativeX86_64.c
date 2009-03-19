@@ -70,7 +70,7 @@ static sljit_ub* generate_fixed_jump(struct sljit_compiler *compiler, sljit_ub *
 	return code_ptr;
 }
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
 {
 	int size;
 	sljit_ub *buf;
@@ -80,6 +80,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
 	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(args <= general);
+	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	SLJIT_ASSERT(compiler->general == -1);
 
 	sljit_emit_enter_verbose();
@@ -123,8 +124,30 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general)
 		*buf++ = 0xc0 | (reg_lmap[SLJIT_GENERAL_REG3] << 3) | 0x2;
 	}
 
+	local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
+	compiler->local_size = local_size;
+	if (local_size > 0) {
+		compiler->mode32 = 0;
+		return emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
+			SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, local_size);
+	}
+
 	// Mov arguments to general registers
 	return SLJIT_NO_ERROR;
+}
+
+void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+{
+	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(args <= general);
+	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
+	SLJIT_ASSERT(compiler->general == -1);
+
+	sljit_fake_enter_verbose();
+
+	compiler->general = general;
+	compiler->local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
 }
 
 int sljit_emit_return(struct sljit_compiler *compiler, int reg)
@@ -137,6 +160,13 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 	SLJIT_ASSERT(compiler->general >= 0);
 
 	sljit_emit_return_verbose();
+
+	if (compiler->local_size > 0) {
+		compiler->mode32 = 0;
+		if (emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
+				SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, compiler->local_size))
+			return compiler->error;
+	}
 
 	size = 1 + compiler->general;
 	if (compiler->general >= 2)
@@ -228,7 +258,9 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 			if ((b & 0xf0) == SLJIT_NO_REG)
 				b |= TMP_REG3 << 4;
 			else {
-				// We need to replace the upper word
+				// We need to replace the upper word. Rotate if it is the stack pointer
+				if ((b & 0xf0) == (SLJIT_STACK_PTR_REG << 4))
+					b = ((b & 0xf) << 4) | SLJIT_STACK_PTR_REG | SLJIT_MEM_FLAG;
 				buf = ensure_buf(compiler, 1 + 4);
 				TEST_MEM_ERROR2(buf);
 				INC_SIZE(4);
@@ -249,6 +281,11 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM_FLAG) {
+		if ((b & 0xf) == SLJIT_STACK_PTR_REG && (b & 0xf0) == 0)
+			b |= SLJIT_STACK_PTR_REG << 4;
+		else if ((b & 0xf0) == (SLJIT_STACK_PTR_REG << 4))
+			b = ((b & 0xf) << 4) | SLJIT_STACK_PTR_REG | SLJIT_MEM_FLAG;
+
 		if ((b & 0xf0) != SLJIT_NO_REG) {
 			total_size += 1; // SIB byte
 			if (reg_map[(b >> 4) & 0x0f] >= 8)
@@ -357,7 +394,9 @@ static sljit_ub* emit_x86_bin_instruction(struct sljit_compiler *compiler, int s
 			if ((b & 0xf0) == SLJIT_NO_REG)
 				b |= TMP_REG3 << 4;
 			else {
-				// We need to replace the upper word
+				// We need to replace the upper word. Rotate if it is the stack pointer
+				if ((b & 0xf0) == (SLJIT_STACK_PTR_REG << 4))
+					b = ((b & 0xf) << 4) | SLJIT_STACK_PTR_REG | SLJIT_MEM_FLAG;
 				buf = ensure_buf(compiler, 1 + 4);
 				TEST_MEM_ERROR2(buf);
 				INC_SIZE(4);
@@ -378,6 +417,11 @@ static sljit_ub* emit_x86_bin_instruction(struct sljit_compiler *compiler, int s
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM_FLAG) {
+		if ((b & 0xf) == SLJIT_STACK_PTR_REG && (b & 0xf0) == 0)
+			b |= SLJIT_STACK_PTR_REG << 4;
+		else if ((b & 0xf0) == (SLJIT_STACK_PTR_REG << 4))
+			b = ((b & 0xf) << 4) | SLJIT_STACK_PTR_REG | SLJIT_MEM_FLAG;
+
 		if ((b & 0xf0) != SLJIT_NO_REG) {
 			total_size += 1; // SIB byte
 			if (reg_map[(b >> 4) & 0x0f] >= 8)
@@ -498,6 +542,9 @@ static sljit_ub* emit_x86_shift_instruction(struct sljit_compiler *compiler,
 			if ((b & 0xf0) == SLJIT_NO_REG)
 				b |= TMP_REG3 << 4;
 			else {
+				// We need to replace the upper word. Rotate if it is the stack pointer
+				if ((b & 0xf0) == (SLJIT_STACK_PTR_REG << 4))
+					b = ((b & 0xf) << 4) | SLJIT_STACK_PTR_REG | SLJIT_MEM_FLAG;
 				// We need to replace the upper word
 				buf = ensure_buf(compiler, 1 + 4);
 				TEST_MEM_ERROR2(buf);
@@ -519,6 +566,11 @@ static sljit_ub* emit_x86_shift_instruction(struct sljit_compiler *compiler,
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM_FLAG) {
+		if ((b & 0xf) == SLJIT_STACK_PTR_REG && (b & 0xf0) == 0)
+			b |= SLJIT_STACK_PTR_REG << 4;
+		else if ((b & 0xf0) == (SLJIT_STACK_PTR_REG << 4))
+			b = ((b & 0xf) << 4) | SLJIT_STACK_PTR_REG | SLJIT_MEM_FLAG;
+
 		if ((b & 0xf0) != 0) {
 			total_size += 1; // SIB byte
 			if (reg_map[(b >> 4) & 0x0f] >= 8)
