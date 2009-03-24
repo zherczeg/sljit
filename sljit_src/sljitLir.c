@@ -29,6 +29,10 @@
 		return NULL; \
 	}
 
+#define TEST_FAIL(expr) \
+	if (expr) \
+		return compiler->error;
+
 #define BUF_SIZE	2048
 #define ABUF_SIZE	512
 
@@ -61,7 +65,7 @@
 #define LIT_UCINS	3
 #endif
 
-#ifdef SLJIT_CONFIG_X86_64
+#if defined(SLJIT_CONFIG_X86_64) || defined(SLJIT_CONFIG_PPC_64)
 #include <sys/mman.h>
 
 void* sljit_malloc_exec(int size)
@@ -332,7 +336,7 @@ static char* freg_names[] = {
 	"<noreg>", "fr1", "fr2", "fr3", "fr4"
 };
 
-#ifdef SLJIT_CONFIG_X86_64
+#if defined(SLJIT_CONFIG_X86_64) || defined(SLJIT_CONFIG_PPC_64)
 	#define SLJIT_PRINT_D	"l"
 #else
 	#define SLJIT_PRINT_D	""
@@ -497,6 +501,10 @@ static char* jump_names[] = {
 	#include "sljitNativeX86_common.c"
 #elif defined(SLJIT_CONFIG_ARM)
 	#include "sljitNativeARM.c"
+#elif defined(SLJIT_CONFIG_PPC)
+	#include "sljitNativePPC_common.c"
+#elif defined(SLJIT_CONFIG_PPC_64)
+	#include "sljitNativePPC_common.c"
 #else
 	#error "Unknown native code generation method"
 #endif

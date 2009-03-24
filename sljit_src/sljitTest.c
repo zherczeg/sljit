@@ -14,6 +14,7 @@
 
 #include "sljitLir.h"
 
+#ifndef SLJIT_INDIRECT_CALL
 union executable_code {
 	void* code;
 	SLJIT_CALL sljit_w (*func0)(void);
@@ -21,6 +22,20 @@ union executable_code {
 	SLJIT_CALL sljit_w (*func2)(sljit_w a, sljit_w b);
 	SLJIT_CALL sljit_w (*func3)(sljit_w a, sljit_w b, sljit_w c);
 };
+typedef union executable_code executable_code;
+#else
+struct executable_code {
+	void* code;
+	union {
+		SLJIT_CALL sljit_w (*func0)(void);
+		SLJIT_CALL sljit_w (*func1)(sljit_w a);
+		SLJIT_CALL sljit_w (*func2)(sljit_w a, sljit_w b);
+		SLJIT_CALL sljit_w (*func3)(sljit_w a, sljit_w b, sljit_w c);
+		void** code_ptr;
+	};
+};
+typedef struct executable_code executable_code;
+#endif
 
 #define FAILED(cond, text) \
 	if (cond) { \
@@ -45,7 +60,7 @@ union executable_code {
 static void test1(void)
 {
 	// Enter and return from an sljit function
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -55,6 +70,9 @@ static void test1(void)
 	T(sljit_emit_return(compiler, SLJIT_GENERAL_REG2));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -67,7 +85,7 @@ static void test1(void)
 static void test2(void)
 {
 	// Test mov
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[4];
 
@@ -89,6 +107,9 @@ static void test2(void)
 	T(sljit_emit_return(compiler, SLJIT_TEMPORARY_REG3));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -103,7 +124,7 @@ static void test2(void)
 static void test3(void)
 {
 	// Test not
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[4];
 
@@ -122,6 +143,9 @@ static void test3(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -136,7 +160,7 @@ static void test3(void)
 static void test4(void)
 {
 	// Test not
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[4];
 
@@ -155,6 +179,9 @@ static void test4(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -170,7 +197,7 @@ static void test4(void)
 static void test5(void)
 {
 	// Test add
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[6];
 
@@ -205,6 +232,9 @@ static void test5(void)
 	T(sljit_emit_return(compiler, SLJIT_TEMPORARY_REG1));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -222,7 +252,7 @@ static void test5(void)
 static void test6(void)
 {
 	// Test addc, sub, subc
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[7];
 
@@ -262,6 +292,9 @@ static void test6(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -281,7 +314,7 @@ static void test6(void)
 static void test7(void)
 {
 	// Test addc, sub, subc
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[6];
 
@@ -312,6 +345,9 @@ static void test7(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -330,7 +366,7 @@ static void test7(void)
 static void test8(void)
 {
 	// Test flags (neg, cmp, test)
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[7];
 
@@ -371,6 +407,9 @@ static void test8(void)
 	T(sljit_emit_return(compiler, SLJIT_NO_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -389,7 +428,7 @@ static void test8(void)
 static void test9(void)
 {
 	// Test shift
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[10];
 
@@ -444,6 +483,9 @@ static void test9(void)
 	T(sljit_emit_return(compiler, SLJIT_NO_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -466,7 +508,7 @@ static void test9(void)
 static void test10(void)
 {
 	// Test multiplications
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[6];
 
@@ -500,6 +542,9 @@ static void test10(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -518,7 +563,7 @@ static void test10(void)
 static void test11(void)
 {
 	// Test rewritable constants
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	struct sljit_const* const1;
 	struct sljit_const* const2;
@@ -542,6 +587,9 @@ static void test11(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	const1_addr = sljit_get_const_addr(const1);
 	const2_addr = sljit_get_const_addr(const2);
@@ -567,7 +615,7 @@ static void test11(void)
 static void test12(void)
 {
 	// Test rewriteable jumps
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	struct sljit_label *label1;
 	struct sljit_label *label2;
@@ -610,6 +658,9 @@ static void test12(void)
 	T(sljit_emit_return(compiler, SLJIT_NO_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	jump1_addr = sljit_get_jump_addr(jump1);
 	label1_addr = sljit_get_label_addr(label1);
@@ -637,7 +688,7 @@ static void test12(void)
 static void test13(void)
 {
 	// Test fpu monadic functions
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	double buf[6];
 
@@ -669,6 +720,9 @@ static void test13(void)
 	T(sljit_emit_return(compiler, SLJIT_NO_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -685,7 +739,7 @@ static void test13(void)
 static void test14(void)
 {
 	// Test fpu diadic functions
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	double buf[15];
 
@@ -751,6 +805,9 @@ static void test14(void)
 	T(sljit_emit_return(compiler, SLJIT_NO_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -780,7 +837,7 @@ static sljit_w SLJIT_CALL func(sljit_w a, sljit_w b)
 static void test15(void)
 {
 	// Test function call
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[2];
 
@@ -804,6 +861,9 @@ static void test15(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -818,7 +878,7 @@ static void test15(void)
 static void test16(void)
 {
 	// Ackermann benchmark
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	struct sljit_label *entry;
 	struct sljit_label *label;
@@ -866,6 +926,9 @@ static void test16(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -880,7 +943,7 @@ static void test16(void)
 static void test17(void)
 {
 	// Test arm constant pool
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	int i;
 	sljit_w buf[5];
@@ -903,6 +966,9 @@ static void test17(void)
 	T(sljit_emit_return(compiler, SLJIT_NO_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -920,7 +986,7 @@ static void test17(void)
 static void test18(void)
 {
 	// Test 64 bit
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[11];
 
@@ -978,6 +1044,9 @@ static void test18(void)
 	T(sljit_emit_return(compiler, SLJIT_NO_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1006,7 +1075,7 @@ static void test18(void)
 static void test19(void)
 {
 	// Test arm partial instruction caching
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[10];
 
@@ -1053,6 +1122,9 @@ static void test19(void)
 	T(sljit_emit_return(compiler, SLJIT_NO_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1073,7 +1145,7 @@ static void test19(void)
 static void test20(void)
 {
 	// Test stack
-	union executable_code code;
+	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[4];
 
@@ -1094,6 +1166,9 @@ static void test20(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1110,8 +1185,8 @@ static void test21(void)
 {
 	// Test fake enter. The parts of the jit code can
 	// be separated in the memory
-	union executable_code code1;
-	union executable_code code2;
+	executable_code code1;
+	executable_code code2;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	struct sljit_jump* jump;
 	sljit_uw addr;
@@ -1132,6 +1207,9 @@ static void test21(void)
 	sljit_set_target(jump, 0);
 
 	code1.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code1.code_ptr = &code1.code;
+#endif
 	FAILED(!code1.code, "code generation error\n");
 	addr = sljit_get_jump_addr(jump);
 	sljit_free_compiler(compiler);
@@ -1149,6 +1227,9 @@ static void test21(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	code2.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code2.code_ptr = &code2.code;
+#endif
 	FAILED(!code2.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
