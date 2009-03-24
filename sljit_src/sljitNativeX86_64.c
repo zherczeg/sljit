@@ -163,9 +163,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 
 	if (compiler->local_size > 0) {
 		compiler->mode32 = 0;
-		if (emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
-				SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, compiler->local_size))
-			return compiler->error;
+		TEST_FAIL(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
+				SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, compiler->local_size));
 	}
 
 	size = 1 + compiler->general;

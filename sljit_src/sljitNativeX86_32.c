@@ -132,9 +132,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 	sljit_emit_return_verbose();
 
 	if (compiler->local_size > 0)
-		if (emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
-				SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, compiler->local_size))
-			return compiler->error;
+		TEST_FAIL(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
+				SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, compiler->local_size));
 
 	size = 2 + compiler->general;
 	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_NO_REG)

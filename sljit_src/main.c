@@ -10,16 +10,28 @@ void error(char* str)
 	exit(-1);
 }
 
+#ifndef SLJIT_INDIRECT_CALL
 union executable_code {
 	void* code;
 	SLJIT_CALL sljit_w (*func)(sljit_w* a);
 };
+typedef union executable_code executable_code;
+#else
+struct executable_code {
+	void* code;
+	union {
+		SLJIT_CALL sljit_w (*func)(sljit_w* a);
+		void** code_ptr;
+	};
+};
+typedef struct executable_code executable_code;
+#endif
 
 int devel_dummy(void) { return rand(); }
 
 void devel(void)
 {
-	union executable_code code;
+	executable_code code;
 
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_uw buf[4];
@@ -44,6 +56,9 @@ void devel(void)
 
 	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
 	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code.code;
+#endif
 	sljit_free_compiler(compiler);
 
 	printf("Code at: %p\n", code.code); devel_dummy();

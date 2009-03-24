@@ -61,10 +61,10 @@
 #define SLJIT_CONFIG_X86_64
 #elif defined(__arm__) || defined(__ARM__)
 #define SLJIT_CONFIG_ARM
-//#elif defined(__ppc__) || defined(__powerpc__)
-//#define SLJIT_CONFIG_PPC
-//#elif (__ppc64__) || (__powerpc64__)
-//#define SLJIT_CONFIG_PPC64
+#elif (__ppc64__) || (__powerpc64__)
+#define SLJIT_CONFIG_PPC_64
+#elif defined(__ppc__) || defined(__powerpc__)
+#define SLJIT_CONFIG_PPC
 #else
 #error "Unsupported machine"
 #endif
@@ -92,7 +92,7 @@
 #define SLJIT_FREE(ptr) free(ptr)
 
 // Executable code allocation
-#ifndef SLJIT_CONFIG_X86_64
+#if !defined(SLJIT_CONFIG_X86_64) && !defined(SLJIT_CONFIG_PPC_64)
 
 #define SLJIT_MALLOC_EXEC(size) malloc(size)
 #define SLJIT_FREE_EXEC(ptr) free(ptr)
@@ -124,7 +124,7 @@ typedef char sljit_b;
 //   32 bit for 32 bit machines
 //   64 bit for 64 bit machines
 
-#ifndef SLJIT_CONFIG_X86_64
+#if !defined(SLJIT_CONFIG_X86_64) && !defined(SLJIT_CONFIG_PPC_64)
 typedef unsigned int sljit_uw;
 typedef int sljit_w;
 #else
@@ -146,6 +146,13 @@ typedef long int sljit_w;
 #define SLJIT_CALL
 
 #endif
+
+#if defined(SLJIT_CONFIG_PPC) || defined(SLJIT_CONFIG_PPC_64)
+// It seems ppc compilers use an indirect addressing for functions
+// I don't know why... It just makes things complicated
+#define SLJIT_INDIRECT_CALL
+#endif
+
 
 // Not required to implement on archs with unified caches, but may required
 // if data and instruction caches are separated (i.e. arm)
@@ -306,6 +313,10 @@ struct sljit_compiler {
 	sljit_uw shift_imm;
 	sljit_uw cache_arg;
 	sljit_uw cache_argw;
+#endif
+
+#ifdef SLJIT_CONFIG_PPC_64
+	int mode32;
 #endif
 
 #ifdef SLJIT_VERBOSE
