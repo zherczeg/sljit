@@ -273,15 +273,15 @@ static void reverse_buf(struct sljit_compiler *compiler)
 
 #ifdef SLJIT_DEBUG
 #define FUNCTION_CHECK_SRC(p, i) \
-	if ((p) >= SLJIT_TEMPORARY_REG1 && (p) <= SLJIT_STACK_PTR_REG) \
+	if ((p) >= SLJIT_TEMPORARY_REG1 && (p) <= SLJIT_LOCALS_REG) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) == SLJIT_IMM) \
 		; \
 	else if ((p) & SLJIT_MEM_FLAG) { \
-		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_STACK_PTR_REG); \
+		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_LOCALS_REG); \
 		if (((p) & 0xf) != 0) { \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_STACK_PTR_REG); \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_STACK_PTR_REG || ((p) & 0xf) != SLJIT_STACK_PTR_REG); \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_LOCALS_REG); \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_LOCALS_REG || ((p) & 0xf) != SLJIT_LOCALS_REG); \
 		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
 		SLJIT_ASSERT(((p) >> 9) == 0); \
@@ -293,10 +293,10 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	if ((p) >= SLJIT_NO_REG && (p) <= SLJIT_GENERAL_REG3) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM_FLAG) { \
-		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_STACK_PTR_REG); \
+		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_LOCALS_REG); \
 		if (((p) & 0xf) != 0) { \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_STACK_PTR_REG); \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_STACK_PTR_REG || ((p) & 0xf) != SLJIT_STACK_PTR_REG); \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_LOCALS_REG); \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_LOCALS_REG || ((p) & 0xf) != SLJIT_LOCALS_REG); \
 		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
 		SLJIT_ASSERT(((p) >> 9) == 0); \
@@ -308,10 +308,10 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG4) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM_FLAG) { \
-		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_STACK_PTR_REG); \
+		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_LOCALS_REG); \
 		if (((p) & 0xf) != 0) { \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_STACK_PTR_REG); \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_STACK_PTR_REG || ((p) & 0xf) != SLJIT_STACK_PTR_REG); \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_LOCALS_REG); \
+			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_LOCALS_REG || ((p) & 0xf) != SLJIT_LOCALS_REG); \
 		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
 		SLJIT_ASSERT(((p) >> 9) == 0); \
@@ -501,7 +501,7 @@ static char* jump_names[] = {
 	#include "sljitNativeX86_common.c"
 #elif defined(SLJIT_CONFIG_ARM)
 	#include "sljitNativeARM.c"
-#elif defined(SLJIT_CONFIG_PPC)
+#elif defined(SLJIT_CONFIG_PPC_32)
 	#include "sljitNativePPC_common.c"
 #elif defined(SLJIT_CONFIG_PPC_64)
 	#include "sljitNativePPC_common.c"

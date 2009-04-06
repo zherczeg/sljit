@@ -64,7 +64,7 @@
 #elif (__ppc64__) || (__powerpc64__)
 #define SLJIT_CONFIG_PPC_64
 #elif defined(__ppc__) || defined(__powerpc__)
-#define SLJIT_CONFIG_PPC
+#define SLJIT_CONFIG_PPC_32
 #else
 #error "Unsupported machine"
 #endif
@@ -147,16 +147,21 @@ typedef long int sljit_w;
 
 #endif
 
-#if defined(SLJIT_CONFIG_PPC) || defined(SLJIT_CONFIG_PPC_64)
-// It seems ppc compilers use an indirect addressing for functions
+#if defined(SLJIT_CONFIG_PPC_64)
+// It seems ppc64 compilers use an indirect addressing for functions
 // I don't know why... It just makes things complicated
 #define SLJIT_INDIRECT_CALL
 #endif
 
 
-// Not required to implement on archs with unified caches, but may required
-// if data and instruction caches are separated (i.e. arm)
-#define INVALIDATE_INSTRUCTION_CACHE(addr)
+#ifdef SLJIT_CONFIG_ARM
+	// Just call __ARM_NR_cacheflush on Linux
+#define SLJIT_CACHE_FLUSH(from, to) \
+	__clear_cache((char*)(from), (char*)(to))
+#else
+	// Not required to implement on archs with unified caches
+#define SLJIT_CACHE_FLUSH(from, to)
+#endif
 
 // Feel free to overwrite these assert defines
 #ifdef SLJIT_DEBUG
@@ -202,8 +207,8 @@ typedef long int sljit_w;
 #define SLJIT_GENERAL_REG3	6
 
 // Read-only register
-// SLJIT_MEM2(SLJIT_STACK_PTR_REG, SLJIT_STACK_PTR_REG) is unsupported
-#define SLJIT_STACK_PTR_REG	7
+// SLJIT_MEM2(SLJIT_LOCALS_REG, SLJIT_LOCALS_REG) is unsupported
+#define SLJIT_LOCALS_REG	7
 
 #define SLJIT_NO_TMP_REGISTERS	3
 #define SLJIT_NO_GEN_REGISTERS	3
@@ -346,7 +351,7 @@ void sljit_free_code(void* code);
 // and will use the first "general" number of general registers.
 // Therefore, "args" must be less or equal than "general"
 // local_size extra stack space is allocated for the jit code,
-// which can accessed by SLJIT_STACK_PTR_REG (use it as base)
+// which can accessed by SLJIT_LOCALS_REG (use it as base)
 
 int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size);
 
