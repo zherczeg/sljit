@@ -13,10 +13,10 @@
  */
 
 // Last register + 1
-#define TMP_REG1	(SLJIT_STACK_PTR_REG + 1)
-#define TMP_REG2	(SLJIT_STACK_PTR_REG + 2)
-#define TMP_REG3	(SLJIT_STACK_PTR_REG + 3)
-#define TMP_PC		(SLJIT_STACK_PTR_REG + 4)
+#define TMP_REG1	(SLJIT_LOCALS_REG + 1)
+#define TMP_REG2	(SLJIT_LOCALS_REG + 2)
+#define TMP_REG3	(SLJIT_LOCALS_REG + 3)
+#define TMP_PC		(SLJIT_LOCALS_REG + 4)
 
 #define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
 #define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
@@ -497,9 +497,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 	SLJIT_ASSERT(code_ptr - code <= size);
 
-	// Just call __ARM_NR_cacheflush in Linux
-	__clear_cache((char *)code, (char *)code_ptr);
-
+	SLJIT_CACHE_FLUSH(code, code_ptr);
 	compiler->error = SLJIT_CODE_GENERATED;
 	return code;
 }
@@ -546,7 +544,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 	local_size -= (3 + general) * sizeof(sljit_uw);
 	compiler->local_size = local_size;
 	if (local_size > 0)
-		TEST_FAIL(emit_op(compiler, SLJIT_SUB, 1, SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, local_size));
+		TEST_FAIL(emit_op(compiler, SLJIT_SUB, 1, SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, local_size));
 
 	if (args >= 1) {
 		TEST_FAIL(push_inst(compiler));
@@ -600,7 +598,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 	}
 
 	if (compiler->local_size > 0)
-		TEST_FAIL(emit_op(compiler, SLJIT_ADD, 1, SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, compiler->local_size));
+		TEST_FAIL(emit_op(compiler, SLJIT_ADD, 1, SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
 
 	TEST_FAIL(push_inst(compiler));
 	// Push general registers, temporary registers
@@ -2046,19 +2044,21 @@ void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 	sljit_uw mov_pc = ptr[1];
 	sljit_w diff = (sljit_w)(((sljit_w)new_addr - (sljit_w)(inst + 2)) >> 2);
 
-	INVALIDATE_INSTRUCTION_CACHE(*inst);
-
-	if (diff <= 0x7fffff && diff >= -0x800000)
+	if (diff <= 0x7fffff && diff >= -0x800000) {
 		// Turn to branch
 		*inst = (mov_pc & 0xf0000000) | 0x0a000000 | (diff & 0xffffff);
-	else {
+		SLJIT_CACHE_FLUSH(inst, inst + 1);
+	} else {
 		// Get the position of the constant
 		if (mov_pc & (1 << 23))
 			ptr = inst + ((mov_pc & 0xfff) >> 2) + 2;
 		else
 			ptr = inst + 1;
 
-		*inst = mov_pc;
+		if (*inst != mov_pc) {
+			*inst = mov_pc;
+			SLJIT_CACHE_FLUSH(inst, inst + 1);
+		}
 		*ptr = new_addr;
 	}
 }
@@ -2070,17 +2070,17 @@ void sljit_set_const(sljit_uw addr, sljit_w constant)
 	sljit_uw mov_pc = ptr[1];
 	sljit_uw src2;
 
-	INVALIDATE_INSTRUCTION_CACHE(*inst);
-
 	src2 = get_immediate(constant);
 	if (src2 != 0) {
 		*inst = 0xe3a00000 | (mov_pc & 0xf000) | src2;
+		SLJIT_CACHE_FLUSH(inst, inst + 1);
 		return;
 	}
 
 	src2 = get_immediate(~constant);
 	if (src2 != 0) {
 		*inst = 0xe3e00000 | (mov_pc & 0xf000) | src2;
+		SLJIT_CACHE_FLUSH(inst, inst + 1);
 		return;
 	}
 
@@ -2089,6 +2089,9 @@ void sljit_set_const(sljit_uw addr, sljit_w constant)
 	else
 		ptr = inst + 1;
 
-	*inst = mov_pc;
+	if (*inst != mov_pc) {
+		*inst = mov_pc;
+		SLJIT_CACHE_FLUSH(inst, inst + 1);
+	}
 	*ptr = constant;
 }

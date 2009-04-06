@@ -97,7 +97,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 	compiler->local_size = local_size;
 	if (local_size > 0)
 		return emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
-			SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, local_size);
+			SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, local_size);
 
 	// Mov arguments to general registers
 	return SLJIT_NO_ERROR;
@@ -133,7 +133,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 
 	if (compiler->local_size > 0)
 		TEST_FAIL(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
-				SLJIT_STACK_PTR_REG, 0, SLJIT_STACK_PTR_REG, 0, SLJIT_IMM, compiler->local_size));
+				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
 
 	size = 2 + compiler->general;
 	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_NO_REG)
@@ -191,10 +191,10 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM_FLAG) {
-		if ((b & 0xf) == SLJIT_STACK_PTR_REG && (b & 0xf0) == 0)
-			b |= SLJIT_STACK_PTR_REG << 4;
-		else if ((b & 0xf0) == (SLJIT_STACK_PTR_REG << 4))
-			b = ((b & 0xf) << 4) | SLJIT_STACK_PTR_REG | SLJIT_MEM_FLAG;
+		if ((b & 0xf) == SLJIT_LOCALS_REG && (b & 0xf0) == 0)
+			b |= SLJIT_LOCALS_REG << 4;
+		else if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
+			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM_FLAG;
 
 		if ((b & 0xf0) != SLJIT_NO_REG)
 			total_size += 1; // SIB byte
@@ -279,10 +279,10 @@ static sljit_ub* emit_x86_bin_instruction(struct sljit_compiler *compiler, int s
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM_FLAG) {
-		if ((b & 0xf) == SLJIT_STACK_PTR_REG && (b & 0xf0) == 0)
-			b |= SLJIT_STACK_PTR_REG << 4;
-		else if ((b & 0xf0) == (SLJIT_STACK_PTR_REG << 4))
-			b = ((b & 0xf) << 4) | SLJIT_STACK_PTR_REG | SLJIT_MEM_FLAG;
+		if ((b & 0xf) == SLJIT_LOCALS_REG && (b & 0xf0) == 0)
+			b |= SLJIT_LOCALS_REG << 4;
+		else if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
+			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM_FLAG;
 	
 		if ((b & 0xf0) != SLJIT_NO_REG)
 			total_size += 1; // SIB byte
@@ -379,10 +379,10 @@ static sljit_ub* emit_x86_shift_instruction(struct sljit_compiler *compiler,
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM_FLAG) {
-		if ((b & 0xf) == SLJIT_STACK_PTR_REG && (b & 0xf0) == 0)
-			b |= SLJIT_STACK_PTR_REG << 4;
-		else if ((b & 0xf0) == (SLJIT_STACK_PTR_REG << 4))
-			b = ((b & 0xf) << 4) | SLJIT_STACK_PTR_REG | SLJIT_MEM_FLAG;
+		if ((b & 0xf) == SLJIT_LOCALS_REG && (b & 0xf0) == 0)
+			b |= SLJIT_LOCALS_REG << 4;
+		else if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
+			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM_FLAG;
 	
 		if ((b & 0xf0) != 0)
 			total_size += 1; // SIB byte
