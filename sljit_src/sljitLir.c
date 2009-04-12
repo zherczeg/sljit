@@ -33,6 +33,9 @@
 	if (expr) \
 		return compiler->error;
 
+#define GET_OPCODE(op) \
+	((op) & ~(SLJIT_INT_OPERATION | SLJIT_SET_FLAGS))
+
 #define BUF_SIZE	2048
 #define ABUF_SIZE	512
 
@@ -319,6 +322,17 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	else \
 		SLJIT_ASSERT_IMPOSSIBLE();
 
+#define FUNCTION_CHECK_OP1() \
+	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SH) { \
+        	SLJIT_ASSERT(!(op & SLJIT_SET_FLAGS)); \
+                if (GET_OPCODE(op) != SLJIT_MOV && GET_OPCODE(op) != SLJIT_MOVU) \
+	        	SLJIT_ASSERT(!(op & SLJIT_INT_OPERATION)); \
+        } \
+        if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_SH) { \
+        	if ((src & SLJIT_MEM_FLAG) && (src & 0xf)) \
+	                SLJIT_ASSERT((dst & 0xf) != (src & 0xf) && ((dst >> 4) & 0xf) != (src & 0xf)); \
+        }
+
 #endif
 
 #ifdef SLJIT_VERBOSE
@@ -391,11 +405,12 @@ static char* freg_names[] = {
 	} else \
 		fprintf(compiler->verbose, "%s", freg_names[p]);
 static char* op1_names[] = {
-	"mov", "not", "neg"
+	"mov", "mov_ub", "mov_sb", "mov_uh", "mov_sh", "movu", 
+        "movu_ub", "movu_sb", "movu_uh", "movu_sh", "not", "neg"
 };
 #define sljit_emit_op1_verbose() \
 	if (compiler->verbose) { \
-		fprintf(compiler->verbose, "  %s%s ", op1_names[op & ~SLJIT_32BIT_OPERATION], !(op & SLJIT_32BIT_OPERATION) ? "" : "32"); \
+		fprintf(compiler->verbose, "  %s%s%s ", !(op & SLJIT_INT_OPERATION) ? "" : "i", op1_names[GET_OPCODE(op)], !(op & SLJIT_SET_FLAGS) ? "" : "."); \
 		sljit_verbose_param(dst, dstw); \
 		fprintf(compiler->verbose, ", "); \
 		sljit_verbose_param(src, srcw); \
@@ -407,7 +422,7 @@ static char* op2_names[] = {
 };
 #define sljit_emit_op2_verbose() \
 	if (compiler->verbose) { \
-		fprintf(compiler->verbose, "  %s%s ", op2_names[op & ~SLJIT_32BIT_OPERATION], !(op & SLJIT_32BIT_OPERATION) ? "" : "32"); \
+		fprintf(compiler->verbose, "  %s%s%s ", !(op & SLJIT_INT_OPERATION) ? "" : "i", op2_names[GET_OPCODE(op)], !(op & SLJIT_SET_FLAGS) ? "" : "."); \
 		sljit_verbose_param(dst, dstw); \
 		fprintf(compiler->verbose, ", "); \
 		sljit_verbose_param(src1, src1w); \

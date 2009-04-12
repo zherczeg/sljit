@@ -15,20 +15,20 @@
 #ifndef _SLJIT_H_
 #define _SLJIT_H_
 
-// ---------------------------------------------------------------------
-//  Stack-Less JIT compiler for multiple platforms (x86, ARM, powerPC)
-// ---------------------------------------------------------------------
+// ------------------------------------------------------------------------
+//  Stack-Less JIT compiler for multiple architectures (x86, ARM, PowerPC)
+// ------------------------------------------------------------------------
 //
-// Short description of the general approach
+// Short description
 //  Advantages:
 //    - The execution can be continued from any LIR instruction
 //      In other words, jump into and out of the code is safe
 //    - Target of (conditional) jump and call instructions can be
 //      dynamically modified during the execution of the code
-//    - Constants can be modified during the execution of the code
+//    - Constants can be modified during runtime (after code generation)
 //  Disadvantages:
-//    - Limited number of registers (only 6, max 3 temporary and max 3 general)
-//    - Variables cannot be stored temporarily on the stack
+//    - Limited number of registers (only 6 integer registers, max 3
+//      temporary and max 3 general, and only 4 floating point registers)
 //  In practice:
 //    - This approach is very effective for interpreters
 //      - One of the general registers tipically points to a stack interface
@@ -46,10 +46,13 @@
 //  Configuration
 // ---------------------------------------------------------------------
 
-// Architecture selection (comment out one here, use -D preprocessor option, or define SLJIT_CONFIG_AUTO)
+// Architecture selection (comment out one here, use -D preprocessor
+//   option, or define SLJIT_CONFIG_AUTO)
 //#define SLJIT_CONFIG_X86_32
 //#define SLJIT_CONFIG_X86_64
 //#define SLJIT_CONFIG_ARM
+//#define SLJIT_CONFIG_PPC_32
+//#define SLJIT_CONFIG_PPC_64
 
 // Auto select option (requires compiler support)
 #ifdef SLJIT_CONFIG_AUTO
@@ -109,21 +112,22 @@ void sljit_free_exec(void* ptr);
 
 #define SLJIT_MEMMOVE(dest, src, len) memmove(dest, src, len)
 
-// Debug
+// Debug checks (assertions, etc)
 #define SLJIT_DEBUG
 
 // Verbose operations
 #define SLJIT_VERBOSE
 
+// Inline functions
 #define INLINE __inline
 
 // Byte type
 typedef unsigned char sljit_ub;
 typedef char sljit_b;
+
 // Machine word type. Can encapsulate a pointer.
 //   32 bit for 32 bit machines
 //   64 bit for 64 bit machines
-
 #if !defined(SLJIT_CONFIG_X86_64) && !defined(SLJIT_CONFIG_PPC_64)
 typedef unsigned int sljit_uw;
 typedef int sljit_w;
@@ -141,7 +145,7 @@ typedef long int sljit_w;
 #define SLJIT_CALL __stdcall
 #endif
 
-#else // SLJIT_CONFIG_ARM
+#else // Other architectures
 
 #define SLJIT_CALL
 
@@ -152,7 +156,6 @@ typedef long int sljit_w;
 // I don't know why... It just makes things complicated
 #define SLJIT_INDIRECT_CALL
 #endif
-
 
 #ifdef SLJIT_CONFIG_ARM
 	// Just call __ARM_NR_cacheflush on Linux
@@ -207,7 +210,7 @@ typedef long int sljit_w;
 #define SLJIT_GENERAL_REG3	6
 
 // Read-only register
-// SLJIT_MEM2(SLJIT_LOCALS_REG, SLJIT_LOCALS_REG) is unsupported
+// SLJIT_MEM2(SLJIT_LOCALS_REG, SLJIT_LOCALS_REG) is not supported
 #define SLJIT_LOCALS_REG	7
 
 #define SLJIT_NO_TMP_REGISTERS	3
@@ -219,9 +222,9 @@ typedef long int sljit_w;
 #define SLJIT_PREF_RET_REG	SLJIT_TEMPORARY_REG1
 #define SLJIT_PREF_RET_HIREG	SLJIT_TEMPORARY_REG2
 
-// x86 prefers temporary registers for special purposes. If not these
-// registers are used, it costs a little performance drawback. It
-// doesn't matter for other archs
+// x86 prefers temporary registers for special purposes. If not
+// these registers are used, it costs a little performance drawback.
+// It doesn't matter for other archs
 
 #define SLJIT_PREF_MUL_DST	SLJIT_TEMPORARY_REG1
 #define SLJIT_PREF_SHIFT_REG	SLJIT_TEMPORARY_REG3
@@ -288,7 +291,9 @@ struct sljit_compiler {
 
 	// Used general registers
 	int general;
+	// Local stack size
 	int local_size;
+	// Code size
 	sljit_uw size;
 
 #ifdef SLJIT_CONFIG_X86_32
@@ -349,9 +354,10 @@ void sljit_free_code(void* code);
 
 // Entry instruction. The instruction has "args" number of arguments
 // and will use the first "general" number of general registers.
-// Therefore, "args" must be less or equal than "general"
+// The arguments are loaded into the general registers (arg1 to general_reg1, ...).
+// Therefore, "args" must be less or equal than "general".
 // local_size extra stack space is allocated for the jit code,
-// which can accessed by SLJIT_LOCALS_REG (use it as base)
+// which can accessed through SLJIT_LOCALS_REG (use it as a base register)
 
 int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size);
 
@@ -365,7 +371,7 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, in
 int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 
 // Source and destination values for arithmetical instructions
-//  imm           - a simple immediate value (cannot be destination)
+//  imm           - a simple immediate value (cannot be used as a destination)
 //  reg           - any of the registers (immediate argument unused)
 //  [imm]         - absolute immediate memory address
 //  [reg+imm]     - indirect memory address
@@ -374,39 +380,58 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 // Register output: simply the name of the register
 // For destination, you can use SLJIT_NO_REG as well
 #define SLJIT_MEM_FLAG		0x100
+#define SLJIT_MEM0()		(SLJIT_MEM_FLAG)
+#define SLJIT_MEM1(r1)		(SLJIT_MEM_FLAG | (r1))
+#define SLJIT_MEM2(r1, r2)	(SLJIT_MEM_FLAG | (r1) | ((r2) << 4))
 #define SLJIT_IMM		0x200
-#define SLJIT_MEM0()		SLJIT_MEM_FLAG
-#define SLJIT_MEM1(r1)		SLJIT_MEM_FLAG | (r1)
-#define SLJIT_MEM2(r1, r2)	SLJIT_MEM_FLAG | (r1) | ((r2) << 4)
 
 // It may sound suprising, but the default int size on 64bit CPUs is still
-// 32 bit. The 64 bit registers are mostly used for memory addressing.
+// 32 bit. The 64 bit registers are mostly used only for memory addressing.
 // This flag can be combined with the op argument of sljit_emit_op1 and
 // sljit_emit_op2. It does NOT have any effect on 32bit CPUs or the addressing
 // mode on 64 bit CPUs (SLJIT_MEMx macros)
-#define SLJIT_32BIT_OPERATION		0x100
+#define SLJIT_INT_OPERATION		0x100
 
-// Most of the following instructions are also set the CPU status-flags
-// Common flags for all architectures (x86, ARM, PPC)
+// Common CPU status flags for all architectures (x86, ARM, PPC)
 //  - carry flag
 //  - overflow flag
 //  - zero flag
 //  - negative/positive flag (depends on arc)
-// Note:
-//  - instructions which are not set status flags are marked with asterisk (*)
-//  - no perf penalty for setting the CPU status flags
+
+// By default, the instructions may, or may not set the CPU status flags.
+// Using this option, we can force the compiler to generate instructions,
+// which also set the CPU status flags. Omit this option if you do not
+// want to branch after the instruction, since the compiler may generate
+// faster code
+#define SLJIT_SET_FLAGS			0x200
+
+// Notes:
 //  - you cannot postpone conditional jump instructions depending on
-//    one of these instructions
+//    one of these instructions except if the next instruction is a mov*
 //  - the carry flag set/reset depends on arch
 //    i.e: x86 sub operation sets carry, if substraction overflows, while
 //    arm sub sets carry, if the substraction does NOT overflow. I suggest
 //    to use carry mainly for addc and subc operations
 
-// * - CPU flags not set
+// CPU flags are NEVER set for MOV instructions
+// U = Mov with update. If source or destination uses the form of
+// [reg + (expr)] the reg is increased by (expr)
+// UB = unsigned byte (8 bit)
+// SB = signed byte (8 bit)
+// UH = unsgined half (16 bit)
+// SH = unsgined half (16 bit)
 #define SLJIT_MOV			0
-// * - CPU flags not set
-#define SLJIT_NOT			1
-#define SLJIT_NEG			2
+#define SLJIT_MOV_UB			1
+#define SLJIT_MOV_SB			2
+#define SLJIT_MOV_UH			3
+#define SLJIT_MOV_SH			4
+#define SLJIT_MOVU			5
+#define SLJIT_MOVU_UB			6
+#define SLJIT_MOVU_SB			7
+#define SLJIT_MOVU_UH			8
+#define SLJIT_MOVU_SH			9
+#define SLJIT_NOT			10
+#define SLJIT_NEG			11
 
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
