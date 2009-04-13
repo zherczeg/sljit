@@ -26,6 +26,7 @@
 //    - Target of (conditional) jump and call instructions can be
 //      dynamically modified during the execution of the code
 //    - Constants can be modified during runtime (after code generation)
+//    - A fixed stack space can be allocated for local variables
 //  Disadvantages:
 //    - Limited number of registers (only 6 integer registers, max 3
 //      temporary and max 3 general, and only 4 floating point registers)
@@ -129,9 +130,11 @@ typedef char sljit_b;
 //   32 bit for 32 bit machines
 //   64 bit for 64 bit machines
 #if !defined(SLJIT_CONFIG_X86_64) && !defined(SLJIT_CONFIG_PPC_64)
+#define SLJIT_32BIT_ARCHITECTURE	1
 typedef unsigned int sljit_uw;
 typedef int sljit_w;
 #else
+#define SLJIT_64BIT_ARCHITECTURE	1
 typedef unsigned long int sljit_uw;
 typedef long int sljit_w;
 #endif
@@ -425,13 +428,17 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 #define SLJIT_MOV_SB			2
 #define SLJIT_MOV_UH			3
 #define SLJIT_MOV_SH			4
-#define SLJIT_MOVU			5
-#define SLJIT_MOVU_UB			6
-#define SLJIT_MOVU_SB			7
-#define SLJIT_MOVU_UH			8
-#define SLJIT_MOVU_SH			9
-#define SLJIT_NOT			10
-#define SLJIT_NEG			11
+#define SLJIT_MOV_UI			5
+#define SLJIT_MOV_SI			6
+#define SLJIT_MOVU			7
+#define SLJIT_MOVU_UB			8
+#define SLJIT_MOVU_SB			9
+#define SLJIT_MOVU_UH			10
+#define SLJIT_MOVU_SH			11
+#define SLJIT_MOVU_UI			12
+#define SLJIT_MOVU_SI			13
+#define SLJIT_NOT			14
+#define SLJIT_NEG			15
 
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,

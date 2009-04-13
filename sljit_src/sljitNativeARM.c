@@ -28,7 +28,7 @@
 #define ALIGN_INSTRUCTION(ptr) \
 	(sljit_uw*)(((sljit_uw)(ptr) + (CONST_POOL_ALIGNMENT * sizeof(sljit_uw)) - 1) & ~((CONST_POOL_ALIGNMENT * sizeof(sljit_uw)) - 1))
 #define MAX_DIFFERENCE(max_diff) \
-        (((max_diff) / (int)sizeof(sljit_uw)) - (CONST_POOL_ALIGNMENT - 1))
+	(((max_diff) / (int)sizeof(sljit_uw)) - (CONST_POOL_ALIGNMENT - 1))
 
 static sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
   0, 0, 1, 2, 4, 5, 6, 13, 3, 7, 8, 15
@@ -529,7 +529,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 
 	TEST_FAIL(push_inst(compiler));
 	// Push general registers, temporary registers
-        // stmdb sp!, {..., lr}
+	// stmdb sp!, {..., lr}
 	compiler->last_type = LIT_INS;
 	compiler->last_ins = 0xe92d0000 | 0x4000 | 0x0180;
 	if (general >= 3)
@@ -602,7 +602,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 
 	TEST_FAIL(push_inst(compiler));
 	// Push general registers, temporary registers
-        // ldmia sp!, {..., pc}
+	// ldmia sp!, {..., pc}
 	compiler->last_type = LIT_INS;
 	compiler->last_ins = 0xe8bd0000 | 0x8000 | 0x0180;
 	if (compiler->general >= 3)
@@ -785,12 +785,12 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		compiler->last_type = LIT_INS;
 		if (src2 & SRC2_IMM) {
 			if (flags & INV_IMM)
-				compiler->last_ins = EMIT_DATA_PROCESS_INS(0x1a, dst, SLJIT_NO_REG, src2);
+				compiler->last_ins = EMIT_DATA_PROCESS_INS(0x1b, dst, SLJIT_NO_REG, src2);
 			else
-				compiler->last_ins = EMIT_DATA_PROCESS_INS(0x1e, dst, SLJIT_NO_REG, src2);
+				compiler->last_ins = EMIT_DATA_PROCESS_INS(0x1f, dst, SLJIT_NO_REG, src2);
 		}
 		else
-			compiler->last_ins = EMIT_DATA_PROCESS_INS(0x1e, dst, SLJIT_NO_REG, reg_map[src2]);
+			compiler->last_ins = EMIT_DATA_PROCESS_INS(0x1f, dst, SLJIT_NO_REG, reg_map[src2]);
 
 		return SLJIT_NO_ERROR;
 	}
@@ -1437,7 +1437,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 #endif
 	sljit_emit_op1_verbose();
 
-	op &= ~SLJIT_INT_OPERATION;
+	op = GET_OPCODE(op);
 	switch (op) {
 	case SLJIT_MOV:
 	case SLJIT_NOT:
@@ -1457,7 +1457,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 {
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT((op & ~SLJIT_INT_OPERATION) >= SLJIT_ADD && (op & ~SLJIT_INT_OPERATION) <= SLJIT_ASHR);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_ADD && GET_OPCODE(op) <= SLJIT_ASHR);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_SRC(src1, src1w);
 	FUNCTION_CHECK_SRC(src2, src2w);
@@ -1465,7 +1465,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 #endif
 	sljit_emit_op2_verbose();
 
-	op &= ~SLJIT_INT_OPERATION;
+	op = GET_OPCODE(op);
 	switch (op) {
 	case SLJIT_ADD:
 	case SLJIT_ADDC:

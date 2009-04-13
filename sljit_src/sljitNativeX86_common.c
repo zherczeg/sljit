@@ -83,8 +83,9 @@ typedef int sljit_hw;
 #define EX86_BIN_INS		0x010
 #define EX86_SHIFT_INS		0x020
 #define EX86_REX		0x040
-#define EX86_BYTE_ARG		0x080
-#define EX86_HALF_ARG		0x100
+#define EX86_NO_REXW		0x080
+#define EX86_BYTE_ARG		0x100
+#define EX86_HALF_ARG		0x200
 
 #define INC_SIZE(s)			(*buf++ = (s), compiler->size += (s))
 
@@ -421,15 +422,133 @@ static int emit_mov(struct sljit_compiler *compiler,
 		TEST_FAIL(emit_mov(compiler, dst, dstw, src, srcw)); \
 	} while (0)
 
+#define ENCODE_PREFIX(prefix) \
+	do { \
+		code = ensure_buf(compiler, 1 + 1); \
+		TEST_MEM_ERROR(code); \
+		*code++ = 1; \
+		compiler->size++; \
+		*code = (prefix); \
+	} while (0)
+
 static int emit_mov_byte(struct sljit_compiler *compiler, int sign,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
 	sljit_ub* code;
+	int dst_r;
+#ifdef SLJIT_CONFIG_X86_32
+	int work_r;
+#endif
 
 #ifdef SLJIT_CONFIG_X86_64
 	compiler->mode32 = 0;
 #endif
+
+	if (dst == SLJIT_NO_REG && !(src & SLJIT_MEM_FLAG))
+		return SLJIT_NO_ERROR; // Empty instruction
+
+	if (src & SLJIT_IMM) {
+		code = emit_x86_instruction(compiler, 1 | EX86_BYTE_ARG | EX86_NO_REXW, SLJIT_IMM, srcw & 0xff, dst, dstw);
+		TEST_MEM_ERROR(code);
+		*code = 0xc6;
+		return SLJIT_NO_ERROR;
+	}
+
+	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3) ? dst : TMP_REGISTER;
+
+	if ((dst & SLJIT_MEM_FLAG) && src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_GENERAL_REG3) {
+#ifdef SLJIT_CONFIG_X86_32
+		if (reg_map[src] >= 4) {
+			SLJIT_ASSERT(dst_r == TMP_REGISTER);
+			EMIT_MOV(compiler, TMP_REGISTER, 0, src, 0);
+		} else
+			dst_r = src;
+#else
+		dst_r = src;
+#endif
+	}
+#ifdef SLJIT_CONFIG_X86_32
+	else if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_GENERAL_REG3 && reg_map[src] >= 4) {
+		// src, dst are registers
+		SLJIT_ASSERT(dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3);
+		if (reg_map[dst] < 4) {
+			EMIT_MOV(compiler, dst, 0, src, 0);
+			code = emit_x86_instruction(compiler, 2 | EX86_REX, dst, 0, dst, 0);
+			TEST_MEM_ERROR(code);
+			*code++ = 0x0f;
+			*code = sign ? 0xbe : 0xb6;
+		}
+		else {
+			ENCODE_PREFIX(0x90 + reg_map[TMP_REGISTER]);
+			EMIT_MOV(compiler, SLJIT_TEMPORARY_REG1, 0, src, 0);
+			code = emit_x86_instruction(compiler, 2 | EX86_REX, dst, 0, SLJIT_TEMPORARY_REG1, 0);
+			TEST_MEM_ERROR(code);
+			*code++ = 0x0f;
+			*code = sign ? 0xbe : 0xb6;
+			ENCODE_PREFIX(0x90 + reg_map[TMP_REGISTER]);
+		}
+	}
+#endif
+	else {
+		code = emit_x86_instruction(compiler, 2, dst_r, 0, src, srcw);
+		TEST_MEM_ERROR(code);
+		*code++ = 0x0f;
+		*code = sign ? 0xbe : 0xb6;
+	}
+
+	if (dst & SLJIT_MEM_FLAG) {
+#ifdef SLJIT_CONFIG_X86_32
+		if (dst_r == TMP_REGISTER) {
+			// Find a non-used register, whose reg_map[src] < 4
+			if ((dst & 0xf) == SLJIT_TEMPORARY_REG1) {
+				if ((dst & 0xf0) == (SLJIT_TEMPORARY_REG2 << 4))
+					work_r = SLJIT_TEMPORARY_REG3;
+				else
+					work_r = SLJIT_TEMPORARY_REG2;
+			}
+			else {
+				if ((dst & 0xf0) != (SLJIT_TEMPORARY_REG1 << 4))
+					work_r = SLJIT_TEMPORARY_REG1;
+				else if ((dst & 0xf) == SLJIT_TEMPORARY_REG2)
+					work_r = SLJIT_TEMPORARY_REG3;
+				else
+					work_r = SLJIT_TEMPORARY_REG2;
+			}
+
+			if (work_r == SLJIT_TEMPORARY_REG1) {
+				ENCODE_PREFIX(0x90 + reg_map[TMP_REGISTER]);
+			}
+			else {
+				code = emit_x86_instruction(compiler, 1, work_r, 0, dst_r, 0);
+				TEST_MEM_ERROR(code);
+				*code = 0x87;
+			}
+
+			code = emit_x86_instruction(compiler, 1, work_r, 0, dst, dstw);
+			TEST_MEM_ERROR(code);
+			*code = 0x88;
+
+			if (work_r == SLJIT_TEMPORARY_REG1) {
+				ENCODE_PREFIX(0x90 + reg_map[TMP_REGISTER]);
+			}
+			else {
+				code = emit_x86_instruction(compiler, 1, work_r, 0, dst_r, 0);
+				TEST_MEM_ERROR(code);
+				*code = 0x87;
+			}
+		}
+		else {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
+			TEST_MEM_ERROR(code);
+			*code = 0x88;
+		}
+#else
+		code = emit_x86_instruction(compiler, 1 | EX86_NO_REXW, dst_r, 0, dst, dstw);
+		TEST_MEM_ERROR(code);
+		*code = 0x88;
+#endif
+	}
 
 	return SLJIT_NO_ERROR;
 }
@@ -445,11 +564,21 @@ static int emit_mov_half(struct sljit_compiler *compiler, int sign,
 	compiler->mode32 = 0;
 #endif
 
-	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG1) ? dst : TMP_REGISTER;
+	if (dst == SLJIT_NO_REG && !(src & SLJIT_MEM_FLAG))
+		return SLJIT_NO_ERROR; // Empty instruction
 
 	if (src & SLJIT_IMM) {
-		TEST_FAIL(emit_mov(compiler, dst_r, 0, SLJIT_IMM, srcw));
+		ENCODE_PREFIX(0x66);
+		code = emit_x86_instruction(compiler, 1 | EX86_HALF_ARG | EX86_NO_REXW, SLJIT_IMM, srcw & 0xffff, dst, dstw);
+		TEST_MEM_ERROR(code);
+		*code = 0xc7;
+		return SLJIT_NO_ERROR;
 	}
+
+	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3) ? dst : TMP_REGISTER;
+
+	if ((dst & SLJIT_MEM_FLAG) && (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_GENERAL_REG3))
+		dst_r = src;
 	else {
 		code = emit_x86_instruction(compiler, 2, dst_r, 0, src, srcw);
 		TEST_MEM_ERROR(code);
@@ -458,9 +587,10 @@ static int emit_mov_half(struct sljit_compiler *compiler, int sign,
 	}
 
 	if (dst & SLJIT_MEM_FLAG) {
-		/*sdf
-		buf = 0x66;*/
-		return emit_mov(compiler, dst, dstw, TMP_REGISTER, 0);
+		ENCODE_PREFIX(0x66);
+		code = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
+		TEST_MEM_ERROR(code);
+		*code = 0x89;
 	}
 
 	return SLJIT_NO_ERROR;
@@ -567,6 +697,10 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
+#ifdef SLJIT_CONFIG_X86_32
+	case SLJIT_MOV_UI:
+	case SLJIT_MOV_SI:
+#endif
 		return emit_mov(compiler, dst, dstw, src, srcw);
 
 	case SLJIT_MOV_UB:
@@ -581,11 +715,21 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	case SLJIT_MOV_SH:
 		return emit_mov_half(compiler, 1, dst, dstw, src, srcw);
 
+#ifdef SLJIT_CONFIG_X86_64
+	case SLJIT_MOV_UI:
+		return emit_mov_int(compiler, 0, dst, dstw, src, srcw);
+
+	case SLJIT_MOV_SI:
+		return emit_mov_int(compiler, 0, dst, dstw, src, srcw);
+#endif
+
 	case SLJIT_MOVU:
 	case SLJIT_MOVU_UB:
 	case SLJIT_MOVU_SB:
 	case SLJIT_MOVU_UH:
 	case SLJIT_MOVU_SH:
+	case SLJIT_MOVU_UI:
+	case SLJIT_MOVU_SI:
 		if ((src & SLJIT_MEM_FLAG) && (srcw != 0 || (src & 0xf0) != 0)) {
 #ifdef SLJIT_CONFIG_X86_64
 			compiler->mode32 = 0;
@@ -602,6 +746,10 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		}
 		switch (GET_OPCODE(op)) {
 		case SLJIT_MOVU:
+#ifdef SLJIT_CONFIG_X86_32
+		case SLJIT_MOVU_UI:
+		case SLJIT_MOVU_SI:
+#endif
 			TEST_FAIL(emit_mov(compiler, dst, dstw, src, srcw));
 			break;
 
@@ -620,6 +768,17 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		case SLJIT_MOVU_SH:
 			TEST_FAIL(emit_mov_half(compiler, 1, dst, dstw, src, srcw));
 			break;
+
+#ifdef SLJIT_CONFIG_X86_64
+		case SLJIT_MOVU_UI:
+			TEST_FAIL(emit_mov_int(compiler, 0, dst, dstw, src, srcw));
+			break;
+
+		case SLJIT_MOVU_SI:
+			TEST_FAIL(emit_mov_int(compiler, 1, dst, dstw, src, srcw));
+			break;
+#endif
+
 		}
 		if ((dst & SLJIT_MEM_FLAG) && (dstw != 0 || (dst & 0xf0) != 0)) {
 #ifdef SLJIT_CONFIG_X86_64
