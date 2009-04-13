@@ -285,7 +285,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 			b |= TMP_REG3;
 	}
 
-	if (!compiler->mode32)
+	if (!compiler->mode32 && !(flags & EX86_NO_REXW))
 		rex |= REX_W;
 	else if (flags & EX86_REX)
 		rex |= REX;
@@ -448,3 +448,77 @@ static int call_with_args(struct sljit_compiler *compiler, int type)
 	*buf++ = 0xc0 | (0x7 << 3) | reg_lmap[SLJIT_TEMPORARY_REG1];
 	return SLJIT_NO_ERROR;
 }
+
+// ---------------------------------------------------------------------
+//  Extend input
+// ---------------------------------------------------------------------
+
+static int emit_mov_int(struct sljit_compiler *compiler, int sign,
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw)
+{
+	sljit_ub* code;
+	int dst_r;
+
+	compiler->mode32 = 0;
+
+	if (dst == SLJIT_NO_REG && !(src & SLJIT_MEM_FLAG))
+		return SLJIT_NO_ERROR; // Empty instruction
+
+	if (src & SLJIT_IMM) {
+		compiler->mode32 = 1;
+		code = emit_x86_instruction(compiler, 1, SLJIT_IMM, (sljit_w)(int)srcw, dst, dstw);
+		TEST_MEM_ERROR(code);
+		*code = 0xc7;
+		compiler->mode32 = 0;
+		return SLJIT_NO_ERROR;
+	}
+
+	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3) ? dst : TMP_REGISTER;
+
+	if ((dst & SLJIT_MEM_FLAG) && (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_GENERAL_REG3))
+		dst_r = src;
+	else {
+		if (sign) {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, src, srcw);
+			TEST_MEM_ERROR(code);
+			*code++ = 0x63;
+		}
+		else {
+			if (dst_r == src) {
+				compiler->mode32 = 1;
+				code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src, 0);
+				TEST_MEM_ERROR(code);
+				*code++ = 0x8b;
+				compiler->mode32 = 0;
+			}
+			// xor reg, reg
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, dst_r, 0);
+			TEST_MEM_ERROR(code);
+			*code++ = 0x33;
+			if (dst_r != src) {
+				compiler->mode32 = 1;
+				code = emit_x86_instruction(compiler, 1, dst_r, 0, src, srcw);
+				TEST_MEM_ERROR(code);
+				*code++ = 0x8b;
+				compiler->mode32 = 0;
+			}
+			else {
+				compiler->mode32 = 1;
+				code = emit_x86_instruction(compiler, 1, src, 0, TMP_REGISTER, 0);
+				TEST_MEM_ERROR(code);
+				*code++ = 0x8b;
+				compiler->mode32 = 0;
+			}
+		}
+	}
+
+	if (dst & SLJIT_MEM_FLAG) {
+		code = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
+		TEST_MEM_ERROR(code);
+		*code = 0x89;
+	}
+
+	return SLJIT_NO_ERROR;
+}
+

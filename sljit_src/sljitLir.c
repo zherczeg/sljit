@@ -329,9 +329,11 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	        	SLJIT_ASSERT(!(op & SLJIT_INT_OPERATION)); \
         } \
         if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_SH) { \
-        	if ((src & SLJIT_MEM_FLAG) && (src & 0xf)) \
-	                SLJIT_ASSERT((dst & 0xf) != (src & 0xf) && ((dst >> 4) & 0xf) != (src & 0xf)); \
-        }
+		if ((src & SLJIT_MEM_FLAG) && (src & 0xf)) { \
+			SLJIT_ASSERT((src & 0xf) != SLJIT_LOCALS_REG); \
+			SLJIT_ASSERT((dst & 0xf) != (src & 0xf) && ((dst >> 4) & 0xf) != (src & 0xf)); \
+		} \
+	}
 
 #endif
 
@@ -405,8 +407,9 @@ static char* freg_names[] = {
 	} else \
 		fprintf(compiler->verbose, "%s", freg_names[p]);
 static char* op1_names[] = {
-	"mov", "mov_ub", "mov_sb", "mov_uh", "mov_sh", "movu", 
-        "movu_ub", "movu_sb", "movu_uh", "movu_sh", "not", "neg"
+	"mov", "mov_ub", "mov_sb", "mov_uh", "mov_sh", "mov_ui", "mov_si",
+	"movu", "movu_ub", "movu_sb", "movu_uh", "movu_sh", "movu_ui", "movu_si",
+	"not", "neg"
 };
 #define sljit_emit_op1_verbose() \
 	if (compiler->verbose) { \
