@@ -380,6 +380,24 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 //  [reg+imm]     - indirect memory address
 //  [reg+reg+imm] - two level indirect addressing
 
+// IMPORATNT NOTE: memory access MUST be naturally aligned.
+//   length | alignment
+// ---------+-----------
+//   byte   | 1 byte (not aligned)
+//   half   | 2 byte (real_address & 0x1 == 0)
+//   int    | 4 byte (real_address & 0x3 == 0)
+//  sljit_w | 4 byte if SLJIT_32BIT_ARCHITECTURE defined
+//          | 8 byte if SLJIT_64BIT_ARCHITECTURE defined
+// This is a strict requirement for embedded systems.
+
+// Note: different architectures have different addressing limitations
+//  So sljit may generate several instructions if we use other addressing modes
+// x86: [reg+reg+imm] supported, -2^31 <= imm <= 2^31. Write-back not supported
+// arm: [reg+imm] [reg+reg] supported, -4095 <= imm <= 4095 for words and
+//      unsigned bytes. -255 <= imm <= 255 for other types. Write-back supported
+// ppc: [reg+imm], [reg+reg] supported -65535 <= imm <= 65535. Some immediates
+//      must be divisible by 4. Write-back supported
+
 // Register output: simply the name of the register
 // For destination, you can use SLJIT_NO_REG as well
 #define SLJIT_MEM_FLAG		0x100

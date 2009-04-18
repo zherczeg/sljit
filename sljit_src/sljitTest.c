@@ -1255,11 +1255,12 @@ static void test21(void)
 
 static void test22(void)
 {
+	// Test simple byte and half-int data transfers
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[7];
 	short sbuf[5];
-	char bbuf[5];
+	signed char bbuf[5];
 
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 5;
@@ -1333,12 +1334,12 @@ static void test22(void)
 	FAILED(sbuf[0] != -13, "test22 case 7 failed\n");
 	FAILED(sbuf[1] != 0x1234, "test22 case 8 failed\n");
 	FAILED(sbuf[3] != 0x1234, "test22 case 9 failed\n");
-	FAILED(sbuf[4] != 8000, "test22 case 9 failed\n");
+	FAILED(sbuf[4] != 8000, "test22 case 10 failed\n");
 
-	FAILED(bbuf[0] != -45, "test22 case 10 failed\n");
-	FAILED(bbuf[1] != 0x12, "test22 case 11 failed\n");
-	FAILED(bbuf[3] != -56, "test22 case 12 failed\n");
-	FAILED(bbuf[4] != 2, "test22 case 13 failed\n");
+	FAILED(bbuf[0] != -45, "test22 case 11 failed\n");
+	FAILED(bbuf[1] != 0x12, "test22 case 12 failed\n");
+	FAILED(bbuf[3] != -56, "test22 case 13 failed\n");
+	FAILED(bbuf[4] != 2, "test22 case 14 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test22 ok\n");
@@ -1346,6 +1347,8 @@ static void test22(void)
 
 static void test23(void)
 {
+	// Test 32 bit / 64 bit signed / unsigned int transfer and conversion
+	// This test has on real meaning on 64 bit systems, but works on 32 bit systems as well
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[3];
@@ -1402,6 +1405,89 @@ static void test23(void)
 	printf("test23 ok\n");
 }
 
+static void test24(void)
+{
+	// Some complicated addressing modes
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	sljit_w buf[3];
+	short sbuf[5];
+	signed char bbuf[4];
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	buf[0] = 100567;
+	buf[1] = 75799;
+	buf[2] = 0;
+
+	sbuf[0] = 30000;
+	sbuf[1] = 0;
+	sbuf[2] = 0;
+	sbuf[3] = -12345;
+	sbuf[4] = 0;
+
+	bbuf[0] = -128;
+	bbuf[1] = 0;
+	bbuf[2] = 0;
+	bbuf[3] = 99;
+
+	T(sljit_emit_enter(compiler, 3, 3, 0));
+
+	// Nothing should be updated
+	T(sljit_emit_op1(compiler, SLJIT_MOVU_SH, SLJIT_MEM0(), (sljit_w)&sbuf[1], SLJIT_MEM0(), (sljit_w)&sbuf[0]));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg > 0);
+#endif
+	T(sljit_emit_op1(compiler, SLJIT_MOVU_SB, SLJIT_MEM0(), (sljit_w)&bbuf[1], SLJIT_MEM0(), (sljit_w)&bbuf[0]));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg > 0);
+#endif
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, -(int)sizeof(short)));
+	T(sljit_emit_op1(compiler, SLJIT_MOV_UH, SLJIT_MEM2(SLJIT_GENERAL_REG2, SLJIT_TEMPORARY_REG1), 3 * sizeof(short), SLJIT_MEM2(SLJIT_GENERAL_REG2, SLJIT_TEMPORARY_REG1), 4 * sizeof(short)));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg > 0);
+#endif
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, sizeof(int)));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, 2 * sizeof(int)));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM2(SLJIT_TEMPORARY_REG3, SLJIT_TEMPORARY_REG1), (sljit_w)&buf[0], SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_TEMPORARY_REG1), (sljit_w)&buf[0], SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_TEMPORARY_REG1), (sljit_w)&buf[0]));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg > 0);
+#endif
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, sizeof(signed char)));
+	T(sljit_emit_op1(compiler, SLJIT_MOV_UB, SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_TEMPORARY_REG2), (sljit_w)&bbuf[1], SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_TEMPORARY_REG2), (sljit_w)&bbuf[2]));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg > 0);
+#endif
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, sizeof(short)));
+	T(sljit_emit_op1(compiler, SLJIT_MOV_SH, SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_TEMPORARY_REG2), (sljit_w)&sbuf[3], SLJIT_TEMPORARY_REG2, 0));
+#ifdef SLJIT_CONFIG_ARM
+	SLJIT_ASSERT(compiler->cache_arg == 0);
+#endif
+
+	T(sljit_emit_return(compiler, SLJIT_NO_REG));
+
+	code.code = sljit_generate_code(compiler);
+#ifdef SLJIT_INDIRECT_CALL
+	code.code_ptr = &code2.code;
+#endif
+	FAILED(!code.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	code.func3((sljit_w)&buf, (sljit_w)&sbuf, (sljit_w)&bbuf);
+	FAILED(buf[2] != 176366, "test24 case 1 failed\n");
+
+	FAILED(sbuf[1] != 30000, "test24 case 2 failed\n");
+	FAILED(sbuf[2] != -12345, "test24 case 3 failed\n");
+	FAILED(sbuf[4] != sizeof(short), "test24 case 4 failed\n");
+
+	FAILED(bbuf[1] != -128, "test24 case 5 failed\n");
+	FAILED(bbuf[2] != 99, "test24 case 6 failed\n");
+
+	sljit_free_code(code.code);
+	printf("test24 ok\n");
+}
+
 void sljit_test(void)
 {
 	test1();
@@ -1427,5 +1513,6 @@ void sljit_test(void)
 	test21();
 	test22();
 	test23();
+	test24();
 }
 

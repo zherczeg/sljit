@@ -68,9 +68,6 @@ void devel(void)
 #endif
 	sljit_emit_enter(compiler, 1, 3, 4 * sizeof(sljit_w));
 
-	//sljit_emit_op2(compiler, SLJIT_MUL | SLJIT_INT_OPERATION | SLJIT_SET_FLAGS, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 7);
-	sljit_emit_op1(compiler, SLJIT_NOT | SLJIT_SET_FLAGS, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, -1);
-
 	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
 	code.code = sljit_generate_code(compiler);
 #ifdef SLJIT_INDIRECT_CALL
