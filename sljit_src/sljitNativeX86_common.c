@@ -730,7 +730,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	case SLJIT_MOVU_SH:
 	case SLJIT_MOVU_UI:
 	case SLJIT_MOVU_SI:
-		if ((src & SLJIT_MEM_FLAG) && (srcw != 0 || (src & 0xf0) != 0)) {
+		if ((src & SLJIT_MEM_FLAG) && (src & 0xf) && (srcw != 0 || (src & 0xf0) != 0)) {
 #ifdef SLJIT_CONFIG_X86_64
 			compiler->mode32 = 0;
 #endif
@@ -780,7 +780,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 #endif
 
 		}
-		if ((dst & SLJIT_MEM_FLAG) && (dstw != 0 || (dst & 0xf0) != 0)) {
+		if ((dst & SLJIT_MEM_FLAG) && (dst & 0xf) && (dstw != 0 || (dst & 0xf0) != 0)) {
 #ifdef SLJIT_CONFIG_X86_64
 			compiler->mode32 = 0;
 #endif
