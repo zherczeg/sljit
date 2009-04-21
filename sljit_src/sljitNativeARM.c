@@ -636,11 +636,6 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 
 #define OP1_OFFSET	(SLJIT_ASHR + 1)
 
-#define TEST_ERROR(ret) \
-	if (ret) { \
-		return SLJIT_MEMORY_ERROR; \
-	}
-
 #define EMIT_DATA_PROCESS_INS(opcode, dst, src1, src2) \
 	(0xe0000000 | ((opcode) << 20) | (reg_map[dst] << 12) | (reg_map[src1] << 16) | (src2))
 
@@ -1184,6 +1179,18 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 	else \
 		compiler->last_ins = EMIT_DATA_TRANSFER(inp_flags, add, wb, target, base, TR2_IMM(imm));
 
+#define TEST_WRITE_BACK() \
+	if (inp_flags & WRITE_BACK) { \
+		tmp_reg = arg & 0xf; \
+		if (reg == tmp_reg) { \
+			/* This can only happen for stores */ \
+			/* since ldr reg, [reg, ...]! has no meaning */ \
+			SLJIT_ASSERT(!(inp_flags & LOAD_DATA)); \
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(0x1a, TMP_REG3, SLJIT_NO_REG, reg_map[reg])); \
+			reg = TMP_REG3; \
+		} \
+	}
+
 // emit the necessary instructions
 // see can_cache above
 static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, int arg, sljit_w argw, int next_arg, sljit_w next_argw)
@@ -1204,7 +1211,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 
 	if ((arg & 0xf) == SLJIT_NO_REG) {
 		// Write back is not used
-		if ((compiler->cache_arg & SLJIT_IMM) && ((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= max_delta || ((sljit_uw)compiler->cache_argw - (sljit_uw)argw) <= max_delta) {
+		if ((compiler->cache_arg & SLJIT_IMM) && (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= max_delta || ((sljit_uw)compiler->cache_argw - (sljit_uw)argw) <= max_delta)) {
 			if (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= (sljit_uw)max_delta) {
 				sign = 1;
 				argw = argw - compiler->cache_argw;
@@ -1238,21 +1245,10 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		return SLJIT_NO_ERROR;
 	}
 
-	// Memory addressing, a base register is given
-	if (inp_flags & WRITE_BACK) {
-		tmp_reg = arg & 0xf;
-		if (reg == tmp_reg) {
-			// This can only happen for stores
-			// since ldr reg, [reg, ...]! is ambigous
-			SLJIT_ASSERT(!(inp_flags & LOAD_DATA));
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(0x1a, TMP_REG3, SLJIT_NO_REG, reg_map[reg]));
-			reg = TMP_REG3;
-		}
-	}
-
 	// Extended imm addressing for [reg+imm] format
 	sign = (max_delta << 8) | 0xff;
 	if (!(arg & 0xf0) && argw <= sign && argw >= -sign) {
+		TEST_WRITE_BACK();
 		if (argw >= 0) {
 			sign = 1;
 		}
@@ -1289,12 +1285,9 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 	}
 
 	if ((compiler->cache_arg & SLJIT_IMM) && compiler->cache_argw == argw) {
+		TEST_WRITE_BACK();
 		if (arg & 0xf0) {
-			if (inp_flags & WRITE_BACK) {
-				SLJIT_ASSERT(!(inp_flags & LOAD_DATA));
-				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(0x08, arg & 0xf, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
-			}
-			else if (inp_flags & LOAD_DATA) {
+			if (inp_flags & (WRITE_BACK | LOAD_DATA)) {
 				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(0x08, tmp_reg, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
 				arg = tmp_reg | SLJIT_MEM_FLAG;
 			}
@@ -1312,6 +1305,8 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		// Since getput_arg_fast doesn't caught it, that means two arguments is given
 		SLJIT_ASSERT(argw != 0);
 		SLJIT_ASSERT((arg & 0xf0) != SLJIT_NO_REG);
+
+		TEST_WRITE_BACK();
 		if (argw >= 0)
 			sign = 1;
 		else {
@@ -1339,6 +1334,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		compiler->cache_arg = SLJIT_IMM;
 		compiler->cache_argw = argw;
 
+		TEST_WRITE_BACK();
 		if (arg & 0xf0) {
 			if (inp_flags & WRITE_BACK) {
 				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(0x08, arg & 0xf, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
@@ -1392,7 +1388,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	// arg1 goes to TMP_REG1 or src reg
 	// arg2 goes to TMP_REG2, imm or src reg
 	// TMP_REG3 can be used for caching
-	// result goes to TMP_REG2, so put result uses TMP_REG3
+	// result goes to TMP_REG2, so put result can use TMP_REG1 and TMP_REG3
 
 	// We prefers register and simple consts
 	int dst_r;
@@ -1527,16 +1523,16 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	else if (src2_r == 0 && dst_r == 0) {
 		ORDER_IND_REGS(src2);
 		ORDER_IND_REGS(dst);
-		TEST_FAIL(getput_arg(compiler, inp_flags | LOAD_DATA, TMP_REG2, src2, src2w, dst, dstw));
-		src2_r = TMP_REG2;
+		TEST_FAIL(getput_arg(compiler, inp_flags | LOAD_DATA, sugg_src2_r, src2, src2w, dst, dstw));
+		src2_r = sugg_src2_r;
 	}
 
 	if (dst_r == 0)
 		dst_r = TMP_REG2;
 
 	if (src1_r == 0) {
-		src1_r = TMP_REG1;
 		TEST_FAIL(getput_arg(compiler, inp_flags | LOAD_DATA, TMP_REG1, src1, src1w, 0, 0));
+		src1_r = TMP_REG1;
 	}
 
 	if (src2_r == 0) {

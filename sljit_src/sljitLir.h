@@ -328,8 +328,16 @@ struct sljit_compiler {
 	sljit_uw cache_argw;
 #endif
 
+#ifdef SLJIT_CONFIG_PPC_32
+	sljit_w imm;
+	sljit_uw cache_arg;
+	sljit_uw cache_argw;
+#endif
+
 #ifdef SLJIT_CONFIG_PPC_64
-	int mode32;
+	sljit_w imm;
+	sljit_uw cache_arg;
+	sljit_uw cache_argw;
 #endif
 
 #ifdef SLJIT_VERBOSE
