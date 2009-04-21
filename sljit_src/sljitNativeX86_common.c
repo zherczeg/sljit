@@ -86,6 +86,7 @@ typedef int sljit_hw;
 #define EX86_NO_REXW		0x080
 #define EX86_BYTE_ARG		0x100
 #define EX86_HALF_ARG		0x200
+#define EX86_PREF_66		0x400
 
 #define INC_SIZE(s)			(*buf++ = (s), compiler->size += (s))
 
@@ -568,8 +569,7 @@ static int emit_mov_half(struct sljit_compiler *compiler, int sign,
 		return SLJIT_NO_ERROR; // Empty instruction
 
 	if (src & SLJIT_IMM) {
-		ENCODE_PREFIX(0x66);
-		code = emit_x86_instruction(compiler, 1 | EX86_HALF_ARG | EX86_NO_REXW, SLJIT_IMM, srcw & 0xffff, dst, dstw);
+		code = emit_x86_instruction(compiler, 1 | EX86_HALF_ARG | EX86_NO_REXW | EX86_PREF_66, SLJIT_IMM, srcw & 0xffff, dst, dstw);
 		TEST_MEM_ERROR(code);
 		*code = 0xc7;
 		return SLJIT_NO_ERROR;
@@ -587,8 +587,7 @@ static int emit_mov_half(struct sljit_compiler *compiler, int sign,
 	}
 
 	if (dst & SLJIT_MEM_FLAG) {
-		ENCODE_PREFIX(0x66);
-		code = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
+		code = emit_x86_instruction(compiler, 1 | EX86_NO_REXW | EX86_PREF_66, dst_r, 0, dst, dstw);
 		TEST_MEM_ERROR(code);
 		*code = 0x89;
 	}

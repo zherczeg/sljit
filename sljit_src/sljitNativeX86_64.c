@@ -290,6 +290,9 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	else if (flags & EX86_REX)
 		rex |= REX;
 
+	if (flags & EX86_PREF_66)
+		total_size++;
+
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM_FLAG) {
@@ -357,6 +360,8 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 
 	// Encoding the byte
 	INC_SIZE(total_size);
+	if (flags & EX86_PREF_66)
+		*buf++ = 0x66;
 	if (rex)
 		*buf++ = rex;
 	buf_ptr = buf + size;
