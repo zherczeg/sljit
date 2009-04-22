@@ -313,7 +313,7 @@ static void test6(void)
 
 static void test7(void)
 {
-	// Test addc, sub, subc
+	// Test logical operators
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[6];
@@ -1351,7 +1351,7 @@ static void test23(void)
 	// This test has on real meaning on 64 bit systems, but works on 32 bit systems as well
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_w buf[6];
+	sljit_w buf[7];
 	int ibuf[5];
 #ifdef SLJIT_64BIT_ARCHITECTURE
 	sljit_w garbage = 0x1234567812345678;
@@ -1365,6 +1365,7 @@ static void test23(void)
 	buf[2] = 0;
 	buf[3] = 0;
 	buf[4] = 0;
+	buf[5] = 0;
 	buf[6] = 0;
 
 	ibuf[0] = 0;
@@ -1393,6 +1394,9 @@ static void test23(void)
 	T(sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM1(SLJIT_GENERAL_REG1), -0x7777 + (int)sizeof(sljit_w), SLJIT_TEMPORARY_REG1, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x0abcdef1));
 	T(sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_GENERAL_REG1), -0x0abcdef1 + (int)sizeof(sljit_w), SLJIT_TEMPORARY_REG1, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), (sljit_w)&buf[6], SLJIT_MEM0(), (sljit_w)&buf[6]));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), 0, SLJIT_IMM, 0x123456));
 
 	T(sljit_emit_return(compiler, SLJIT_NO_REG));
 
@@ -1410,9 +1414,10 @@ static void test23(void)
 	FAILED(buf[3] != 0x0f00f00, "test23 case 4 failed\n");
 	FAILED(buf[4] != 0x0f00f00, "test23 case 5 failed\n");
 	FAILED(buf[5] != 0x0abcdef1, "test23 case 6 failed\n");
+	FAILED(buf[6] != 0x123456, "test23 case 7 failed\n");
 
-	FAILED(ibuf[0] != 34567, "test23 case 7 failed\n");
-	FAILED(ibuf[1] != -7654, "test23 case 8 failed\n");
+	FAILED(ibuf[0] != 34567, "test23 case 8 failed\n");
+	FAILED(ibuf[1] != -7654, "test23 case 9 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test23 ok\n");

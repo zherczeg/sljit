@@ -21,8 +21,8 @@
 #error "Must implement count leading zeroes"
 #endif
 
-#define SLJIT_PUSH_RLDICR(REG, SHIFT) \
-	push_inst(compiler, INS_FORM_OP1(30, REG, REG, (1 << 2) | (((63 - SHIFT) & 0x1f) << 11) | (((63 - SHIFT) & 0x20) >> 4) | ((SHIFT & 0x1f) << 6) | (SHIFT & 0x20)))
+#define SLJIT_PUSH_RLDICR(reg, shift) \
+	push_inst(compiler, INS_FORM_OP1(30, (reg), (reg), (1 << 2) | (((63 - shift) & 0x1f) << 11) | (((63 - shift) & 0x20) >> 4) | ((shift & 0x1f) << 6) | (shift & 0x20)))
 
 static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 {
@@ -31,7 +31,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 	sljit_uw tmp2;
 	sljit_uw shift2;
 
-	if (imm <= 0x7fff && imm >= -0x8000)
+	if (imm <= SIMM_MAX && imm >= SIMM_MIN)
 		return push_inst(compiler, INS_FORM_IMM(14, reg, 0, (imm & 0xffff)));
 
 	if (imm <= 0x7fffffff && imm >= -0x80000000l) {
