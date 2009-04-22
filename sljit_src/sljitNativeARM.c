@@ -1148,7 +1148,7 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 		return 0;
 
 	if ((arg & 0xf) == 0) {
-		if ((next_arg & SLJIT_MEM_FLAG) && (argw - next_argw <= 0xfff || next_argw - argw <= 0xfff))
+		if ((next_arg & SLJIT_MEM_FLAG) && ((sljit_uw)argw - (sljit_uw)next_argw <= 0xfff || (sljit_uw)next_argw - (sljit_uw)argw <= 0xfff))
 			return 1;
 		return 0;
 	}
@@ -1211,7 +1211,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 
 	if ((arg & 0xf) == SLJIT_NO_REG) {
 		// Write back is not used
-		if ((compiler->cache_arg & SLJIT_IMM) && (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= max_delta || ((sljit_uw)compiler->cache_argw - (sljit_uw)argw) <= max_delta)) {
+		if ((compiler->cache_arg & SLJIT_IMM) && (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= (sljit_uw)max_delta || ((sljit_uw)compiler->cache_argw - (sljit_uw)argw) <= (sljit_uw)max_delta)) {
 			if (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= (sljit_uw)max_delta) {
 				sign = 1;
 				argw = argw - compiler->cache_argw;
@@ -1232,7 +1232,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 
 		// With write back, we can create some sophisticated loads, but
 		// it is hard to decide whether we should convert downward (0s) or upward (1s)
-		if ((next_arg & SLJIT_MEM_FLAG) && (argw - next_argw <= max_delta || next_argw - argw <= max_delta)) {
+		if ((next_arg & SLJIT_MEM_FLAG) && ((sljit_uw)argw - (sljit_uw)next_argw <= (sljit_uw)max_delta || (sljit_uw)next_argw - (sljit_uw)argw <= (sljit_uw)max_delta)) {
 			SLJIT_ASSERT(inp_flags & LOAD_DATA);
 
 			compiler->cache_arg = SLJIT_IMM;
@@ -1297,7 +1297,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 			}
 		}
 
-		EMIT_INSTRUCTION(EMIT_DATA_TRANSFER(inp_flags, 1, inp_flags & WRITE_BACK, reg, TMP_REG3, reg_map[arg & 0xf] | (max_delta & 0xf00 ? SRC2_IMM : 0)));
+		EMIT_INSTRUCTION(EMIT_DATA_TRANSFER(inp_flags, 1, inp_flags & WRITE_BACK, reg, arg & 0xf, reg_map[TMP_REG3] | (max_delta & 0xf00 ? SRC2_IMM : 0)));
 		return SLJIT_NO_ERROR;
 	}
 

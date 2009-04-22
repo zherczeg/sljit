@@ -16,7 +16,7 @@
 
 static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 {
-	if (imm <= 0x7fff && imm >= -0x8000)
+	if (imm <= SIMM_MAX && imm >= SIMM_MIN)
 		return push_inst(compiler, INS_FORM_IMM(14, reg, 0, (imm & 0xffff)));
 
 	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((imm >> 16) & 0xffff))));
