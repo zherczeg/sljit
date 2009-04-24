@@ -21,8 +21,11 @@
 #error "Must implement count leading zeroes"
 #endif
 
+#define RLD(dst, src, sh, mb, type) \
+	INS_FORM_OP1(30, (src), (dst), (type) | (((sh) & 0x1f) << 11) | (((sh) & 0x20) >> 4) | (((mb) & 0x1f) << 6) | ((mb) & 0x20))
+
 #define SLJIT_PUSH_RLDICR(reg, shift) \
-	push_inst(compiler, INS_FORM_OP1(30, (reg), (reg), (1 << 2) | (((63 - shift) & 0x1f) << 11) | (((63 - shift) & 0x20) >> 4) | ((shift & 0x1f) << 6) | (shift & 0x20)))
+	push_inst(compiler, RLD(reg, reg, 63 - shift, shift, 1 << 2))
 
 static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 {
@@ -63,7 +66,6 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 	shift += 15;
 	tmp2 = imm & ((1ul << (63 - shift)) - 1);
 
-
 	if (tmp2 <= 0xffff) {
 		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(14, reg, 0, ((tmp >> 48) & 0xffff))));
 		TEST_FAIL(SLJIT_PUSH_RLDICR(reg, shift));
@@ -95,5 +97,213 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 	TEST_FAIL(SLJIT_PUSH_RLDICR(reg, 31));
 	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(25, reg, reg, ((imm >> 16) & 0xffff))));
 	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(24, reg, reg, (imm & 0xffff))));
+	return SLJIT_NO_ERROR;
+}
+
+#define INS_CLEAR_LEFT(dst, src, from) \
+	INS_FORM_OP1(30, src, dst, ((from) << 6) | 0x20)
+
+#define UN_EXTS() \
+	if ((flags & (ALT_INT_SF | REG2_SOURCE)) == (ALT_INT_SF | REG2_SOURCE)) { \
+		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(31, src2, TMP_REG2, 986 << 1))); \
+		src2 = TMP_REG2; \
+	}
+
+#define BIN_EXTS() \
+	if (flags & ALT_INT_SF) { \
+		if (flags & REG1_SOURCE) { \
+			TEST_FAIL(push_inst(compiler, INS_FORM_OP1(31, src1, TMP_REG1, 986 << 1))); \
+			src1 = TMP_REG1; \
+		} \
+		if (flags & REG2_SOURCE) { \
+			TEST_FAIL(push_inst(compiler, INS_FORM_OP1(31, src2, TMP_REG2, 986 << 1))); \
+			src2 = TMP_REG2; \
+		} \
+	}
+
+static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
+	int dst, int src1, int src2)
+{
+	switch (op) {
+	case SLJIT_ADD:
+		if (flags & ALT_FORM1) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, INS_FORM_IMM(14, dst, src1, compiler->imm));
+		}
+		if (flags & ALT_FORM2) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, INS_FORM_IMM(15, dst, src1, compiler->imm));
+		}
+		BIN_EXTS();
+		return push_inst(compiler, INS_FORM_OP2(31, dst, src1, src2, (10 << 1) | 1 | (1 << 10)));
+
+	case SLJIT_ADDC:
+		BIN_EXTS();
+		return push_inst(compiler, INS_FORM_OP2(31, dst, src1, src2, (138 << 1) | 1 | (1 << 10)));
+
+	case SLJIT_SUB:
+		if (flags & ALT_FORM1) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, INS_FORM_IMM(8, dst, src1, compiler->imm));
+		}
+		BIN_EXTS();
+		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (8 << 1) | 1 | (1 << 10)));
+
+	case SLJIT_SUBC:
+		BIN_EXTS();
+		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (136 << 1) | 1 | (1 << 10)));
+
+	case SLJIT_MUL:
+		if (flags & ALT_FORM1) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, INS_FORM_IMM(7, dst, src1, compiler->imm));
+		}
+		BIN_EXTS();
+		if (flags & ALT_FORM2)
+			return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (235 << 1) | 1 | (1 << 10)));
+		else
+			return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (233 << 1) | 1 | (1 << 10)));
+
+	case SLJIT_AND:
+		if (flags & ALT_FORM1) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, INS_FORM_IMM(28, src1, dst, compiler->imm));
+		}
+		if (flags & ALT_FORM2) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, INS_FORM_IMM(29, src1, dst, compiler->imm));
+		}
+		return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (28 << 1) | 1));
+
+	case SLJIT_OR:
+		if (flags & ALT_FORM1) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, INS_FORM_IMM(24, src1, dst, compiler->imm));
+		}
+		if (flags & ALT_FORM2) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, INS_FORM_IMM(25, src1, dst, compiler->imm));
+		}
+		return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (444 << 1) | 1));
+
+	case SLJIT_XOR:
+		if (flags & ALT_FORM1) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, INS_FORM_IMM(26, src1, dst, compiler->imm));
+		}
+		if (flags & ALT_FORM2) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, INS_FORM_IMM(27, src1, dst, compiler->imm));
+		}
+		return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (316 << 1) | 1));
+
+	case SLJIT_SHL:
+		if (flags & ALT_FORM1) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			if (flags & ALT_FORM2) {
+				compiler->imm &= 0x1f;
+				return push_inst(compiler, INS_FORM_OP1(21, src1, dst, (compiler->imm << 11) | ((31 - compiler->imm) << 1) | 1));
+			}
+			else {
+				compiler->imm &= 0x3f;
+				return push_inst(compiler, RLD(dst, src1, compiler->imm, 63 - compiler->imm, (1 << 2) | 1));
+			}
+		}
+		if (flags & ALT_FORM2)
+			return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (24 << 1) | 1));
+		else
+			return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (27 << 1) | 1));
+
+	case SLJIT_LSHR:
+		if (flags & ALT_FORM1) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			if (flags & ALT_FORM2) {
+				compiler->imm &= 0x1f;
+				return push_inst(compiler, INS_FORM_OP1(21, src1, dst, (((32 - compiler->imm) & 0x1f) << 11) | (compiler->imm << 6) | (31 << 1) | 1));
+			}
+			else {
+				compiler->imm &= 0x3f;
+				return push_inst(compiler, RLD(dst, src1, 64 - compiler->imm, compiler->imm, 1));
+			}
+		}
+		if (flags & ALT_FORM2)
+			return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (536 << 1) | 1));
+		else
+			return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (539 << 1) | 1));
+
+	case SLJIT_ASHR:
+		if (flags & ALT_FORM1) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			if (flags & ALT_FORM2) {
+				compiler->imm &= 0x1f;
+				return push_inst(compiler, INS_FORM_OP1(31, src1, dst, (compiler->imm << 11) | (824 << 1) | 1));
+			}
+			else {
+				compiler->imm &= 0x3f;
+				return push_inst(compiler, INS_FORM_OP1(31, src1, dst, ((compiler->imm & 0x1f) << 11) | (413 << 2) | ((compiler->imm & 0x20) >> 4) | 1));
+			}
+		}
+		if (flags & ALT_FORM2)
+			return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (792 << 1) | 1));
+		else
+			return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (794 << 1) | 1));
+
+	case (OP1_OFFSET + SLJIT_MOV):
+		SLJIT_ASSERT(src1 == TMP_REG1);
+		if (dst != src2)
+			return push_inst(compiler, INS_FORM_OP2(31, src2, dst, src2, 444 << 1));
+		return SLJIT_NO_ERROR;
+
+	case (OP1_OFFSET + SLJIT_MOV_UI):
+	case (OP1_OFFSET + SLJIT_MOV_SI):
+		SLJIT_ASSERT(src1 == TMP_REG1);
+		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
+			if (op == (OP1_OFFSET + SLJIT_MOV_SI))
+				return push_inst(compiler, INS_FORM_OP1(31, src2, dst, 986 << 1));
+			else
+				return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 0));
+		}
+		else if (dst != src2)
+			SLJIT_ASSERT_IMPOSSIBLE();
+		return SLJIT_NO_ERROR;
+
+	case (OP1_OFFSET + SLJIT_MOV_UB):
+	case (OP1_OFFSET + SLJIT_MOV_SB):
+		SLJIT_ASSERT(src1 == TMP_REG1);
+		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
+			if (op == (OP1_OFFSET + SLJIT_MOV_SB))
+				return push_inst(compiler, INS_FORM_OP1(31, src2, dst, 954 << 1));
+			else
+				return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 24));
+		}
+		else if ((flags & REG_DEST) && op == (OP1_OFFSET + SLJIT_MOV_SB))
+			return push_inst(compiler, INS_FORM_OP1(31, src2, dst, 954 << 1));
+		else if (dst != src2)
+			SLJIT_ASSERT_IMPOSSIBLE();
+		return SLJIT_NO_ERROR;
+
+	case (OP1_OFFSET + SLJIT_MOV_UH):
+	case (OP1_OFFSET + SLJIT_MOV_SH):
+		SLJIT_ASSERT(src1 == TMP_REG1);
+		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
+			if (op == (OP1_OFFSET + SLJIT_MOV_SH))
+				return push_inst(compiler, INS_FORM_OP1(31, src2, dst, 922 << 1));
+			else
+				return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 16));
+		}
+		else if (dst != src2)
+			SLJIT_ASSERT_IMPOSSIBLE();
+		return SLJIT_NO_ERROR;
+
+	case (OP1_OFFSET + SLJIT_NOT):
+		UN_EXTS();
+		return push_inst(compiler, INS_FORM_OP2(31, src2, dst, src2, (124 << 1) | 1));
+
+	case (OP1_OFFSET + SLJIT_NEG):
+		UN_EXTS();
+		return push_inst(compiler, INS_FORM_OP1(31, dst, src2, (104 << 1) | 1 | (1 << 10)));
+	}
+
+	SLJIT_ASSERT_IMPOSSIBLE();
 	return SLJIT_NO_ERROR;
 }

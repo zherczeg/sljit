@@ -27,26 +27,6 @@ struct executable_code {
 typedef struct executable_code executable_code;
 #endif
 
-/*
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0));
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0x7fff));
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, -0x8000));
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0x7fffffff));
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, -0x80000000l));
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0x1234567887654321));
-
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0xff80000000));
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0x3ff0000000));
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0xfffffff800100000));
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0xfffffff80010f000));
-
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0x07fff00000008001));
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0x07fff00080010000));
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0x07fff00080018001));
-
-	TEST_FAIL(load_immediate(compiler, SLJIT_TEMPORARY_REG1, 0x07fff00ffff00000));
-*/
-
 int devel_dummy(void) { return rand(); }
 
 void devel(void)
