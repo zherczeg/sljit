@@ -33,6 +33,10 @@
 	if (expr) \
 		return compiler->error;
 
+#define TEST_FAIL2(expr) \
+	if (expr) \
+		return NULL;
+
 #define GET_OPCODE(op) \
 	((op) & ~(SLJIT_INT_OPERATION | SLJIT_SET_FLAGS))
 
@@ -66,6 +70,12 @@
 #define LIT_CINS	2
 // Instruction with a unique constant
 #define LIT_UCINS	3
+#endif
+
+#if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
+	#define UNCOND_ADDR	0x04
+	#define PATCH_B		0x08
+	#define ABSOLUTE_B	0x10
 #endif
 
 #if defined(SLJIT_CONFIG_X86_64) || defined(SLJIT_CONFIG_PPC_64)

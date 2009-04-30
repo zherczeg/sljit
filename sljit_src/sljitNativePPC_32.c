@@ -164,3 +164,27 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 	SLJIT_ASSERT_IMPOSSIBLE();
 	return SLJIT_NO_ERROR;
 }
+
+static int emit_const(struct sljit_compiler *compiler, int reg, sljit_w initval)
+{
+	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((initval >> 16) & 0xffff))));
+	return push_inst(compiler, INS_FORM_IMM(24, reg, reg, (initval & 0xffff)));
+}
+
+void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
+{
+	sljit_i *inst = (sljit_i*)addr;
+
+	inst[0] = (inst[0] & 0xffff0000) | ((new_addr >> 16) & 0xffff);
+	inst[1] = (inst[1] & 0xffff0000) | (new_addr & 0xffff);
+	SLJIT_CACHE_FLUSH(inst, inst + 2);
+}
+
+void sljit_set_const(sljit_uw addr, sljit_w constant)
+{
+	sljit_i *inst = (sljit_i*)addr;
+
+	inst[0] = (inst[0] & 0xffff0000) | ((constant >> 16) & 0xffff);
+	inst[1] = (inst[1] & 0xffff0000) | (constant & 0xffff);
+	SLJIT_CACHE_FLUSH(inst, inst + 2);
+}

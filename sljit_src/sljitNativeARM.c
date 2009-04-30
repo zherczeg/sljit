@@ -2140,7 +2140,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 		compiler->consts = const_;
 	compiler->last_const = const_;
 
-	reg = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_TEMPORARY_REG2) ? dst : TMP_REG2;
+	reg = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3) ? dst : TMP_REG2;
 
 	compiler->last_type = LIT_UCINS;
 	compiler->last_ins = EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0, reg, TMP_PC, 0);

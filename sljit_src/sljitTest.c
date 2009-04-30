@@ -586,6 +586,11 @@ static void test11(void)
 	sljit_uw const1_addr;
 	sljit_uw const2_addr;
 	sljit_uw const3_addr;
+#ifdef SLJIT_64BIT_ARCHITECTURE
+	sljit_w big_value = 0x1122334455667788;
+#else
+	sljit_w big_value = 0x11223344;
+#endif
 	sljit_w buf[2];
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -595,8 +600,8 @@ static void test11(void)
 	T(sljit_emit_enter(compiler, 1, 1, 0));
 
 	const1 = sljit_emit_const(compiler, SLJIT_MEM0(), (sljit_w)&buf[0], 12);
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0));
-	const2 = sljit_emit_const(compiler, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), sizeof(sljit_w), 2345);
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 2 * sizeof(sljit_w)));
+	const2 = sljit_emit_const(compiler, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), -(int)sizeof(sljit_w), 2345);
 	const3 = sljit_emit_const(compiler, SLJIT_PREF_RET_REG, 0, 3456);
 
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
@@ -616,12 +621,12 @@ static void test11(void)
 	FAILED(buf[1] != 2345, "test11 case 3 failed\n");
 
 	sljit_set_const(const1_addr, 1234567);
-	sljit_set_const(const2_addr, 2345678);
-	sljit_set_const(const3_addr, 34);
+	sljit_set_const(const2_addr, big_value);
+	sljit_set_const(const3_addr, 60089);
 
-	FAILED(code.func1((sljit_w)&buf) != 34, "test11 case 4 failed\n");
+	FAILED(code.func1((sljit_w)&buf) != 60089, "test11 case 4 failed\n");
 	FAILED(buf[0] != 1234567, "test11 case 5 failed\n");
-	FAILED(buf[1] != 2345678, "test11 case 6 failed\n");
+	FAILED(buf[1] != big_value, "test11 case 6 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test11 ok\n");
@@ -1016,7 +1021,11 @@ static void test18(void)
 	buf[7] = 100;
 	buf[8] = 100;
 	buf[9] = 0;
+#if defined(SLJIT_64BIT_ARCHITECTURE) && defined(SLJIT_BIG_ENDIAN)
+	buf[10] = 1l << 32;
+#else
 	buf[10] = 1;
+#endif
 
 	T(sljit_emit_enter(compiler, 1, 2, 0));
 
@@ -1041,8 +1050,8 @@ static void test18(void)
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x1108080808));
 	T(sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_FLAGS, SLJIT_NO_REG, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x2208080808));
 	T(sljit_emit_cond_set(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 7, SLJIT_C_LESS));
-	T(sljit_emit_op2(compiler, SLJIT_AND | SLJIT_INT_OPERATION | SLJIT_SET_FLAGS, SLJIT_NO_REG, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x2208080808));
-	T(sljit_emit_cond_set(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 8, SLJIT_C_LESS));
+	T(sljit_emit_op2(compiler, SLJIT_AND | SLJIT_INT_OPERATION | SLJIT_SET_FLAGS, SLJIT_NO_REG, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x1104040404));
+	T(sljit_emit_cond_set(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 8, SLJIT_C_NOT_ZERO));
 
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 4));
 	T(sljit_emit_op2(compiler, SLJIT_SHL | SLJIT_INT_OPERATION, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 9, SLJIT_IMM, 0xffff0000, SLJIT_TEMPORARY_REG1, 0));
@@ -1068,16 +1077,29 @@ static void test18(void)
 	code.func1((sljit_w)&buf);
 #ifdef SLJIT_64BIT_ARCHITECTURE
 	FAILED(buf[0] != 0x1122334455667788, "test18 case 1 failed\n");
+#ifdef SLJIT_LITTLE_ENDIAN
 	FAILED(buf[1] != 0x55667788, "test18 case 2 failed\n");
+#else
+	FAILED(buf[1] != 0x5566778800000000, "test18 case 2 failed\n");
+#endif
 	FAILED(buf[2] != 2000000000000, "test18 case 3 failed\n");
 	FAILED(buf[3] != 4000000000000, "test18 case 4 failed\n");
+#ifdef SLJIT_LITTLE_ENDIAN
 	FAILED(buf[4] != 0x28282828, "test18 case 5 failed\n");
+#else
+	FAILED(buf[4] != 0x2828282800000000, "test18 case 5 failed\n");
+#endif
 	FAILED(buf[5] != 0, "test18 case 6 failed\n");
 	FAILED(buf[6] != 1, "test18 case 7 failed\n");
 	FAILED(buf[7] != 1, "test18 case 8 failed\n");
 	FAILED(buf[8] != 0, "test18 case 9 failed\n");
+#ifdef SLJIT_LITTLE_ENDIAN
 	FAILED(buf[9] != 0xfff00000, "test18 case 10 failed\n");
 	FAILED(buf[10] != 0xffffffff, "test18 case 11 failed\n");
+#else
+	FAILED(buf[9] != 0xfff0000000000000, "test18 case 10 failed\n");
+	FAILED(buf[10] != 0xffffffff00000000, "test18 case 11 failed\n");
+#endif
 #else
 	FAILED(buf[0] != 0x11223344, "test18 case 1 failed\n");
 	FAILED(buf[1] != 0x44332211, "test18 case 2 failed\n");
@@ -1609,4 +1631,3 @@ void sljit_test(void)
 	test24();
 	test25();
 }
-

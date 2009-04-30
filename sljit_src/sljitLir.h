@@ -139,6 +139,12 @@ typedef unsigned long int sljit_uw;
 typedef long int sljit_w;
 #endif
 
+#if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
+#define SLJIT_BIG_ENDIAN		1
+#else
+#define SLJIT_LITTLE_ENDIAN		1
+#endif
+
 // ABI (Application Binary Interface) types
 #ifdef SLJIT_CONFIG_X86_32
 
