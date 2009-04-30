@@ -96,8 +96,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(24, reg, reg, ((imm >> 32) & 0xffff))));
 	TEST_FAIL(SLJIT_PUSH_RLDICR(reg, 31));
 	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(25, reg, reg, ((imm >> 16) & 0xffff))));
-	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(24, reg, reg, (imm & 0xffff))));
-	return SLJIT_NO_ERROR;
+	return push_inst(compiler, INS_FORM_IMM(24, reg, reg, (imm & 0xffff)));
 }
 
 #define INS_CLEAR_LEFT(dst, src, from) \
@@ -306,4 +305,35 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 
 	SLJIT_ASSERT_IMPOSSIBLE();
 	return SLJIT_NO_ERROR;
+}
+
+static int emit_const(struct sljit_compiler *compiler, int reg, sljit_w initval)
+{
+	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((initval >> 48) & 0xffff))));
+	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(24, reg, reg, ((initval >> 32) & 0xffff))));
+	TEST_FAIL(SLJIT_PUSH_RLDICR(reg, 31));
+	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(25, reg, reg, ((initval >> 16) & 0xffff))));
+	return push_inst(compiler, INS_FORM_IMM(24, reg, reg, (initval & 0xffff)));
+}
+
+void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
+{
+	sljit_i *inst = (sljit_i*)addr;
+
+	inst[0] = (inst[0] & 0xffff0000) | ((new_addr >> 48) & 0xffff);
+	inst[1] = (inst[1] & 0xffff0000) | ((new_addr >> 32) & 0xffff);
+	inst[3] = (inst[3] & 0xffff0000) | ((new_addr >> 16) & 0xffff);
+	inst[4] = (inst[4] & 0xffff0000) | (new_addr & 0xffff);
+	SLJIT_CACHE_FLUSH(inst, inst + 5);
+}
+
+void sljit_set_const(sljit_uw addr, sljit_w constant)
+{
+	sljit_i *inst = (sljit_i*)addr;
+
+	inst[0] = (inst[0] & 0xffff0000) | ((constant >> 48) & 0xffff);
+	inst[1] = (inst[1] & 0xffff0000) | ((constant >> 32) & 0xffff);
+	inst[3] = (inst[3] & 0xffff0000) | ((constant >> 16) & 0xffff);
+	inst[4] = (inst[4] & 0xffff0000) | (constant & 0xffff);
+	SLJIT_CACHE_FLUSH(inst, inst + 5);
 }
