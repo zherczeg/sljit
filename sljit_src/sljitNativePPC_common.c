@@ -112,7 +112,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	SLJIT_ASSERT(compiler->size > 0);
 	reverse_buf(compiler);
 
-	code = SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_uw));
+	code = (sljit_i*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_uw));
 
 	buf = compiler->buf;
 
@@ -164,7 +164,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	SLJIT_ASSERT(label == NULL);
 	SLJIT_ASSERT(jump == NULL);
 	SLJIT_ASSERT(const_ == NULL);
-	SLJIT_ASSERT(code_ptr - code <= compiler->size);
+	SLJIT_ASSERT(code_ptr - code <= (int)compiler->size);
 
 	jump = compiler->jumps;
 	while (jump) {
@@ -528,10 +528,11 @@ static sljit_i data_transfer_insts[64] = {
 static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int reg, int arg, sljit_w argw)
 {
 	sljit_i inst;
+#ifdef SLJIT_CONFIG_PPC_64
 	int tmp_reg;
+#endif
 
 	SLJIT_ASSERT(arg & SLJIT_MEM_FLAG);
-
 	if ((arg & 0xf) == SLJIT_NO_REG) {
 #ifdef SLJIT_CONFIG_PPC_32
 		if (argw <= SIMM_MAX && argw >= SIMM_MIN) {
@@ -1250,7 +1251,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 	if (compiler->last_label && compiler->last_label->size == compiler->size)
 		return compiler->last_label;
 
-	label = ensure_abuf(compiler, sizeof(struct sljit_label));
+	label = (struct sljit_label*)ensure_abuf(compiler, sizeof(struct sljit_label));
 	TEST_MEM_ERROR2(label);
 
 	label->next = NULL;
@@ -1339,7 +1340,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	if (!bo_bi_flags)
 		return NULL;
 
-	jump = ensure_abuf(compiler, sizeof(struct sljit_jump));
+	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	TEST_MEM_ERROR2(jump);
 
 	jump->next = NULL;
@@ -1509,7 +1510,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 #endif
 	sljit_emit_const_verbose();
 
-	const_ = ensure_abuf(compiler, sizeof(struct sljit_const));
+	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
 	TEST_MEM_ERROR2(const_);
 
 	const_->next = NULL;

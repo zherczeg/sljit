@@ -14,6 +14,8 @@
 
 #include "sljitLir.h"
 
+#ifndef SLJIT_CONFIG_UNSUPPORTED
+
 #define FUNCTION_ENTRY() \
 	SLJIT_ASSERT(compiler->error == SLJIT_NO_ERROR)
 
@@ -115,7 +117,7 @@ static void detect_cpu_features();
 
 struct sljit_compiler* sljit_create_compiler(void)
 {
-	struct sljit_compiler *compiler = SLJIT_MALLOC(sizeof(struct sljit_compiler));
+	struct sljit_compiler *compiler = (struct sljit_compiler*)SLJIT_MALLOC(sizeof(struct sljit_compiler));
 
 	if (!compiler)
 		return NULL;
@@ -129,8 +131,8 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->last_jump = NULL;
 	compiler->last_const = NULL;
 
-	compiler->buf = SLJIT_MALLOC(BUF_SIZE);
-	compiler->abuf = SLJIT_MALLOC(ABUF_SIZE);
+	compiler->buf = (struct sljit_memory_fragment*)SLJIT_MALLOC(BUF_SIZE);
+	compiler->abuf = (struct sljit_memory_fragment*)SLJIT_MALLOC(ABUF_SIZE);
 
 	if (!compiler->buf || !compiler->abuf) {
 		if (compiler->buf)
@@ -159,7 +161,7 @@ struct sljit_compiler* sljit_create_compiler(void)
 #endif
 
 #ifdef SLJIT_CONFIG_ARM
-	compiler->cpool = SLJIT_MALLOC(CPOOL_SIZE * sizeof(sljit_uw) + CPOOL_SIZE * sizeof(sljit_ub));
+	compiler->cpool = (sljit_uw*)SLJIT_MALLOC(CPOOL_SIZE * sizeof(sljit_uw) + CPOOL_SIZE * sizeof(sljit_ub));
 	if (!compiler->cpool) {
 		SLJIT_FREE(compiler->buf);
 		SLJIT_FREE(compiler->abuf);
@@ -232,12 +234,12 @@ static void* ensure_buf(struct sljit_compiler *compiler, int size)
 	sljit_ub *ret;
 	struct sljit_memory_fragment *new_frag;
 
-	if (compiler->buf->used_size + size <= (BUF_SIZE - sizeof(int) - sizeof(void*))) {
+	if (compiler->buf->used_size + size <= (int)(BUF_SIZE - sizeof(int) - sizeof(void*))) {
 		ret = compiler->buf->memory + compiler->buf->used_size;
 		compiler->buf->used_size += size;
 		return ret;
 	}
-	new_frag = SLJIT_MALLOC(BUF_SIZE);
+	new_frag = (struct sljit_memory_fragment*)SLJIT_MALLOC(BUF_SIZE);
 	if (!new_frag)
 		return NULL;
 	new_frag->next = compiler->buf;
@@ -251,12 +253,12 @@ static void* ensure_abuf(struct sljit_compiler *compiler, int size)
 	sljit_ub *ret;
 	struct sljit_memory_fragment *new_frag;
 
-	if (compiler->abuf->used_size + size <= (ABUF_SIZE - sizeof(int) - sizeof(void*))) {
+	if (compiler->abuf->used_size + size <= (int)(ABUF_SIZE - sizeof(int) - sizeof(void*))) {
 		ret = compiler->abuf->memory + compiler->abuf->used_size;
 		compiler->abuf->used_size += size;
 		return ret;
 	}
-	new_frag = SLJIT_MALLOC(ABUF_SIZE);
+	new_frag = (struct sljit_memory_fragment*)SLJIT_MALLOC(ABUF_SIZE);
 	if (!new_frag)
 		return NULL;
 	new_frag->next = compiler->abuf;
@@ -355,11 +357,12 @@ void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
 }
 
 static char* reg_names[] = {
-	"<noreg>", "tmp_r1", "tmp_r2", "tmp_r3", "gen_r1", "gen_r2", "gen_r3", "stack_r"
+	(char*)"<noreg>", (char*)"tmp_r1", (char*)"tmp_r2", (char*)"tmp_r3",
+	(char*)"gen_r1", (char*)"gen_r2", (char*)"gen_r3", (char*)"stack_r"
 };
 
 static char* freg_names[] = {
-	"<noreg>", "fr1", "fr2", "fr3", "fr4"
+	(char*)"<noreg>", (char*)"fr1", (char*)"fr2", (char*)"fr3", (char*)"fr4"
 };
 
 #if defined(SLJIT_CONFIG_X86_64) || defined(SLJIT_CONFIG_PPC_64)
@@ -417,9 +420,10 @@ static char* freg_names[] = {
 	} else \
 		fprintf(compiler->verbose, "%s", freg_names[p]);
 static char* op1_names[] = {
-	"mov", "mov_ub", "mov_sb", "mov_uh", "mov_sh", "mov_ui", "mov_si",
-	"movu", "movu_ub", "movu_sb", "movu_uh", "movu_sh", "movu_ui", "movu_si",
-	"not", "neg"
+	(char*)"mov", (char*)"mov_ub", (char*)"mov_sb", (char*)"mov_uh",
+	(char*)"mov_sh", (char*)"mov_ui", (char*)"mov_si", (char*)"movu",
+	(char*)"movu_ub", (char*)"movu_sb", (char*)"movu_uh", (char*)"movu_sh",
+	(char*)"movu_ui", (char*)"movu_si", (char*)"not", (char*)"neg"
 };
 #define sljit_emit_op1_verbose() \
 	if (compiler->verbose) { \
@@ -430,8 +434,9 @@ static char* op1_names[] = {
 		fprintf(compiler->verbose, "\n"); \
 	}
 static char* op2_names[] = {
-	"add", "addc", "sub", "subc", "mul",
-	"and", "or", "xor", "shl", "lshr", "ashr"
+	(char*)"add", (char*)"addc", (char*)"sub", (char*)"subc",
+	(char*)"mul", (char*)"and", (char*)"or", (char*)"xor",
+	(char*)"shl", (char*)"lshr", (char*)"ashr"
 };
 #define sljit_emit_op2_verbose() \
 	if (compiler->verbose) { \
@@ -444,7 +449,7 @@ static char* op2_names[] = {
 		fprintf(compiler->verbose, "\n"); \
 	}
 static char* fop1_names[] = {
-	"fcmp", "fmov", "fneg", "fabs"
+	(char*)"fcmp", (char*)"fmov", (char*)"fneg", (char*)"fabs"
 };
 #define sljit_emit_fop1_verbose() \
 	if (compiler->verbose) { \
@@ -455,7 +460,7 @@ static char* fop1_names[] = {
 		fprintf(compiler->verbose, "\n"); \
 	}
 static char* fop2_names[] = {
-	"fadd", "fsub", "fmul", "fdiv"
+	(char*)"fadd", (char*)"fsub", (char*)"fmul", (char*)"fdiv"
 };
 #define sljit_emit_fop2_verbose() \
 	if (compiler->verbose) { \
@@ -470,16 +475,16 @@ static char* fop2_names[] = {
 #define sljit_emit_label_verbose() \
 	if (compiler->verbose) fprintf(compiler->verbose, "label:\n");
 static char* jump_names[] = {
-	"c_equal", "c_not_equal",
-	"c_less", "c_not_less",
-	"c_greater", "c_not_greater",
-	"c_sig_less", "c_sig_not_less",
-	"c_sig_greater", "c_sig_not_greater",
-	"c_carry", "c_not_carry",
-	"c_zero", "c_not_zero",
-	"c_overflow", "c_not_overflow",
-	"jump",
-	"call0", "call1", "call2", "call3"
+	(char*)"c_equal", (char*)"c_not_equal",
+	(char*)"c_less", (char*)"c_not_less",
+	(char*)"c_greater", (char*)"c_not_greater",
+	(char*)"c_sig_less", (char*)"c_sig_not_less",
+	(char*)"c_sig_greater", (char*)"c_sig_not_greater",
+	(char*)"c_carry", (char*)"c_not_carry",
+	(char*)"c_zero", (char*)"c_not_zero",
+	(char*)"c_overflow", (char*)"c_not_overflow",
+	(char*)"jump",
+	(char*)"call0", (char*)"call1", (char*)"call2", (char*)"call3"
 };
 #define sljit_emit_jump_verbose() \
 	if (compiler->verbose) fprintf(compiler->verbose, "  jump <%s> %s\n", jump_names[type & 0xff], (type & SLJIT_LONG_JUMP) ? "(long)" : "");
@@ -533,7 +538,212 @@ static char* jump_names[] = {
 	#include "sljitNativePPC_common.c"
 #elif defined(SLJIT_CONFIG_PPC_64)
 	#include "sljitNativePPC_common.c"
-#else
-	#error "Unknown native code generation method"
 #endif
 
+#else /* SLJIT_CONFIG_UNSUPPORTED */
+
+// Empty function bodies for those machines, which are not (yet) supported
+
+struct sljit_compiler* sljit_create_compiler(void)
+{
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return NULL;
+}
+
+void sljit_free_compiler(struct sljit_compiler *compiler)
+{
+	(void)compiler;
+	SLJIT_ASSERT_IMPOSSIBLE();
+}
+
+#ifdef SLJIT_VERBOSE
+void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
+{
+	(void)compiler;
+	(void)verbose;
+	SLJIT_ASSERT_IMPOSSIBLE();
+}
+#endif
+
+void* sljit_generate_code(struct sljit_compiler *compiler)
+{
+	(void)compiler;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return NULL;
+}
+
+void sljit_free_code(void* code)
+{
+	(void)code;
+	SLJIT_ASSERT_IMPOSSIBLE();
+}
+
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+{
+	(void)compiler;
+	(void)args;
+	(void)general;
+	(void)local_size;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return SLJIT_UNSUPPORTED;
+}
+
+void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+{
+	(void)compiler;
+	(void)args;
+	(void)general;
+	(void)local_size;
+	SLJIT_ASSERT_IMPOSSIBLE();
+}
+
+int sljit_emit_return(struct sljit_compiler *compiler, int reg)
+{
+	(void)compiler;
+	(void)reg;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return SLJIT_UNSUPPORTED;
+}
+
+int sljit_emit_op1(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw)
+{
+	(void)compiler;
+	(void)op;
+	(void)dst;
+	(void)dstw;
+	(void)src;
+	(void)srcw;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return SLJIT_UNSUPPORTED;
+}
+
+int sljit_emit_op2(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	(void)compiler;
+	(void)op;
+	(void)dst;
+	(void)dstw;
+	(void)src1;
+	(void)src1w;
+	(void)src2;
+	(void)src2w;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return SLJIT_UNSUPPORTED;
+}
+
+int sljit_is_fpu_available(void)
+{
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return 0;
+}
+
+int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw)
+{
+	(void)compiler;
+	(void)op;
+	(void)dst;
+	(void)dstw;
+	(void)src;
+	(void)srcw;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return SLJIT_UNSUPPORTED;
+}
+
+int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	(void)compiler;
+	(void)op;
+	(void)dst;
+	(void)dstw;
+	(void)src1;
+	(void)src1w;
+	(void)src2;
+	(void)src2w;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return SLJIT_UNSUPPORTED;
+}
+
+struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
+{
+	(void)compiler;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return NULL;
+}
+
+struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
+{
+	(void)compiler;
+	(void)type;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return NULL;
+}
+
+void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
+{
+	(void)jump;
+	(void)label;
+	SLJIT_ASSERT_IMPOSSIBLE();
+}
+
+void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
+{
+	(void)jump;
+	(void)target;
+	SLJIT_ASSERT_IMPOSSIBLE();
+}
+
+int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw)
+{
+	(void)compiler;
+	(void)type;
+	(void)src;
+	(void)srcw;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return SLJIT_UNSUPPORTED;
+}
+
+int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
+{
+	(void)compiler;
+	(void)dst;
+	(void)dstw;
+	(void)type;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return SLJIT_UNSUPPORTED;
+}
+
+struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval)
+{
+	(void)compiler;
+	(void)dst;
+	(void)dstw;
+	(void)initval;
+	SLJIT_ASSERT_IMPOSSIBLE();
+	return NULL;
+}
+
+void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
+{
+	(void)addr;
+	(void)new_addr;
+	SLJIT_ASSERT_IMPOSSIBLE();
+}
+
+void sljit_set_const(sljit_uw addr, sljit_w new_constant)
+{
+	(void)addr;
+	(void)new_constant;
+	SLJIT_ASSERT_IMPOSSIBLE();
+}
+
+#endif

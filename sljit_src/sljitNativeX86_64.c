@@ -93,7 +93,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 	size += args * 3;
 	if (size == 0)
 		return SLJIT_NO_ERROR;
-	buf = ensure_buf(compiler, 1 + size);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	TEST_MEM_ERROR(buf);
 
 	INC_SIZE(size);
@@ -172,7 +172,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 		size += compiler->general - 1;
 	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_NO_REG)
 		size += 3;
-	buf = ensure_buf(compiler, 1 + size);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	TEST_MEM_ERROR(buf);
 
 	INC_SIZE(size);
@@ -206,7 +206,7 @@ static int emit_do_imm32(struct sljit_compiler *compiler, sljit_ub rex, sljit_ub
 	sljit_ub *buf;
 
 	if (rex != 0) {
-		buf = ensure_buf(compiler, 1 + 2 + sizeof(sljit_hw));
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 2 + sizeof(sljit_hw));
 		TEST_MEM_ERROR(buf);
 		INC_SIZE(2 + sizeof(sljit_hw));
 		*buf++ = rex;
@@ -214,7 +214,7 @@ static int emit_do_imm32(struct sljit_compiler *compiler, sljit_ub rex, sljit_ub
 		*(sljit_hw*)buf = imm;
 	}
 	else {
-		buf = ensure_buf(compiler, 1 + 1 + sizeof(sljit_hw));
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1 + sizeof(sljit_hw));
 		TEST_MEM_ERROR(buf);
 		INC_SIZE(1 + sizeof(sljit_hw));
 		*buf++ = opcode;
@@ -227,7 +227,7 @@ static int emit_load_imm64(struct sljit_compiler *compiler, int reg, sljit_w imm
 {
 	sljit_ub *buf;
 
-	buf = ensure_buf(compiler, 1 + 2 + sizeof(sljit_w));
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + 2 + sizeof(sljit_w));
 	TEST_MEM_ERROR(buf);
 	INC_SIZE(2 + sizeof(sljit_w));
 	*buf++ = REX_W | ((reg_map[reg] <= 7) ? 0 : REX_B);
@@ -271,7 +271,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 				// We need to replace the upper word. Rotate if it is the stack pointer
 				if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
 					b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM_FLAG;
-				buf = ensure_buf(compiler, 1 + 4);
+				buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);
 				TEST_MEM_ERROR2(buf);
 				INC_SIZE(4);
 				*buf++ = REX_W | REX_X | REX_R | ((reg_map[(b >> 4) & 0x0f] >= 8) ? REX_B : 0);
@@ -355,7 +355,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	if (rex)
 		total_size++;
 
-	buf = ensure_buf(compiler, 1 + total_size);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + total_size);
 	TEST_MEM_ERROR2(buf);
 
 	// Encoding the byte
@@ -440,7 +440,7 @@ static int call_with_args(struct sljit_compiler *compiler, int type)
 {
 	sljit_ub *buf;
 
-	buf = ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
 	TEST_MEM_ERROR(buf);
 	INC_SIZE((type < SLJIT_CALL3) ? 3 : 6);
 	if (type >= SLJIT_CALL3) {
