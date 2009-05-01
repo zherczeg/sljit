@@ -70,7 +70,8 @@
 #elif defined(__ppc__) || defined(__powerpc__)
 #define SLJIT_CONFIG_PPC_32
 #else
-#error "Unsupported machine"
+/* Unsupported machine */
+#define SLJIT_CONFIG_UNSUPPORTED
 #endif
 
 #else // ifndef WIN32
@@ -203,6 +204,7 @@ typedef long int sljit_w;
 #define SLJIT_NO_ERROR		0
 #define SLJIT_CODE_GENERATED	1
 #define SLJIT_MEMORY_ERROR	2
+#define SLJIT_UNSUPPORTED	3
 
 // ---------------------------------------------------------------------
 //  Registers
@@ -254,7 +256,7 @@ typedef long int sljit_w;
 #define SLJIT_FLOAT_REG4	4
 
 // ---------------------------------------------------------------------
-//  Main functions
+//  Main structures and functions
 // ---------------------------------------------------------------------
 
 struct sljit_memory_fragment {
@@ -330,20 +332,20 @@ struct sljit_compiler {
 	sljit_uw last_imm;
 	// Temporary fields
 	sljit_uw shift_imm;
-	sljit_uw cache_arg;
-	sljit_uw cache_argw;
+	int cache_arg;
+	sljit_w cache_argw;
 #endif
 
 #ifdef SLJIT_CONFIG_PPC_32
 	sljit_w imm;
-	sljit_uw cache_arg;
-	sljit_uw cache_argw;
+	int cache_arg;
+	sljit_w cache_argw;
 #endif
 
 #ifdef SLJIT_CONFIG_PPC_64
 	sljit_w imm;
-	sljit_uw cache_arg;
-	sljit_uw cache_argw;
+	int cache_arg;
+	sljit_w cache_argw;
 #endif
 
 #ifdef SLJIT_VERBOSE
@@ -573,7 +575,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 
 // Only the addresses are required to rewrite the code
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr);
-void sljit_set_const(sljit_uw addr, sljit_w constant);
+void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 
 #endif
 

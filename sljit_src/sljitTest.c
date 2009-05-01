@@ -993,11 +993,11 @@ static void test17(void)
 	sljit_free_compiler(compiler);
 
 	code.func1((sljit_w)&buf);
-	FAILED(buf[0] != 0x81818000, "test17 case 1 failed\n");
-	FAILED(buf[1] != 0x81818400, "test17 case 2 failed\n");
-	FAILED(buf[2] != 0x81818800, "test17 case 3 failed\n");
-	FAILED(buf[3] != 0x81818c00, "test17 case 4 failed\n");
-	FAILED(buf[4] != 0x81818fff, "test17 case 5 failed\n");
+	FAILED((sljit_uw)buf[0] != 0x81818000, "test17 case 1 failed\n");
+	FAILED((sljit_uw)buf[1] != 0x81818400, "test17 case 2 failed\n");
+	FAILED((sljit_uw)buf[2] != 0x81818800, "test17 case 3 failed\n");
+	FAILED((sljit_uw)buf[3] != 0x81818c00, "test17 case 4 failed\n");
+	FAILED((sljit_uw)buf[4] != 0x81818fff, "test17 case 5 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test17 ok\n");
@@ -1593,8 +1593,8 @@ static void test25(void)
 	FAILED(buf[5] != 0x1234567887654321, "test25 case 6 failed\n");
 	FAILED(buf[6] != 0xff80000000, "test25 case 7 failed\n");
 	FAILED(buf[7] != 0x3ff0000000, "test25 case 8 failed\n");
-	FAILED(buf[8] != 0xfffffff800100000, "test25 case 9 failed\n");
-	FAILED(buf[9] != 0xfffffff80010f000, "test25 case 10 failed\n");
+	FAILED((sljit_uw)buf[8] != 0xfffffff800100000, "test25 case 9 failed\n");
+	FAILED((sljit_uw)buf[9] != 0xfffffff80010f000, "test25 case 10 failed\n");
 	FAILED(buf[10] != 0x07fff00000008001, "test25 case 11 failed\n");
 	FAILED(buf[11] != 0x07fff00080010000, "test25 case 12 failed\n");
 	FAILED(buf[12] != 0x07fff00080018001, "test25 case 13 failed\n");

@@ -61,7 +61,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 	compiler->args = args;
 
 	size = 1 + general + ((args > 0) ? (2 + args * 3) : 0);
-	buf = ensure_buf(compiler, 1 + size);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	TEST_MEM_ERROR(buf);
 
 	INC_SIZE(size);
@@ -140,7 +140,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 		size += 2;
 	if (compiler->args > 0)
 		size += 2;
-	buf = ensure_buf(compiler, 1 + size);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	TEST_MEM_ERROR(buf);
 
 	INC_SIZE(size);
@@ -170,7 +170,7 @@ static int emit_do_imm(struct sljit_compiler *compiler, sljit_ub opcode, sljit_w
 {
 	sljit_ub *buf;
 
-	buf = ensure_buf(compiler, 1 + 1 + sizeof(sljit_w));
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + 1 + sizeof(sljit_w));
 	TEST_MEM_ERROR(buf);
 	INC_SIZE(1 + sizeof(sljit_w));
 	*buf++ = opcode;
@@ -250,7 +250,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	else
 		SLJIT_ASSERT(!(flags & EX86_SHIFT_INS) || a == SLJIT_PREF_SHIFT_REG);
 
-	buf = ensure_buf(compiler, 1 + total_size);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + total_size);
 	TEST_MEM_ERROR2(buf);
 
 	// Encoding the byte
@@ -333,7 +333,7 @@ static int call_with_args(struct sljit_compiler *compiler, int type)
 {
 	sljit_ub *buf;
 
-	buf = ensure_buf(compiler, type - SLJIT_CALL0 + 1);
+	buf = (sljit_ub*)ensure_buf(compiler, type - SLJIT_CALL0 + 1);
 	TEST_MEM_ERROR(buf);
 	INC_SIZE(type - SLJIT_CALL0);
 	if (type >= SLJIT_CALL3)

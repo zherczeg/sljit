@@ -327,13 +327,13 @@ void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 	SLJIT_CACHE_FLUSH(inst, inst + 5);
 }
 
-void sljit_set_const(sljit_uw addr, sljit_w constant)
+void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 {
 	sljit_i *inst = (sljit_i*)addr;
 
-	inst[0] = (inst[0] & 0xffff0000) | ((constant >> 48) & 0xffff);
-	inst[1] = (inst[1] & 0xffff0000) | ((constant >> 32) & 0xffff);
-	inst[3] = (inst[3] & 0xffff0000) | ((constant >> 16) & 0xffff);
-	inst[4] = (inst[4] & 0xffff0000) | (constant & 0xffff);
+	inst[0] = (inst[0] & 0xffff0000) | ((new_constant >> 48) & 0xffff);
+	inst[1] = (inst[1] & 0xffff0000) | ((new_constant >> 32) & 0xffff);
+	inst[3] = (inst[3] & 0xffff0000) | ((new_constant >> 16) & 0xffff);
+	inst[4] = (inst[4] & 0xffff0000) | (new_constant & 0xffff);
 	SLJIT_CACHE_FLUSH(inst, inst + 5);
 }

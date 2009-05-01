@@ -34,7 +34,6 @@ void devel(void)
 	executable_code code;
 
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	struct sljit_jump *jump;
 	sljit_w buf[4];
 
 	if (!compiler)
@@ -49,13 +48,6 @@ void devel(void)
 #endif
 	sljit_emit_enter(compiler, 1, 3, 4 * sizeof(sljit_w));
 
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_RET_REG, 0, SLJIT_IMM, 4);
-//	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_FLAGS, SLJIT_NO_REG, 0, SLJIT_GENERAL_REG1, 0, SLJIT_IMM, 0);
-	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_FLAGS, SLJIT_NO_REG, 0, SLJIT_IMM, 7, SLJIT_IMM, 5);
-	jump = sljit_emit_jump(compiler, SLJIT_C_NOT_GREATER);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_RET_REG, 0, SLJIT_IMM, 5);
-	sljit_set_label(jump, sljit_emit_label(compiler));
-
 	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
 	code.code = sljit_generate_code(compiler);
 #ifdef SLJIT_INDIRECT_CALL
@@ -65,7 +57,7 @@ void devel(void)
 
 	printf("Code at: %p\n", code.code); devel_dummy();
 
-	printf("Function returned with %ld\n", (long)code.func(/*(sljit_w*)buf */ 0));
+	printf("Function returned with %ld\n", (long)code.func((sljit_w*)buf));
 	printf("buf[0] = %ld\n", (long)buf[0]);
 	printf("buf[1] = %ld\n", (long)buf[1]);
 	printf("buf[2] = %ld\n", (long)buf[2]);

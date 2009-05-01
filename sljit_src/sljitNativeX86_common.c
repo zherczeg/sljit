@@ -225,12 +225,12 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 	// Second code generation pass
 #ifdef SLJIT_CONFIG_X86_32
-	code = SLJIT_MALLOC_EXEC(compiler->size);
+	code = (sljit_ub*)SLJIT_MALLOC_EXEC(compiler->size);
 #else
 	if (compiler->addrs > 0)
-		code = SLJIT_MALLOC_EXEC(compiler->size + compiler->addrs * sizeof(sljit_w) + (sizeof(sljit_w) - 1 /* alignment */));
+		code = (sljit_ub*)SLJIT_MALLOC_EXEC(compiler->size + compiler->addrs * sizeof(sljit_w) + (sizeof(sljit_w) - 1 /* alignment */));
 	else
-		code = SLJIT_MALLOC_EXEC(compiler->size);
+		code = (sljit_ub*)SLJIT_MALLOC_EXEC(compiler->size);
 #endif
 	if (!code) {
 		compiler->error = SLJIT_MEMORY_ERROR;
@@ -425,7 +425,7 @@ static int emit_mov(struct sljit_compiler *compiler,
 
 #define ENCODE_PREFIX(prefix) \
 	do { \
-		code = ensure_buf(compiler, 1 + 1); \
+		code = (sljit_ub*)ensure_buf(compiler, 1 + 1); \
 		TEST_MEM_ERROR(code); \
 		*code++ = 1; \
 		compiler->size++; \
@@ -1453,7 +1453,7 @@ static int emit_fld(struct sljit_compiler *compiler,
 	sljit_ub *buf;
 
 	if (src >= SLJIT_FLOAT_REG1 && src <= SLJIT_FLOAT_REG4) {
-		buf = ensure_buf(compiler, 1 + 2);
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 2);
 		TEST_MEM_ERROR(buf);
 		INC_SIZE(2);
 		*buf++ = 0xd9;
@@ -1475,7 +1475,7 @@ static int emit_fop(struct sljit_compiler *compiler,
 	sljit_ub *buf;
 
 	if (src >= SLJIT_FLOAT_REG1 && src <= SLJIT_FLOAT_REG4) {
-		buf = ensure_buf(compiler, 1 + 2);
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 2);
 		TEST_MEM_ERROR(buf);
 		INC_SIZE(2);
 		*buf++ = st_arg;
@@ -1496,7 +1496,7 @@ static int emit_fop_regs(struct sljit_compiler *compiler,
 {
 	sljit_ub *buf;
 
-	buf = ensure_buf(compiler, 1 + 2);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + 2);
 	TEST_MEM_ERROR(buf);
 	INC_SIZE(2);
 	*buf++ = st_arg;
@@ -1632,7 +1632,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 	if (compiler->last_label && compiler->last_label->size == compiler->size)
 		return compiler->last_label;
 
-	label = ensure_abuf(compiler, sizeof(struct sljit_label));
+	label = (struct sljit_label*)ensure_abuf(compiler, sizeof(struct sljit_label));
 	TEST_MEM_ERROR2(label);
 
 	label->next = NULL;
@@ -1643,7 +1643,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 		compiler->labels = label;
 	compiler->last_label = label;
 
-	buf = ensure_buf(compiler, 2);
+	buf = (sljit_ub*)ensure_buf(compiler, 2);
 	TEST_MEM_ERROR2(buf);
 
 	*buf++ = 0;
@@ -1663,7 +1663,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 
 	sljit_emit_jump_verbose();
 
-	jump = ensure_abuf(compiler, sizeof(struct sljit_jump));
+	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	TEST_MEM_ERROR2(jump);
 
 	jump->next = NULL;
@@ -1691,7 +1691,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	}
 #endif
 
-	buf = ensure_buf(compiler, 2);
+	buf = (sljit_ub*)ensure_buf(compiler, 2);
 	TEST_MEM_ERROR2(buf);
 
 	*buf++ = 0;
@@ -1716,7 +1716,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		TEST_FAIL(call_with_args(compiler, type));
 
 	if (src == SLJIT_IMM) {
-		buf = ensure_buf(compiler, 2 + sizeof(sljit_w));
+		buf = (sljit_ub*)ensure_buf(compiler, 2 + sizeof(sljit_w));
 		TEST_MEM_ERROR(buf);
 
 #ifdef SLJIT_CONFIG_X86_32
@@ -1834,7 +1834,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	else
 		reg = TMP_REGISTER;
 
-	buf = ensure_buf(compiler, 1 + 4 + 4);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + 4 + 4);
 	TEST_MEM_ERROR(buf);
 	INC_SIZE(4 + 4);
 	// Set al to conditional flag
@@ -1852,7 +1852,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 
 #else
 	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_TEMPORARY_REG3) {
-		buf = ensure_buf(compiler, 1 + 3 + 3);
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3 + 3);
 		TEST_MEM_ERROR(buf);
 		INC_SIZE(3 + 3);
 		// Set al to conditional flag
@@ -1866,7 +1866,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	else {
 		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG1, 0);
 
-		buf = ensure_buf(compiler, 1 + 3 + 3);
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3 + 3);
 		TEST_MEM_ERROR(buf);
 		INC_SIZE(3 + 3);
 		// Set al to conditional flag
@@ -1904,7 +1904,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 #endif
 	sljit_emit_const_verbose();
 
-	const_ = ensure_abuf(compiler, sizeof(struct sljit_const));
+	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
 	TEST_MEM_ERROR2(const_);
 
 	const_->next = NULL;
@@ -1928,7 +1928,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 		return NULL;
 #endif
 
-	buf = ensure_buf(compiler, 2);
+	buf = (sljit_ub*)ensure_buf(compiler, 2);
 	TEST_MEM_ERROR2(buf);
 
 	*buf++ = 0;
@@ -1952,8 +1952,8 @@ void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 #endif
 }
 
-void sljit_set_const(sljit_uw addr, sljit_w constant)
+void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 {
-	*(sljit_w*)addr = constant;
+	*(sljit_w*)addr = new_constant;
 }
 
