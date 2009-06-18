@@ -537,22 +537,22 @@ static void test10(void)
 
 	T(sljit_emit_enter(compiler, 1, 1, 0));
 
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_MUL_DST, 0, SLJIT_IMM, 5));
-	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_PREF_MUL_DST, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_PREF_MUL_DST, 0));
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_PREF_MUL_DST, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 5));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_TEMPORARY_REG1, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_TEMPORARY_REG1, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_TEMPORARY_REG1, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, 7));
-	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_PREF_MUL_DST, 0, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, 8));
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_PREF_MUL_DST, 0));
-	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_PREF_MUL_DST, 0, SLJIT_IMM, -3, SLJIT_IMM, -4));
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 2, SLJIT_PREF_MUL_DST, 0));
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_MUL_DST, 0, SLJIT_IMM, -2));
-	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 3, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 3, SLJIT_PREF_MUL_DST, 0));
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_MUL_DST, 0, SLJIT_IMM, 0));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, 8));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_TEMPORARY_REG1, 0));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, -3, SLJIT_IMM, -4));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 2, SLJIT_TEMPORARY_REG1, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, -2));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 3, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 3, SLJIT_TEMPORARY_REG1, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 0));
-	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_PREF_MUL_DST), (sljit_w)&buf[4], SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_PREF_MUL_DST), (sljit_w)&buf[4], SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_PREF_MUL_DST), (sljit_w)&buf[4]));
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_MUL_DST, 0, SLJIT_IMM, 9));
-	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_PREF_MUL_DST, 0, SLJIT_PREF_MUL_DST, 0, SLJIT_PREF_MUL_DST, 0));
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 5, SLJIT_PREF_MUL_DST, 0));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_TEMPORARY_REG1), (sljit_w)&buf[4], SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_TEMPORARY_REG1), (sljit_w)&buf[4], SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_TEMPORARY_REG1), (sljit_w)&buf[4]));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 9));
+	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 5, SLJIT_TEMPORARY_REG1, 0));
 	T(sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_PREF_RET_REG, 0, SLJIT_IMM, 11, SLJIT_IMM, 10));
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
