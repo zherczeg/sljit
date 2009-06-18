@@ -237,7 +237,6 @@ typedef long int sljit_w;
 // these registers are used, it costs a little performance drawback.
 // It doesn't matter for other archs
 
-#define SLJIT_PREF_MUL_DST	SLJIT_TEMPORARY_REG1
 #define SLJIT_PREF_SHIFT_REG	SLJIT_TEMPORARY_REG3
 
 // ---------------------------------------------------------------------

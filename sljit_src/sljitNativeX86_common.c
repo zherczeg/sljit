@@ -89,6 +89,7 @@ typedef int sljit_hw;
 #define EX86_PREF_66		0x400
 
 #define INC_SIZE(s)			(*buf++ = (s), compiler->size += (s))
+#define INC_CSIZE(s)			(*code++ = (s), compiler->size += (s))
 
 #define PUSH_REG(r)			(*buf++ = (0x50 + (r)))
 #define POP_REG(r)			(*buf++ = (0x58 + (r)))
@@ -427,8 +428,7 @@ static int emit_mov(struct sljit_compiler *compiler,
 	do { \
 		code = (sljit_ub*)ensure_buf(compiler, 1 + 1); \
 		TEST_MEM_ERROR(code); \
-		*code++ = 1; \
-		compiler->size++; \
+		INC_CSIZE(1); \
 		*code = (prefix); \
 	} while (0)
 
@@ -1034,107 +1034,126 @@ static int emit_mul(struct sljit_compiler *compiler,
 	int src2, sljit_w src2w)
 {
 	sljit_ub* code;
-	int tmp;
-	sljit_w tmpw;
+	int dst_r;
 
-	if (dst != SLJIT_PREF_MUL_DST) {
-		// This is not a good case in x86, it may requires a lot of
-		// operations
-#ifdef SLJIT_CONFIG_X86_64
-		// "mov reg, reg" is faster than "push reg"
-		EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_PREF_MUL_DST, 0);
-#else
-		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_LOCALS_REG), -(int)sizeof(sljit_w), SLJIT_PREF_MUL_DST, 0);
-#endif
-	}
+	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3) ? dst : TMP_REGISTER;
 
-	// Some swap may increase performance (mul is commutative operation)
-	if (src1 == SLJIT_PREF_MUL_DST)
-		; // Good case
-	else if (src1 != SLJIT_PREF_MUL_DST && src2 == SLJIT_PREF_MUL_DST) {
-		// Swap them, to get a good case
-		src2 = src1;
-		src2w = src1w;
-		src1 = SLJIT_PREF_MUL_DST;
-		src1w = 0;
-	}
-	else if (((src2 & SLJIT_IMM) && !(src1 & SLJIT_IMM)) || depends_on(src2, SLJIT_PREF_MUL_DST)) {
-		tmp = src1;
-		src1 = src2;
-		src2 = tmp;
-		tmpw = src1w;
-		src1w = src2w;
-		src2w = tmpw;
-	}
-
-	if (src1 != SLJIT_PREF_MUL_DST && depends_on(src2, SLJIT_PREF_MUL_DST)) {
-		// Cross references
-#ifdef SLJIT_CONFIG_X86_32
-		// rdx is not used by x86-64 at all
-		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_LOCALS_REG), -(int)(sizeof(sljit_w) * 2), SLJIT_TEMPORARY_REG2, 0);
-#endif
-
-		EMIT_MOV(compiler, TMP_REGISTER, 0, src2, src2w);
-		EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, src1, src1w);
-
-		code = emit_x86_instruction(compiler, 1, 0, 0, TMP_REGISTER, 0);
+	// Register destination
+	if (dst_r == src1 && !(src2 & SLJIT_IMM)) {
+		code = emit_x86_instruction(compiler, 2, dst_r, 0, src2, src2w);
 		TEST_MEM_ERROR(code);
-		*code = 0xf7;
-		*(code + 1) |= 0x4 << 3;
-
-#ifdef SLJIT_CONFIG_X86_32
-		EMIT_MOV(compiler, SLJIT_TEMPORARY_REG2, 0, SLJIT_MEM1(SLJIT_LOCALS_REG), -(int)(sizeof(sljit_w) * 2));
-#endif
+		*code++ = 0x0f;
+		*code = 0xaf;
 	}
-	else {
-#ifdef SLJIT_CONFIG_X86_32
-		// rdx is not used by x86-64 at all
-		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG2, 0);
-#endif
-
-		if (src1 != SLJIT_PREF_MUL_DST)
-			EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, src1, src1w);
-
+	else if (dst_r == src2 && !(src1 & SLJIT_IMM)) {
+		code = emit_x86_instruction(compiler, 2, dst_r, 0, src1, src1w);
+		TEST_MEM_ERROR(code);
+		*code++ = 0x0f;
+		*code = 0xaf;
+	}
+	else if (src1 & SLJIT_IMM) {
 		if (src2 & SLJIT_IMM) {
-#ifdef SLJIT_CONFIG_X86_32
-			EMIT_MOV(compiler, SLJIT_TEMPORARY_REG2, 0, src2, src2w);
-			src2 = SLJIT_TEMPORARY_REG2;
-#else
-			EMIT_MOV(compiler, TMP_REGISTER, 0, src2, src2w);
-			src2 = TMP_REGISTER;
-#endif
+			EMIT_MOV(compiler, dst_r, 0, SLJIT_IMM, src2w);
+			src2 = dst_r;
 			src2w = 0;
 		}
 
-		code = emit_x86_instruction(compiler, 1, 0, 0, src2, src2w);
-		TEST_MEM_ERROR(code);
-		*code = 0xf7;
-		*(code + 1) |= 0x4 << 3;
-
+		if (src1w <= 127 && src1w >= -128) {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, src2, src2w);
+			TEST_MEM_ERROR(code);
+			*code = 0x6b;
+			code = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+			TEST_MEM_ERROR(code);
+			INC_CSIZE(1);
+			*code = (sljit_b)src1w;
+		}
 #ifdef SLJIT_CONFIG_X86_32
-		EMIT_MOV(compiler, SLJIT_TEMPORARY_REG2, 0, TMP_REGISTER, 0);
-#endif
-	}
-
-	if (dst != SLJIT_PREF_MUL_DST) {
-		if (depends_on(dst, SLJIT_PREF_MUL_DST)) {
-			EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_PREF_MUL_DST, 0);
-#ifdef SLJIT_CONFIG_X86_64
-			EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, TMP_REG2, 0);
+		else {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, src2, src2w);
+			TEST_MEM_ERROR(code);
+			*code = 0x69;
+			code = (sljit_ub*)ensure_buf(compiler, 1 + 4);
+			TEST_MEM_ERROR(code);
+			INC_CSIZE(4);
+			*(sljit_w*)code = src1w;
+		}
 #else
-			EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, SLJIT_MEM1(SLJIT_LOCALS_REG), -(int)sizeof(sljit_w));
-#endif
-			EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
+		else if (IS_HALFWORD(src1w)) {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, src2, src2w);
+			TEST_MEM_ERROR(code);
+			*code = 0x69;
+			code = (sljit_ub*)ensure_buf(compiler, 1 + 4);
+			TEST_MEM_ERROR(code);
+			INC_CSIZE(4);
+			*(sljit_hw*)code = src1w;
 		}
 		else {
-			EMIT_MOV(compiler, dst, dstw, SLJIT_PREF_MUL_DST, 0);
-#ifdef SLJIT_CONFIG_X86_64
-			EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, TMP_REG2, 0);
-#else
-			EMIT_MOV(compiler, SLJIT_PREF_MUL_DST, 0, SLJIT_MEM1(SLJIT_LOCALS_REG), -(int)sizeof(sljit_w));
-#endif
+			EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_IMM, src1w);
+			if (dst_r != src2)
+				EMIT_MOV(compiler, dst_r, 0, src2, src2w);
+			code = emit_x86_instruction(compiler, 2, dst_r, 0, TMP_REG2, 0);
+			TEST_MEM_ERROR(code);
+			*code++ = 0x0f;
+			*code = 0xaf;
 		}
+#endif
 	}
+	else if (src2 & SLJIT_IMM) {
+		// Note: src1 is NOT immediate
+
+		if (src2w <= 127 && src2w >= -128) {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, src1, src1w);
+			TEST_MEM_ERROR(code);
+			*code = 0x6b;
+			code = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+			TEST_MEM_ERROR(code);
+			INC_CSIZE(1);
+			*code = (sljit_b)src2w;
+		}
+#ifdef SLJIT_CONFIG_X86_32
+		else {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, src1, src1w);
+			TEST_MEM_ERROR(code);
+			*code = 0x69;
+			code = (sljit_ub*)ensure_buf(compiler, 1 + 4);
+			TEST_MEM_ERROR(code);
+			INC_CSIZE(4);
+			*(sljit_w*)code = src2w;
+		}
+#else
+		else if (IS_HALFWORD(src2w)) {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, src1, src1w);
+			TEST_MEM_ERROR(code);
+			*code = 0x69;
+			code = (sljit_ub*)ensure_buf(compiler, 1 + 4);
+			TEST_MEM_ERROR(code);
+			INC_CSIZE(4);
+			*(sljit_hw*)code = src2w;
+		}
+		else {
+			EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_IMM, src1w);
+			if (dst_r != src1)
+				EMIT_MOV(compiler, dst_r, 0, src1, src1w);
+			code = emit_x86_instruction(compiler, 2, dst_r, 0, TMP_REG2, 0);
+			TEST_MEM_ERROR(code);
+			*code++ = 0x0f;
+			*code = 0xaf;
+		}
+#endif
+	}
+	else {
+		// Neither argument is immediate
+		if (depends_on(src2, dst_r))
+			dst_r = TMP_REGISTER;
+		EMIT_MOV(compiler, dst_r, 0, src1, src1w);
+		code = emit_x86_instruction(compiler, 2, dst_r, 0, src2, src2w);
+		TEST_MEM_ERROR(code);
+		*code++ = 0x0f;
+		*code = 0xaf;
+	}
+
+	if (dst_r == TMP_REGISTER)
+		EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
 
 	return SLJIT_NO_ERROR;
 }
