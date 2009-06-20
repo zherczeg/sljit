@@ -1810,7 +1810,7 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 
 	if (src > SLJIT_FLOAT_REG4) {
 		ORDER_IND_REGS(src);
-		emit_fpu_data_transfer(compiler, dst_freg, 1, src, srcw);
+		TEST_FAIL(emit_fpu_data_transfer(compiler, dst_freg, 1, src, srcw));
 		src = dst_freg;
 	}
 
@@ -1860,13 +1860,13 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 
 	if (src1 > SLJIT_FLOAT_REG4) {
 		ORDER_IND_REGS(src1);
-		emit_fpu_data_transfer(compiler, TMP_FREG1, 1, src1, src1w);
+		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG1, 1, src1, src1w));
 		src1 = TMP_FREG1;
 	}
 
 	if (src2 > SLJIT_FLOAT_REG4) {
 		ORDER_IND_REGS(src2);
-		emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src2, src2w);
+		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src2, src2w));
 		src2 = TMP_FREG2;
 	}
 
