@@ -21,6 +21,9 @@ typedef unsigned int sljit_i;
 #define TMP_REG3	(SLJIT_LOCALS_REG + 3)
 #define REAL_STACK_PTR	(SLJIT_LOCALS_REG + 4)
 
+#define TMP_FREG1       (SLJIT_FLOAT_REG4 + 1)
+#define TMP_FREG2       (SLJIT_FLOAT_REG4 + 2)
+
 #define INS_FORM_IMM(opcode, D, A, IMM) \
 		(((opcode) << 26) | (reg_map[D] << 21) | (reg_map[A] << 16) | (IMM))
 #define INS_FORM_OP0(opcode, D, opcode2) \
@@ -29,6 +32,13 @@ typedef unsigned int sljit_i;
 		(((opcode) << 26) | (reg_map[D] << 21) | (reg_map[A] << 16) | (opcode2))
 #define INS_FORM_OP2(opcode, D, A, B, opcode2) \
 		(((opcode) << 26) | (reg_map[D] << 21) | (reg_map[A] << 16) | (reg_map[B] << 11) | (opcode2))
+
+#define INS_FORM_FOP(opcode, D, A, B, C, opcode2) \
+		(((opcode) << 26) | ((D) << 21) | ((A) << 16) | ((B) << 11) | ((C) << 6) | ((opcode2) << 1))
+#define INS_FORM_FOP1(opcode, D, A, opcode2) \
+		(((opcode) << 26) | ((D) << 21) | (reg_map[A] << 16) | (opcode2))
+#define INS_FORM_FOP2(opcode, D, A, B, opcode2) \
+		(((opcode) << 26) | ((D) << 21) | (reg_map[A] << 16) | (reg_map[B] << 11) | (opcode2))
 
 #define SIMM_MAX	(0x7fff)
 #define SIMM_MIN	(-0x8000)
@@ -1198,6 +1208,26 @@ int sljit_is_fpu_available(void)
 	return 1;
 }
 
+static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, int load, int arg, sljit_w argw)
+{
+	SLJIT_ASSERT(arg & SLJIT_MEM_FLAG);
+
+	if ((arg & 0xf0) == SLJIT_NO_REG) {
+		// Both for (arg & 0xf) == SLJIT_NO_REG and (arg & 0xf) != SLJIT_NO_REG
+		if (argw <= SIMM_MAX && argw >= SIMM_MIN)
+			return push_inst(compiler, INS_FORM_FOP1(load ? 50 : 54, fpu_reg, arg & 0xf, argw & 0xffff));
+	}
+
+	if ((arg & 0xf0) != SLJIT_NO_REG && argw == 0)
+		return push_inst(compiler, INS_FORM_FOP2(31, fpu_reg, arg & 0xf, (arg >> 4) & 0xf, load ? (599 << 1) : (727 << 1)));
+
+	TEST_FAIL(load_immediate(compiler, TMP_REG3, argw));
+	if ((arg & 0xf0) != SLJIT_NO_REG)
+		TEST_FAIL(push_inst(compiler, INS_FORM_OP2(31, TMP_REG3, TMP_REG3, (arg >> 4) & 0xf, 266 << 1)));
+
+	return push_inst(compiler, INS_FORM_FOP2(31, fpu_reg, arg & 0xf, TMP_REG3, load ? (599 << 1) : (727 << 1)));
+}
+
 int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
@@ -1212,6 +1242,35 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	FUNCTION_FCHECK(dst, dstw);
 #endif
 	sljit_emit_fop1_verbose();
+
+	compiler->cache_arg = 0;
+	compiler->cache_argw = 0;
+
+	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+
+	if (src > SLJIT_FLOAT_REG4) {
+		ORDER_IND_REGS(src);
+		TEST_FAIL(emit_fpu_data_transfer(compiler, dst_freg, 1, src, srcw));
+		src = dst_freg;
+	}
+
+	switch (op) {
+		case SLJIT_FMOV:
+			if (src != dst_freg && dst_freg != TMP_FREG1)
+				TEST_FAIL(push_inst(compiler, INS_FORM_FOP(63, dst_freg, 0, src, 0, 72)));
+			break;
+		case SLJIT_FNEG:
+			TEST_FAIL(push_inst(compiler, INS_FORM_FOP(63, dst_freg, 0, src, 0, 40)));
+			break;
+		case SLJIT_FABS:
+			TEST_FAIL(push_inst(compiler, INS_FORM_FOP(63, dst_freg, 0, src, 0, 264)));
+			break;
+	}
+
+	if (dst_freg == TMP_FREG1) {
+		ORDER_IND_REGS(dst);
+		TEST_FAIL(emit_fpu_data_transfer(compiler, src, 0, dst, dstw));
+	}
 
 	return SLJIT_NO_ERROR;
 }
@@ -1232,6 +1291,46 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	FUNCTION_FCHECK(dst, dstw);
 #endif
 	sljit_emit_fop2_verbose();
+
+	compiler->cache_arg = 0;
+	compiler->cache_argw = 0;
+
+	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+
+	if (src1 > SLJIT_FLOAT_REG4) {
+		ORDER_IND_REGS(src1);
+		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG1, 1, src1, src1w));
+		src1 = TMP_FREG1;
+	}
+
+	if (src2 > SLJIT_FLOAT_REG4) {
+		ORDER_IND_REGS(src2);
+		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src2, src2w));
+		src2 = TMP_FREG2;
+	}
+
+	switch (op) {
+	case SLJIT_FADD:
+		TEST_FAIL(push_inst(compiler, INS_FORM_FOP(63, dst_freg, src1, src2, 0, 21)));
+		break;
+
+	case SLJIT_FSUB:
+		TEST_FAIL(push_inst(compiler, INS_FORM_FOP(63, dst_freg, src1, src2, 0, 20)));
+		break;
+
+	case SLJIT_FMUL:
+		TEST_FAIL(push_inst(compiler, INS_FORM_FOP(63, dst_freg, src1, 0, src2, 25)));
+		break;
+
+	case SLJIT_FDIV:
+		TEST_FAIL(push_inst(compiler, INS_FORM_FOP(63, dst_freg, src1, src2, 0, 18)));
+		break;
+	}
+
+	if (dst_freg == TMP_FREG1) {
+		ORDER_IND_REGS(dst);
+		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG1, 0, dst, dstw));
+	}
 
 	return SLJIT_NO_ERROR;
 }
