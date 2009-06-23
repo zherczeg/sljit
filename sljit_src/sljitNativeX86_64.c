@@ -519,9 +519,11 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 	}
 
 	if (dst & SLJIT_MEM_FLAG) {
+		compiler->mode32 = 1;
 		code = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
 		TEST_MEM_ERROR(code);
 		*code = 0x89;
+		compiler->mode32 = 0;
 	}
 
 	return SLJIT_NO_ERROR;

@@ -683,6 +683,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	FUNCTION_ENTRY();
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_NEG);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_NOT || !(op & (SLJIT_INT_OPERATION | SLJIT_SET_FLAGS)));
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_SRC(src, srcw);
 	FUNCTION_CHECK_DST(dst, dstw);
@@ -719,7 +720,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		return emit_mov_int(compiler, 0, dst, dstw, src, srcw);
 
 	case SLJIT_MOV_SI:
-		return emit_mov_int(compiler, 0, dst, dstw, src, srcw);
+		return emit_mov_int(compiler, 1, dst, dstw, src, srcw);
 #endif
 
 	case SLJIT_MOVU:
