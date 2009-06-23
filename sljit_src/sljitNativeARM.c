@@ -1560,6 +1560,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	FUNCTION_ENTRY();
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_NEG);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_NOT || !(op & (SLJIT_INT_OPERATION | SLJIT_SET_FLAGS)));
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_SRC(src, srcw);
 	FUNCTION_CHECK_DST(dst, dstw);
@@ -1716,7 +1717,7 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 	SLJIT_ASSERT(arg & SLJIT_MEM_FLAG);
 
 	// Fast loads and stores
-	if ((arg & 0xf) != 0 && (arg & 0xf0) == 0) {
+	if ((arg & 0xf) != 0 && (arg & 0xf0) == 0 && (argw & 0x3) == 0) {
 		if (argw >= 0 && argw <= 0x3ff) {
 			EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(1, load, arg & 0xf, fpu_reg, argw >> 2));
 			return SLJIT_NO_ERROR;
@@ -1742,7 +1743,7 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 		}
 	}
 
-	if (compiler->cache_arg == arg) {
+	if (compiler->cache_arg == arg && ((argw - compiler->cache_argw) & 0x3) == 0) {
 		if (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= 0x3ff) {
 			EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(1, load, TMP_REG3, fpu_reg, (argw - compiler->cache_argw) >> 2));
 			return SLJIT_NO_ERROR;
@@ -1758,13 +1759,15 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 	if ((arg & 0xf0) != 0) {
 		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(0x08, TMP_REG3, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
 
-		if (argw >= 0 && argw <= 0x3ff) {
-			EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(1, load, TMP_REG3, fpu_reg, argw >> 2));
-			return SLJIT_NO_ERROR;
-		}
-		if (argw < 0 && argw >= -0x3ff) {
-			EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(0, load, TMP_REG3, fpu_reg, (-argw) >> 2));
-			return SLJIT_NO_ERROR;
+		if ((argw & 0x3) == 0) {
+			if (argw >= 0 && argw <= 0x3ff) {
+				EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(1, load, TMP_REG3, fpu_reg, argw >> 2));
+				return SLJIT_NO_ERROR;
+			}
+			if (argw < 0 && argw >= -0x3ff) {
+				EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(0, load, TMP_REG3, fpu_reg, (-argw) >> 2));
+				return SLJIT_NO_ERROR;
+			}
 		}
 
 		compiler->cache_argw = argw;

@@ -970,6 +970,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	FUNCTION_ENTRY();
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_NEG);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_NOT || !(op & (SLJIT_INT_OPERATION | SLJIT_SET_FLAGS)));
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_SRC(src, srcw);
 	FUNCTION_CHECK_DST(dst, dstw);
