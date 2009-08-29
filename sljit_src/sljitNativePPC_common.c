@@ -123,7 +123,10 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	reverse_buf(compiler);
 
 	code = (sljit_i*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_uw));
-
+	if (!code) {
+		compiler->error = SLJIT_EX_MEMORY_ERROR;
+		return NULL;
+	}
 	buf = compiler->buf;
 
 	code_ptr = code;
@@ -970,8 +973,8 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	FUNCTION_ENTRY();
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_NEG);
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_NOT || !(op & (SLJIT_INT_OPERATION | SLJIT_SET_FLAGS)));
 #ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
 	FUNCTION_CHECK_SRC(src, srcw);
 	FUNCTION_CHECK_DST(dst, dstw);
 	FUNCTION_CHECK_OP1();
@@ -1080,6 +1083,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_ADD && GET_OPCODE(op) <= SLJIT_ASHR);
 #ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
 	FUNCTION_CHECK_SRC(src1, src1w);
 	FUNCTION_CHECK_SRC(src2, src2w);
 	FUNCTION_CHECK_DST(dst, dstw);
@@ -1237,10 +1241,13 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT(op >= SLJIT_FCMP && op <= SLJIT_FABS);
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FCMP && GET_OPCODE(op) <= SLJIT_FABS);
 #ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
 	FUNCTION_FCHECK(src, srcw);
 	FUNCTION_FCHECK(dst, dstw);
+	FUNCTION_CHECK_FOP();
 #endif
 	sljit_emit_fop1_verbose();
 
@@ -1285,11 +1292,14 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT(op >= SLJIT_FADD && op <= SLJIT_FDIV);
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FADD && GET_OPCODE(op) <= SLJIT_FDIV);
 #ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
 	FUNCTION_FCHECK(src1, src1w);
 	FUNCTION_FCHECK(src2, src2w);
 	FUNCTION_FCHECK(dst, dstw);
+	FUNCTION_CHECK_FOP();
 #endif
 	sljit_emit_fop2_verbose();
 

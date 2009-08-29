@@ -38,173 +38,29 @@
 //      - Fast paths can be modified runtime reflecting the changes of the
 //        fastest execution path of the dynamic language
 //      - SLJIT supports complex memory addressing modes
-//      - mainly position independent code except for far jumps
-//        (Is it worth to change it into real PIC in the future?)
+//      - mainly position independent code
 //    - Optimizations (perhaps later)
 //      - Only for basic blocks (no labels between LIR instructions)
 
-// ---------------------------------------------------------------------
-//  Configuration
-// ---------------------------------------------------------------------
-
-// Architecture selection (comment out one here, use -D preprocessor
-//   option, or define SLJIT_CONFIG_AUTO)
-//#define SLJIT_CONFIG_X86_32
-//#define SLJIT_CONFIG_X86_64
-//#define SLJIT_CONFIG_ARM
-//#define SLJIT_CONFIG_PPC_32
-//#define SLJIT_CONFIG_PPC_64
-
-// Auto select option (requires compiler support)
-#ifdef SLJIT_CONFIG_AUTO
-#ifndef WIN32
-
-#if defined(__i386__) || defined(__i386)
-#define SLJIT_CONFIG_X86_32
-#elif defined(__x86_64__)
-#define SLJIT_CONFIG_X86_64
-#elif defined(__arm__) || defined(__ARM__)
-#define SLJIT_CONFIG_ARM
-#elif (__ppc64__) || (__powerpc64__)
-#define SLJIT_CONFIG_PPC_64
-#elif defined(__ppc__) || defined(__powerpc__)
-#define SLJIT_CONFIG_PPC_32
-#else
-/* Unsupported machine */
-#define SLJIT_CONFIG_UNSUPPORTED
-#endif
-
-#else // ifndef WIN32
-
-#if defined(_M_X64)
-#define SLJIT_CONFIG_X86_64
-#elif defined(_ARM_)
-#define SLJIT_CONFIG_ARM
-#else
-#define SLJIT_CONFIG_X86_32
-#endif
-
-#endif // ifndef WIN32
-#endif // ifdef SLJIT_CONFIG_AUTO
-
-// General libraries
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-
-// General allocation
-#define SLJIT_MALLOC(size) malloc(size)
-#define SLJIT_FREE(ptr) free(ptr)
-
-// Executable code allocation
-#if !defined(SLJIT_CONFIG_X86_64) && !defined(SLJIT_CONFIG_PPC_64)
-
-#define SLJIT_MALLOC_EXEC(size) malloc(size)
-#define SLJIT_FREE_EXEC(ptr) free(ptr)
-
-#else
-
-// We use mmap on x86-64, but that is not OS independent standard C function
-void* sljit_malloc_exec(int size);
-#define SLJIT_MALLOC_EXEC(size) sljit_malloc_exec(size)
-void sljit_free_exec(void* ptr);
-#define SLJIT_FREE_EXEC(ptr) sljit_free_exec(ptr)
-
-#endif
-
-#define SLJIT_MEMMOVE(dest, src, len) memmove(dest, src, len)
-
-// Debug checks (assertions, etc)
-#define SLJIT_DEBUG
-
-// Verbose operations
-#define SLJIT_VERBOSE
-
-// Inline functions
-#define INLINE __inline
-
-// Byte type
-typedef unsigned char sljit_ub;
-typedef char sljit_b;
-
-// Machine word type. Can encapsulate a pointer.
-//   32 bit for 32 bit machines
-//   64 bit for 64 bit machines
-#if !defined(SLJIT_CONFIG_X86_64) && !defined(SLJIT_CONFIG_PPC_64)
-#define SLJIT_32BIT_ARCHITECTURE	1
-typedef unsigned int sljit_uw;
-typedef int sljit_w;
-#else
-#define SLJIT_64BIT_ARCHITECTURE	1
-typedef unsigned long int sljit_uw;
-typedef long int sljit_w;
-#endif
-
-#if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
-#define SLJIT_BIG_ENDIAN		1
-#else
-#define SLJIT_LITTLE_ENDIAN		1
-#endif
-
-// ABI (Application Binary Interface) types
-#ifdef SLJIT_CONFIG_X86_32
-
-#ifdef __GNUC__
-#define SLJIT_CALL __attribute__ ((stdcall))
-#else
-#define SLJIT_CALL __stdcall
-#endif
-
-#else // Other architectures
-
-#define SLJIT_CALL
-
-#endif
-
-#if defined(SLJIT_CONFIG_PPC_64)
-// It seems ppc64 compilers use an indirect addressing for functions
-// I don't know why... It just makes things complicated
-#define SLJIT_INDIRECT_CALL
-#endif
-
-#ifdef SLJIT_CONFIG_ARM
-	// Just call __ARM_NR_cacheflush on Linux
-#define SLJIT_CACHE_FLUSH(from, to) \
-	__clear_cache((char*)(from), (char*)(to))
-#else
-	// Not required to implement on archs with unified caches
-#define SLJIT_CACHE_FLUSH(from, to)
-#endif
-
-// Feel free to overwrite these assert defines
-#ifdef SLJIT_DEBUG
-#define SLJIT_ASSERT(x) \
-	do { \
-		if (!(x)) { \
-			printf("Assertion failed at " __FILE__ ":%d\n", __LINE__); \
-			*((int*)0) = 0; \
-		} \
-	} while (0)
-#define SLJIT_ASSERT_IMPOSSIBLE() \
-	do { \
-		printf("Should never been reached " __FILE__ ":%d\n", __LINE__); \
-		*((int*)0) = 0; \
-	} while (0)
-#else
-#define SLJIT_ASSERT(x) \
-	do { } while (0)
-#define SLJIT_ASSERT_IMPOSSIBLE() \
-	do { } while (0)
-#endif
+#include "sljitConfig.h"
 
 // ---------------------------------------------------------------------
 //  Error codes
 // ---------------------------------------------------------------------
 
+// Indicates no error
 #define SLJIT_NO_ERROR		0
+// After the call of sljit_generate_code(), the error code of the compiler
+// is set to this value to avoid future sljit calls (in debug mode at least).
+// The complier should only be freed after sljit_generate_code()
 #define SLJIT_CODE_GENERATED	1
+// Cannot allocate non executable memory
 #define SLJIT_MEMORY_ERROR	2
-#define SLJIT_UNSUPPORTED	3
+// Cannot allocate executable memory
+// Only for sljit_generate_code()
+#define SLJIT_EX_MEMORY_ERROR	3
+// return value for SLJIT_CONFIG_UNSUPPORTED empty architecture
+#define SLJIT_UNSUPPORTED	4
 
 // ---------------------------------------------------------------------
 //  Registers
@@ -435,59 +291,93 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 //  - negative/positive flag (depends on arc)
 
 // By default, the instructions may, or may not set the CPU status flags.
-// Using this option, we can force the compiler to generate instructions,
-// which also set the CPU status flags. Omit this option if you do not
-// want to branch after the instruction, since the compiler may generate
-// faster code
-#define SLJIT_SET_FLAGS			0x200
+// Forcing to set status flags can be done with the following flags:
+
+// Set Equal (Zero) status flag
+#define SLJIT_SET_E			0x0200
+// Set signed status flags
+#define SLJIT_SET_S			0x0400
+// Set unsgined status flags
+#define SLJIT_SET_U			0x0800
+// Set overflow
+#define SLJIT_SET_O			0x1000
+// Set carry
+#define SLJIT_SET_C			0x2000
 
 // Notes:
-//  - you cannot postpone conditional jump instructions depending on
-//    one of these instructions except if the next instruction is a mov*
-//  - the carry flag set/reset depends on arch
-//    i.e: x86 sub operation sets carry, if substraction overflows, while
-//    arm sub sets carry, if the substraction does NOT overflow. I suggest
-//    to use carry mainly for addc and subc operations
+//   - CPU flags are NEVER set for MOV instructions
+//   - you cannot postpone conditional jump instructions depending on
+//     one of these instructions except if the next instruction is a MOV
+//   - flag combinations: '|' 'logical or' and '^' 'both cannot be specified together'
 
-// CPU flags are NEVER set for MOV instructions
-// U = Mov with update. If source or destination uses the form of
-// [reg + (expr)] the reg is increased by (expr)
+// Notes for MOV instructions:
+// U = Mov with update (post form). If source or destination defined as SLJIT_MEM1(r1)
+//     or SLJIT_MEM2(r1, r2), r1 is increased by the sum of r2 and the constant argument
 // UB = unsigned byte (8 bit)
 // SB = signed byte (8 bit)
 // UH = unsgined half (16 bit)
 // SH = unsgined half (16 bit)
+
+// Flags: -
 #define SLJIT_MOV			0
+// Flags: -
 #define SLJIT_MOV_UB			1
+// Flags: -
 #define SLJIT_MOV_SB			2
+// Flags: -
 #define SLJIT_MOV_UH			3
+// Flags: -
 #define SLJIT_MOV_SH			4
+// Flags: -
 #define SLJIT_MOV_UI			5
+// Flags: -
 #define SLJIT_MOV_SI			6
+// Flags: -
 #define SLJIT_MOVU			7
+// Flags: -
 #define SLJIT_MOVU_UB			8
+// Flags: -
 #define SLJIT_MOVU_SB			9
+// Flags: -
 #define SLJIT_MOVU_UH			10
+// Flags: -
 #define SLJIT_MOVU_SH			11
+// Flags: -
 #define SLJIT_MOVU_UI			12
+// Flags: -
 #define SLJIT_MOVU_SI			13
+// Flags: E
 #define SLJIT_NOT			14
+// Flags: E | O
 #define SLJIT_NEG			15
 
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
-#define SLJIT_ADD			0
-#define SLJIT_ADDC			1
-#define SLJIT_SUB			2
-#define SLJIT_SUBC			3
-#define SLJIT_MUL			4
-#define SLJIT_AND			5
-#define SLJIT_OR			6
-#define SLJIT_XOR			7
-#define SLJIT_SHL			8
-#define SLJIT_LSHR			9
-#define SLJIT_ASHR			10
+// Flags: E | O | C | (S ^ U)
+#define SLJIT_ADD			16
+// Flags: E | O | C | (S ^ U)
+#define SLJIT_ADDC			17
+// Flags: E | O | C | (S ^ U)
+#define SLJIT_SUB			18
+// Flags: E | O | C | (S ^ U)
+#define SLJIT_SUBC			19
+// Note: integer mul
+// Flags: E ^ O
+#define SLJIT_MUL			20
+// Flags: E
+#define SLJIT_AND			21
+// Flags: E
+#define SLJIT_OR			22
+// Flags: E
+#define SLJIT_XOR			23
+// Flags: E
+#define SLJIT_SHL			24
+// Flags: E
+#define SLJIT_LSHR			25
+// Flags: E
+#define SLJIT_ASHR			26
 
 int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
@@ -496,21 +386,28 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 
 int sljit_is_fpu_available(void);
 
-// dst is source in case of FCMP
-// SLJIT_FCMP is not yet implemented !
-#define SLJIT_FCMP			0
-#define SLJIT_FMOV			1
-#define SLJIT_FNEG			2
-#define SLJIT_FABS			3
+// Note: dst is the left and src is the right operand for SLJIT_FCMP
+// Flags: E | U
+#define SLJIT_FCMP			27
+// Flags: -
+#define SLJIT_FMOV			28
+// Flags: -
+#define SLJIT_FNEG			29
+// Flags: -
+#define SLJIT_FABS			30
 
 int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
-#define SLJIT_FADD			0
-#define SLJIT_FSUB			1
-#define SLJIT_FMUL			2
-#define SLJIT_FDIV			3
+// Flags: -
+#define SLJIT_FADD			31
+// Flags: -
+#define SLJIT_FSUB			32
+// Flags: -
+#define SLJIT_FMUL			33
+// Flags: -
+#define SLJIT_FDIV			34
 
 int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
@@ -523,7 +420,10 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 
 // Invert conditional instruction: xor (^) with 0x1
 #define SLJIT_C_EQUAL			0
+#define SLJIT_C_ZERO			0
 #define SLJIT_C_NOT_EQUAL		1
+#define SLJIT_C_NOT_ZERO		1
+
 #define SLJIT_C_LESS			2
 #define SLJIT_C_NOT_LESS		3
 #define SLJIT_C_GREATER			4
@@ -533,18 +433,14 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_C_SIG_GREATER		8
 #define SLJIT_C_SIG_NOT_GREATER		9
 
-#define SLJIT_C_CARRY			10
-#define SLJIT_C_NOT_CARRY		11
-#define SLJIT_C_ZERO			12
-#define SLJIT_C_NOT_ZERO		13
-#define SLJIT_C_OVERFLOW		14
-#define SLJIT_C_NOT_OVERFLOW		15
+#define SLJIT_C_OVERFLOW		10
+#define SLJIT_C_NOT_OVERFLOW		11
 
-#define SLJIT_JUMP			16
-#define SLJIT_CALL0			17
-#define SLJIT_CALL1			18
-#define SLJIT_CALL2			19
-#define SLJIT_CALL3			20
+#define SLJIT_JUMP			12
+#define SLJIT_CALL0			13
+#define SLJIT_CALL1			14
+#define SLJIT_CALL2			15
+#define SLJIT_CALL3			16
 
 // The target may be redefined during runtime
 #define SLJIT_LONG_JUMP			0x100
@@ -559,7 +455,7 @@ void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 // Call function or jump anywhere. Both direct and indirect form
 //  type must be between SLJIT_JUMP and SLJIT_CALL3
 //  Direct form: set src to SLJIT_IMM() and srcw to the address
-//  Indirect form: any other valid addressing mode 
+//  Indirect form: any other valid addressing mode
 int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw);
 
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);

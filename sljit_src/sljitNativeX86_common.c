@@ -131,18 +131,6 @@ static sljit_ub get_jump_code(int type)
 	case SLJIT_C_SIG_NOT_GREATER:
 		return 0x8e;
 
-	case SLJIT_C_CARRY:
-		return 0x82;
-
-	case SLJIT_C_NOT_CARRY:
-		return 0x83;
-
-	case SLJIT_C_ZERO:
-		return 0x84;
-
-	case SLJIT_C_NOT_ZERO:
-		return 0x85;
-
 	case SLJIT_C_OVERFLOW:
 		return 0x80;
 
@@ -234,7 +222,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		code = (sljit_ub*)SLJIT_MALLOC_EXEC(compiler->size);
 #endif
 	if (!code) {
-		compiler->error = SLJIT_MEMORY_ERROR;
+		compiler->error = SLJIT_EX_MEMORY_ERROR;
 		return NULL;
 	}
 	buf = compiler->buf;
@@ -683,8 +671,8 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	FUNCTION_ENTRY();
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_NEG);
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_NOT || !(op & (SLJIT_INT_OPERATION | SLJIT_SET_FLAGS)));
 #ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
 	FUNCTION_CHECK_SRC(src, srcw);
 	FUNCTION_CHECK_DST(dst, dstw);
 	FUNCTION_CHECK_OP1();
@@ -791,7 +779,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		return SLJIT_NO_ERROR;
 
 	case SLJIT_NOT:
-		if (op & SLJIT_SET_FLAGS)
+		if (op & SLJIT_SET_E)
 			return emit_not_with_flags(compiler, dst, dstw, src, srcw);
 		return emit_unary(compiler, 0x2, dst, dstw, src, srcw);
 
@@ -1405,6 +1393,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_ADD && GET_OPCODE(op) <= SLJIT_ASHR);
 #ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
 	FUNCTION_CHECK_SRC(src1, src1w);
 	FUNCTION_CHECK_SRC(src2, src2w);
 	FUNCTION_CHECK_DST(dst, dstw);
@@ -1528,18 +1517,54 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
+#ifndef SLJIT_CONFIG_X86_64
+	sljit_ub *buf;
+#endif
+
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT(op >= SLJIT_FCMP && op <= SLJIT_FABS);
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FCMP && GET_OPCODE(op) <= SLJIT_FABS);
 #ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
 	FUNCTION_FCHECK(src, srcw);
 	FUNCTION_FCHECK(dst, dstw);
+	FUNCTION_CHECK_FOP();
 #endif
 	sljit_emit_fop1_verbose();
 
 #ifdef SLJIT_CONFIG_X86_64
 	compiler->mode32 = 1;
 #endif
+
+	if (GET_OPCODE(op) == SLJIT_FCMP) {
+#ifndef SLJIT_CONFIG_X86_64
+		TEST_FAIL(emit_fld(compiler, dst, dstw));
+		TEST_FAIL(emit_fop(compiler, 0xd8, 0xd8, 0xdc, 0x3 << 3, src, srcw));
+
+		// Copy flags
+		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG1, 0);
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3);
+		TEST_MEM_ERROR(buf);
+		INC_SIZE(3);
+		*buf++ = 0xdf;
+		*buf++ = 0xe0;
+		// Note: lahf is not supported on all x86-64 architectures
+		*buf++ = 0x9e;
+		EMIT_MOV(compiler, SLJIT_TEMPORARY_REG1, 0, TMP_REGISTER, 0);
+#else
+		if (src >= SLJIT_FLOAT_REG1 && src <= SLJIT_FLOAT_REG4) {
+			TEST_FAIL(emit_fld(compiler, dst, dstw));
+			TEST_FAIL(emit_fop_regs(compiler, 0xdf, 0xe8, src));
+		} else {
+			TEST_FAIL(emit_fld(compiler, src, srcw));
+			TEST_FAIL(emit_fld(compiler, dst + ((dst >= SLJIT_FLOAT_REG1 && dst <= SLJIT_FLOAT_REG4) ? 1 : 0), dstw));
+			TEST_FAIL(emit_fop_regs(compiler, 0xdf, 0xe8, src));
+			TEST_FAIL(emit_fop_regs(compiler, 0xdd, 0xd8, 0));
+		}
+#endif
+		return SLJIT_NO_ERROR;
+	}
 
 	TEST_FAIL(emit_fld(compiler, src, srcw));
 
@@ -1564,11 +1589,14 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 {
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT(op >= SLJIT_FADD && op <= SLJIT_FDIV);
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FADD && GET_OPCODE(op) <= SLJIT_FDIV);
 #ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
 	FUNCTION_FCHECK(src1, src1w);
 	FUNCTION_FCHECK(src2, src2w);
 	FUNCTION_FCHECK(dst, dstw);
+	FUNCTION_CHECK_FOP();
 #endif
 	sljit_emit_fop2_verbose();
 
@@ -1821,22 +1849,6 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 
 	case SLJIT_C_SIG_NOT_GREATER:
 		cond_set = 0x9e;
-		break;
-
-	case SLJIT_C_CARRY:
-		cond_set = 0x92;
-		break;
-
-	case SLJIT_C_NOT_CARRY:
-		cond_set = 0x93;
-		break;
-
-	case SLJIT_C_ZERO:
-		cond_set = 0x94;
-		break;
-
-	case SLJIT_C_NOT_ZERO:
-		cond_set = 0x95;
 		break;
 
 	case SLJIT_C_OVERFLOW:
