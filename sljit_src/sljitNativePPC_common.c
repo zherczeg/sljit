@@ -995,7 +995,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	sljit_emit_op1_verbose();
 
 #ifdef SLJIT_CONFIG_PPC_64
-	if (op & SLJIT_INT_OPERATION) {
+	if (op & SLJIT_INT_OP) {
 		inp_flags |= INT_DATA | SIGNED_DATA;
 		if (src & SLJIT_IMM)
 			srcw = (srcw << 32) >> 32;
@@ -1106,7 +1106,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	sljit_emit_op2_verbose();
 
 #ifdef SLJIT_CONFIG_PPC_64
-	if (op & SLJIT_INT_OPERATION) {
+	if (op & SLJIT_INT_OP) {
 		inp_flags |= INT_DATA | SIGNED_DATA;
 		if (src1 & SLJIT_IMM)
 			src1w = (src1w << 32) >> 32;
@@ -1166,8 +1166,8 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 				return emit_op(compiler, SLJIT_ADD, inp_flags | ALT_FORM2, dst, dstw, src1, src1w, TMP_REG2, 0);
 			}
 		}
-		if (dst == SLJIT_NO_REG && (op & SLJIT_SET_U) && !(op & (SLJIT_SET_O | SLJIT_SET_C))) {
-			// We know ALT_SIGN_EXT is set if it is an SLJIT_INT_OPERATION on 64 bit systems
+		if (dst == SLJIT_NO_REG && GET_FLAGS(op) == SLJIT_SET_U) {
+			// We know ALT_SIGN_EXT is set if it is an SLJIT_INT_OP on 64 bit systems
 			if (TEST_UL_IMM(src2, src2w)) {
 				compiler->imm = src2w & 0xffff;
 				return emit_op(compiler, SLJIT_SUB, inp_flags | ALT_FORM2, dst, dstw, src1, src1w, TMP_REG2, 0);
@@ -1180,15 +1180,18 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 				return emit_op(compiler, SLJIT_ADD, inp_flags | ALT_FORM3, dst, dstw, src1, src1w, TMP_REG2, 0);
 			}
 		}
+		// We know ALT_SIGN_EXT is set if it is an SLJIT_INT_OP on 64 bit systems
 		return emit_op(compiler, SLJIT_SUB, inp_flags | ((op & SLJIT_SET_U) ? ALT_FORM4 : 0), dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_ADDC:
+		return emit_op(compiler, SLJIT_ADDC, inp_flags, dst, dstw, src1, src1w, src2, src2w);
+
 	case SLJIT_SUBC:
-		return emit_op(compiler, GET_OPCODE(op), inp_flags, dst, dstw, src1, src1w, src2, src2w);
+		return emit_op(compiler, SLJIT_SUBC, inp_flags | ((op & SLJIT_SET_U) ? ALT_FORM4 : 0), dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_MUL:
 #ifdef SLJIT_CONFIG_PPC_64
-		if (op & SLJIT_INT_OPERATION)
+		if (op & SLJIT_INT_OP)
 			inp_flags |= ALT_FORM2;
 #endif
 		if (!GET_FLAGS(op)) {
@@ -1231,7 +1234,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	case SLJIT_LSHR:
 	case SLJIT_ASHR:
 #ifdef SLJIT_CONFIG_PPC_64
-		if (op & SLJIT_INT_OPERATION)
+		if (op & SLJIT_INT_OP)
 			inp_flags |= ALT_FORM2;
 #endif
 		if (src2 & SLJIT_IMM) {
@@ -1309,7 +1312,8 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 			TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src, srcw));
 			src = TMP_FREG2;
 		}
-		return push_inst(compiler, INS_FORM_FOP(63, 0, dst, src, 0, 0));
+		TEST_FAIL(push_inst(compiler, INS_FORM_FOP(63, 4, dst, src, 0, 0)));
+		return (op & SLJIT_SET_E) ? push_inst(compiler, INS_FORM_FOP(19, 2, 4 + 2, 4 + 2, 0, 449)) : SLJIT_NO_ERROR;
 	}
 
 	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
@@ -1442,18 +1446,26 @@ static sljit_i get_bo_bi_flags(struct sljit_compiler *compiler, int type)
 		return (4 << 21) | (2 << 16);
 
 	case SLJIT_C_LESS:
+		return (12 << 21) | ((4 + 0) << 16);
+
+	case SLJIT_C_NOT_LESS:
+		return (4 << 21) | ((4 + 0) << 16);
+
+	case SLJIT_C_GREATER:
+		return (12 << 21) | ((4 + 1) << 16);
+
+	case SLJIT_C_NOT_GREATER:
+		return (4 << 21) | ((4 + 1) << 16);
+
 	case SLJIT_C_SIG_LESS:
 		return (12 << 21) | (0 << 16);
 
-	case SLJIT_C_NOT_LESS:
 	case SLJIT_C_SIG_NOT_LESS:
 		return (4 << 21) | (0 << 16);
 
-	case SLJIT_C_GREATER:
 	case SLJIT_C_SIG_GREATER:
 		return (12 << 21) | (1 << 16);
 
-	case SLJIT_C_NOT_GREATER:
 	case SLJIT_C_SIG_NOT_GREATER:
 		return (4 << 21) | (1 << 16);
 
@@ -1579,22 +1591,36 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		break;
 
 	case SLJIT_C_LESS:
+		GET_CR_BIT(4 + 0, reg);
+		break;
+
+	case SLJIT_C_NOT_LESS:
+		GET_CR_BIT(4 + 0, reg);
+		INVERT_BIT(reg);
+		break;
+
+	case SLJIT_C_GREATER:
+		GET_CR_BIT(4 + 1, reg);
+		break;
+
+	case SLJIT_C_NOT_GREATER:
+		GET_CR_BIT(4 + 1, reg);
+		INVERT_BIT(reg);
+		break;
+
 	case SLJIT_C_SIG_LESS:
 		GET_CR_BIT(0, reg);
 		break;
 
-	case SLJIT_C_NOT_LESS:
 	case SLJIT_C_SIG_NOT_LESS:
 		GET_CR_BIT(0, reg);
 		INVERT_BIT(reg);
 		break;
 
-	case SLJIT_C_GREATER:
 	case SLJIT_C_SIG_GREATER:
 		GET_CR_BIT(1, reg);
 		break;
 
-	case SLJIT_C_NOT_GREATER:
 	case SLJIT_C_SIG_NOT_GREATER:
 		GET_CR_BIT(1, reg);
 		INVERT_BIT(reg);
