@@ -299,9 +299,9 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 #define SLJIT_SET_S			0x0400
 // Set unsgined status flags
 #define SLJIT_SET_U			0x0800
-// Set overflow
+// Set signed overflow
 #define SLJIT_SET_O			0x1000
-// Set carry
+// Set carry (kinda unsigned overflow, but behaves differently on various cpus)
 #define SLJIT_SET_C			0x2000
 
 // Notes:
@@ -355,9 +355,9 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
-// Flags: E | O | C | (S ^ U)
+// Flags: E | O | C
 #define SLJIT_ADD			16
-// Flags: E | O | C | (S ^ U)
+// Flags: E | O | C
 #define SLJIT_ADDC			17
 // Flags: E | O | C | (S ^ U)
 #define SLJIT_SUB			18
@@ -387,7 +387,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 int sljit_is_fpu_available(void);
 
 // Note: dst is the left and src is the right operand for SLJIT_FCMP
-// Flags: E | U
+// Flags: E | U (looks like cpus prefer this way...)
 #define SLJIT_FCMP			27
 // Flags: -
 #define SLJIT_FMOV			28
