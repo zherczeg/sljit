@@ -282,7 +282,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 // This flag can be combined with the op argument of sljit_emit_op1 and
 // sljit_emit_op2. It does NOT have any effect on 32bit CPUs or the addressing
 // mode on 64 bit CPUs (SLJIT_MEMx macros)
-#define SLJIT_INT_OPERATION		0x100
+#define SLJIT_INT_OP		0x100
 
 // Common CPU status flags for all architectures (x86, ARM, PPC)
 //  - carry flag
@@ -359,9 +359,9 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 #define SLJIT_ADD			16
 // Flags: E | O | C
 #define SLJIT_ADDC			17
-// Flags: E | O | C | (S ^ U)
+// Flags: E | O | C | S | U
 #define SLJIT_SUB			18
-// Flags: E | O | C | (S ^ U)
+// Flags: E | O | C | S | U
 #define SLJIT_SUBC			19
 // Note: integer mul
 // Flags: E ^ O

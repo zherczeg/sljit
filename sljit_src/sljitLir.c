@@ -40,7 +40,7 @@
 		return NULL;
 
 #define GET_OPCODE(op) \
-	((op) & ~(SLJIT_INT_OPERATION | SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C))
+	((op) & ~(SLJIT_INT_OP | SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C))
 
 #define GET_FLAGS(op) \
 	((op) & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C))
@@ -318,7 +318,6 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		break; \
 	case SLJIT_SUB: \
 	case SLJIT_SUBC: \
-		SLJIT_ASSERT((op & (SLJIT_SET_S | SLJIT_SET_U)) != (SLJIT_SET_S | SLJIT_SET_U)); \
 		break; \
 	default: \
 		/* Nothing */ \
@@ -376,7 +375,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 #define FUNCTION_CHECK_OP1() \
 	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SH) { \
 		if (GET_OPCODE(op) != SLJIT_MOV && GET_OPCODE(op) != SLJIT_MOVU) \
-			SLJIT_ASSERT(!(op & SLJIT_INT_OPERATION)); \
+			SLJIT_ASSERT(!(op & SLJIT_INT_OP)); \
 	} \
         if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_SH) { \
 		if ((src & SLJIT_MEM_FLAG) && (src & 0xf)) { \
@@ -386,7 +385,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	}
 
 #define FUNCTION_CHECK_FOP() \
-	SLJIT_ASSERT(!(op & SLJIT_INT_OPERATION));
+	SLJIT_ASSERT(!(op & SLJIT_INT_OP));
 
 #endif
 
@@ -468,7 +467,7 @@ static char* op1_names[] = {
 };
 #define sljit_emit_op1_verbose() \
 	if (compiler->verbose) { \
-		fprintf(compiler->verbose, "  %s%s%s%s%s%s%s ", !(op & SLJIT_INT_OPERATION) ? "" : "i", op1_names[GET_OPCODE(op)], \
+		fprintf(compiler->verbose, "  %s%s%s%s%s%s%s ", !(op & SLJIT_INT_OP) ? "" : "i", op1_names[GET_OPCODE(op)], \
 			!(op & SLJIT_SET_E) ? "" : "E", !(op & SLJIT_SET_S) ? "" : "S", !(op & SLJIT_SET_U) ? "" : "U", !(op & SLJIT_SET_O) ? "" : "O", !(op & SLJIT_SET_C) ? "" : "C"); \
 		sljit_verbose_param(dst, dstw); \
 		fprintf(compiler->verbose, ", "); \
@@ -482,7 +481,7 @@ static char* op2_names[] = {
 };
 #define sljit_emit_op2_verbose() \
 	if (compiler->verbose) { \
-		fprintf(compiler->verbose, "  %s%s%s%s%s%s%s ", !(op & SLJIT_INT_OPERATION) ? "" : "i", op2_names[GET_OPCODE(op) - SLJIT_ADD], \
+		fprintf(compiler->verbose, "  %s%s%s%s%s%s%s ", !(op & SLJIT_INT_OP) ? "" : "i", op2_names[GET_OPCODE(op) - SLJIT_ADD], \
 			!(op & SLJIT_SET_E) ? "" : "E", !(op & SLJIT_SET_S) ? "" : "S", !(op & SLJIT_SET_U) ? "" : "U", !(op & SLJIT_SET_O) ? "" : "O", !(op & SLJIT_SET_C) ? "" : "C"); \
 		sljit_verbose_param(dst, dstw); \
 		fprintf(compiler->verbose, ", "); \

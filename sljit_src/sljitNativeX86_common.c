@@ -680,7 +680,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	sljit_emit_op1_verbose();
 
 #ifdef SLJIT_CONFIG_X86_64
-	compiler->mode32 = op & SLJIT_INT_OPERATION;
+	compiler->mode32 = op & SLJIT_INT_OP;
 #endif
 
 	switch (GET_OPCODE(op)) {
@@ -726,7 +726,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 			TEST_MEM_ERROR(code);
 			*code = 0x8d;
 #ifdef SLJIT_CONFIG_X86_64
-			compiler->mode32 = op & SLJIT_INT_OPERATION;
+			compiler->mode32 = op & SLJIT_INT_OP;
 #endif
 			src &= SLJIT_MEM_FLAG | 0xf;
 
@@ -1401,7 +1401,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	sljit_emit_op2_verbose();
 
 #ifdef SLJIT_CONFIG_X86_64
-	compiler->mode32 = op & SLJIT_INT_OPERATION;
+	compiler->mode32 = op & SLJIT_INT_OP;
 #endif
 
 	switch (GET_OPCODE(op)) {

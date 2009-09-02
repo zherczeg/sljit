@@ -55,22 +55,22 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		}
 		if (flags & ALT_FORM2) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_CMP1(10, 0, src1, compiler->imm));
+			return push_inst(compiler, INS_FORM_CMP1(10, 4, src1, compiler->imm));
 		}
 		if (flags & ALT_FORM3) {
-			return push_inst(compiler, INS_FORM_CMP2(31, 0, src1, src2, (32 << 1)));
+			return push_inst(compiler, INS_FORM_CMP2(31, 4, src1, src2, (32 << 1)));
 		}
 		if (flags & ALT_FORM4)
 			TEST_FAIL(push_inst(compiler, INS_FORM_CMP2(31, 4, src1, src2, (32 << 1))));
-		TEST_FAIL(push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (8 << 1) | 1 | (1 << 10))));
-		if (flags & ALT_FORM4) {
-			// Copy the unsigned flags
-			TEST_FAIL(push_inst(compiler, INS_FORM_FOP(19, 1, 5, 5, 0, 449)));
-			return push_inst(compiler, INS_FORM_FOP(19, 0, 4, 4, 0, 449));
-		}
-		return SLJIT_NO_ERROR;
+		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (8 << 1) | 1 | (1 << 10)));
 
 	case SLJIT_SUBC:
+		if (flags & ALT_FORM4) {
+			// Unfortunately this is really complicated case
+			TEST_FAIL(push_inst(compiler, INS_FORM_OP1(31, ZERO_REG, src1, 234 << 1)));
+			TEST_FAIL(push_inst(compiler, INS_FORM_CMP2(31, 4, ZERO_REG, src2, (32 << 1))));
+			TEST_FAIL(push_inst(compiler, INS_FORM_IMM(14, ZERO_REG, 0, 0)));
+		}
 		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (136 << 1) | 1 | (1 << 10)));
 
 	case SLJIT_MUL:
