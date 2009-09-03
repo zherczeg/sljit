@@ -1,0 +1,15 @@
+
+                     SLJIT - Stack Less JIT Compiler
+
+Purpose:
+  A simple machine independent JIT, which suitable for interpreters and
+  other dynamic tools. See sljitLir.h for more information.
+
+Compatible:
+  Any C (C++) compiler. At least I hope so.
+
+Using sljit:
+  Copy sljitLir.c sljitLir.h and sljitNative*.c files into your project.
+  Add sljitLir.c into your project. The other files are included by sljitLir.c
+  (if required). Define the machine by SLJIT_CONFIG_* selector. See sljitLir.h
+  for all possible values.
