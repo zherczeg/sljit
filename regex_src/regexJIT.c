@@ -258,6 +258,9 @@ enum {
 	type_qestion_mark,
 };
 
+#define MATCH_BEGIN	0x1
+#define MATCH_END	0x2
+
 static regex_char_t* decode_number(regex_char_t *regex_string, int length, int* result)
 {
 	int value = 0;
@@ -406,19 +409,130 @@ static int iterate(struct stack *stack, int min, int max)
 	return len;
 }
 
-static int parse(regex_char_t *regex_string, int length, struct stack *stack)
+static int parse_iterator(regex_char_t *regex_string, int length, struct stack *stack, int* encoded_len, int begin)
+{
+	// We only know that *regex_string == {
+	int val1, val2;
+	regex_char_t *base_from = regex_string;
+	regex_char_t *from;
+
+	length--;
+	regex_string++;
+
+	// Decode left value
+	val2 = -1;
+	if (length == 0)
+		return -2;
+	if (*regex_string == ',') {
+		val1 = 0;
+		length--;
+		regex_string++;
+	}
+	else {
+		from = regex_string;
+		regex_string = decode_number(regex_string, length, &val1);
+		if (val1 < 0)
+			return -2;
+		length -= regex_string - from;
+
+		if (length == 0)
+			return -2;
+		if (*regex_string == '}') {
+			val2 = val1;
+			if (val1 == 0)
+				val1 = -1;
+		}
+		else if (length >= 2 && *regex_string == '!' && regex_string[1] == '}') {
+			// Non posix extension
+			if (stack_push(stack, type_id, val1))
+				return -1;
+			(*encoded_len)++;
+			return (regex_string - base_from) + 1;
+		}
+		else {
+			if (*regex_string != ',')
+				return -2;
+			length--;
+			regex_string++;
+		}
+	}
+
+	if (begin)
+		return -2;
+
+	// Decode right value
+	if (val2 == -1) {
+		if (length == 0)
+			return -2;
+		if (*regex_string == '}')
+			val2 = 0;
+		else {
+			from = regex_string;
+			regex_string = decode_number(regex_string, length, &val2);
+			length -= regex_string - from;
+			if (val2 < 0 || length == 0 || *regex_string != '}' || val2 < val1)
+				return -2;
+			if (val2 == 0) {
+				SLJIT_ASSERT(val1 == 0);
+				val1 = -1;
+			}
+		}
+	}
+
+	// Fast cases
+	if (val1 > 1 || val2 > 1) {
+		val1 = iterate(stack, val1, val2);
+		if (val1 < 0)
+			return -1;
+		*encoded_len += val1;
+	}
+	else if (val1 == 0 && val2 == 0) {
+		if (stack_push(stack, type_asterisk, 0))
+			return -1;
+		*encoded_len += 2;
+	}
+	else if (val1 == 1 && val2 == 0) {
+		if (stack_push(stack, type_plus_sign, 0))
+			return -1;
+		(*encoded_len)++;
+	}
+	else if (val1 == 0 && val2 == 1) {
+		if (stack_push(stack, type_qestion_mark, 0))
+			return -1;
+		(*encoded_len)++;
+	}
+	else if (val1 == -1) {
+		val1 = iterate(stack, 0, 0);
+		if (val1 < 0)
+			return -1;
+		*encoded_len -= val1;
+		SLJIT_ASSERT(*encoded_len >= 2);
+	}
+	else {
+		// Ignore
+		SLJIT_ASSERT(val1 == 1 && val2 == 1);
+	}
+	return regex_string - base_from;
+}
+
+static int parse(regex_char_t *regex_string, int length, struct stack *stack, int *flags)
 {
 	struct stack brackets;
 	int encoded_len = 2;
 	int depth = 0;
 	int begin = 1;
-	int val1, val2;
-	regex_char_t *old_ptr;
+	int ret_val;
 
 	stack_init(&brackets);
 
 	if (stack_push(stack, type_begin, 0))
 		return REGEX_MEMORY_ERROR;
+
+	if (length > 0 && *regex_string == '^') {
+		*flags |= MATCH_BEGIN;
+		length--;
+		regex_string++;
+	}
 
 	while (length > 0) {
 		switch (*regex_string) {
@@ -481,106 +595,27 @@ static int parse(regex_char_t *regex_string, int length, struct stack *stack)
 			break;
 
 		case '{' :
-			if (begin)
-				return REGEX_INVALID_REGEX;
+			ret_val = parse_iterator(regex_string, length, stack, &encoded_len, begin);
 
-			length--;
-			regex_string++;
-
-			// Decode left value
-			if (length == 0)
-				return REGEX_INVALID_REGEX;
-			if (*regex_string == ',') {
-				val1 = 0;
-				length--;
-				regex_string++;
+			if (ret_val >= 0) {
+				length -= ret_val;
+				regex_string += ret_val;
 			}
-			else {
-				old_ptr = regex_string;
-				regex_string = decode_number(regex_string, length, &val1);
-				if (val1 < 0)
-					return REGEX_INVALID_REGEX;
-				length -= regex_string - old_ptr;
-				if (length == 0 || *regex_string != ',')
-					return REGEX_INVALID_REGEX;
-				length--;
-				regex_string++;
-			}
-
-			// Decode right value
-			if (length == 0)
-				return REGEX_INVALID_REGEX;
-			if (*regex_string == '}')
-				val2 = 0;
-			else {
-				old_ptr = regex_string;
-				regex_string = decode_number(regex_string, length, &val2);
-				length -= regex_string - old_ptr;
-				if (val2 <= 0) {
-					if (val1 == 0 && val2 == 0) {
-						val1 = iterate(stack, val1, val2);
-						SLJIT_ASSERT(val1 >= 0); // Delete only
-						encoded_len -= val1;
-						SLJIT_ASSERT(encoded_len >= 2);
-						break;
-					}
-					else
-						return REGEX_INVALID_REGEX;
-				}
-				if (length == 0 || *regex_string != '}' || val2 < val1)
-					return REGEX_INVALID_REGEX;
-			}
-
-			// Fast cases
-			if (val1 > 1 || val2 > 1) {
-				val1 = iterate(stack, val1, val2);
-				if (val1 < 0)
-					return REGEX_MEMORY_ERROR;
-				encoded_len += val1;
-			}
-			else if (val1 == 0 && val2 == 0) {
-				if (stack_push(stack, type_asterisk, 0))
-					return REGEX_MEMORY_ERROR;
-				encoded_len += 2;
-			}
-			else if (val1 == 1 && val2 == 0) {
-				if (stack_push(stack, type_plus_sign, 0))
-					return REGEX_MEMORY_ERROR;
-				encoded_len++;
-			}
-			else if (val1 == 0 && val2 == 1) {
-				if (stack_push(stack, type_qestion_mark, 0))
-					return REGEX_MEMORY_ERROR;
-				encoded_len++;
-			}
-			else {
-				// Ignore
-				SLJIT_ASSERT(val1 == 1 && val2 == 1);
-			}
-			break;
-
-		case ':' :
-			// Non posix extension
-			length--;
-			regex_string++;
-
-			if (length == 0)
-				return REGEX_INVALID_REGEX;
-
-			old_ptr = regex_string;
-			regex_string = decode_number(regex_string, length, &val1);
-			if (val1 <= 0)
-				return REGEX_INVALID_REGEX;
-			length -= regex_string - old_ptr;
-			if (length == 0 || *regex_string != ':')
-				return REGEX_INVALID_REGEX;
-
-			if (stack_push(stack, type_id, val1))
+			else if (ret_val == -1)
 				return REGEX_MEMORY_ERROR;
-			encoded_len++;
+			else {
+				SLJIT_ASSERT(ret_val == -2);
+				if (stack_push(stack, type_char, '{'))
+					return REGEX_MEMORY_ERROR;
+				encoded_len++;
+			}
 			break;
 
 		default:
+			if (length == 1 && *regex_string == '$') {
+				*flags |= MATCH_END;
+				break;
+			}
 			if (stack_push(stack, type_char, *regex_string))
 				return REGEX_MEMORY_ERROR;
 			begin = 0;
@@ -775,7 +810,7 @@ void* regex_compile(regex_char_t *regex_string, int length, int *error)
 {
 	struct stack stack;
 	struct stack depth;
-	int encoded_len;
+	int encoded_len, flags = 0;
 	struct stack_item *transitions;
 
 	if (error)
@@ -784,7 +819,7 @@ void* regex_compile(regex_char_t *regex_string, int length, int *error)
 	// Step 1: parsing (Left->Right)
 	// syntax check and AST generator
 	stack_init(&stack);
-	encoded_len = parse(regex_string, length, &stack);
+	encoded_len = parse(regex_string, length, &stack, &flags);
 	if (encoded_len >= 0) {
 		stack_destroy(&stack);
 		if (error)
@@ -810,6 +845,9 @@ void* regex_compile(regex_char_t *regex_string, int length, int *error)
 
 	// Step 4 Left->Right
 	// Be prepared for any sick construction (multiple ways, infinite loops)
+
+
+
 
 	SLJIT_FREE(transitions);
 	return NULL;

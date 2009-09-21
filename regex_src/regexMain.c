@@ -16,18 +16,31 @@
 
 #include <stdio.h>
 
-int main(int argc, char* argv[])
+void test_case(regex_char_t *input)
 {
 	int error;
+	regex_char_t *ptr;
 
-//	regex_compile("Xa*X.+Xc?X()*Xa+*?X", 19, &error);
-//	regex_compile("a((b)((c|d))|)c|", 16, &error);
-//	regex_compile("Xa{0910,0990}Xb{,7}Xc{5,}Xd{,}Xe{1,}Xf{,1}X", 43, &error);
-//	regex_compile("Xa:2:*X|Yb:03:+Y", 16, &error);
-	regex_compile("A(Xb{2,}*Ys+){0,3}*By*", 22, &error);
-//	regex_compile("(s(ab){2,4}t){2,}*S(a*(b)(c()|)d+){3,4}{0,0}*M", 46, &error);
+	ptr = input;
+	while (*ptr)
+		ptr++;
 
-	printf("error %d\n", error);
+	printf("Start test '%s'\n", input);
+	regex_compile(input, ptr - input, &error);
+
+	if (error)
+		printf("WARNING: Error %d\n", error);
+}
+
+int main(int argc, char* argv[])
+{
+
+//	test_case("Xa*X.+Xc?X()*Xa+*?X");
+//	test_case("a((b)((c|d))|)c|");
+//	test_case("Xa{009,0010}Xb{,7}Xc{5,}Xd{,}Xe{1,}Xf{,1}X");
+//	test_case("Xa:2:*X|Yb:03:+Y");
+	test_case("{3!}({3})({0!}){,");
+//	test_case("(s(ab){2,4}t){2,}*S(a*(b)(c()|)d+){3,4}{0,0}*M");
 	return 0;
 }
 
