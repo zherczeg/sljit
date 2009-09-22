@@ -1668,8 +1668,11 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 // 2 - fpa
 static int arm_fpu_type = -1;
 
-static void detect_cpu_features()
+static void init_compiler()
 {
+	if (arm_fpu_type != -1)
+		return;
+
 	// TODO: Only the OS can help to determine the correct fpu type
 	arm_fpu_type = 1;
 }
@@ -1677,7 +1680,7 @@ static void detect_cpu_features()
 int sljit_is_fpu_available(void)
 {
 	if (arm_fpu_type == -1)
-		detect_cpu_features();
+		init_compiler();
 	return (arm_fpu_type > 0) ? 1 : 0;
 }
 

@@ -108,14 +108,19 @@ static void sljit_free_exec(void* ptr)
 
 #endif
 
+#if defined(SLJIT_SSE2_AUTO) && !defined(SLJIT_SSE2)
+#error SLJIT_SSE2_AUTO cannot be enabled without SLJIT_SSE2
+#endif
+
 // ---------------------------------------------------------------------
 //  Public functions
 // ---------------------------------------------------------------------
 
-#ifdef SLJIT_CONFIG_ARM
-static void detect_cpu_features();
-#else
-#define detect_cpu_features()
+#if defined(SLJIT_CONFIG_ARM) || (defined(SLJIT_SSE2) && (defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)))
+#define NEEDS_COMPILER_INIT
+static int compiler_initialized = 0;
+// A thread safe initialization
+static void init_compiler();
 #endif
 
 struct sljit_compiler* sljit_create_compiler(void)
@@ -182,7 +187,13 @@ struct sljit_compiler* sljit_create_compiler(void)
 #ifdef SLJIT_VERBOSE
 	compiler->verbose = NULL;
 #endif
-	detect_cpu_features();
+
+#ifdef NEEDS_COMPILER_INIT
+	if (!compiler_initialized) {
+		init_compiler();
+		compiler_initialized = 1;
+	}
+#endif
 
 	return compiler;
 }

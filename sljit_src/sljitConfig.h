@@ -141,6 +141,19 @@ typedef long int sljit_w;
 #define SLJIT_INDIRECT_CALL
 #endif
 
+#if defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)
+// Turn on SSE2 support on x86 (operating on doubles)
+// (If you want better performance than legacy fpu instructions)
+#define SLJIT_SSE2
+
+#ifdef SLJIT_CONFIG_X86_32
+// Auto detect SSE2 support using CPUID.
+// On 64 bit x86 cpus, sse2 must be present
+#define SLJIT_SSE2_AUTO
+#endif
+
+#endif /* defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64) */
+
 #ifdef SLJIT_CONFIG_ARM
 	// Just call __ARM_NR_cacheflush on Linux
 #define SLJIT_CACHE_FLUSH(from, to) \

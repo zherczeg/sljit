@@ -23,10 +23,12 @@
 //  Advantages:
 //    - The execution can be continued from any LIR instruction
 //      In other words, jump into and out of the code is safe
-//    - Target of (conditional) jump and call instructions can be
-//      dynamically modified during the execution of the code
-//    - Constants can be modified during runtime (after code generation)
+//    - Both target of (conditional) jump and call instructions
+//      and constants can be dynamically modified during runtime
+//      - although it is not suggested to do it frequently
+//      - very effective to cache an important value once
 //    - A fixed stack space can be allocated for local variables
+//    - The compiler is thread-safe
 //  Disadvantages:
 //    - Limited number of registers (only 6 integer registers, max 3
 //      temporary and max 3 general, and only 4 floating point registers)
@@ -40,7 +42,7 @@
 //      - SLJIT supports complex memory addressing modes
 //      - mainly position independent code
 //    - Optimizations (perhaps later)
-//      - Only for basic blocks (no labels between LIR instructions)
+//      - Only for basic blocks (when no labels inserted between LIR instructions)
 
 #include "sljitConfig.h"
 
