@@ -9,7 +9,10 @@ Compatible:
   Any C (C++) compiler. At least I hope so.
 
 Using sljit:
-  Copy sljitLir.c sljitLir.h and sljitNative*.c files into your project.
+  Copy sljitLir.c sljitLir.h sljitConfig.h and sljitNative*.c files into your project.
   Add sljitLir.c into your project. The other files are included by sljitLir.c
-  (if required). Define the machine by SLJIT_CONFIG_* selector. See sljitLir.h
+  (when required). Define the machine by SLJIT_CONFIG_* selector. See sljitLir.h
   for all possible values.
+
+More info:
+  http://sljit.sourceforge.net/

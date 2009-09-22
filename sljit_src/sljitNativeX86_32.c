@@ -196,10 +196,18 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	SLJIT_ASSERT(!(flags & (EX86_BIN_INS | EX86_SHIFT_INS)) || (flags & (EX86_BYTE_ARG | EX86_HALF_ARG)) == 0);
 	// Both size flags cannot be switched on
 	SLJIT_ASSERT((flags & (EX86_BYTE_ARG | EX86_HALF_ARG)) != (EX86_BYTE_ARG | EX86_HALF_ARG));
+#ifdef SLJIT_SSE2
+	// SSE2 and immediate is not possible
+	SLJIT_ASSERT(!(a & SLJIT_IMM) || !(flags & EX86_SSE2));
+#endif
 
 	size &= 0xf;
 	total_size = size;
 
+#ifdef SLJIT_SSE2
+	if (flags & EX86_PREF_F2)
+		total_size++;
+#endif
 	if (flags & EX86_PREF_66)
 		total_size++;
 
@@ -255,6 +263,10 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 
 	// Encoding the byte
 	INC_SIZE(total_size);
+#ifdef SLJIT_SSE2
+	if (flags & EX86_PREF_F2)
+		*buf++ = 0xf2;
+#endif
 	if (flags & EX86_PREF_66)
 		*buf++ = 0x66;
 
@@ -267,8 +279,15 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 
 		if ((a & SLJIT_IMM) || (a == 0))
 			*buf_ptr = 0;
+#ifdef SLJIT_SSE2
+		else if (!(flags & EX86_SSE2))
+			*buf_ptr = reg_map[a] << 3;
+		else
+			*buf_ptr = a << 3;
+#else
 		else
 			*buf_ptr = reg_map[a] << 3;
+#endif
 	}
 	else {
 		if (a & SLJIT_IMM) {
@@ -282,7 +301,11 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	}
 
 	if (!(b & SLJIT_MEM_FLAG))
+#ifdef SLJIT_SSE2
+		*buf_ptr++ |= 0xc0 + ((!(flags & EX86_SSE2)) ? reg_map[b] : b);
+#else
 		*buf_ptr++ |= 0xc0 + reg_map[b];
+#endif
 	else if ((b & 0x0f) != SLJIT_NO_REG) {
 		if (immb != 0) {
 			if (immb <= 127 && immb >= -128)

@@ -79,14 +79,23 @@ typedef int sljit_hw;
 
 #endif // SLJIT_CONFIG_X86_32
 
+#ifdef SLJIT_SSE2
+#define TMP_FREG	(SLJIT_FLOAT_REG4 + 1)
+#endif
+
 // Size flags for emit_x86_instruction:
-#define EX86_BIN_INS		0x010
-#define EX86_SHIFT_INS		0x020
-#define EX86_REX		0x040
-#define EX86_NO_REXW		0x080
-#define EX86_BYTE_ARG		0x100
-#define EX86_HALF_ARG		0x200
-#define EX86_PREF_66		0x400
+#define EX86_BIN_INS		0x0010
+#define EX86_SHIFT_INS		0x0020
+#define EX86_REX		0x0040
+#define EX86_NO_REXW		0x0080
+#define EX86_BYTE_ARG		0x0100
+#define EX86_HALF_ARG		0x0200
+#define EX86_PREF_66		0x0400
+
+#ifdef SLJIT_SSE2
+#define EX86_PREF_F2		0x0800
+#define EX86_SSE2		0x1000
+#endif
 
 #define INC_SIZE(s)			(*buf++ = (s), compiler->size += (s))
 #define INC_CSIZE(s)			(*code++ = (s), compiler->size += (s))
@@ -1450,11 +1459,248 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 //  Floating point operators
 // ---------------------------------------------------------------------
 
+#ifdef SLJIT_SSE2_AUTO
+static int sse2_available = 0;
+#endif
+
+#ifdef SLJIT_SSE2
+
+// Alignment + 2 * 16 bytes
+static int sse2_data[3 + 4 + 4];
+static int* sse2_buffer;
+
+static void init_compiler()
+{
+#ifdef SLJIT_SSE2_AUTO
+	int features = 0;
+#endif
+
+	sse2_buffer = (int*)(((sljit_uw)sse2_data + 15) & ~0xf);
+	sse2_buffer[0] = 0;
+	sse2_buffer[1] = 0x80000000;
+	sse2_buffer[4] = 0xffffffff;
+	sse2_buffer[5] = 0x7fffffff;
+
+#ifdef SLJIT_SSE2_AUTO
+#if defined(__GNUC__)
+	// AT&T syntax
+	asm (
+		"pushl %%ebx\n"
+		"movl $0x1, %%eax\n"
+		"cpuid\n"
+		"popl %%ebx\n"
+		"movl %%edx, %0\n"
+		: "=g" (features)
+		:
+		: "%eax", "%ecx", "%edx"
+	);
+#elif defined(_MSC_VER)
+	// Intel syntax
+	__asm {
+		mov eax, 1
+		cpuid
+		mov sse2_available, edx
+	}
+#else
+	#error "SLJIT_SSE2_AUTO is not implemented for this C compiler"
+#endif
+	sse2_available = (features >> 26) & 0x1;
+#endif
+}
+
+#endif
+
 int sljit_is_fpu_available(void)
 {
 	// Always available
 	return 1;
 }
+
+#ifdef SLJIT_SSE2
+
+static int emit_sse2(struct sljit_compiler *compiler, sljit_ub opcode,
+	int xmm1, int xmm2, sljit_w xmm2w)
+{
+	sljit_ub *buf;
+
+	buf = emit_x86_instruction(compiler, 2 | EX86_PREF_F2 | EX86_SSE2, xmm1, 0, xmm2, xmm2w);
+	TEST_MEM_ERROR(buf);
+	*buf++ = 0x0f;
+	*buf = opcode;
+	return SLJIT_NO_ERROR;
+}
+
+static int emit_sse2_logic(struct sljit_compiler *compiler, sljit_ub opcode,
+	int xmm1, int xmm2, sljit_w xmm2w)
+{
+	sljit_ub *buf;
+
+	buf = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2, xmm1, 0, xmm2, xmm2w);
+	TEST_MEM_ERROR(buf);
+	*buf++ = 0x0f;
+	*buf = opcode;
+	return SLJIT_NO_ERROR;
+}
+
+static INLINE int emit_sse2_load(struct sljit_compiler *compiler,
+	int dst, int src, sljit_w srcw)
+{
+	return emit_sse2(compiler, 0x10, dst, src, srcw);
+}
+
+static INLINE int emit_sse2_store(struct sljit_compiler *compiler,
+	int dst, sljit_w dstw, int src)
+{
+	return emit_sse2(compiler, 0x11, src, dst, dstw);
+}
+
+#ifndef SLJIT_SSE2_AUTO
+int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
+#else
+static int sljit_emit_sse2_fop1(struct sljit_compiler *compiler, int op,
+#endif
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw)
+{
+	int dst_r;
+
+	FUNCTION_ENTRY();
+
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FCMP && GET_OPCODE(op) <= SLJIT_FABS);
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
+	FUNCTION_FCHECK(src, srcw);
+	FUNCTION_FCHECK(dst, dstw);
+	FUNCTION_CHECK_FOP();
+#endif
+	sljit_emit_fop1_verbose();
+
+#ifdef SLJIT_CONFIG_X86_64
+	compiler->mode32 = 1;
+#endif
+
+	if (GET_OPCODE(op) == SLJIT_FCMP) {
+		if (dst >= SLJIT_FLOAT_REG1 && dst <= SLJIT_FLOAT_REG4)
+			dst_r = dst;
+		else {
+			dst_r = TMP_FREG;
+			TEST_FAIL(emit_sse2_load(compiler, dst_r, dst, dstw));
+		}
+		return emit_sse2_logic(compiler, 0x2f, dst_r, src, srcw);
+	}
+
+	if (op == SLJIT_FMOV) {
+		if (dst >= SLJIT_FLOAT_REG1 && dst <= SLJIT_FLOAT_REG4)
+			return emit_sse2_load(compiler, dst, src, srcw);
+		if (src >= SLJIT_FLOAT_REG1 && src <= SLJIT_FLOAT_REG4)
+			return emit_sse2_store(compiler, dst, dstw, src);
+		TEST_FAIL(emit_sse2_load(compiler, TMP_FREG, src, srcw));
+		return emit_sse2_store(compiler, dst, dstw, TMP_FREG);
+	}
+
+	if (dst >= SLJIT_FLOAT_REG1 && dst <= SLJIT_FLOAT_REG4) {
+		dst_r = dst;
+		if (dst != src) {
+			TEST_FAIL(emit_sse2_load(compiler, dst_r, src, srcw));
+		}
+	}
+	else {
+		dst_r = TMP_FREG;
+		TEST_FAIL(emit_sse2_load(compiler, dst_r, src, srcw));
+	}
+
+	switch (op) {
+	case SLJIT_FNEG:
+		TEST_FAIL(emit_sse2_logic(compiler, 0x57, dst_r, SLJIT_MEM0(), (sljit_w)sse2_buffer));
+		break;
+
+	case SLJIT_FABS:
+		TEST_FAIL(emit_sse2_logic(compiler, 0x54, dst_r, SLJIT_MEM0(), (sljit_w)(sse2_buffer + 4)));
+		break;
+	}
+
+	if (dst_r == TMP_FREG)
+		return emit_sse2_store(compiler, dst, dstw, TMP_FREG);
+	return SLJIT_NO_ERROR;
+}
+
+#ifndef SLJIT_SSE2_AUTO
+int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
+#else
+static int sljit_emit_sse2_fop2(struct sljit_compiler *compiler, int op,
+#endif
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	int dst_r;
+
+	FUNCTION_ENTRY();
+
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FADD && GET_OPCODE(op) <= SLJIT_FDIV);
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
+	FUNCTION_FCHECK(src1, src1w);
+	FUNCTION_FCHECK(src2, src2w);
+	FUNCTION_FCHECK(dst, dstw);
+	FUNCTION_CHECK_FOP();
+#endif
+	sljit_emit_fop2_verbose();
+
+#ifdef SLJIT_CONFIG_X86_64
+	compiler->mode32 = 1;
+#endif
+
+	if (dst >= SLJIT_FLOAT_REG1 && dst <= SLJIT_FLOAT_REG4) {
+		dst_r = dst;
+		if (dst == src1)
+			; // Do nothing here
+		else if (dst == src2 && (op == SLJIT_FADD || op == SLJIT_FMUL)) {
+			// Swap arguments
+			src2 = src1;
+			src2w = src1w;
+		}
+		else if (dst != src2) {
+			TEST_FAIL(emit_sse2_load(compiler, dst_r, src1, src1w));
+		}
+		else {
+			dst_r = TMP_FREG;
+			TEST_FAIL(emit_sse2_load(compiler, TMP_FREG, src1, src1w));
+		}
+	}
+	else {
+		dst_r = TMP_FREG;
+		TEST_FAIL(emit_sse2_load(compiler, TMP_FREG, src1, src1w));
+	}
+
+	switch (op) {
+	case SLJIT_FADD:
+		TEST_FAIL(emit_sse2(compiler, 0x58, dst_r, src2, src2w));
+		break;
+
+	case SLJIT_FSUB:
+		TEST_FAIL(emit_sse2(compiler, 0x5c, dst_r, src2, src2w));
+		break;
+
+	case SLJIT_FMUL:
+		TEST_FAIL(emit_sse2(compiler, 0x59, dst_r, src2, src2w));
+		break;
+
+	case SLJIT_FDIV:
+		TEST_FAIL(emit_sse2(compiler, 0x5e, dst_r, src2, src2w));
+		break;
+	}
+
+	if (dst_r == TMP_FREG)
+		return emit_sse2_store(compiler, dst, dstw, TMP_FREG);
+	return SLJIT_NO_ERROR;
+}
+
+#endif
+
+#if defined(SLJIT_SSE2_AUTO) || !defined(SLJIT_SSE2)
 
 static int emit_fld(struct sljit_compiler *compiler,
 	int src, sljit_w srcw)
@@ -1513,7 +1759,11 @@ static int emit_fop_regs(struct sljit_compiler *compiler,
 	return SLJIT_NO_ERROR;
 }
 
+#ifndef SLJIT_SSE2_AUTO
 int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
+#else
+static int sljit_emit_fpu_fop1(struct sljit_compiler *compiler, int op,
+#endif
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
@@ -1582,7 +1832,11 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	return SLJIT_NO_ERROR;
 }
 
+#ifndef SLJIT_SSE2_AUTO
 int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
+#else
+static int sljit_emit_fpu_fop2(struct sljit_compiler *compiler, int op,
+#endif
 	int dst, sljit_w dstw,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
@@ -1663,6 +1917,32 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 
 	return SLJIT_NO_ERROR;
 }
+#endif
+
+#ifdef SLJIT_SSE2_AUTO
+
+int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw)
+{
+	if (sse2_available)
+		return sljit_emit_sse2_fop1(compiler, op, dst, dstw, src, srcw);
+	else
+		return sljit_emit_fpu_fop1(compiler, op, dst, dstw, src, srcw);
+}
+
+int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	if (sse2_available)
+		return sljit_emit_sse2_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
+	else
+		return sljit_emit_fpu_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
+}
+
+#endif
 
 // ---------------------------------------------------------------------
 //  Conditional instructions
