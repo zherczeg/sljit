@@ -960,7 +960,7 @@ static void test16(void)
 	// return y+1
 	label = sljit_emit_label(compiler); TP(label);
 	sljit_set_label(jump1, label);
-	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_PREF_RET_REG, 0, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 1));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_PREF_RET_REG, 0, SLJIT_IMM, 1, SLJIT_GENERAL_REG2, 0));
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG));
 
 	// return Ack(x-1,1)

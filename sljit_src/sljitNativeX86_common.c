@@ -1156,6 +1156,66 @@ static int emit_mul(struct sljit_compiler *compiler,
 	return SLJIT_NO_ERROR;
 }
 
+static int emit_lea_binary(struct sljit_compiler *compiler,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	sljit_ub* code;
+	int dst_r, done = 0;
+
+	// These cases can be handled by regular way very well
+	if (dst == src1 && dstw == src1w)
+		return SLJIT_UNSUPPORTED;
+	if (dst == src2 && dstw == src2w)
+		return SLJIT_UNSUPPORTED;
+
+	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_LOCALS_REG) ? dst : TMP_REGISTER;
+
+	if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= SLJIT_LOCALS_REG) {
+		if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_LOCALS_REG) {
+			// It is not possible to be both SLJIT_LOCALS_REG
+			if (src1 != SLJIT_LOCALS_REG || src2 != SLJIT_LOCALS_REG) {
+				code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM2(src1, src2), 0);
+				TEST_MEM_ERROR(code);
+				*code = 0x8d;
+				done = 1;
+			}
+		}
+#ifdef SLJIT_CONFIG_X86_64
+		if ((src2 & SLJIT_IMM) && (compiler->mode32 || IS_HALFWORD(src2w))) {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src1), (src2w << 32) >> 32);
+#else
+		if (src2 & SLJIT_IMM) {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src1), src2w);
+#endif
+			TEST_MEM_ERROR(code);
+			*code = 0x8d;
+			done = 1;
+		}
+	}
+	else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_LOCALS_REG) {
+#ifdef SLJIT_CONFIG_X86_64
+		if ((src1 & SLJIT_IMM) && (compiler->mode32 || IS_HALFWORD(src1w))) {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src2), (src1w << 32) >> 32);
+#else
+		if (src1 & SLJIT_IMM) {
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src2), src1w);
+#endif
+			TEST_MEM_ERROR(code);
+			*code = 0x8d;
+			done = 1;
+		}
+	}
+
+	if (done) {
+		if (dst_r == TMP_REGISTER)
+			return emit_mov(compiler, dst, dstw, TMP_REGISTER, 0);
+		return SLJIT_NO_ERROR;
+	}
+	return SLJIT_UNSUPPORTED;
+}
+
 static int emit_cmp_binary(struct sljit_compiler *compiler,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
@@ -1415,6 +1475,9 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
+		if (GET_FLAGS(op) == 0)
+			if (emit_lea_binary(compiler, dst, dstw, src1, src1w, src2, src2w) != SLJIT_UNSUPPORTED)
+				return compiler->error;
 		return emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_ADDC:
