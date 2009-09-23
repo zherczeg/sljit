@@ -711,7 +711,7 @@ static void test13(void)
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	double buf[6];
-	sljit_w buf2[4];
+	sljit_w buf2[6];
 
 	if (!sljit_is_fpu_available()) {
 		printf("no fpu available, test13 skipped\n");
@@ -730,6 +730,8 @@ static void test13(void)
 	buf2[1] = 10;
 	buf2[2] = 10;
 	buf2[3] = 10;
+	buf2[4] = 10;
+	buf2[5] = 10;
 
 	T(sljit_emit_enter(compiler, 2, 2, 0));
 	T(sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM0(), (sljit_w)&buf[2], SLJIT_MEM0(), (sljit_w)&buf[1]));
@@ -751,6 +753,9 @@ static void test13(void)
 	T(sljit_emit_fop1(compiler, SLJIT_FCMP | SLJIT_SET_E | SLJIT_SET_U, SLJIT_FLOAT_REG2, 0, SLJIT_FLOAT_REG2, 0));
 	T(sljit_emit_cond_set(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG2), 2 * sizeof(sljit_w), SLJIT_C_EQUAL));
 	T(sljit_emit_cond_set(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG2), 3 * sizeof(sljit_w), SLJIT_C_LESS));
+	T(sljit_emit_fop1(compiler, SLJIT_FCMP | SLJIT_SET_E, SLJIT_FLOAT_REG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(double)));
+	T(sljit_emit_cond_set(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG2), 4 * sizeof(sljit_w), SLJIT_C_EQUAL));
+	T(sljit_emit_cond_set(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG2), 5 * sizeof(sljit_w), SLJIT_C_NOT_EQUAL));
 
 	T(sljit_emit_return(compiler, SLJIT_NO_REG));
 
@@ -771,6 +776,8 @@ static void test13(void)
 	FAILED(buf2[1] != 0, "test13 case 6 failed\n");
 	FAILED(buf2[2] != 1, "test13 case 7 failed\n");
 	FAILED(buf2[3] != 0, "test13 case 8 failed\n");
+	FAILED(buf2[4] != 0, "test13 case 9 failed\n");
+	FAILED(buf2[5] != 1, "test13 case 10 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test13 ok\n");
