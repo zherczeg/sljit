@@ -1375,7 +1375,8 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 }
 
 #define ORDER_IND_REGS(arg) \
-	if ((arg & SLJIT_MEM_FLAG) && ((arg >> 4) & 0xf) > (arg & 0xf)) \
+	SLJIT_ASSERT(arg & SLJIT_MEM_FLAG); \
+	if (((arg >> 4) & 0xf) > (arg & 0xf)) \
 		arg = SLJIT_MEM_FLAG | ((arg << 4) & 0xf0) | ((arg >> 4) & 0xf)
 
 static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
@@ -1720,6 +1721,8 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 		}
 	}
 
+	ORDER_IND_REGS(arg);
+
 	if (compiler->cache_arg == arg && ((argw - compiler->cache_argw) & 0x3) == 0) {
 		if (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= 0x3ff) {
 			EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(1, load, TMP_REG3, fpu_reg, (argw - compiler->cache_argw) >> 2));
@@ -1790,12 +1793,10 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 
 	if (GET_OPCODE(op) == SLJIT_FCMP) {
 		if (dst > SLJIT_FLOAT_REG4) {
-			ORDER_IND_REGS(dst);
 			TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG1, 1, dst, dstw));
 			dst = TMP_FREG1;
 		}
 		if (src > SLJIT_FLOAT_REG4) {
-			ORDER_IND_REGS(src);
 			TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src, srcw));
 			src = TMP_FREG2;
 		}
@@ -1811,7 +1812,6 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
 
 	if (src > SLJIT_FLOAT_REG4) {
-		ORDER_IND_REGS(src);
 		TEST_FAIL(emit_fpu_data_transfer(compiler, dst_freg, 1, src, srcw));
 		src = dst_freg;
 	}
@@ -1830,7 +1830,6 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	}
 
 	if (dst_freg == TMP_FREG1) {
-		ORDER_IND_REGS(dst);
 		TEST_FAIL(emit_fpu_data_transfer(compiler, src, 0, dst, dstw));
 	}
 
@@ -1863,13 +1862,11 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
 
 	if (src2 > SLJIT_FLOAT_REG4) {
-		ORDER_IND_REGS(src2);
 		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src2, src2w));
 		src2 = TMP_FREG2;
 	}
 
 	if (src1 > SLJIT_FLOAT_REG4) {
-		ORDER_IND_REGS(src1);
 		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG1, 1, src1, src1w));
 		src1 = TMP_FREG1;
 	}
@@ -1893,7 +1890,6 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	}
 
 	if (dst_freg == TMP_FREG1) {
-		ORDER_IND_REGS(dst);
 		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG1, 0, dst, dstw));
 	}
 
