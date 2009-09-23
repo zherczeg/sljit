@@ -1862,16 +1862,16 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 
 	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
 
-	if (src1 > SLJIT_FLOAT_REG4) {
-		ORDER_IND_REGS(src1);
-		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG1, 1, src1, src1w));
-		src1 = TMP_FREG1;
-	}
-
 	if (src2 > SLJIT_FLOAT_REG4) {
 		ORDER_IND_REGS(src2);
 		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src2, src2w));
 		src2 = TMP_FREG2;
+	}
+
+	if (src1 > SLJIT_FLOAT_REG4) {
+		ORDER_IND_REGS(src1);
+		TEST_FAIL(emit_fpu_data_transfer(compiler, TMP_FREG1, 1, src1, src1w));
+		src1 = TMP_FREG1;
 	}
 
 	switch (op) {
