@@ -52,8 +52,6 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(args <= general);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
-	SLJIT_ASSERT(compiler->general == -1);
-	SLJIT_ASSERT(compiler->args == -1);
 
 	sljit_emit_enter_verbose();
 
@@ -109,8 +107,6 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, in
 	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(args <= general);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
-	SLJIT_ASSERT(compiler->general == -1);
-	SLJIT_ASSERT(compiler->args == -1);
 
 	sljit_fake_enter_verbose();
 
