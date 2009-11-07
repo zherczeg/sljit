@@ -234,16 +234,18 @@ void sljit_free_code(void* code);
 // Therefore, "args" must be less or equal than "general".
 // local_size extra stack space is allocated for the jit code,
 // which can accessed through SLJIT_LOCALS_REG (use it as a base register)
+// Note: multiple calls of this function overwrites the previous call
 
 int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size);
 
 // sljit_emit_return uses variables which are initialized by sljit_emit_enter.
 // Sometimes you want to return from a jit code, which entry point is in another jit code.
 // sljit_fake_enter does not emit any instruction, just initialize those variables
+// Note: multiple calls of this function overwrites the previous call
 
 void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, int local_size);
 
-// Return from jit. Return with NO_REG or a register
+// Return from jit. Return with SLJIT_NO_REG or a register
 int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 
 // Source and destination values for arithmetical instructions
@@ -473,6 +475,9 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 // Only the addresses are required to rewrite the code
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr);
 void sljit_set_const(sljit_uw addr, sljit_w new_constant);
+
+// Portble helper function to get an offset of a member
+#define SLJIT_OFFSET(base, member) 	((sljit_w)(((base*)0x10)->member) - 0x10)
 
 #endif
 

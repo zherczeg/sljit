@@ -35,8 +35,24 @@ typedef wchar_t regex_char_t;
 // a{n,}  is replaced by aa...aaa+ (n > 0)
 //                       \_n-1_/
 
+// The value returned by regex_compile
+// Can be used for multiple matching
+struct regex_machine;
+
+// A matching state
+struct regex_match;
+
 // If error occures the function returns NULL, and the error code returned in error variable
 // You can pass NULL to error if you don't care about the error code
-void* regex_compile(regex_char_t *regex_string, int length, int *error);
+struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int *error);
+void regex_free_machine(struct regex_machine* machine);
+
+struct regex_match* regex_begin_match(struct regex_machine* machine);
+void regex_free_match(struct regex_match* match);
+
+void regex_continue_match(struct regex_match* match, regex_char_t* input_string, int length);
+
+// Only exists if REGEX_VERBOSE is defined
+void regex_continue_match_verbose(struct regex_match* match, regex_char_t* input_string, int length);
 
 #endif
