@@ -16,19 +16,19 @@
 
 #include <stdio.h>
 
-void test_case(regex_char_t *input)
+void test_case(regex_char_t *pattern, regex_char_t *string)
 {
 	int error;
 	regex_char_t *ptr;
 	struct regex_machine* machine;
 	struct regex_match* match;
 
-	ptr = input;
+	ptr = pattern;
 	while (*ptr)
 		ptr++;
 
-	printf("Start test '%s'\n", input);
-	machine = regex_compile(input, ptr - input, &error);
+	printf("Start test '%s'\n", pattern);
+	machine = regex_compile(pattern, ptr - pattern, &error);
 
 	if (error) {
 		printf("WARNING: Error %d\n", error);
@@ -46,6 +46,12 @@ void test_case(regex_char_t *input)
 		return;
 	}
 
+	ptr = string;
+	while (*ptr)
+		ptr++;
+
+	regex_continue_match_debug(match, string, ptr - string, 1, 1);
+
 	regex_free_match(match);
 	regex_free_machine(machine);
 }
@@ -60,7 +66,9 @@ int main(int argc, char* argv[])
 //	test_case("{3!}({3})({0!}){,");
 //	test_case("(s(ab){2,4}t){2,}*S(a*(b)(c()|)d+){3,4}{0,0}*M");
 //	test_case("^a({2!})*b+(a|{1!}b)+d$");
-	test_case("(aa|bb)*");
+	test_case("(aa|{1!}bb)*", "aabbaa");
+	test_case("(aa|bb)*", "aabbaa");
+	test_case("^(aa|bb)*", "aabbaa");
 	return 0;
 }
 

@@ -21,6 +21,7 @@
 #define MATCH_BEGIN	0x1
 #define MATCH_END	0x2
 #define ID_CHECK	0x4
+#define GREEDY_MATCH	0x8
 
 // ---------------------------------------------------------------------
 //  Structures for JIT-ed pattern matching
@@ -29,12 +30,25 @@
 struct regex_machine
 {
 	sljit_w no_states;
-	sljit_w states_len;
+	sljit_w length;
+
+#ifndef SLJIT_INDIRECT_CALL
+	union {
+		void *init_match;
+		SLJIT_CALL sljit_w (*call_init)(void* next);
+	};
+#else
+	void *init_match;
+	union {
+		void **init_match_ptr;
+		SLJIT_CALL sljit_w (*call_init)(void* next);
+	};
+#endif
 
 	void *continue_match;
 
 	// Variable sized array to contain the handler addresses
-	sljit_uw entry_addresses[1];
+	sljit_uw entry_addrs[1];
 };
 
 struct regex_match
@@ -46,6 +60,8 @@ struct regex_match
 	sljit_w head;
 	// string character index (ever increasing)
 	sljit_w index;
+	// machine
+	struct regex_machine* machine;
 
 #ifndef SLJIT_INDIRECT_CALL
 	union {
@@ -55,7 +71,7 @@ struct regex_match
 #else
 	union {
 		void **continue_match_ptr;
-		SLJIT_CALL void (*call_continue)(void* current, void* next);
+		SLJIT_CALL void (*call_continue)(struct regex_match* match, regex_char_t* input_string, int length);
 	};
 #endif
 
@@ -64,24 +80,29 @@ struct regex_match
 };
 
 // State vector
-//  ITEM[0] - pointer to the label in the machine code
+//  ITEM[0] - pointer to the address inside the machine code
 //  ITEM[1] - next pointer
 //  ITEM[2] - string started from (optional)
 //  ITEM[3] - max ID (optional)
 
 // Register allocation
-// SLJIT_GENERAL_REG1    - current state array (loaded & stored: regex_match->current)
-// SLJIT_GENERAL_REG2    - next state array (loaded & stored: regex_match->next)
-// SLJIT_GENERAL_REG3    - head (loaded & stored: regex_match->head)
-// SLJIT_TEMPORARY_REG2  - current character
-// SLJIT_TEMPORARY_REG1  - tmp1
-// SLJIT_TEMPORARY_REG3  - tmp2
+// current state array (loaded & stored: regex_match->current)
+#define R_CURR_STATE	SLJIT_GENERAL_REG1
+// next state array (loaded & stored: regex_match->next)
+#define R_NEXT_STATE	SLJIT_GENERAL_REG2
+// head (loaded & stored: regex_match->head)
+#define R_NEXT_HEAD	SLJIT_GENERAL_REG3
+// current character index
+#define R_CURR_INDEX	SLJIT_TEMPORARY_REG1
+// current character
+#define R_CURR_CHAR	SLJIT_TEMPORARY_REG2
+// temporary register
+#define R_TEMP		SLJIT_TEMPORARY_REG3
 
 // Stack layout
 //  SLJIT_LOCALS_REG[0] - struct regex_match*
 //  SLJIT_LOCALS_REG[1] - string fragment pointer
 //  SLJIT_LOCALS_REG[2] - string fragment length
-//  SLJIT_LOCALS_REG[3] - current character index
 
 // ---------------------------------------------------------------------
 //  Stack management
@@ -978,10 +999,63 @@ static int trace_transitions(int from, struct stack_item* transitions, struct st
 //  Code generator
 // ---------------------------------------------------------------------
 
+#define CHECK(exp) \
+	if (exp) \
+		return REGEX_MEMORY_ERROR;
+
+static int regex_gen_uncond_tran(struct sljit_compiler* compiler, int flags, struct stack *stack, struct stack_item *states)
+{
+	sljit_uw head = 0;
+	sljit_w offset;
+	sljit_w no_states;
+	sljit_w value;
+
+	if ((flags & ID_CHECK) && !(flags & MATCH_BEGIN))
+		no_states = 4;
+	else if (!(flags & ID_CHECK) && (flags & MATCH_BEGIN))
+		no_states = 2;
+	else
+		no_states = 3;
+
+	while (stack->count > 0) {
+		value = stack_pop(stack)->value;
+		if (states[value].type >= 0) {
+#ifdef REGEX_VERBOSE
+			printf("-> (%3d:%3d) ", states[value].type, states[value].value);
+#endif
+			offset = states[value].type * no_states * sizeof(sljit_w);
+			CHECK(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w), SLJIT_IMM, head));
+			head = offset;
+
+			if (!(flags & MATCH_BEGIN)) {
+				CHECK(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w) * 2, R_CURR_INDEX, 0));
+				if (flags & ID_CHECK) {
+					CHECK(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w) * 3, SLJIT_IMM, states[value].value));
+				}
+			}
+			else if (flags & ID_CHECK) {
+				CHECK(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w) * 2, SLJIT_IMM, states[value].value));
+			}
+		}
+		states[value].value = -1;
+	}
+	CHECK(sljit_emit_op1(compiler, SLJIT_MOV, R_NEXT_HEAD, 0, SLJIT_IMM, head));
+
+#ifdef REGEX_VERBOSE
+	printf("\n");
+#endif
+	return 0;
+}
+
+#undef CHECK
 
 // ---------------------------------------------------------------------
 //  Main compiler
 // ---------------------------------------------------------------------
+
+#define CHECK(exp) \
+	if (exp) \
+		break;
 
 struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int *error)
 {
@@ -994,6 +1068,10 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 
 	struct sljit_compiler* compiler;
 	struct regex_machine* machine;
+	sljit_uw* entry_addrs;
+
+	struct sljit_jump* zero_str_length;
+	struct sljit_label* label;
 
 	if (error)
 		*error = REGEX_NO_ERROR;
@@ -1046,27 +1124,57 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 		// A do {} while(0) expression is udes to avoid goto.
 
 		machine = (struct regex_machine*)SLJIT_MALLOC(sizeof(struct regex_machine) + (states_len - 1) * sizeof(sljit_uw));
-		if (!machine)
-			break;
+		CHECK(!machine);
 
 		compiler = sljit_create_compiler();
-		if (!compiler)
-			break;
+		CHECK(!compiler);
 
 		// Step 4.1: Generate entry
-		// struct regex_match* pointer, 
-		if (sljit_emit_enter(compiler, 0, 3, 2 * sizeof(sljit_uw)))
-			break;
+		CHECK(sljit_emit_enter(compiler, 3, 3, 3 * sizeof(sljit_w)));
+		CHECK(sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_E, SLJIT_NO_REG, 0, SLJIT_GENERAL_REG3, 0, SLJIT_IMM, 0));
+		zero_str_length = sljit_emit_jump(compiler, SLJIT_C_EQUAL);
+		CHECK(!zero_str_length);
+
+		// Init stack
+		CHECK(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), 0, SLJIT_GENERAL_REG1, 0));
+		CHECK(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), sizeof(sljit_w), SLJIT_GENERAL_REG2, 0));
+		CHECK(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), 2 * sizeof(sljit_w), SLJIT_GENERAL_REG3, 0));
+
+		// Init global registers
+		CHECK(sljit_emit_op1(compiler, SLJIT_MOV, R_CURR_INDEX, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), SLJIT_OFFSETOF(struct regex_match, index)));
+		CHECK(sljit_emit_op1(compiler, SLJIT_MOV, R_NEXT_HEAD, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), SLJIT_OFFSETOF(struct regex_match, head)));
+		CHECK(sljit_emit_op1(compiler, SLJIT_MOV, R_NEXT_STATE, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), SLJIT_OFFSETOF(struct regex_match, next)));
+		CHECK(sljit_emit_op1(compiler, SLJIT_MOV, R_CURR_STATE, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), SLJIT_OFFSETOF(struct regex_match, current)));
+
+		// Step 4.2: Generate code for state 0
+		entry_addrs = machine->entry_addrs;
+		label = sljit_emit_label(compiler);
+		CHECK(!label);
+		*entry_addrs++ = (sljit_uw)label;
+
+		label = sljit_emit_label(compiler);
+		CHECK(!label);
+		CHECK(sljit_emit_return(compiler, SLJIT_NO_REG));
+		sljit_set_label(zero_str_length, label);
+
+		// Step 4.2: Generate code for state 1
+		label = sljit_emit_label(compiler);
+		CHECK(!label);
+		*entry_addrs++ = (sljit_uw)label;
 
 #ifdef REGEX_VERBOSE
 		printf("-----------------\nTrace\n-----------------\n");
 #endif
 
-		index = 0;
+		index = 1;
 		while (index < encoded_len - 1) {
 			if (states[index].type >= 0) {
-				if (trace_transitions(index, transitions, states, &stack, &depth))
-					break;
+				SLJIT_ASSERT(entry_addrs - machine->entry_addrs == states[index].type);
+				label = sljit_emit_label(compiler);
+				CHECK(!label);
+				*entry_addrs++ = (sljit_uw)label;
+
+				CHECK(trace_transitions(index, transitions, states, &stack, &depth));
 #ifdef REGEX_VERBOSE
 				printf("(%3d): ", states[index].type);
 #endif
@@ -1089,6 +1197,23 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 		}
 
 		if (index == encoded_len - 1) {
+			SLJIT_ASSERT(entry_addrs - machine->entry_addrs == states_len);
+
+			// Generate an init stub function
+			label = sljit_emit_label(compiler);
+			CHECK(!label);
+			CHECK(sljit_emit_enter(compiler, 1, 3, 0));
+			CHECK(trace_transitions(0, transitions, states, &stack, &depth));
+			CHECK(sljit_emit_op1(compiler, SLJIT_MOV, R_NEXT_STATE, 0, SLJIT_GENERAL_REG1, 0))
+			if (!(flags & MATCH_BEGIN)) {
+				CHECK(sljit_emit_op1(compiler, SLJIT_MOV, R_CURR_INDEX, 0, SLJIT_IMM, 0))
+			}
+#ifdef REGEX_VERBOSE
+			printf("(%3d): ", 0);
+#endif
+			CHECK(regex_gen_uncond_tran(compiler, flags, &stack, states));
+			CHECK(sljit_emit_return(compiler, R_NEXT_HEAD));
+
 			if ((flags & ID_CHECK) && !(flags & MATCH_BEGIN))
 				machine->no_states = 4;
 			else if (!(flags & ID_CHECK) && (flags & MATCH_BEGIN))
@@ -1096,14 +1221,22 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 			else
 				machine->no_states = 3;
 
-			machine->states_len = states_len;
+			machine->length = machine->no_states * states_len;
 
 			machine->continue_match = sljit_generate_code(compiler);
-#ifdef REGEX_VERBOSE
-			printf("Continue match: %p\n", machine->continue_match);
+			machine->init_match = (void*)sljit_get_label_addr(label);
+#ifdef SLJIT_INDIRECT_CALL
+			machine->init_match_ptr = &machine->init_match;
 #endif
-			if (machine->continue_match)
+#ifdef REGEX_VERBOSE
+			printf("Continue match: %p Init match: %p\n", machine->continue_match, machine->init_match);
+#endif
+			if (machine->continue_match) {
+				for (index = 0; index < states_len; ++index)
+					machine->entry_addrs[index] = sljit_get_label_addr((struct sljit_label*)machine->entry_addrs[index]);
+for (index = 0; index < states_len; ++index) printf("0x%x ", machine->entry_addrs[index]);
 				done = 1;
+			}
 		}
 	} while (0);
 
@@ -1124,6 +1257,8 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 	return NULL;
 }
 
+#undef CHECK
+
 void regex_free_machine(struct regex_machine* machine)
 {
 	sljit_free_code(machine->continue_match);
@@ -1136,29 +1271,31 @@ void regex_free_machine(struct regex_machine* machine)
 
 struct regex_match* regex_begin_match(struct regex_machine* machine)
 {
-	sljit_w length = machine->no_states * machine->states_len;
 	sljit_w *ptr1;
 	sljit_w *ptr2;
 	sljit_w *end;
-	sljit_w *entry_addresses;
+	sljit_w *entry_addrs;
 
-	struct regex_match* match = (struct regex_match*)SLJIT_MALLOC(sizeof(struct regex_match) + (length * 2 - 1) * sizeof(sljit_w));
+	struct regex_match* match = (struct regex_match*)SLJIT_MALLOC(sizeof(struct regex_match) + (machine->length * 2 - 1) * sizeof(sljit_w));
 	if (!match)
 		return NULL;
 
 	ptr1 = match->states;
-	ptr2 = match->states + length;
+	ptr2 = match->states + machine->length;
 	end = ptr2;
-	entry_addresses = (sljit_w*)machine->entry_addresses;
+	entry_addrs = (sljit_w*)machine->entry_addrs;
 
 	match->current = ptr1;
 	match->next = ptr2;
+	match->index = 0;
+	match->machine = machine;
 
+	// Init machine states
 	switch (machine->no_states) {
 	case 2:
 		while (ptr1 < end) {
-			*ptr1++ = *entry_addresses;
-			*ptr2++ = *entry_addresses++;
+			*ptr1++ = *entry_addrs;
+			*ptr2++ = *entry_addrs++;
 			*ptr1++ = -1;
 			*ptr2++ = -1;
 		}
@@ -1166,8 +1303,8 @@ struct regex_match* regex_begin_match(struct regex_machine* machine)
 
 	case 3:
 		while (ptr1 < end) {
-			*ptr1++ = *entry_addresses;
-			*ptr2++ = *entry_addresses++;
+			*ptr1++ = *entry_addrs;
+			*ptr2++ = *entry_addrs++;
 			*ptr1++ = -1;
 			*ptr2++ = -1;
 			*ptr1++ = 0;
@@ -1177,8 +1314,8 @@ struct regex_match* regex_begin_match(struct regex_machine* machine)
 
 	case 4:
 		while (ptr1 < end) {
-			*ptr1++ = *entry_addresses;
-			*ptr2++ = *entry_addresses++;
+			*ptr1++ = *entry_addrs;
+			*ptr2++ = *entry_addrs++;
 			*ptr1++ = -1;
 			*ptr2++ = -1;
 			*ptr1++ = 0;
@@ -1193,6 +1330,8 @@ struct regex_match* regex_begin_match(struct regex_machine* machine)
 		break;
 	}
 
+	match->head = machine->call_init(match->current);
+
 	SLJIT_ASSERT(ptr1 == end);
 
 #ifdef SLJIT_INDIRECT_CALL
@@ -1201,7 +1340,6 @@ struct regex_match* regex_begin_match(struct regex_machine* machine)
 	match->continue_match = machine->continue_match;
 #endif
 
-printf("Init match\n");
 	return match;
 }
 
@@ -1216,9 +1354,83 @@ void regex_continue_match(struct regex_match* match, regex_char_t* input_string,
 }
 
 #ifdef REGEX_VERBOSE
-void regex_continue_match_verbose(struct regex_match* match, regex_char_t* input_string, int length)
+void regex_continue_match_debug(struct regex_match* match, regex_char_t* input_string, int length, int verbose, int sanity)
 {
+	sljit_w *ptr;
+	sljit_w *end;
+	sljit_w count;
+	sljit_w current;
+	sljit_w no_states = match->machine->no_states;
+	sljit_w len = match->machine->length;
 
+	printf("Start matching\n");
+	match->call_continue(match, input_string, length);
 
+	// sanity check
+	if (sanity) {
+		ptr = match->next;
+		end = ptr + len;
+		while (ptr < end) {
+			SLJIT_ASSERT(ptr[1] == -1);
+			ptr += no_states;
+		}
+
+		// Check number of active elements
+		ptr = match->current;
+		end = ptr + len;
+		count = 0;
+		while (ptr < end) {
+			if (ptr[1] != -1)
+				count++;
+			ptr += no_states;
+		}
+
+		// Check chain list
+		current = match->head;
+		ptr = match->current;
+		while (current != 0) {
+			SLJIT_ASSERT(current >= 0 && current < len * sizeof(sljit_w));
+			SLJIT_ASSERT(((current / sizeof(sljit_w)) % no_states) == 0);
+			SLJIT_ASSERT(count > 0);
+			current = ptr[(current / sizeof(sljit_w)) + 1];
+			count--;
+		}
+		SLJIT_ASSERT(count == 0);
+	}
+
+	// verbose
+	if (verbose) {
+		ptr = match->current;
+		end = ptr + len;
+		count = 0;
+		printf("(%3d) ", match->head  / (no_states * sizeof(sljit_w)));
+		while (ptr < end) {
+			printf("[%3d:", count++);
+			switch (no_states) {
+			case 2:
+				if (ptr[1] != -1)
+					printf("%3d] ", ptr[1] / (no_states * sizeof(sljit_w)));
+				else
+					printf("XXX] ");
+				break;
+
+			case 3:
+				if (ptr[1] != -1)
+					printf("%3d,%3d] ", ptr[1] / (no_states * sizeof(sljit_w)), ptr[2]);
+				else
+					printf("XXX,XXX] ");
+				break;
+
+			case 4:
+				if (ptr[1] != -1)
+					printf("%3d,%3d,%3d] ", ptr[1] / (no_states * sizeof(sljit_w)), ptr[2], ptr[3]);
+				else
+					printf("XXX,XXX,XXX] ");
+				break;
+			}
+			ptr += no_states;
+		}
+		printf("\n");
+	}
 }
 #endif

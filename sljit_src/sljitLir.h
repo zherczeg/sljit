@@ -468,16 +468,16 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 // After the code generation the address for label, jump and const instructions
 // are computed. Since these structures are freed sljit_free_compiler, the
 // addresses must be preserved by the user program elsewere
-#define sljit_get_label_addr(label)	(label->addr)
-#define sljit_get_jump_addr(jump)	(jump->addr)
-#define sljit_get_const_addr(const_)	(const_->addr)
+#define sljit_get_label_addr(label)	((label)->addr)
+#define sljit_get_jump_addr(jump)	((jump)->addr)
+#define sljit_get_const_addr(const_)	((const_)->addr)
 
 // Only the addresses are required to rewrite the code
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr);
 void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 
 // Portble helper function to get an offset of a member
-#define SLJIT_OFFSET(base, member) 	((sljit_w)(((base*)0x10)->member) - 0x10)
+#define SLJIT_OFFSETOF(base, member) 	((sljit_w)(&((base*)0x10)->member) - 0x10)
 
 #endif
 

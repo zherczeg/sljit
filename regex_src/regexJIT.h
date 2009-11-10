@@ -53,6 +53,6 @@ void regex_free_match(struct regex_match* match);
 void regex_continue_match(struct regex_match* match, regex_char_t* input_string, int length);
 
 // Only exists if REGEX_VERBOSE is defined
-void regex_continue_match_verbose(struct regex_match* match, regex_char_t* input_string, int length);
+void regex_continue_match_debug(struct regex_match* match, regex_char_t* input_string, int length, int verbose, int sanity);
 
 #endif
