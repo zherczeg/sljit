@@ -27,7 +27,7 @@ void test_case(regex_char_t *pattern, regex_char_t *string)
 	while (*ptr)
 		ptr++;
 
-	printf("Start test '%s'\n", pattern);
+	printf("Start test '%s' matches to '%s'\n", pattern, string);
 	machine = regex_compile(pattern, ptr - pattern, &error);
 
 	if (error) {
@@ -66,9 +66,9 @@ int main(int argc, char* argv[])
 //	test_case("{3!}({3})({0!}){,");
 //	test_case("(s(ab){2,4}t){2,}*S(a*(b)(c()|)d+){3,4}{0,0}*M");
 //	test_case("^a({2!})*b+(a|{1!}b)+d$");
-	test_case("(aa|{1!}bb)*", "aabbaa");
-	test_case("(aa|bb)*", "aabbaa");
-	test_case("^(aa|bb)*", "aabbaa");
+//	test_case("aa?|baac|aaa", "baad");
+//	test_case("((a|b|c)*(xy)+)+", "asbcxyxy");
+	test_case("(b{1!})*|bb{2!}", "sbbbc");
 	return 0;
 }
 
