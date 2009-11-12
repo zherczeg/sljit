@@ -1568,12 +1568,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		src_r = TMP_REG2;
 	}
 
-#ifdef SLJIT_CONFIG_PPC_32
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP0(31, src_r, (9 << 16) | (467 << 1))));
-#else
-	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(58, TMP_REG2, src_r, 0)));
-	TEST_FAIL(push_inst(compiler, INS_FORM_OP0(31, TMP_REG2, (9 << 16) | (467 << 1))));
-#endif
 	return push_inst(compiler, (19 << 26) | bo_bi_flags | (3 << 11) | (528 << 1) | (type >= SLJIT_CALL0 ? 1 : 0));
 }
 

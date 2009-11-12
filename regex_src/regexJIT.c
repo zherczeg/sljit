@@ -64,10 +64,10 @@ struct regex_match
 	sljit_w head;
 	// string character index (ever increasing)
 	sljit_w index;
-	// best match found so far
+	// best match found so far (members in priority order)
 	sljit_w best_begin;
-	sljit_w best_id;
 	sljit_w best_end;
+	sljit_w best_id;
 	// machine
 	struct regex_machine* machine;
 
@@ -1718,7 +1718,7 @@ void regex_continue_match_debug(struct regex_match* match, regex_char_t* input_s
 			ptr = match->current;
 			end = ptr + len;
 			count = 0;
-			printf("'%c' (%3d:%3d ->%3d) ", *input_string, match->best_begin, match->best_id, match->best_end);
+			printf("'%c' (%3d->%3d [%3d]) ", *input_string, match->best_begin, match->best_end, match->best_id);
 			while (ptr < end) {
 				printf("[%3d:", count++);
 				switch (no_states) {
