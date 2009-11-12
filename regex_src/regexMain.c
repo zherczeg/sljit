@@ -22,6 +22,7 @@ void test_case(regex_char_t *pattern, regex_char_t *string)
 	regex_char_t *ptr;
 	struct regex_machine* machine;
 	struct regex_match* match;
+	int begin, end, id;
 
 	ptr = pattern;
 	while (*ptr)
@@ -52,6 +53,9 @@ void test_case(regex_char_t *pattern, regex_char_t *string)
 
 	regex_continue_match_debug(match, string, ptr - string, 1, 1);
 
+	begin = regex_get_result(match, &end, &id);
+	printf("Math returns: %3d->%3d [%3d]\n", begin, end, id);
+
 	regex_free_match(match);
 	regex_free_machine(machine);
 }
@@ -65,13 +69,22 @@ int main(int argc, char* argv[])
 //	test_case("^a({2!})*b+(a|{1!}b)+d$");
 //	test_case("((a|b|c)*(xy)+)+", "asbcxyxy");
 
-/*	test_case("^a(b)+|ab", "abbbc");
-	test_case("^a(b{1!})+|ab{2!}", "abbbc");
+/*	test_case("^a(b)+|ab", "abbbcabb");
+	test_case("^a(b{1!})+|ab{2!}", "abbbcabb");
+	test_case("^a(b{1!})+|ab{2!}", "xaa");
 	test_case("ab+|ab", "sabbbc");
 	test_case("a(b{1!})+|ab{2!}", "sabbbc");*/
 
-	test_case("abcde|bcd", "xabcdey");
-	test_case("abcde{1!}|bcd{2!}", "xabcdey");
+//	test_case("abcde|bcd", "xabcdey");
+//	test_case("abcde{1!}|bcd{2!}", "xabcdey");
+
+/*	test_case("abcde|bcd$", "xabcd");
+	test_case("abcde{1!}|bcd{2!}$", "xabcd");
+
+	test_case("^abcde|bcd$", "absde");
+	test_case("^abcde{1!}|bcd{2!}$", "bcd");*/
+
+	test_case("a", "xsa12345678901234567");
 
 	return 0;
 }
