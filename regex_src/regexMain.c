@@ -35,7 +35,7 @@ void test_case(regex_char_t *pattern, regex_char_t *string)
 		return;
 	}
 	if (!machine) {
-		printf("ERROR: machine must be exists. Reportthis bug please\n");
+		printf("ERROR: machine must be exists. Report this bug, please\n");
 		return;
 	}
 
@@ -58,17 +58,21 @@ void test_case(regex_char_t *pattern, regex_char_t *string)
 
 int main(int argc, char* argv[])
 {
-
-//	test_case("Xa*X.+Xc?X()*Xa+*?X");
 //	test_case("a((b)((c|d))|)c|");
 //	test_case("Xa{009,0010}Xb{,7}Xc{5,}Xd{,}Xe{1,}Xf{,1}X");
-//	test_case("Xa:2:*X|Yb:03:+Y");
 //	test_case("{3!}({3})({0!}){,");
 //	test_case("(s(ab){2,4}t){2,}*S(a*(b)(c()|)d+){3,4}{0,0}*M");
 //	test_case("^a({2!})*b+(a|{1!}b)+d$");
-//	test_case("aa?|baac|aaa", "baad");
 //	test_case("((a|b|c)*(xy)+)+", "asbcxyxy");
-	test_case("(b{1!})*|bb{2!}", "sbbbc");
+
+/*	test_case("^a(b)+|ab", "abbbc");
+	test_case("^a(b{1!})+|ab{2!}", "abbbc");
+	test_case("ab+|ab", "sabbbc");
+	test_case("a(b{1!})+|ab{2!}", "sabbbc");*/
+
+	test_case("abcde|bcd", "xabcdey");
+	test_case("abcde{1!}|bcd{2!}", "xabcdey");
+
 	return 0;
 }
 
