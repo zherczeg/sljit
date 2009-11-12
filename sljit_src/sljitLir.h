@@ -460,6 +460,7 @@ void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 //  type must be between SLJIT_JUMP and SLJIT_CALL3
 //  Direct form: set src to SLJIT_IMM() and srcw to the address
 //  Indirect form: any other valid addressing mode
+// Note: SLJIT_INDIRECT_CALL does not affect this function
 int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw);
 
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);
@@ -478,6 +479,12 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 
 // Portble helper function to get an offset of a member
 #define SLJIT_OFFSETOF(base, member) 	((sljit_w)(&((base*)0x10)->member) - 0x10)
+
+#ifndef SLJIT_INDIRECT_CALL
+#define SLJIT_FUNC_OFFSET(func_name)	((sljit_w)&func_name)
+#else
+#define SLJIT_FUNC_OFFSET(func_name)	((sljit_w)*(void**)&func_name)
+#endif
 
 #endif
 
