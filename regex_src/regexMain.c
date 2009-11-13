@@ -35,7 +35,7 @@ void verbose_test(regex_char_t *pattern, regex_char_t *string)
 		ptr++;
 
 	printf("Start test '%s' matches to '%s'\n", pattern, string);
-	machine = regex_compile(pattern, ptr - pattern, REGEX_VERBOSE, &error);
+	machine = regex_compile(pattern, ptr - pattern, REGEX_MATCH_VERBOSE, &error);
 
 	if (error) {
 		printf("WARNING: Error %d\n", error);
@@ -161,7 +161,7 @@ void run_tests(struct test_case* test)
 		regex_free_machine(machine);
 
 	if (fail == 0)
-		printf("Summary: Success: %d (no test failed)\n", success);
+		printf("Summary: Success: %d (all)\n", success);
 	else
 		printf("Summary: Success: %d Fail: %d\n", success, fail);
 }
@@ -205,6 +205,10 @@ static struct test_case tests[] = {
   NULL, S("sxxaxxxaccacca") },
 { 0, 2, 1, 1, 0,
   NULL, S("ccdcdcdddddcdccccd") },
+{ 0, 3, 0, -1, REGEX_MATCH_NON_GREEDY,
+  S("^a+a+a+"), S("aaaaaa") },
+{ 2, 5, 0, -1, REGEX_MATCH_NON_GREEDY,
+  S("a+a+a+"), S("bbaaaaaa") },
 { -1, 0, 0, 0, 0,
   NULL, NULL }
 };
