@@ -43,7 +43,7 @@ struct regex_machine;
 struct regex_match;
 
 // Note: REGEX_MATCH_BEGIN and REGEX_MATCH_END does not change the parsing
-//   (Hence ^ and $ parsing as before)
+//   (Hence ^ and $ are parsed normally)
 // Force matching to start from begining of the string (same as ^)
 #define REGEX_MATCH_BEGIN	0x1
 // Force matching to continue until the last character (same as $)
@@ -52,7 +52,7 @@ struct regex_match;
 // it (usually) does not have a significant speed gain
 #define REGEX_MATCH_NON_GREEDY	0x4
 // Verbose. Valid only if VERBOSE is defined in regexJIT.c
-#define REGEX_VERBOSE		0x8
+#define REGEX_MATCH_VERBOSE	0x8
 
 // If error occures the function returns NULL, and the error code returned in error variable
 // You can pass NULL to error if you don't care about the error code
