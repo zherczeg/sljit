@@ -16,7 +16,13 @@
 
 #include <stdio.h>
 
-void test_case(regex_char_t *pattern, regex_char_t *string)
+#ifdef REGEX_USE_8BIT_CHARS
+#define S(str)	str
+#else
+#define S(str)	L##str
+#endif
+
+void verbose_test(regex_char_t *pattern, regex_char_t *string)
 {
 	int error;
 	regex_char_t *ptr;
@@ -29,7 +35,7 @@ void test_case(regex_char_t *pattern, regex_char_t *string)
 		ptr++;
 
 	printf("Start test '%s' matches to '%s'\n", pattern, string);
-	machine = regex_compile(pattern, ptr - pattern, &error);
+	machine = regex_compile(pattern, ptr - pattern, REGEX_VERBOSE, &error);
 
 	if (error) {
 		printf("WARNING: Error %d\n", error);
@@ -51,7 +57,7 @@ void test_case(regex_char_t *pattern, regex_char_t *string)
 	while (*ptr)
 		ptr++;
 
-	regex_continue_match_debug(match, string, ptr - string, 1, 1);
+	regex_continue_match_debug(match, string, ptr - string);
 
 	begin = regex_get_result(match, &end, &id);
 	printf("Math returns: %3d->%3d [%3d]\n", begin, end, id);
@@ -60,32 +66,165 @@ void test_case(regex_char_t *pattern, regex_char_t *string)
 	regex_free_machine(machine);
 }
 
+struct test_case {
+	int begin;	// awaited begin
+	int end;	// awaited end
+	int id;		// awaited id
+	int finished;	// -1 : don't care, 0 : false, 1 : true
+	int flags;	// REGEX_MATCH_*
+	regex_char_t *pattern;	// NULL : use the previous pattern
+	regex_char_t *string;	// NULL : end of tests
+};
+
+void run_tests(struct test_case* test)
+{
+	int error;
+	regex_char_t *ptr;
+	struct regex_machine* machine = NULL;
+	struct regex_match* match;
+	int begin, end, id, finished;
+	int success = 0, fail = 0;
+
+	for ( ; test->string ; test++) {
+		printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
+		fail++;
+
+		if (test->pattern) {
+			if (machine)
+				regex_free_machine(machine);
+
+			ptr = test->pattern;
+			while (*ptr)
+				ptr++;
+
+			machine = regex_compile(test->pattern, ptr - test->pattern, test->flags, &error);
+
+			if (error) {
+				printf("ABORT: Error %d\n", error);
+				return;
+			}
+			if (!machine) {
+				printf("ABORT: machine must be exists. Report this bug, please\n");
+				return;
+			}
+		}
+
+		ptr = test->string;
+		while (*ptr)
+			ptr++;
+
+		match = regex_begin_match(machine);
+		if (!match) {
+			printf("ABORT: Not enough memory for matching\n");
+			regex_free_machine(machine);
+			return;
+		}
+		regex_continue_match_debug(match, test->string, ptr - test->string);
+		begin = regex_get_result(match, &end, &id);
+		finished = regex_is_match_finished(match);
+		regex_free_match(match);
+
+		if (begin != test->begin || end != test->end || id != test->id) {
+			printf("FAIL A: begin: %d != %d || end: %d != %d || id: %d != %d\n", test->begin, begin, test->end, end, test->id, id);
+			continue;
+		}
+		if (test->finished != -1 && test->finished != !!finished) {
+			printf("FAIL B: finish check\n");
+			continue;
+		}
+
+		match = regex_begin_match(machine);
+		if (!match) {
+			printf("ABORT: Not enough memory for matching\n");
+			regex_free_machine(machine);
+			return;
+		}
+		regex_continue_match(match, test->string, ptr - test->string);
+		begin = regex_get_result(match, &end, &id);
+		finished = regex_is_match_finished(match);
+		regex_free_match(match);
+
+		if (begin != test->begin || end != test->end || id != test->id) {
+			printf("FAIL B: begin: %d != %d || end: %d != %d || id: %d != %d\n", test->begin, begin, test->end, end, test->id, id);
+			continue;
+		}
+		if (test->finished != -1 && test->finished != !!finished) {
+			printf("FAIL B: finish check\n");
+			continue;
+		}
+
+		printf("SUCCESS\n");
+		fail--;
+		success++;
+	}
+	if (machine)
+		regex_free_machine(machine);
+
+	if (fail == 0)
+		printf("Summary: Success: %d (no test failed)\n", success);
+	else
+		printf("Summary: Success: %d Fail: %d\n", success, fail);
+}
+
+// Testing
+
+static struct test_case tests[] = {
+{ 3, 7, 0, -1, 0,
+  S("text"), S("is textile") },
+{ 0, 10, 0, -1, 0,
+  S("^(ab|c)*?d+(es)?"), S("abccabddeses") },
+{ -1, 0, 0, 1, 0,
+  S("^a+"), S("saaaa") },
+{ 3, 6, 0, 0, 0,
+  S("(a+|b+)$"), S("saabbb") },
+{ 1, 6, 0, 0, 0,
+  S("(a+|b+){,2}$"), S("saabbb") },
+{ 1, 6, 0, 1, 0,
+  S("(abcde|bc)(a+*|(b|c){2}+){0}"), S("babcdeaaaaaaaa") },
+{ 1, 6, 0, 0, 0,
+  S("(abc(aa)?|(cab+){2})"), S("cabcaa") },
+{ -1, 0, 0, -1, 0,
+  S("^(abc(aa)?|(cab+){2})$"), S("cabcaa") },
+{ 0, 3, 1, -1, 0,
+  S("^(ab{001!})?c"), S("abcde") },
+{ 1, 15, 2, -1, 0,
+  S("(c?(a|bb{2!}){2,3}()+d){2,3}"), S("ccabbadbbadcaadcaad") },
+{ 2, 9, 0, -1, 0,
+  NULL, S("cacaadaadaa") },
+{ -1, 0, 0, -1, REGEX_MATCH_BEGIN,
+  S("(((ab?c|d{1})))"), S("ad") },
+{ 0, 9, 3, -1, REGEX_MATCH_BEGIN,
+  S("^((a{1!}|b{2!}|c{3!}){3,6}d)+"), S("cabadbacddaa") },
+{ 1, 6, 0, 0, REGEX_MATCH_END,
+  S("(a+(bb|cc?)?){4,}"), S("maaaac") },
+{ 3, 12, 1, 0, REGEX_MATCH_END,
+  S("(x+x+{02,03}(x+|{1!})){03,06}$"), S("aaaxxxxxxxxx") },
+{ 1, 2, 3, -1, 0,
+  S("((c{1!})?|x+{2!}|{3!})(a|c)"), S("scs") },
+{ 1, 4, 2, 1, 0,
+  NULL, S("sxxaxxxaccacca") },
+{ 0, 2, 1, 1, 0,
+  NULL, S("ccdcdcdddddcdccccd") },
+{ -1, 0, 0, 0, 0,
+  NULL, NULL }
+};
+
 int main(int argc, char* argv[])
 {
-//	test_case("a((b)((c|d))|)c|");
-//	test_case("Xa{009,0010}Xb{,7}Xc{5,}Xd{,}Xe{1,}Xf{,1}X");
-//	test_case("{3!}({3})({0!}){,");
-//	test_case("(s(ab){2,4}t){2,}*S(a*(b)(c()|)d+){3,4}{0,0}*M");
-//	test_case("^a({2!})*b+(a|{1!}b)+d$");
-//	test_case("((a|b|c)*(xy)+)+", "asbcxyxy");
+//	verbose_test("a((b)((c|d))|)c|");
+//	verbose_test("Xa{009,0010}Xb{,7}Xc{5,}Xd{,}Xe{1,}Xf{,1}X");
+//	verbose_test("{3!}({3})({0!}){,");
+//	verbose_test("(s(ab){2,4}t){2,}*S(a*(b)(c()|)d+){3,4}{0,0}*M");
+//	verbose_test("^a({2!})*b+(a|{1!}b)+d$");
+//	verbose_test("((a|b|c)*(xy)+)+", "asbcxyxy");
 
-/*	test_case("^a(b)+|ab", "abbbcabb");
-	test_case("^a(b{1!})+|ab{2!}", "abbbcabb");
-	test_case("^a(b{1!})+|ab{2!}", "xaa");
-	test_case("ab+|ab", "sabbbc");
-	test_case("a(b{1!})+|ab{2!}", "sabbbc");*/
+/*	verbose_test("^a(b)+|ab", "abbbcabb");
+	verbose_test("^a(b{1!})+|ab{2!}", "abbbcabb");
+	verbose_test("^a(b{1!})+|ab{2!}", "xaa");
+	verbose_test("ab+|ab", "sabbbc");
+	verbose_test("a(b{1!})+|ab{2!}", "sabbbc");*/
 
-//	test_case("abcde|bcd", "xabcdey");
-//	test_case("abcde{1!}|bcd{2!}", "xabcdey");
-
-/*	test_case("abcde|bcd$", "xabcd");
-	test_case("abcde{1!}|bcd{2!}$", "xabcd");
-
-	test_case("^abcde|bcd$", "absde");
-	test_case("^abcde{1!}|bcd{2!}$", "bcd");*/
-
-	test_case("a", "xsa12345678901234567");
-
+	run_tests(tests);
 	return 0;
 }
 

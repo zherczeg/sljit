@@ -42,9 +42,21 @@ struct regex_machine;
 // A matching state
 struct regex_match;
 
+// Note: REGEX_MATCH_BEGIN and REGEX_MATCH_END does not change the parsing
+//   (Hence ^ and $ parsing as before)
+// Force matching to start from begining of the string (same as ^)
+#define REGEX_MATCH_BEGIN	0x1
+// Force matching to continue until the last character (same as $)
+#define REGEX_MATCH_END		0x2
+// Non greedy matching. In case of Thompson (non-recursive) algorithm,
+// it (usually) does not have a significant speed gain
+#define REGEX_MATCH_NON_GREEDY	0x4
+// Verbose. Valid only if VERBOSE is defined in regexJIT.c
+#define REGEX_VERBOSE		0x8
+
 // If error occures the function returns NULL, and the error code returned in error variable
 // You can pass NULL to error if you don't care about the error code
-struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int *error);
+struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int flags, int *error);
 void regex_free_machine(struct regex_machine *machine);
 
 struct regex_match* regex_begin_match(struct regex_machine *machine);
@@ -54,7 +66,7 @@ int regex_get_result(struct regex_match *match, int *end, int *id);
 int regex_is_match_finished(struct regex_match *match);
 void regex_free_match(struct regex_match *match);
 
-// Only exists if REGEX_VERBOSE is defined
-void regex_continue_match_debug(struct regex_match *match, regex_char_t *input_string, int length, int verbose, int sanity);
+// Only exists if VERBOSE is defined in regexJIT.c
+void regex_continue_match_debug(struct regex_match *match, regex_char_t *input_string, int length);
 
 #endif
