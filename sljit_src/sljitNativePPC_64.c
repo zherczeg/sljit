@@ -293,7 +293,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 				return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 0));
 		}
 		else if (dst != src2)
-			SLJIT_ASSERT_IMPOSSIBLE();
+			SLJIT_ASSERT_STOP();
 		return SLJIT_NO_ERROR;
 
 	case SLJIT_MOV_UB:
@@ -308,7 +308,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		else if ((flags & REG_DEST) && op == SLJIT_MOV_SB)
 			return push_inst(compiler, INS_FORM_OP1(31, src2, dst, 954 << 1));
 		else if (dst != src2)
-			SLJIT_ASSERT_IMPOSSIBLE();
+			SLJIT_ASSERT_STOP();
 		return SLJIT_NO_ERROR;
 
 	case SLJIT_MOV_UH:
@@ -321,7 +321,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 				return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 16));
 		}
 		else if (dst != src2)
-			SLJIT_ASSERT_IMPOSSIBLE();
+			SLJIT_ASSERT_STOP();
 		return SLJIT_NO_ERROR;
 
 	case SLJIT_NOT:
@@ -333,7 +333,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		return push_inst(compiler, INS_FORM_OP1(31, dst, src2, (104 << 1) | 1 | (1 << 10)));
 	}
 
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return SLJIT_NO_ERROR;
 }
 

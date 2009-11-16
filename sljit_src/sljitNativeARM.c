@@ -422,7 +422,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				last_pc_patch = code_ptr;
 			}
 			else {
-				SLJIT_ASSERT_IMPOSSIBLE();
+				SLJIT_ASSERT_STOP();
 			}
 			word_count ++;
 		} while (buf_ptr < buf_end);
@@ -882,7 +882,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 
 		return SLJIT_NO_ERROR;
 	}
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return SLJIT_NO_ERROR;
 }
 

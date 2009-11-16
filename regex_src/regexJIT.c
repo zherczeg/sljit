@@ -1729,7 +1729,7 @@ struct regex_match* regex_begin_match(struct regex_machine *machine)
 		break;
 
 	default:
-		SLJIT_ASSERT_IMPOSSIBLE();
+		SLJIT_ASSERT_STOP();
 		break;
 	}
 
