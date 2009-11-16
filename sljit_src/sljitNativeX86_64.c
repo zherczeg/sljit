@@ -159,6 +159,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 
 	sljit_emit_return_verbose();
 
+	CHECK_EXTRA_REGS(src, srcw);
+
 	if (compiler->local_size > 0) {
 		compiler->mode32 = 0;
 		TEST_FAIL(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
@@ -168,13 +170,13 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 	size = 1 + compiler->general;
 	if (compiler->general >= 2)
 		size += compiler->general - 1;
-	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_NO_REG)
+	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_UNUSED)
 		size += 3;
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	TEST_MEM_ERROR(buf);
 
 	INC_SIZE(size);
-	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_NO_REG) {
+	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_UNUSED) {
 		*buf++ = REX_W | ((reg_map[reg] >= 8) ? REX_B : 0);
 		*buf++ = 0x8b;
 		*buf++ = 0xc0 | (reg_lmap[SLJIT_PREF_RET_REG] << 3) | reg_lmap[reg];
@@ -266,8 +268,8 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		if (emit_load_imm64(compiler, TMP_REG3, immb))
 			return NULL;
 		immb = 0;
-		if ((b & 0x0f) != SLJIT_NO_REG) {
-			if ((b & 0xf0) == SLJIT_NO_REG)
+		if ((b & 0x0f) != SLJIT_UNUSED) {
+			if ((b & 0xf0) == SLJIT_UNUSED)
 				b |= TMP_REG3 << 4;
 			else {
 				// We need to replace the upper word. Rotate if it is the stack pointer
@@ -307,13 +309,13 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		else if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
 			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM_FLAG;
 
-		if ((b & 0xf0) != SLJIT_NO_REG) {
+		if ((b & 0xf0) != SLJIT_UNUSED) {
 			total_size += 1; // SIB byte
 			if (reg_map[(b >> 4) & 0x0f] >= 8)
 				rex |= REX_X;
 		}
 
-		if ((b & 0x0f) == SLJIT_NO_REG)
+		if ((b & 0x0f) == SLJIT_UNUSED)
 			total_size += 1 + sizeof(sljit_hw); // SIB byte required to avoid RIP based addressing
 		else {
 			if (reg_map[b & 0x0f] >= 8)
@@ -420,7 +422,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 #else
 		*buf_ptr++ |= 0xc0 + reg_lmap[b];
 #endif
-	else if ((b & 0x0f) != SLJIT_NO_REG) {
+	else if ((b & 0x0f) != SLJIT_UNUSED) {
 		if (immb != 0) {
 			if (immb <= 127 && immb >= -128)
 				*buf_ptr |= 0x40;
@@ -428,7 +430,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 				*buf_ptr |= 0x80;
 		}
 
-		if ((b & 0xf0) == SLJIT_NO_REG) {
+		if ((b & 0xf0) == SLJIT_UNUSED) {
 			*buf_ptr++ |= reg_lmap[b & 0x0f];
 		} else {
 			*buf_ptr++ |= 0x04;
@@ -498,7 +500,7 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 
 	compiler->mode32 = 0;
 
-	if (dst == SLJIT_NO_REG && !(src & SLJIT_MEM_FLAG))
+	if (dst == SLJIT_UNUSED && !(src & SLJIT_MEM_FLAG))
 		return SLJIT_NO_ERROR; // Empty instruction
 
 	if (src & SLJIT_IMM) {

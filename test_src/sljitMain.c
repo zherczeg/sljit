@@ -60,9 +60,10 @@ void devel(void)
 #ifdef SLJIT_VERBOSE
 	sljit_compiler_verbose(compiler, stdout);
 #endif
-	sljit_emit_enter(compiler, 1, 3, 4 * sizeof(sljit_w));
+	sljit_emit_enter(compiler, 1, 4, 5, 2 * sizeof(sljit_w));
 
-	sljit_emit_return(compiler, SLJIT_PREF_RET_REG);
+	sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0);
+
 	code.code = sljit_generate_code(compiler);
 #ifdef SLJIT_INDIRECT_CALL
 	code.code_ptr = &code.code;

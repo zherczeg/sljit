@@ -41,24 +41,26 @@ static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_
 	return code_ptr;
 }
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
 	int size;
 	sljit_ub *buf;
 
 	FUNCTION_ENTRY();
 	// TODO: support the others
-	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= general);
+	SLJIT_ASSERT(args >= 0 && args <= 3);
+	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
+	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(args <= generals);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 
 	sljit_emit_enter_verbose();
 
-	compiler->general = general;
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
 	compiler->args = args;
 
-	size = 1 + general + ((args > 0) ? (2 + args * 3) : 0);
+	size = 1 + (generals <= 3 ? generals : 3) + ((args > 0) ? (2 + args * 3) : 0);
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	TEST_MEM_ERROR(buf);
 
@@ -68,11 +70,11 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 		*buf++ = 0x8b;
 		*buf++ = 0xc4 | (reg_map[TMP_REGISTER] << 3);
 	}
-	if (general > 2)
+	if (generals > 2)
 		PUSH_REG(reg_map[SLJIT_GENERAL_REG3]);
-	if (general > 1)
+	if (generals > 1)
 		PUSH_REG(reg_map[SLJIT_GENERAL_REG2]);
-	if (general > 0)
+	if (generals > 0)
 		PUSH_REG(reg_map[SLJIT_GENERAL_REG1]);
 
 	if (args > 0) {
@@ -92,6 +94,13 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 	}
 
 	local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
+	compiler->temporaries_start = local_size;
+	if (temporaries > 3)
+		local_size += (temporaries - 3) * sizeof(sljit_uw);
+	compiler->generals_start = local_size;
+	if (generals > 3)
+		local_size += (generals - 3) * sizeof(sljit_uw);
+
 	compiler->local_size = local_size;
 	if (local_size > 0)
 		return emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
@@ -101,53 +110,67 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 	return SLJIT_NO_ERROR;
 }
 
-void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
-	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= general);
+	SLJIT_ASSERT(args >= 0 && args <= 3);
+	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
+	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(args <= generals);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 
 	sljit_fake_enter_verbose();
 
-	compiler->general = general;
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
 	compiler->args = args;
 	compiler->local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
+	compiler->temporaries_start = compiler->local_size;
+	if (temporaries > 3)
+		compiler->local_size += (temporaries - 3) * sizeof(sljit_uw);
+	compiler->generals_start = compiler->local_size;
+	if (generals > 3)
+		compiler->local_size += (generals - 3) * sizeof(sljit_uw);
 }
 
-int sljit_emit_return(struct sljit_compiler *compiler, int reg)
+int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 {
 	int size;
 	sljit_ub *buf;
 
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(reg >= 0 && reg <= SLJIT_NO_REGISTERS);
-	SLJIT_ASSERT(compiler->general >= 0);
+#ifdef SLJIT_DEBUG
+	if (src != SLJIT_UNUSED) {
+		FUNCTION_CHECK_SRC(src, srcw);
+	}
+	else
+		SLJIT_ASSERT(srcw == 0);
+#endif
 	SLJIT_ASSERT(compiler->args >= 0);
 
 	sljit_emit_return_verbose();
+
+	CHECK_EXTRA_REGS(src, srcw);
+
+	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
+		emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw);
 
 	if (compiler->local_size > 0)
 		TEST_FAIL(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
 				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
 
-	size = 2 + compiler->general;
-	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_NO_REG)
-		size += 2;
+	size = 2 + (compiler->generals <= 3 ? compiler->generals : 3);
 	if (compiler->args > 0)
 		size += 2;
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	TEST_MEM_ERROR(buf);
 
 	INC_SIZE(size);
-	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_NO_REG)
-		MOV_RM(0x3, reg_map[SLJIT_PREF_RET_REG], reg_map[reg]);
 
-	if (compiler->general > 0)
+	if (compiler->generals > 0)
 		POP_REG(reg_map[SLJIT_GENERAL_REG1]);
-	if (compiler->general > 1)
+	if (compiler->generals > 1)
 		POP_REG(reg_map[SLJIT_GENERAL_REG2]);
-	if (compiler->general > 2)
+	if (compiler->generals > 2)
 		POP_REG(reg_map[SLJIT_GENERAL_REG3]);
 	POP_REG(reg_map[TMP_REGISTER]);
 	if (compiler->args > 0)
@@ -215,10 +238,10 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		else if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
 			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM_FLAG;
 
-		if ((b & 0xf0) != SLJIT_NO_REG)
+		if ((b & 0xf0) != SLJIT_UNUSED)
 			total_size += 1; // SIB byte
 
-		if ((b & 0x0f) == SLJIT_NO_REG)
+		if ((b & 0x0f) == SLJIT_UNUSED)
 			total_size += sizeof(sljit_w);
 		else if (immb != 0) {
 			// Immediate operand
@@ -302,7 +325,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 #else
 		*buf_ptr++ |= 0xc0 + reg_map[b];
 #endif
-	else if ((b & 0x0f) != SLJIT_NO_REG) {
+	else if ((b & 0x0f) != SLJIT_UNUSED) {
 		if (immb != 0) {
 			if (immb <= 127 && immb >= -128)
 				*buf_ptr |= 0x40;
@@ -310,7 +333,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 				*buf_ptr |= 0x80;
 		}
 
-		if ((b & 0xf0) == SLJIT_NO_REG) {
+		if ((b & 0xf0) == SLJIT_UNUSED) {
 			*buf_ptr++ |= reg_map[b & 0x0f];
 		} else {
 			*buf_ptr++ |= 0x04;
