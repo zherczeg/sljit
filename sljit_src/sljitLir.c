@@ -320,10 +320,6 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT(!(op & (SLJIT_SET_S | SLJIT_SET_O | SLJIT_SET_C))); \
 		SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_SET_U))); \
 		break; \
-	case SLJIT_MUL: \
-		SLJIT_ASSERT(!(op & (SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_C))); \
-		SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_SET_O)) != (SLJIT_SET_E | SLJIT_SET_O)); \
-		break; \
 	case SLJIT_ADD: \
 	case SLJIT_ADDC: \
 		SLJIT_ASSERT(!(op & (SLJIT_SET_S | SLJIT_SET_U))); \
@@ -360,7 +356,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT(((p) >> 9) == 0); \
 	} \
 	else \
-		SLJIT_ASSERT_IMPOSSIBLE();
+		SLJIT_ASSERT_STOP();
 
 #define FUNCTION_CHECK_DST(p, i) \
 	SLJIT_ASSERT(compiler->temporaries != -1 && compiler->generals != -1); \
@@ -378,7 +374,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT(((p) >> 9) == 0); \
 	} \
 	else \
-		SLJIT_ASSERT_IMPOSSIBLE();
+		SLJIT_ASSERT_STOP();
 
 #define FUNCTION_FCHECK(p, i) \
 	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG4) \
@@ -393,7 +389,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT(((p) >> 9) == 0); \
 	} \
 	else \
-		SLJIT_ASSERT_IMPOSSIBLE();
+		SLJIT_ASSERT_STOP();
 
 #define FUNCTION_CHECK_OP1() \
 	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SH) { \
@@ -616,14 +612,14 @@ static char* jump_names[] = {
 
 struct sljit_compiler* sljit_create_compiler(void)
 {
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return NULL;
 }
 
 void sljit_free_compiler(struct sljit_compiler *compiler)
 {
 	(void)compiler;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 }
 
 #ifdef SLJIT_VERBOSE
@@ -631,21 +627,21 @@ void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
 {
 	(void)compiler;
 	(void)verbose;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 }
 #endif
 
 void* sljit_generate_code(struct sljit_compiler *compiler)
 {
 	(void)compiler;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return NULL;
 }
 
 void sljit_free_code(void* code)
 {
 	(void)code;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 }
 
 int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
@@ -655,7 +651,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	(void)temporaries;
 	(void)generals;
 	(void)local_size;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return SLJIT_UNSUPPORTED;
 }
 
@@ -666,14 +662,15 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries
 	(void)temporaries;
 	(void)generals;
 	(void)local_size;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 }
 
-int sljit_emit_return(struct sljit_compiler *compiler, int reg)
+int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 {
 	(void)compiler;
-	(void)reg;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	(void)src;
+	(void)srcw;
+	SLJIT_ASSERT_STOP();
 	return SLJIT_UNSUPPORTED;
 }
 
@@ -687,7 +684,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	(void)dstw;
 	(void)src;
 	(void)srcw;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return SLJIT_UNSUPPORTED;
 }
 
@@ -704,13 +701,13 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	(void)src1w;
 	(void)src2;
 	(void)src2w;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return SLJIT_UNSUPPORTED;
 }
 
 int sljit_is_fpu_available(void)
 {
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return 0;
 }
 
@@ -724,7 +721,7 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	(void)dstw;
 	(void)src;
 	(void)srcw;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return SLJIT_UNSUPPORTED;
 }
 
@@ -741,14 +738,14 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	(void)src1w;
 	(void)src2;
 	(void)src2w;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return SLJIT_UNSUPPORTED;
 }
 
 struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 {
 	(void)compiler;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return NULL;
 }
 
@@ -756,7 +753,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 {
 	(void)compiler;
 	(void)type;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return NULL;
 }
 
@@ -764,14 +761,14 @@ void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
 {
 	(void)jump;
 	(void)label;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 }
 
 void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
 {
 	(void)jump;
 	(void)target;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 }
 
 int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw)
@@ -780,7 +777,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	(void)type;
 	(void)src;
 	(void)srcw;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return SLJIT_UNSUPPORTED;
 }
 
@@ -790,7 +787,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	(void)dst;
 	(void)dstw;
 	(void)type;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return SLJIT_UNSUPPORTED;
 }
 
@@ -800,7 +797,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 	(void)dst;
 	(void)dstw;
 	(void)initval;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 	return NULL;
 }
 
@@ -808,14 +805,14 @@ void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 {
 	(void)addr;
 	(void)new_addr;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 }
 
 void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 {
 	(void)addr;
 	(void)new_constant;
-	SLJIT_ASSERT_IMPOSSIBLE();
+	SLJIT_ASSERT_STOP();
 }
 
 #endif

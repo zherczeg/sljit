@@ -173,7 +173,7 @@ typedef long int sljit_w;
 			*((int*)0) = 0; \
 		} \
 	} while (0)
-#define SLJIT_ASSERT_IMPOSSIBLE() \
+#define SLJIT_ASSERT_STOP() \
 	do { \
 		printf("Should never been reached " __FILE__ ":%d\n", __LINE__); \
 		*((int*)0) = 0; \
@@ -181,7 +181,7 @@ typedef long int sljit_w;
 #else
 #define SLJIT_ASSERT(x) \
 	do { } while (0)
-#define SLJIT_ASSERT_IMPOSSIBLE() \
+#define SLJIT_ASSERT_STOP() \
 	do { } while (0)
 #endif
 
