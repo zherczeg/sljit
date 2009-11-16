@@ -156,7 +156,8 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->abuf->next = NULL;
 	compiler->abuf->used_size = 0;
 
-	compiler->general = -1;
+	compiler->temporaries = -1;
+	compiler->generals = -1;
 	compiler->local_size = 0;
 	compiler->size = 0;
 
@@ -336,15 +337,23 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		break; \
 	}
 
+#define FUNCTION_CHECK_IS_REG(r) \
+	((r) == SLJIT_UNUSED || (r) == SLJIT_LOCALS_REG || \
+	((r) >= SLJIT_TEMPORARY_REG1 && (r) <= SLJIT_TEMPORARY_REG3 && (r) <= SLJIT_TEMPORARY_REG1 - 1 + compiler->temporaries) || \
+	((r) >= SLJIT_GENERAL_REG1 && (r) <= SLJIT_GENERAL_REG3 && (r) <= SLJIT_GENERAL_REG1 - 1 + compiler->generals)) \
+
 #define FUNCTION_CHECK_SRC(p, i) \
-	if ((p) >= SLJIT_TEMPORARY_REG1 && (p) <= SLJIT_LOCALS_REG) \
+	SLJIT_ASSERT(compiler->temporaries != -1 && compiler->generals != -1); \
+	if (((p) >= SLJIT_TEMPORARY_REG1 && (p) <= SLJIT_TEMPORARY_REG1 - 1 + compiler->temporaries) || \
+			((p) >= SLJIT_GENERAL_REG1 && (p) <= SLJIT_GENERAL_REG1 - 1 + compiler->generals) || \
+			(p) == SLJIT_LOCALS_REG) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) == SLJIT_IMM) \
 		; \
 	else if ((p) & SLJIT_MEM_FLAG) { \
-		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_LOCALS_REG); \
+		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
 		if (((p) & 0xf) != 0) { \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_LOCALS_REG); \
+			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(((p) >> 4) & 0xf)); \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_LOCALS_REG || ((p) & 0xf) != SLJIT_LOCALS_REG); \
 		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
@@ -354,12 +363,15 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT_IMPOSSIBLE();
 
 #define FUNCTION_CHECK_DST(p, i) \
-	if ((p) >= SLJIT_NO_REG && (p) <= SLJIT_GENERAL_REG3) \
+	SLJIT_ASSERT(compiler->temporaries != -1 && compiler->generals != -1); \
+	if (((p) >= SLJIT_TEMPORARY_REG1 && (p) <= SLJIT_TEMPORARY_REG1 - 1 + compiler->temporaries) || \
+			((p) >= SLJIT_GENERAL_REG1 && (p) <= SLJIT_GENERAL_REG1 - 1 + compiler->generals) || \
+			(p) == SLJIT_LOCALS_REG || (p) == SLJIT_UNUSED) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM_FLAG) { \
-		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_LOCALS_REG); \
+		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
 		if (((p) & 0xf) != 0) { \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_LOCALS_REG); \
+			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(((p) >> 4) & 0xf)); \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_LOCALS_REG || ((p) & 0xf) != SLJIT_LOCALS_REG); \
 		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
@@ -409,7 +421,8 @@ void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
 
 static char* reg_names[] = {
 	(char*)"<noreg>", (char*)"tmp_r1", (char*)"tmp_r2", (char*)"tmp_r3",
-	(char*)"gen_r1", (char*)"gen_r2", (char*)"gen_r3", (char*)"stack_r"
+	(char*)"tmp_er1", (char*)"tmp_er2", (char*)"gen_r1", (char*)"gen_r2",
+	(char*)"gen_r3", (char*)"gen_er1", (char*)"gen_er2", (char*)"stack_r"
 };
 
 static char* freg_names[] = {
@@ -423,11 +436,9 @@ static char* freg_names[] = {
 #endif
 
 #define sljit_emit_enter_verbose() \
-	if (compiler->verbose) fprintf(compiler->verbose, "  enter args=%d generals=%d locals=%d\n", args, general, local_size);
+	if (compiler->verbose) fprintf(compiler->verbose, "  enter args=%d temporaries=%d generals=%d local_size=%d\n", args, temporaries, generals, local_size);
 #define sljit_fake_enter_verbose() \
-	if (compiler->verbose) fprintf(compiler->verbose, "  fake enter args=%d generals=%d locals=%d\n", args, general, local_size);
-#define sljit_emit_return_verbose() \
-	if (compiler->verbose) fprintf(compiler->verbose, "  return %s\n", reg_names[reg]);
+	if (compiler->verbose) fprintf(compiler->verbose, "  fake enter args=%d temporaries=%d generals=%d local_size=%d\n", args, temporaries, generals, local_size);
 #define sljit_verbose_param(p, i) \
 	if ((p) & SLJIT_IMM) \
 		fprintf(compiler->verbose, "#%"SLJIT_PRINT_D"d", (i)); \
@@ -470,6 +481,12 @@ static char* freg_names[] = {
 			fprintf(compiler->verbose, "[#%"SLJIT_PRINT_D"d]", (i)); \
 	} else \
 		fprintf(compiler->verbose, "%s", freg_names[p]);
+#define sljit_emit_return_verbose() \
+	if (compiler->verbose) { \
+		fprintf(compiler->verbose, "  return "); \
+		sljit_verbose_param(src, srcw); \
+		fprintf(compiler->verbose, "\n"); \
+	}
 static char* op1_names[] = {
 	(char*)"mov", (char*)"mov_ub", (char*)"mov_sb", (char*)"mov_uh",
 	(char*)"mov_sh", (char*)"mov_ui", (char*)"mov_si", (char*)"movu",
@@ -631,21 +648,23 @@ void sljit_free_code(void* code)
 	SLJIT_ASSERT_IMPOSSIBLE();
 }
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
 	(void)compiler;
 	(void)args;
-	(void)general;
+	(void)temporaries;
+	(void)generals;
 	(void)local_size;
 	SLJIT_ASSERT_IMPOSSIBLE();
 	return SLJIT_UNSUPPORTED;
 }
 
-void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
 	(void)compiler;
 	(void)args;
-	(void)general;
+	(void)temporaries;
+	(void)generals;
 	(void)local_size;
 	SLJIT_ASSERT_IMPOSSIBLE();
 }

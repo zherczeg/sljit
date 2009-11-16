@@ -68,23 +68,31 @@
 //  Registers
 // ---------------------------------------------------------------------
 
-#define SLJIT_NO_REG		0
+#define SLJIT_UNUSED		0
 
 #define SLJIT_TEMPORARY_REG1	1
 #define SLJIT_TEMPORARY_REG2	2
 #define SLJIT_TEMPORARY_REG3	3
+// Note: Extra Registers cannot be used for memory addressing
+// Note: on x86-32, these registers are emulated (using stack loads & stores)
+#define SLJIT_TEMPORARY_EREG1	4
+#define SLJIT_TEMPORARY_EREG2	5
 
-#define SLJIT_GENERAL_REG1	4
-#define SLJIT_GENERAL_REG2	5
-#define SLJIT_GENERAL_REG3	6
+#define SLJIT_GENERAL_REG1	6
+#define SLJIT_GENERAL_REG2	7
+#define SLJIT_GENERAL_REG3	8
+// Note: Extra Registers cannot be used for memory addressing
+// Note: on x86-32, these registers are emulated (using stack loads & stores)
+#define SLJIT_GENERAL_EREG1	9
+#define SLJIT_GENERAL_EREG2	10
 
 // Read-only register
 // SLJIT_MEM2(SLJIT_LOCALS_REG, SLJIT_LOCALS_REG) is not supported
-#define SLJIT_LOCALS_REG	7
+#define SLJIT_LOCALS_REG	11
 
-#define SLJIT_NO_TMP_REGISTERS	3
-#define SLJIT_NO_GEN_REGISTERS	3
-#define SLJIT_NO_REGISTERS	7
+#define SLJIT_NO_TMP_REGISTERS	5
+#define SLJIT_NO_GEN_REGISTERS	5
+#define SLJIT_NO_REGISTERS	11
 
 // Return with machine word or double machine word
 
@@ -101,7 +109,7 @@
 //  Floating point registers
 // ---------------------------------------------------------------------
 
-// SLJIT_NO_REG is not valid for floating point,
+// SLJIT_UNUSED is not valid for floating point,
 // because there is an individual fpu compare instruction,
 // and floating point operations are not used for (non-)zero testing
 
@@ -157,15 +165,19 @@ struct sljit_compiler {
 	struct sljit_memory_fragment *buf;
 	struct sljit_memory_fragment *abuf;
 
+	// Used local registers
+	int temporaries;
 	// Used general registers
-	int general;
+	int generals;
 	// Local stack size
 	int local_size;
 	// Code size
 	sljit_uw size;
 
 #ifdef SLJIT_CONFIG_X86_32
-	int args;
+	sljit_w args;
+	sljit_w temporaries_start;
+	sljit_w generals_start;
 #endif
 
 #ifdef SLJIT_CONFIG_X86_64
@@ -236,17 +248,17 @@ void sljit_free_code(void* code);
 // which can accessed through SLJIT_LOCALS_REG (use it as a base register)
 // Note: multiple calls of this function overwrites the previous call
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size);
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size);
 
 // sljit_emit_return uses variables which are initialized by sljit_emit_enter.
 // Sometimes you want to return from a jit code, which entry point is in another jit code.
 // sljit_fake_enter does not emit any instruction, just initialize those variables
 // Note: multiple calls of this function overwrites the previous call
 
-void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, int local_size);
+void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size);
 
-// Return from jit. Return with SLJIT_NO_REG or a register
-int sljit_emit_return(struct sljit_compiler *compiler, int reg);
+// Return from jit. See below the possible values for src and srcw
+int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 
 // Source and destination values for arithmetical instructions
 //  imm           - a simple immediate value (cannot be used as a destination)
@@ -274,7 +286,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg);
 //      must be divisible by 4. Write-back supported
 
 // Register output: simply the name of the register
-// For destination, you can use SLJIT_NO_REG as well
+// For destination, you can use SLJIT_UNUSED as well
 #define SLJIT_MEM_FLAG		0x100
 #define SLJIT_MEM0()		(SLJIT_MEM_FLAG)
 #define SLJIT_MEM1(r1)		(SLJIT_MEM_FLAG | (r1))
