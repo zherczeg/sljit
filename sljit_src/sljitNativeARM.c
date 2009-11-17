@@ -30,8 +30,9 @@
 #define MAX_DIFFERENCE(max_diff) \
 	(((max_diff) / (int)sizeof(sljit_uw)) - (CONST_POOL_ALIGNMENT - 1))
 
+// See sljit_emit_enter if you want to change them
 static sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
-  0, 0, 1, 2, 4, 5, 6, 13, 3, 7, 8, 15
+  0, 0, 1, 2, 10, 11, 4, 5, 6, 7, 8, 13, 3, 12, 14, 15
 };
 
 static int push_cpool(struct sljit_compiler *compiler)
@@ -529,33 +530,44 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 
 #define MOV_REG(dst, src)	0xe1a00000 | reg_map[src] | (reg_map[dst] << 12)
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= general);
+	SLJIT_ASSERT(args >= 0 && args <= 3);
+	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
+	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(args <= generals);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 
 	sljit_emit_enter_verbose();
 
-	compiler->general = general;
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
 
 	TEST_FAIL(push_inst(compiler));
 	// Push general registers, temporary registers
 	// stmdb sp!, {..., lr}
 	compiler->last_type = LIT_INS;
-	compiler->last_ins = 0xe92d0000 | 0x4000 | 0x0180;
-	if (general >= 3)
-		compiler->last_ins |= 0x0070;
-	else if (general >= 2)
-		compiler->last_ins |= 0x0030;
-	else if (general >= 1)
-		compiler->last_ins |= 0x0010;
+	compiler->last_ins = 0xe92d0000 | (1 << 14) | (1 << 11) | (1 << 10);
+	if (temporaries >= 5)
+		compiler->last_ins |= 1 << 11;
+	if (temporaries >= 4)
+		compiler->last_ins |= 1 << 10;
+	if (generals >= 5)
+		compiler->last_ins |= 1 << 8;
+	if (generals >= 4)
+		compiler->last_ins |= 1 << 7;
+	if (generals >= 3)
+		compiler->last_ins |= 1 << 6;
+	if (generals >= 2)
+		compiler->last_ins |= 1 << 5;
+	if (generals >= 1)
+		compiler->last_ins |= 1 << 4;
 
-	local_size += (3 + general) * sizeof(sljit_uw);
+	// Stack must be aligned to 8 bytes:
+	local_size += (3 + generals) * sizeof(sljit_uw);
 	local_size = (local_size + 7) & ~7;
-	local_size -= (3 + general) * sizeof(sljit_uw);
+	local_size -= (3 + generals) * sizeof(sljit_uw);
 	compiler->local_size = local_size;
 	if (local_size > 0)
 		TEST_FAIL(emit_op(compiler, SLJIT_SUB, ALLOW_IMM, SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, local_size));
@@ -579,35 +591,39 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 	return SLJIT_NO_ERROR;
 }
 
-void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
-	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= general);
+	SLJIT_ASSERT(args >= 0 && args <= 3);
+	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
+	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 
 	sljit_fake_enter_verbose();
 
-	compiler->general = general;
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
 
-	local_size += (3 + general) * sizeof(sljit_uw);
+	local_size += (3 + generals) * sizeof(sljit_uw);
 	local_size = (local_size + 7) & ~7;
-	local_size -= (3 + general) * sizeof(sljit_uw);
+	local_size -= (3 + generals) * sizeof(sljit_uw);
 	compiler->local_size = local_size;
 }
 
-int sljit_emit_return(struct sljit_compiler *compiler, int reg)
+int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 {
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(reg >= 0 && reg <= SLJIT_NO_REGISTERS);
-	SLJIT_ASSERT(compiler->general >= 0);
+#ifdef SLJIT_DEBUG
+	if (src != SLJIT_UNUSED) {
+		FUNCTION_CHECK_SRC(src, srcw);
+	}
+	else
+		SLJIT_ASSERT(srcw == 0);
+#endif
 
 	sljit_emit_return_verbose();
 
-	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_UNUSED) {
-		TEST_FAIL(push_inst(compiler));
-		compiler->last_type = LIT_INS;
-		compiler->last_ins = MOV_REG(SLJIT_PREF_RET_REG, reg);
+	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED) {
+		TEST_FAIL(emit_op(compiler, SLJIT_MOV, ALLOW_ANY_IMM, SLJIT_PREF_RET_REG, 0, TMP_REG1, 0, src, srcw));
 	}
 
 	if (compiler->local_size > 0)
@@ -617,13 +633,21 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 	// Push general registers, temporary registers
 	// ldmia sp!, {..., pc}
 	compiler->last_type = LIT_INS;
-	compiler->last_ins = 0xe8bd0000 | 0x8000 | 0x0180;
-	if (compiler->general >= 3)
-		compiler->last_ins |= 0x0070;
-	else if (compiler->general >= 2)
-		compiler->last_ins |= 0x0030;
-	else if (compiler->general >= 1)
-		compiler->last_ins |= 0x0010;
+	compiler->last_ins = 0xe8bd0000 | (1 << 15) | (1 << 11) | (1 << 10);
+	if (compiler->temporaries >= 5)
+		compiler->last_ins |= 1 << 11;
+	if (compiler->temporaries >= 4)
+		compiler->last_ins |= 1 << 10;
+	if (compiler->generals >= 5)
+		compiler->last_ins |= 1 << 8;
+	if (compiler->generals >= 4)
+		compiler->last_ins |= 1 << 7;
+	if (compiler->generals >= 3)
+		compiler->last_ins |= 1 << 6;
+	if (compiler->generals >= 2)
+		compiler->last_ins |= 1 << 5;
+	if (compiler->generals >= 1)
+		compiler->last_ins |= 1 << 4;
 
 	return SLJIT_NO_ERROR;
 }
@@ -2087,7 +2111,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_NO_ERROR;
 
-	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3)
+	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
 		reg = dst;
 	else
 		reg = TMP_REG2;
@@ -2127,7 +2151,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 		compiler->consts = const_;
 	compiler->last_const = const_;
 
-	reg = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3) ? dst : TMP_REG2;
+	reg = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
 
 	compiler->last_type = LIT_UCINS;
 	compiler->last_ins = EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0, reg, TMP_PC, 0);

@@ -362,7 +362,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	SLJIT_ASSERT(compiler->temporaries != -1 && compiler->generals != -1); \
 	if (((p) >= SLJIT_TEMPORARY_REG1 && (p) <= SLJIT_TEMPORARY_REG1 - 1 + compiler->temporaries) || \
 			((p) >= SLJIT_GENERAL_REG1 && (p) <= SLJIT_GENERAL_REG1 - 1 + compiler->generals) || \
-			(p) == SLJIT_LOCALS_REG || (p) == SLJIT_UNUSED) \
+			(p) == SLJIT_UNUSED) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM_FLAG) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \

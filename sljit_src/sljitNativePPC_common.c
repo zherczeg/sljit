@@ -52,7 +52,7 @@ typedef unsigned int sljit_i;
 // SLJIT_LOCALS_REG is not the real stack register, since it must
 // point to the head of the stack chain
 static sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
-  0, 3, 4, 5, 29, 28, 27, 31, 6, 7, 8, 30, 1
+  0, 3, 4, 5, 6, 7, 29, 28, 27, 26, 25, 31, 8, 9, 10, 30, 1
 };
 
 static int push_inst(struct sljit_compiler *compiler, sljit_i ins)
@@ -241,39 +241,54 @@ void sljit_free_code(void* code)
 }
 
 static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm);
+static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w);
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= general);
+	// TODO: support the others
+	SLJIT_ASSERT(args >= 0 && args <= 3);
+	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
+	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(args <= generals);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 
 	sljit_emit_enter_verbose();
 
-	compiler->general = general;
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
 
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP0(31, 0, 0x802a6)));
 #ifdef SLJIT_CONFIG_PPC_32
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(36, SLJIT_LOCALS_REG, REAL_STACK_PTR, (-(int)(sizeof(sljit_w))) & 0xffff )));
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(36, ZERO_REG, REAL_STACK_PTR, (-2 * (int)(sizeof(sljit_w))) & 0xffff )));
-	if (general >= 1)
+	if (generals >= 1)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(36, SLJIT_GENERAL_REG1, REAL_STACK_PTR, (-3 * (int)(sizeof(sljit_w))) & 0xffff )));
-	if (general >= 2)
+	if (generals >= 2)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(36, SLJIT_GENERAL_REG2, REAL_STACK_PTR, (-4 * (int)(sizeof(sljit_w))) & 0xffff )));
-	if (general >= 3)
+	if (generals >= 3)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(36, SLJIT_GENERAL_REG3, REAL_STACK_PTR, (-5 * (int)(sizeof(sljit_w))) & 0xffff )));
+	if (generals >= 4)
+		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(36, SLJIT_GENERAL_EREG1, REAL_STACK_PTR, (-6 * (int)(sizeof(sljit_w))) & 0xffff )));
+	if (generals >= 5)
+		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(36, SLJIT_GENERAL_EREG2, REAL_STACK_PTR, (-7 * (int)(sizeof(sljit_w))) & 0xffff )));
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(36, 0, REAL_STACK_PTR, sizeof(sljit_w))));
 #else
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(62, SLJIT_LOCALS_REG, REAL_STACK_PTR, (-(int)(sizeof(sljit_w))) & 0xffff )));
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(62, ZERO_REG, REAL_STACK_PTR, (-2 * (int)(sizeof(sljit_w))) & 0xffff )));
-	if (general >= 1)
+	if (generals >= 1)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(62, SLJIT_GENERAL_REG1, REAL_STACK_PTR, (-3 * (int)(sizeof(sljit_w))) & 0xffff )));
-	if (general >= 2)
+	if (generals >= 2)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(62, SLJIT_GENERAL_REG2, REAL_STACK_PTR, (-4 * (int)(sizeof(sljit_w))) & 0xffff )));
-	if (general >= 3)
+	if (generals >= 3)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(62, SLJIT_GENERAL_REG3, REAL_STACK_PTR, (-5 * (int)(sizeof(sljit_w))) & 0xffff )));
+	if (generals >= 4)
+		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(62, SLJIT_GENERAL_EREG1, REAL_STACK_PTR, (-6 * (int)(sizeof(sljit_w))) & 0xffff )));
+	if (generals >= 5)
+		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(62, SLJIT_GENERAL_EREG2, REAL_STACK_PTR, (-7 * (int)(sizeof(sljit_w))) & 0xffff )));
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(62, 0, REAL_STACK_PTR, 2 * sizeof(sljit_w))));
 #endif
 
@@ -286,9 +301,9 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP2(31, SLJIT_TEMPORARY_REG3, SLJIT_GENERAL_REG3, SLJIT_TEMPORARY_REG3, 444 << 1)));
 
 #ifdef SLJIT_CONFIG_PPC_32
-	compiler->local_size = (2 + general + 1) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (2 + generals + 1) * sizeof(sljit_w) + local_size;
 #else
-	compiler->local_size = (2 + general + 7) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (2 + generals + 7) * sizeof(sljit_w) + local_size;
 #endif
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 
@@ -315,35 +330,43 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int general, int
 	return SLJIT_NO_ERROR;
 }
 
-void sljit_fake_enter(struct sljit_compiler *compiler, int args, int general, int local_size)
+void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
-	SLJIT_ASSERT(args >= 0 && args <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(general >= 0 && general <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= general);
+	SLJIT_ASSERT(args >= 0 && args <= 3);
+	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
+	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(args <= generals);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 
 	sljit_fake_enter_verbose();
 
-	compiler->general = general;
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
 
 #ifdef SLJIT_CONFIG_PPC_32
-	compiler->local_size = (2 + general + 1) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (2 + generals + 1) * sizeof(sljit_w) + local_size;
 #else
-	compiler->local_size = (2 + general + 7) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (2 + generals + 7) * sizeof(sljit_w) + local_size;
 #endif
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 }
 
-int sljit_emit_return(struct sljit_compiler *compiler, int reg)
+int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 {
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(reg >= 0 && reg <= SLJIT_NO_REGISTERS);
-	SLJIT_ASSERT(compiler->general >= 0);
+#ifdef SLJIT_DEBUG
+	if (src != SLJIT_UNUSED) {
+		FUNCTION_CHECK_SRC(src, srcw);
+	}
+	else
+		SLJIT_ASSERT(srcw == 0);
+#endif
 
 	sljit_emit_return_verbose();
 
-	if (reg != SLJIT_PREF_RET_REG && reg != SLJIT_UNUSED)
-		TEST_FAIL(push_inst(compiler, INS_FORM_OP2(31, reg, SLJIT_PREF_RET_REG, reg, 444 << 1)));
+	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED) {
+		TEST_FAIL(emit_op(compiler, SLJIT_MOV, 0 /* WORD_DATA */, SLJIT_PREF_RET_REG, 0, TMP_REG1, 0, src, srcw));
+	}
 
 	if (compiler->local_size <= SIMM_MAX) {
 		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(14, REAL_STACK_PTR, REAL_STACK_PTR, compiler->local_size & 0xffff)));
@@ -355,21 +378,29 @@ int sljit_emit_return(struct sljit_compiler *compiler, int reg)
 
 #ifdef SLJIT_CONFIG_PPC_32
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(32, 0, REAL_STACK_PTR, sizeof(sljit_w))));
-	if (compiler->general >= 3)
+	if (compiler->generals >= 5)
+		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(32, SLJIT_GENERAL_EREG2, REAL_STACK_PTR, (-7 * (int)(sizeof(sljit_w))) & 0xffff )));
+	if (compiler->generals >= 4)
+		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(32, SLJIT_GENERAL_EREG1, REAL_STACK_PTR, (-6 * (int)(sizeof(sljit_w))) & 0xffff )));
+	if (compiler->generals >= 3)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(32, SLJIT_GENERAL_REG3, REAL_STACK_PTR, (-5 * (int)(sizeof(sljit_w))) & 0xffff )));
-	if (compiler->general >= 2)
+	if (compiler->generals >= 2)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(32, SLJIT_GENERAL_REG2, REAL_STACK_PTR, (-4 * (int)(sizeof(sljit_w))) & 0xffff )));
-	if (compiler->general >= 1)
+	if (compiler->generals >= 1)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(32, SLJIT_GENERAL_REG1, REAL_STACK_PTR, (-3 * (int)(sizeof(sljit_w))) & 0xffff )));
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(32, ZERO_REG, REAL_STACK_PTR, (-2 * (int)(sizeof(sljit_w))) & 0xffff )));
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(32, SLJIT_LOCALS_REG, REAL_STACK_PTR, (-(int)(sizeof(sljit_w))) & 0xffff )));
 #else
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(58, 0, REAL_STACK_PTR, 2 * sizeof(sljit_w))));
-	if (compiler->general >= 3)
+	if (compiler->generals >= 5)
+		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(58, SLJIT_GENERAL_EREG2, REAL_STACK_PTR, (-7 * (int)(sizeof(sljit_w))) & 0xffff )));
+	if (compiler->generals >= 4)
+		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(58, SLJIT_GENERAL_EREG1, REAL_STACK_PTR, (-6 * (int)(sizeof(sljit_w))) & 0xffff )));
+	if (compiler->generals >= 3)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(58, SLJIT_GENERAL_REG3, REAL_STACK_PTR, (-5 * (int)(sizeof(sljit_w))) & 0xffff )));
-	if (compiler->general >= 2)
+	if (compiler->generals >= 2)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(58, SLJIT_GENERAL_REG2, REAL_STACK_PTR, (-4 * (int)(sizeof(sljit_w))) & 0xffff )));
-	if (compiler->general >= 1)
+	if (compiler->generals >= 1)
 		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(58, SLJIT_GENERAL_REG1, REAL_STACK_PTR, (-3 * (int)(sizeof(sljit_w))) & 0xffff )));
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(58, ZERO_REG, REAL_STACK_PTR, (-2 * (int)(sizeof(sljit_w))) & 0xffff )));
 	TEST_FAIL(push_inst(compiler, INS_FORM_OP1(58, SLJIT_LOCALS_REG, REAL_STACK_PTR, (-(int)(sizeof(sljit_w))) & 0xffff )));
@@ -1557,7 +1588,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	bo_bi_flags = get_bo_bi_flags(compiler, type);
 	TEST_FAIL(!bo_bi_flags);
 
-	if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_GENERAL_REG3)
+	if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS)
 		src_r = src;
 	else if (src & SLJIT_IMM) {
 		TEST_FAIL(load_immediate(compiler, TMP_REG2, srcw));
@@ -1594,7 +1625,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_NO_ERROR;
 
-	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3)
+	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
 		reg = dst;
 	else
 		reg = TMP_REG2;
@@ -1683,7 +1714,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 		compiler->consts = const_;
 	compiler->last_const = const_;
 
-	reg = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3) ? dst : TMP_REG2;
+	reg = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
 
 	if (emit_const(compiler, reg, initval))
 		return NULL;
