@@ -14,44 +14,34 @@
 
 // x86 64-bit arch dependent functions
 
-static sljit_ub* generate_far_jump_code(struct sljit_compiler *compiler, struct sljit_jump *jump, sljit_ub *code_ptr, int type)
+static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_ptr, int type)
 {
 	SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
 
-	if (type == SLJIT_JUMP) {
-		*code_ptr++ = 0xff;
-		*code_ptr++ = 0x25;
-		*(sljit_hw*)code_ptr = (sljit_uw)compiler->addr_ptr - ((sljit_uw)code_ptr + sizeof(sljit_hw));
-		code_ptr += sizeof(sljit_hw);
-	}
-	else if (type >= SLJIT_CALL0) {
-		*code_ptr++ = 0xff;
-		*code_ptr++ = 0x15;
-		*(sljit_hw*)code_ptr = (sljit_uw)compiler->addr_ptr - ((sljit_uw)code_ptr + sizeof(sljit_hw));
-		code_ptr += sizeof(sljit_hw);
-	}
-	else {
-		// Inverted conditional
+	if (type < SLJIT_JUMP) {
 		*code_ptr++ = get_jump_code(type ^ 0x1) - 0x10;
-		*code_ptr++ = 6;
-		// And a jump
-		*code_ptr++ = 0xff;
-		*code_ptr++ = 0x25;
-		*(sljit_hw*)code_ptr = (sljit_uw)compiler->addr_ptr - ((sljit_uw)code_ptr + sizeof(sljit_hw));
-		code_ptr += sizeof(sljit_hw);
+		*code_ptr++ = 10 + 3;
 	}
 
-	jump->addr = (sljit_uw)compiler->addr_ptr;
+	SLJIT_ASSERT(reg_map[TMP_REG3] == 9);
+	*code_ptr++ = REX_W | REX_B;
+	*code_ptr++ = 0xb8 + 1;
+	jump->addr = (sljit_uw)code_ptr;
+
 	if (jump->flags & JUMP_LABEL)
 		jump->flags |= PATCH_MD;
 	else
-		*compiler->addr_ptr = jump->target;
-	compiler->addr_ptr++;
+		*(sljit_w*)code_ptr = jump->target;
+
+	code_ptr += sizeof(sljit_w);
+	*code_ptr++ = REX_B;
+	*code_ptr++ = 0xff;
+	*code_ptr++ = (type >= SLJIT_CALL0) ? 0xd1 /* call */ : 0xe1 /* jmp */;
 
 	return code_ptr;
 }
 
-static sljit_ub* generate_fixed_jump(struct sljit_compiler *compiler, sljit_ub *code_ptr, sljit_w addr, int type)
+static sljit_ub* generate_fixed_jump(sljit_ub *code_ptr, sljit_w addr, int type)
 {
 	sljit_w delta = addr - ((sljit_w)code_ptr + 1 + sizeof(sljit_hw));
 
@@ -60,11 +50,14 @@ static sljit_ub* generate_fixed_jump(struct sljit_compiler *compiler, sljit_ub *
 		*(sljit_w*)code_ptr = delta;
 	}
 	else {
+		SLJIT_ASSERT(reg_map[TMP_REG3] == 9);
+		*code_ptr++ = REX_W | REX_B;
+		*code_ptr++ = 0xb8 + 1;
+		*(sljit_w*)code_ptr = addr;
+		code_ptr += sizeof(sljit_w);
+		*code_ptr++ = REX_B;
 		*code_ptr++ = 0xff;
-		*code_ptr++ = (type == 2) ? 0x15 /* call */ : 0x25 /* jmp */;
-		*(sljit_hw*)code_ptr = (sljit_uw)compiler->addr_ptr - ((sljit_uw)code_ptr + sizeof(sljit_hw));
-		code_ptr += sizeof(sljit_hw);
-		*compiler->addr_ptr++ = addr;
+		*code_ptr++ = (type == 2) ? 0xd1 /* call */ : 0xe1 /* jmp */;
 	}
 
 	return code_ptr;
