@@ -181,11 +181,7 @@ struct sljit_compiler {
 #endif
 
 #ifdef SLJIT_CONFIG_X86_64
-	sljit_uw addrs;
-	union {
-		sljit_uw *addr_ptr;
-		int mode32;
-	};
+	int mode32;
 #endif
 
 #ifdef SLJIT_CONFIG_ARM
