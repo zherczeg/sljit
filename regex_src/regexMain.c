@@ -122,23 +122,17 @@ void run_tests(struct test_case* test)
 		regex_continue_match_debug(match, test->string, ptr - test->string);
 		begin = regex_get_result(match, &end, &id);
 		finished = regex_is_match_finished(match);
-		regex_free_match(match);
 
 		if (begin != test->begin || end != test->end || id != test->id) {
 			printf("FAIL A: begin: %d != %d || end: %d != %d || id: %d != %d\n", test->begin, begin, test->end, end, test->id, id);
 			continue;
 		}
 		if (test->finished != -1 && test->finished != !!finished) {
-			printf("FAIL B: finish check\n");
+			printf("FAIL A: finish check\n");
 			continue;
 		}
 
-		match = regex_begin_match(machine);
-		if (!match) {
-			printf("ABORT: Not enough memory for matching\n");
-			regex_free_machine(machine);
-			return;
-		}
+		regex_reset_match(match);
 		regex_continue_match(match, test->string, ptr - test->string);
 		begin = regex_get_result(match, &end, &id);
 		finished = regex_is_match_finished(match);
@@ -215,6 +209,24 @@ static struct test_case tests[] = {
   S("baaa|baa|sbaaaa"), S("sbaaaaa") },
 { 1, 4, 0, 1, REGEX_MATCH_NON_GREEDY,
   S("baaa|baa"), S("xbaaa") },
+{ 4, 12, 0, 1, 0,
+  S("(.[]-]){3}[^]-]{2}"), S("ax-xs-[][]lmn") },
+{ 3, 7, 1, 1, 0,
+  S("([ABC]|[abc]{1!}){3,5}"), S("AbSAabbx") },
+{ 0, 8, 3, 0, 0,
+  S("^[x\\-y[\\]]+([[\\]]{3!})*$"), S("x-y[-][]") },
+{ 0, 9, 0, 0, 0,
+  NULL, S("x-y[-][]x") },
+{ 2, 8, 0, 1, 0,
+  S("<(/{1!})?[^>]+>"), S("  <html></html> ") },
+{ 2, 9, 1, 1, 0,
+  NULL, S("  </html><html> ") },
+{ 2, 9, 0, 1, 0,
+  S("[A-Z0-9a-z]+"), S("[(Iden9aA)]") },
+{ 1, 4, 0, 1, 0,
+  S("[^x-y]+[a-c_]{2,3}"), S("x_a_y") },
+{ 4, 11, 0, 0, 0,
+  NULL, S("ssaymmaa_ccl") },
 { -1, 0, 0, 0, 0,
   NULL, NULL }
 };
@@ -227,12 +239,6 @@ int main(int argc, char* argv[])
 //	verbose_test("(s(ab){2,4}t){2,}*S(a*(b)(c()|)d+){3,4}{0,0}*M");
 //	verbose_test("^a({2!})*b+(a|{1!}b)+d$");
 //	verbose_test("((a|b|c)*(xy)+)+", "asbcxyxy");
-
-/*	verbose_test("^a(b)+|ab", "abbbcabb");
-	verbose_test("^a(b{1!})+|ab{2!}", "abbbcabb");
-	verbose_test("^a(b{1!})+|ab{2!}", "xaa");
-	verbose_test("ab+|ab", "sabbbc");
-	verbose_test("a(b{1!})+|ab{2!}", "sabbbc");*/
 
 	run_tests(tests);
 	return 0;
