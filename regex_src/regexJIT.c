@@ -124,7 +124,7 @@ struct regex_match
 // ---------------------------------------------------------------------
 
 // Try to allocate 2^n blocks
-#define STACK_FRAGMENT_SIZE (((8 * sizeof(struct stack_item)) - (sizeof(struct stack_fragment_data))) / (sizeof(struct stack_item)))
+#define STACK_FRAGMENT_SIZE (((64 * sizeof(struct stack_item)) - (sizeof(struct stack_fragment_data))) / (sizeof(struct stack_item)))
 
 struct stack_item {
 	int type;
@@ -976,7 +976,7 @@ static struct stack_item* generate_transitions(struct stack *stack, struct stack
 
 #ifdef VERBOSE
 
-static void verbose_transitions(struct stack_item *transitions_ptr, struct stack_item *states_ptr, sljit_w encoded_size, int flags)
+static void verbose_transitions(struct stack_item *transitions_ptr, struct stack_item *states_ptr, sljit_w encoded_size, sljit_w max_range, int flags)
 {
 	printf("-----------------\nTransitions\n-----------------\n");
 	int pos = 0;
@@ -1042,13 +1042,15 @@ static void verbose_transitions(struct stack_item *transitions_ptr, struct stack
 	}
 	printf("flags: ");
 	if (!(flags & (REGEX_MATCH_BEGIN | REGEX_MATCH_END | REGEX_ID_CHECK)))
-		printf("none");
+		printf("none ");
 	if (flags & REGEX_MATCH_BEGIN)
 		printf("REGEX_MATCH_BEGIN ");
 	if (flags & REGEX_MATCH_END)
 		printf("REGEX_MATCH_END ");
 	if (flags & REGEX_ID_CHECK)
 		printf("REGEX_ID_CHECK ");
+	if (max_range > 0)
+		printf("(longest range: %ld) ", (long)max_range);
 	printf("\n");
 }
 
@@ -1058,10 +1060,11 @@ static void verbose_transitions(struct stack_item *transitions_ptr, struct stack
 //  Utilities
 // ---------------------------------------------------------------------
 
-static struct stack_item* generate_states(struct stack_item *transitions_ptr, sljit_w encoded_size, sljit_w *states_size_ptr, int *flags)
+static struct stack_item* generate_states(struct stack_item *transitions_ptr, sljit_w encoded_size, sljit_w *states_size_ptr, sljit_w *max_range, int *flags)
 {
 	struct stack_item *states;
 	struct stack_item *states_ptr;
+	struct stack_item *rng_start = NULL;
 	sljit_w states_size = 1;
 
 	states = SLJIT_MALLOC(sizeof(struct stack_item) * encoded_size);
@@ -1071,25 +1074,32 @@ static struct stack_item* generate_states(struct stack_item *transitions_ptr, sl
 	states_ptr = states;
 	while (encoded_size > 0) {
 		switch (transitions_ptr->type) {
-		case type_any:
-		case type_char:
-		case type_rng_end:
-			states_ptr->type = states_size++;
-			break;
-
-		case type_rng_start:
-			states_ptr->type = states_size;
-			break;
-
 		case type_begin:
 		case type_end:
 			states_ptr->type = 0;
+			break;
+
+		case type_any:
+		case type_char:
+			states_ptr->type = states_size++;
 			break;
 
 		case type_id:
 			if (transitions_ptr->value > 0)
 				*flags |= REGEX_ID_CHECK;
 			states_ptr->type = -1;
+			break;
+
+		case type_rng_start:
+			states_ptr->type = states_size;
+			rng_start = states_ptr;
+			break;
+
+		case type_rng_end:
+			states_ptr->type = states_size++;
+			// Ok, this is an over estimation
+			if (*max_range < states_ptr - rng_start)
+				*max_range = states_ptr - rng_start;
 			break;
 
 		default:
@@ -1170,6 +1180,8 @@ static int trace_transitions(int from, struct stack_item *transitions, struct st
 #define EMIT_JUMP(jump, type) \
 	jump = sljit_emit_jump(compiler, type); \
 	CHECK(!jump)
+
+// CHECK depends on the use case
 
 #if defined(__GNUC__) && (__GNUC__ >= 3)
 #define CHECK(exp) \
@@ -1479,6 +1491,79 @@ static int regex_gen_end_check(struct sljit_compiler *compiler, struct regex_mac
 	return 0;
 }
 
+static INLINE void range_set_label(struct sljit_jump **range_jump_list, struct sljit_label *label)
+{
+	while (*range_jump_list) {
+		sljit_set_label(*range_jump_list, label);
+		range_jump_list++;
+	}
+}
+
+#undef CHECK
+
+#if defined(__GNUC__) && (__GNUC__ >= 3)
+#define CHECK(exp) \
+	if (__builtin_expect((exp), 0)) \
+		return 0
+#else
+#define CHECK(exp) \
+	if (exp) \
+		return 0
+#endif
+
+static sljit_w regex_gen_range(struct sljit_compiler *compiler, sljit_w index, struct stack_item *transitions, struct sljit_jump **range_jump_list, sljit_w curr_offset)
+{
+	struct sljit_jump **range_jump_list_begin = (!transitions[index].value) ? range_jump_list : NULL;
+	struct sljit_label *label;
+	int init_range = 1, prev_value = 0;
+
+	index++;
+
+	while (transitions[index].type != type_rng_end) {
+		if (transitions[index].type == type_rng_char) {
+			EMIT_OP2(SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, R_CURR_CHAR, 0, SLJIT_IMM, transitions[index].value);
+			EMIT_JUMP(*range_jump_list, SLJIT_C_EQUAL);
+			range_jump_list++;
+		}
+		else {
+			SLJIT_ASSERT(transitions[index].type == type_rng_left);
+			if (init_range) {
+				EMIT_OP1(SLJIT_MOV, R_TEMP, 0, R_CURR_CHAR, 0);
+				init_range = 0;
+			}
+			if (transitions[index].value != prev_value) {
+				// Best compatibility to all archs
+				prev_value -= transitions[index].value;
+				if (prev_value < 0) {
+					EMIT_OP2(SLJIT_SUB, R_TEMP, 0, R_TEMP, 0, SLJIT_IMM, -prev_value);
+				}
+				else {
+					EMIT_OP2(SLJIT_ADD, R_TEMP, 0, R_TEMP, 0, SLJIT_IMM, prev_value);
+				}
+				prev_value = transitions[index].value;
+			}
+			EMIT_OP2(SLJIT_SUB | SLJIT_SET_U, SLJIT_UNUSED, 0, R_TEMP, 0, SLJIT_IMM, transitions[index + 1].value - transitions[index].value);
+			EMIT_JUMP(*range_jump_list, SLJIT_C_NOT_GREATER);
+			range_jump_list++;
+			index++;
+		}
+		index++;
+	}
+
+	*range_jump_list = NULL;
+
+	if (range_jump_list_begin) {
+		EMIT_OP1(SLJIT_MOV, R_TEMP, 0, SLJIT_MEM1(R_CURR_STATE), curr_offset);
+		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_CURR_STATE), curr_offset, SLJIT_IMM, -1);
+		CHECK(sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_MEM2(R_CURR_STATE, R_TEMP), 0));
+
+		EMIT_LABEL(label);
+		range_set_label(range_jump_list_begin, label);
+		*range_jump_list_begin = NULL;
+	}
+	return index;
+}
+
 #undef CHECK
 
 // ---------------------------------------------------------------------
@@ -1498,8 +1583,8 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 {
 	struct stack stack;
 	struct stack depth;
-	sljit_w encoded_size, states_size;
-	int index, done;
+	sljit_w encoded_size, states_size, max_range, index;
+	int done;
 	struct stack_item *transitions;
 	struct stack_item *states;
 
@@ -1513,6 +1598,7 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 	struct sljit_jump *end_check_jump = NULL;
 	struct sljit_jump *best_match_check_jump = NULL;
 	struct sljit_jump *non_greedy_end_jump = NULL;
+	struct sljit_jump **range_jump_list = NULL;
 	struct sljit_label *label;
 	struct sljit_label *end_check_label = NULL;
 	struct sljit_label *start_label;
@@ -1546,7 +1632,8 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 
 	// Step 3: Left->Right
 	// Calculate the number of states
-	states = generate_states(transitions, encoded_size, &states_size, &flags);
+	max_range = 0;
+	states = generate_states(transitions, encoded_size, &states_size, &max_range, &flags);
 	if (!states) {
 		SLJIT_FREE(transitions);
 		if (error)
@@ -1556,7 +1643,7 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 
 #ifdef VERBOSE
 	if (flags & REGEX_MATCH_VERBOSE)
-		verbose_transitions(transitions, states, encoded_size, flags);
+		verbose_transitions(transitions, states, encoded_size, max_range, flags);
 #endif
 
 	// Step 4: Left->Right generate code
@@ -1574,6 +1661,11 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 
 		compiler = sljit_create_compiler();
 		CHECK(!compiler);
+
+		if (max_range > 0) {
+			range_jump_list = (struct sljit_jump**)SLJIT_MALLOC(sizeof(struct sljit_jump*) * max_range);
+			CHECK(!range_jump_list);
+		}
 
 		if ((flags & REGEX_ID_CHECK) && !(flags & REGEX_MATCH_BEGIN))
 			machine->no_states = 4;
@@ -1739,25 +1831,35 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 				EMIT_LABEL(label);
 				*entry_addrs++ = (sljit_uw)label;
 
-				CHECK(trace_transitions(index, transitions, states, &stack, &depth));
-#ifdef VERBOSE
-				if (flags & REGEX_MATCH_VERBOSE)
-					printf("(%3d): ", states[index].type);
-#endif
-
 				if (transitions[index].type == type_char) {
 					EMIT_OP2(SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, R_CURR_CHAR, 0, SLJIT_IMM, transitions[index].value);
 					EMIT_JUMP(jump, SLJIT_C_NOT_EQUAL);
+				}
+				else if (transitions[index].type == type_rng_start) {
+					index = regex_gen_range(compiler, index, transitions, range_jump_list, STATE_OFFSET_OF(states[index].type, 1));
+					CHECK(!index);
 				}
 				else {
 					SLJIT_ASSERT(transitions[index].type == type_any);
 				}
 
+				CHECK(trace_transitions(index, transitions, states, &stack, &depth));
+#ifdef VERBOSE
+				if (flags & REGEX_MATCH_VERBOSE)
+					printf("(%3d): ", states[index].type);
+#endif
 				CHECK(regex_gen_cond_tran(compiler, machine, &stack, states, states[index].type));
 
 				if (transitions[index].type == type_char) {
 					EMIT_LABEL(label);
 					sljit_set_label(jump, label);
+				}
+				else if (transitions[index].type == type_rng_end) {
+					EMIT_LABEL(label);
+					range_set_label(range_jump_list, label);
+				}
+				else {
+					SLJIT_ASSERT(transitions[index].type == type_any);
 				}
 
 				// Branch to the next item in the list
@@ -1808,6 +1910,8 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 	stack_destroy(&depth);
 	SLJIT_FREE(transitions);
 	SLJIT_FREE(states);
+	if (range_jump_list)
+		SLJIT_FREE(range_jump_list);
 	if (compiler)
 		sljit_free_compiler(compiler);
 	if (done)
@@ -1835,14 +1939,29 @@ void regex_free_machine(struct regex_machine *machine)
 
 struct regex_match* regex_begin_match(struct regex_machine *machine)
 {
+	struct regex_match *match = (struct regex_match*)SLJIT_MALLOC(sizeof(struct regex_match) + (machine->size * 2 - 1) * sizeof(sljit_w));
+	if (!match)
+		return NULL;
+
+	match->machine = machine;
+
+#ifdef SLJIT_INDIRECT_CALL
+	match->continue_match_ptr = &machine->continue_match;
+#else
+	match->continue_match = machine->continue_match;
+#endif
+
+	regex_reset_match(match);
+	return match;
+}
+
+void regex_reset_match(struct regex_match *match)
+{
+	struct regex_machine *machine = match->machine;
 	sljit_w *ptr1;
 	sljit_w *ptr2;
 	sljit_w *end;
 	sljit_w *entry_addrs;
-
-	struct regex_match *match = (struct regex_match*)SLJIT_MALLOC(sizeof(struct regex_match) + (machine->size * 2 - 1) * sizeof(sljit_w));
-	if (!match)
-		return NULL;
 
 	ptr1 = match->states;
 	ptr2 = match->states + machine->size;
@@ -1852,7 +1971,6 @@ struct regex_match* regex_begin_match(struct regex_machine *machine)
 	match->current = ptr1;
 	match->next = ptr2;
 	match->index = 1;
-	match->machine = machine;
 	match->best_begin = -1;
 	match->best_id = 0;
 	match->best_end = 0;
@@ -1897,17 +2015,14 @@ struct regex_match* regex_begin_match(struct regex_machine *machine)
 		break;
 	}
 
-	match->head = machine->call_init(match->current);
-
 	SLJIT_ASSERT(ptr1 == end);
 
-#ifdef SLJIT_INDIRECT_CALL
-	match->continue_match_ptr = &machine->continue_match;
-#else
-	match->continue_match = machine->continue_match;
-#endif
+	match->head = machine->call_init(match->current);
+}
 
-	return match;
+void regex_free_match(struct regex_match *match)
+{
+	SLJIT_FREE(match);
 }
 
 void regex_continue_match(struct regex_match *match, regex_char_t *input_string, int length)
@@ -1961,11 +2076,6 @@ int regex_is_match_finished(struct regex_match *match)
 	return match->head == -1;
 }
 
-void regex_free_match(struct regex_match *match)
-{
-	SLJIT_FREE(match);
-}
-
 #ifdef VERBOSE
 void regex_continue_match_debug(struct regex_match *match, regex_char_t *input_string, int length)
 {
@@ -1991,9 +2101,9 @@ void regex_continue_match_debug(struct regex_match *match, regex_char_t *input_s
 			ptr = match->current;
 			end = ptr + len;
 			count = 0;
-			printf("'%c' (%3d->%3d [%3d]) ", *input_string, match->best_begin, match->best_end, match->best_id);
+			printf("'%c' (%3ld->%3ld [%3ld]) ", *input_string, (long)match->best_begin, (long)match->best_end, (long)match->best_id);
 			while (ptr < end) {
-				printf("[%3d:", count++);
+				printf("[%3ld:", (long)count++);
 				switch (no_states) {
 				case 2:
 					if (ptr[1] != -1)
@@ -2004,14 +2114,14 @@ void regex_continue_match_debug(struct regex_match *match, regex_char_t *input_s
 
 				case 3:
 					if (ptr[1] != -1)
-						printf("+,%3d] ", ptr[2]);
+						printf("+,%3ld] ", (long)ptr[2]);
 					else
 						printf(" ,XXX] ");
 					break;
 
 				case 4:
 					if (ptr[1] != -1)
-						printf("+,%3d,%3d] ", ptr[2], ptr[3]);
+						printf("+,%3ld,%3ld] ", (long)ptr[2], (long)ptr[3]);
 					else
 						printf(" ,XXX,XXX] ");
 					break;
