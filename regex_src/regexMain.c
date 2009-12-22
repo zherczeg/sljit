@@ -22,6 +22,7 @@
 #define S(str)	L##str
 #endif
 
+#ifdef REGEX_MATCH_VERBOSE
 void verbose_test(regex_char_t *pattern, regex_char_t *string)
 {
 	int error;
@@ -65,6 +66,7 @@ void verbose_test(regex_char_t *pattern, regex_char_t *string)
 	regex_free_match(match);
 	regex_free_machine(machine);
 }
+#endif
 
 struct test_case {
 	int begin;	// awaited begin
@@ -114,6 +116,7 @@ void run_tests(struct test_case* test)
 			ptr++;
 
 		match = regex_begin_match(machine);
+#ifdef REGEX_MATCH_VERBOSE
 		if (!match) {
 			printf("ABORT: Not enough memory for matching\n");
 			regex_free_machine(machine);
@@ -131,6 +134,7 @@ void run_tests(struct test_case* test)
 			printf("FAIL A: finish check\n");
 			continue;
 		}
+#endif
 
 		regex_reset_match(match);
 		regex_continue_match(match, test->string, ptr - test->string);

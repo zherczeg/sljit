@@ -51,7 +51,7 @@ struct regex_match;
 // Non greedy matching. In case of Thompson (non-recursive) algorithm,
 // it (usually) does not have a significant speed gain
 #define REGEX_MATCH_NON_GREEDY	0x4
-// Verbose. Valid only if VERBOSE is defined in regexJIT.c
+// Verbose. This define can be commented out, which disables all verbose features
 #define REGEX_MATCH_VERBOSE	0x8
 
 // If error occures the function returns NULL, and the error code returned in error variable
