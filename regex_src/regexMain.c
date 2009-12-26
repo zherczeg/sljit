@@ -36,7 +36,7 @@ void verbose_test(regex_char_t *pattern, regex_char_t *string)
 		ptr++;
 
 	printf("Start test '%s' matches to '%s'\n", pattern, string);
-	machine = regex_compile(pattern, ptr - pattern, REGEX_MATCH_VERBOSE, &error);
+	machine = regex_compile(pattern, ptr - pattern, REGEX_MATCH_VERBOSE | REGEX_NEWLINE, &error);
 
 	if (error) {
 		printf("WARNING: Error %d\n", error);
@@ -231,6 +231,8 @@ static struct test_case tests[] = {
   S("[^x-y]+[a-c_]{2,3}"), S("x_a_y") },
 { 4, 11, 0, 0, 0,
   NULL, S("ssaymmaa_ccl") },
+{ 6, 9, 0, 1, REGEX_NEWLINE,
+  S(".a[^k]"), S("\na\nxa\nsas\n") },
 { -1, 0, 0, 0, 0,
   NULL, NULL }
 };
