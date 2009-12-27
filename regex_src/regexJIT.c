@@ -15,7 +15,15 @@
 #include "sljitLir.h"
 #include "regexJIT.h"
 
-#define REGEX_ID_CHECK	0x20
+// Extra, hidden flags
+// {id!} where id > 0 found in the code
+#define REGEX_ID_CHECK		0x100
+// when REGEX_NEWLINE && REGEX_MATCH_BEGIN defined, the pattern turn to a normal search,
+// which starts with [\r\n] character range
+#define REGEX_FAKE_MATCH_BEGIN	0x200
+// when REGEX_NEWLINE && REGEX_MATCH_END defined, the pattern turn to a normal search,
+// which ends with [\r\n] character range
+#define REGEX_FAKE_MATCH_END	0x400
 
 // Check match completition after every (FINISH_TEST + 1) steps
 #define FINISH_TEST	0x7
@@ -36,13 +44,13 @@ struct regex_machine
 #ifndef SLJIT_INDIRECT_CALL
 	union {
 		void *init_match;
-		SLJIT_CALL sljit_w (*call_init)(void *next);
+		SLJIT_CALL sljit_w (*call_init)(void *next, void* match);
 	};
 #else
 	void *init_match;
 	union {
 		void **init_match_ptr;
-		SLJIT_CALL sljit_w (*call_init)(void *next);
+		SLJIT_CALL sljit_w (*call_init)(void *next, void* match);
 	};
 #endif
 
@@ -339,6 +347,7 @@ enum {
 	type_begin,
 	type_end,
 	type_char,
+	type_newline,
 	type_id,
 	type_rng_start,
 	type_rng_end,
@@ -653,7 +662,6 @@ static int parse_char_range(regex_char_t *regex_string, int length, struct compi
 {
 	struct stack* stack = &compiler_common->stack;
 	regex_char_t *base_from = regex_string;
-	int append_new_lines;
 	regex_char_t left_char, right_char, tmp_char;
 
 	length--;
@@ -662,7 +670,6 @@ static int parse_char_range(regex_char_t *regex_string, int length, struct compi
 	if (length == 0)
 		return -2;
 
-	append_new_lines = 0;
 	if (*regex_string != '^') {
 		if (stack_push(stack, type_rng_start, 0))
 			return -1;
@@ -676,9 +683,6 @@ static int parse_char_range(regex_char_t *regex_string, int length, struct compi
 
 		if (stack_push(stack, type_rng_start, 1))
 			return -1;
-
-		if (compiler_common->flags & REGEX_NEWLINE)
-			append_new_lines = 1;
 	}
 	// For both the type_rng_start & type_rng_end
 	compiler_common->dfa_size += 2;
@@ -748,14 +752,6 @@ static int parse_char_range(regex_char_t *regex_string, int length, struct compi
 		}
 	}
 
-	if (append_new_lines) {
-		if (stack_push(stack, type_rng_char, '\n'))
-			return -1;
-		if (stack_push(stack, type_rng_char, '\r'))
-			return -1;
-		compiler_common->dfa_size += 2;
-	}
-
 	if (stack_push(stack, type_rng_end, 0))
 		return -1;
 	return regex_string - base_from;
@@ -781,6 +777,17 @@ static int parse(regex_char_t *regex_string, int length, struct compiler_common 
 		compiler_common->flags |= REGEX_MATCH_BEGIN;
 		length--;
 		regex_string++;
+	}
+
+	if ((compiler_common->flags & (REGEX_MATCH_BEGIN | REGEX_NEWLINE)) == (REGEX_MATCH_BEGIN | REGEX_NEWLINE)) {
+		// Replace REGEX_MATCH_BEGIN flag to REGEX_FAKE_MATCH_BEGIN
+		compiler_common->flags &= ~REGEX_MATCH_BEGIN;
+		compiler_common->flags |= REGEX_FAKE_MATCH_BEGIN;
+		// And append a new-line search
+		if (stack_push(stack, type_newline, 0))
+			return REGEX_MEMORY_ERROR;
+		compiler_common->dfa_size++;
+		// begin intentionally kept as 1
 	}
 
 	while (length > 0) {
@@ -903,6 +910,17 @@ static int parse(regex_char_t *regex_string, int length, struct compiler_common 
 	if (depth != 0)
 		return REGEX_INVALID_REGEX;
 
+	if ((compiler_common->flags & (REGEX_MATCH_END | REGEX_NEWLINE)) == (REGEX_MATCH_END | REGEX_NEWLINE)) {
+		// Replace REGEX_MATCH_END flag to REGEX_FAKE_MATCH_END
+		compiler_common->flags &= ~REGEX_MATCH_END;
+		compiler_common->flags |= REGEX_FAKE_MATCH_END;
+		// And append a new-line search
+		if (stack_push(stack, type_newline, 1))
+			return REGEX_MEMORY_ERROR;
+		compiler_common->dfa_size++;
+		// begin intentionally kept as 1
+	}
+
 	if (stack_push(stack, type_end, 0))
 		return REGEX_MEMORY_ERROR;
 
@@ -1014,6 +1032,7 @@ static int generate_transitions(struct compiler_common *compiler_common)
 			break;
 
 		case type_char:
+		case type_newline:
 		case type_rng_start:
 			// Requires handle_iteratives
 			*--transitions_ptr = *item;
@@ -1061,6 +1080,10 @@ static void verbose_transitions(struct compiler_common *compiler_common)
 				printf("type_char '%c'\n", transitions_ptr->value);
 			else
 				printf("type_char 0x%x\n", transitions_ptr->value);
+			break;
+
+		case type_newline:
+			printf("type_newline %s\n", transitions_ptr->value ? "(end)" : "(begin)");
 			break;
 
 		case type_id:
@@ -1112,14 +1135,20 @@ static void verbose_transitions(struct compiler_common *compiler_common)
 		search_states_ptr++;
 	}
 	printf("flags: ");
-	if (!(compiler_common->flags & (REGEX_MATCH_BEGIN | REGEX_MATCH_END | REGEX_ID_CHECK)))
+	if (!(compiler_common->flags & (REGEX_MATCH_BEGIN | REGEX_MATCH_END | REGEX_NEWLINE | REGEX_ID_CHECK | REGEX_FAKE_MATCH_BEGIN | REGEX_FAKE_MATCH_END)))
 		printf("none ");
 	if (compiler_common->flags & REGEX_MATCH_BEGIN)
 		printf("REGEX_MATCH_BEGIN ");
 	if (compiler_common->flags & REGEX_MATCH_END)
 		printf("REGEX_MATCH_END ");
+	if (compiler_common->flags & REGEX_NEWLINE)
+		printf("REGEX_NEWLINE ");
 	if (compiler_common->flags & REGEX_ID_CHECK)
 		printf("REGEX_ID_CHECK ");
+	if (compiler_common->flags & REGEX_FAKE_MATCH_BEGIN)
+		printf("REGEX_FAKE_MATCH_BEGIN ");
+	if (compiler_common->flags & REGEX_FAKE_MATCH_END)
+		printf("REGEX_FAKE_MATCH_END ");
 	if (compiler_common->longest_range_size > 0)
 		printf("(longest range: %ld) ", (long)compiler_common->longest_range_size);
 	printf("\n");
@@ -1138,7 +1167,7 @@ static int generate_search_states(struct compiler_common *compiler_common)
 	struct stack_item *search_states_ptr;
 	struct stack_item *rng_start = NULL;
 
-	compiler_common->terms_size = 1;
+	compiler_common->terms_size = !(compiler_common->flags & REGEX_FAKE_MATCH_END) ? 1 : 2;
 	compiler_common->longest_range_size = 0;
 	compiler_common->search_states = SLJIT_MALLOC(sizeof(struct stack_item) * compiler_common->dfa_size);
 	if (!compiler_common->search_states)
@@ -1154,6 +1183,14 @@ static int generate_search_states(struct compiler_common *compiler_common)
 
 		case type_char:
 			search_states_ptr->type = compiler_common->terms_size++;
+			break;
+
+		case type_newline:
+			if (transitions_ptr->value)
+				search_states_ptr->type = 1;
+			else
+				search_states_ptr->type = compiler_common->terms_size++;
+			SLJIT_ASSERT(search_states_ptr->type == 1 || search_states_ptr->type == 2);
 			break;
 
 		case type_id:
@@ -1279,7 +1316,13 @@ static int compile_uncond_tran(struct compiler_common *compiler_common, int reg)
 	sljit_uw head = 0;
 	sljit_w offset, value;
 
-	CHECK(trace_transitions(0, compiler_common));
+	if (reg != R_CURR_STATE || !(compiler_common->flags & REGEX_FAKE_MATCH_BEGIN)) {
+		CHECK(trace_transitions(0, compiler_common));
+	}
+	else {
+		CHECK(trace_transitions(1, compiler_common));
+	}
+
 	while (stack->count > 0) {
 		value = stack_pop(stack)->value;
 		if (search_states[value].type >= 0) {
@@ -1303,8 +1346,22 @@ static int compile_uncond_tran(struct compiler_common *compiler_common, int reg)
 	if (reg == R_NEXT_STATE) {
 		EMIT_OP1(SLJIT_MOV, R_TEMP, 0, R_NEXT_HEAD, 0);
 	}
+	else if (flags & REGEX_FAKE_MATCH_BEGIN) {
+		SLJIT_ASSERT(compiler_common->dfa_transitions[1].type == type_newline && !compiler_common->dfa_transitions[1].value);
+		offset = TERM_OFFSET_OF(search_states[1].type, 0);
+
+		SLJIT_ASSERT(!(flags & REGEX_MATCH_BEGIN));
+
+		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(reg), TERM_REL_OFFSET_OF(offset, 1), SLJIT_IMM, head);
+		head = offset;
+
+		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(reg), TERM_REL_OFFSET_OF(offset, 2), SLJIT_IMM, 1);
+		if (flags & REGEX_ID_CHECK) {
+			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(reg), TERM_REL_OFFSET_OF(offset, 3), SLJIT_IMM, 0);
+		}
+	}
 	EMIT_OP1(SLJIT_MOV, R_NEXT_HEAD, 0, SLJIT_IMM, head);
-	return 0;
+	return REGEX_NO_ERROR;
 }
 
 static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w curr_index)
@@ -1482,7 +1539,7 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w cu
 	if (flags & REGEX_MATCH_VERBOSE)
 		printf("\n");
 #endif
-	return 0;
+	return REGEX_NO_ERROR;
 }
 
 static int compile_end_check(struct compiler_common *compiler_common, struct sljit_label *end_check_label)
@@ -1509,7 +1566,17 @@ static int compile_end_check(struct compiler_common *compiler_common, struct slj
 		sljit_set_label(jump, end_check_label);
 
 		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_REGEX_MATCH), SLJIT_OFFSETOF(struct regex_match, best_begin), R_CURR_CHAR, 0);
-		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_REGEX_MATCH), SLJIT_OFFSETOF(struct regex_match, best_end), R_CURR_INDEX, 0);
+		if (!(compiler_common->flags & (REGEX_FAKE_MATCH_BEGIN | REGEX_FAKE_MATCH_END))) {
+			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_REGEX_MATCH), SLJIT_OFFSETOF(struct regex_match, best_end), R_CURR_INDEX, 0);
+		}
+		else {
+			if ((compiler_common->flags & (REGEX_FAKE_MATCH_BEGIN | REGEX_FAKE_MATCH_END)) == (REGEX_FAKE_MATCH_BEGIN | REGEX_FAKE_MATCH_END)) {
+				EMIT_OP2(SLJIT_SUB, SLJIT_MEM1(R_REGEX_MATCH), SLJIT_OFFSETOF(struct regex_match, best_end), R_CURR_INDEX, 0, SLJIT_IMM, 2);
+			}
+			else {
+				EMIT_OP2(SLJIT_SUB, SLJIT_MEM1(R_REGEX_MATCH), SLJIT_OFFSETOF(struct regex_match, best_end), R_CURR_INDEX, 0, SLJIT_IMM, 1);
+			}
+		}
 		if (compiler_common->flags & REGEX_ID_CHECK) {
 			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_REGEX_MATCH), SLJIT_OFFSETOF(struct regex_match, best_id), SLJIT_MEM1(R_CURR_STATE), TERM_REL_OFFSET_OF(0, 3));
 		}
@@ -1568,7 +1635,7 @@ static int compile_end_check(struct compiler_common *compiler_common, struct slj
 		EMIT_JUMP(jump, SLJIT_JUMP);
 		sljit_set_label(jump, end_check_label);
 	}
-	return 0;
+	return REGEX_NO_ERROR;
 }
 
 static int compile_leave_fast_forward(struct compiler_common *compiler_common, struct sljit_label *fast_forward_label)
@@ -1590,8 +1657,8 @@ static int compile_leave_fast_forward(struct compiler_common *compiler_common, s
 				EMIT_JUMP(jump, SLJIT_C_EQUAL);
 				sljit_set_label(jump, fast_forward_label);
 			}
-			else {
-				SLJIT_ASSERT(dfa_transitions[index].type == type_rng_start && !dfa_transitions[index].value);
+			else if (dfa_transitions[index].type == type_rng_start) {
+				SLJIT_ASSERT(!dfa_transitions[index].value);
 				index++;
 				while (dfa_transitions[index].type != type_rng_end) {
 					if (dfa_transitions[index].type == type_rng_char) {
@@ -1624,9 +1691,45 @@ static int compile_leave_fast_forward(struct compiler_common *compiler_common, s
 					index++;
 				}
 			}
+			else {
+				SLJIT_ASSERT(dfa_transitions[index].type == type_newline);
+				EMIT_OP2(SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, R_CURR_CHAR, 0, SLJIT_IMM, '\n');
+				EMIT_JUMP(jump, SLJIT_C_EQUAL);
+				sljit_set_label(jump, fast_forward_label);
+				EMIT_OP2(SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, R_CURR_CHAR, 0, SLJIT_IMM, '\r');
+				EMIT_JUMP(jump, SLJIT_C_EQUAL);
+				sljit_set_label(jump, fast_forward_label);
+			}
 		}
 	}
-	return 0;
+	return REGEX_NO_ERROR;
+}
+
+static int compile_newline_check(struct compiler_common *compiler_common, sljit_w index)
+{
+	struct sljit_compiler *compiler = compiler_common->compiler;
+	struct sljit_jump *jump1;
+	struct sljit_jump *jump2;
+	struct sljit_label *label;
+	sljit_w no_states;
+	sljit_w offset;
+
+	// Check whether a new-line character is found
+	EMIT_OP2(SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, R_CURR_CHAR, 0, SLJIT_IMM, '\n');
+	EMIT_JUMP(jump1, SLJIT_C_EQUAL);
+	EMIT_OP2(SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, R_CURR_CHAR, 0, SLJIT_IMM, '\r');
+	EMIT_JUMP(jump2, SLJIT_C_EQUAL);
+
+	no_states = compiler_common->no_states;
+	offset = TERM_OFFSET_OF(compiler_common->search_states[index].type, 1);
+	EMIT_OP1(SLJIT_MOV, R_TEMP, 0, SLJIT_MEM1(R_CURR_STATE), offset);
+	EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_CURR_STATE), offset, SLJIT_IMM, -1);
+	CHECK(sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_MEM2(R_CURR_STATE, R_TEMP), 0));
+
+	EMIT_LABEL(label);
+	sljit_set_label(jump1, label);
+	sljit_set_label(jump2, label);
+	return REGEX_NO_ERROR;
 }
 
 #undef CHECK
@@ -1759,8 +1862,8 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 	struct compiler_common compiler_common;
 	sljit_w index;
 	int error_code, done, suggest_fast_forward;
-	// storage for entry addresses of term specific code
-	sljit_uw *entry_addrs_ptr;
+	// ID of an empty match (-1 if not reachable)
+	int empty_match_id;
 
 	struct sljit_jump *jump;
 	struct sljit_jump *best_match_found_jump;
@@ -1851,6 +1954,40 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 	compiler_common.machine->no_states = compiler_common.no_states;
 	compiler_common.machine->size = compiler_common.machine->no_states * compiler_common.terms_size;
 
+	// Study the regular expression
+	empty_match_id = -1;
+	suggest_fast_forward = 1;
+	if (!(compiler_common.flags & REGEX_FAKE_MATCH_BEGIN)) {
+		CHECK(trace_transitions(0, &compiler_common));
+		while (compiler_common.stack.count > 0) {
+			index = stack_pop(&compiler_common.stack)->value;
+			if (compiler_common.search_states[index].type == 0) {
+				SLJIT_ASSERT(compiler_common.dfa_transitions[index].type == type_end);
+				suggest_fast_forward = 0;
+				empty_match_id = compiler_common.search_states[index].value;
+			}
+			else if (compiler_common.search_states[index].type > 0) {
+				SLJIT_ASSERT(compiler_common.dfa_transitions[index].type != type_end);
+				if (compiler_common.dfa_transitions[index].type == type_rng_start && compiler_common.dfa_transitions[index].value)
+					suggest_fast_forward = 0;
+			}
+			compiler_common.search_states[index].value = -1;
+		}
+	}
+	else {
+		SLJIT_ASSERT(compiler_common.dfa_transitions[1].type == type_newline);
+		CHECK(trace_transitions(1, &compiler_common));
+		while (compiler_common.stack.count > 0) {
+			index = stack_pop(&compiler_common.stack)->value;
+			if (compiler_common.search_states[index].type == 0) {
+				SLJIT_ASSERT(compiler_common.dfa_transitions[index].type == type_end);
+				suggest_fast_forward = 0;
+				empty_match_id = compiler_common.search_states[index].value;
+			}
+			compiler_common.search_states[index].value = -1;
+		}
+	}
+
 	// Step 4.1: Generate entry
 	CHECK(sljit_emit_enter(compiler_common.compiler, 3, 5, 5, 0));
 
@@ -1877,9 +2014,8 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 #endif
 
 	// Step 4.2: Generate code for state 0
-	entry_addrs_ptr = compiler_common.machine->entry_addrs;
 	EMIT_LABEL(label);
-	*entry_addrs_ptr++ = (sljit_uw)label;
+	compiler_common.machine->entry_addrs[0] = (sljit_uw)label;
 
 	// Swapping current and next
 	EMIT_OP1(SLJIT_MOV, R_TEMP, 0, R_CURR_STATE, 0);
@@ -1912,21 +2048,9 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 	EMIT_LABEL(start_label);
 	sljit_set_label(jump, start_label);
 
-	if (!(compiler_common.flags & REGEX_MATCH_BEGIN)) {
-		suggest_fast_forward = 1;
-		CHECK(trace_transitions(0, &compiler_common));
-		while (compiler_common.stack.count > 0) {
-			index = stack_pop(&compiler_common.stack)->value;
-			if (compiler_common.search_states[index].type >= 0) {
-				if (compiler_common.dfa_transitions[index].type == type_end || (compiler_common.dfa_transitions[index].type == type_rng_start && compiler_common.dfa_transitions[index].value))
-					suggest_fast_forward = 0;
-			}
-			compiler_common.search_states[index].value = -1;
-		}
-		if (suggest_fast_forward) {
-			EMIT_OP2(SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, SLJIT_MEM1(R_REGEX_MATCH), SLJIT_OFFSETOF(struct regex_match, fast_forward), SLJIT_IMM, 0);
-			EMIT_JUMP(fast_forward_jump, SLJIT_C_NOT_EQUAL);
-		}
+	if (!(compiler_common.flags & REGEX_MATCH_BEGIN) && suggest_fast_forward) {
+		EMIT_OP2(SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, SLJIT_MEM1(R_REGEX_MATCH), SLJIT_OFFSETOF(struct regex_match, fast_forward), SLJIT_IMM, 0);
+		EMIT_JUMP(fast_forward_jump, SLJIT_C_NOT_EQUAL);
 	}
 
 	// Loading the next character
@@ -2098,18 +2222,21 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 	index = 1;
 	while (index < compiler_common.dfa_size - 1) {
 		if (compiler_common.search_states[index].type >= 0) {
-			SLJIT_ASSERT(entry_addrs_ptr - compiler_common.machine->entry_addrs == compiler_common.search_states[index].type);
+			SLJIT_ASSERT(compiler_common.search_states[index].type < compiler_common.terms_size);
 			EMIT_LABEL(label);
-			*entry_addrs_ptr++ = (sljit_uw)label;
+			compiler_common.machine->entry_addrs[compiler_common.search_states[index].type] = (sljit_uw)label;
 
 			if (compiler_common.dfa_transitions[index].type == type_char) {
 				EMIT_OP2(SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, R_CURR_CHAR, 0, SLJIT_IMM, compiler_common.dfa_transitions[index].value);
 				EMIT_JUMP(jump, SLJIT_C_NOT_EQUAL);
 			}
-			else {
-				SLJIT_ASSERT(compiler_common.dfa_transitions[index].type == type_rng_start);
+			else if (compiler_common.dfa_transitions[index].type == type_rng_start) {
 				index = compile_range_check(&compiler_common, index);
 				CHECK(!index);
+			}
+			else {
+				SLJIT_ASSERT(compiler_common.dfa_transitions[index].type == type_newline);
+				CHECK(compile_newline_check(&compiler_common, index));
 			}
 
 			CHECK(trace_transitions(index, &compiler_common));
@@ -2123,10 +2250,12 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 				EMIT_LABEL(label);
 				sljit_set_label(jump, label);
 			}
-			else {
-				SLJIT_ASSERT(compiler_common.dfa_transitions[index].type == type_rng_end);
+			else if (compiler_common.dfa_transitions[index].type == type_rng_end) {
 				EMIT_LABEL(label);
 				range_set_label(compiler_common.range_jump_list, label);
+			}
+			else {
+				SLJIT_ASSERT(compiler_common.dfa_transitions[index].type == type_newline);
 			}
 
 			// Branch to the next item in the list
@@ -2138,23 +2267,39 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 	}
 
 	if (index == compiler_common.dfa_size - 1) {
-		SLJIT_ASSERT(entry_addrs_ptr - compiler_common.machine->entry_addrs == compiler_common.terms_size);
-
 		// Generate an init stub function
 		EMIT_LABEL(label);
-		CHECK(sljit_emit_enter(compiler_common.compiler, 1, 3, 3, 0));
-		EMIT_OP1(SLJIT_MOV, R_CURR_STATE, 0, SLJIT_GENERAL_REG1, 0);
-		if (!(compiler_common.flags & REGEX_MATCH_BEGIN)) {
-			// R_CURR_INDEX (put to R_TEMP) is zero
-			EMIT_OP1(SLJIT_MOV, R_TEMP, 0, SLJIT_IMM, 0);
+		CHECK(sljit_emit_enter(compiler_common.compiler, 2, 3, 3, 0));
+
+		if (empty_match_id == -1) {
+			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG2), SLJIT_OFFSETOF(struct regex_match, best_begin), SLJIT_IMM, -1);
+			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG2), SLJIT_OFFSETOF(struct regex_match, best_id), SLJIT_IMM, 0);
 		}
-		CHECK(compile_uncond_tran(&compiler_common, R_CURR_STATE));
+		else {
+			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG2), SLJIT_OFFSETOF(struct regex_match, best_begin), SLJIT_IMM, 0);
+			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG2), SLJIT_OFFSETOF(struct regex_match, best_id), SLJIT_IMM, empty_match_id);
+		}
+
+		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG2), SLJIT_OFFSETOF(struct regex_match, index), SLJIT_IMM, !(compiler_common.flags & REGEX_FAKE_MATCH_BEGIN) ? 1 : 2);
+
+		if (!(compiler_common.flags & REGEX_MATCH_NON_GREEDY) || empty_match_id == -1) {
+			// The else is a really rare event, so we still generate an empty function instead of a runtime pointer check
+			SLJIT_ASSERT(R_CURR_STATE == SLJIT_GENERAL_REG1);
+			if (!(compiler_common.flags & REGEX_MATCH_BEGIN)) {
+				// R_CURR_INDEX (put to R_TEMP) is zero
+				EMIT_OP1(SLJIT_MOV, R_TEMP, 0, SLJIT_IMM, 0);
+			}
+			CHECK(compile_uncond_tran(&compiler_common, R_CURR_STATE));
+		}
+		else {
+			EMIT_OP1(SLJIT_MOV, R_NEXT_HEAD, 0, SLJIT_IMM, 0);
+		}
 		CHECK(sljit_emit_return(compiler_common.compiler, R_NEXT_HEAD, 0));
 
 		compiler_common.machine->continue_match = sljit_generate_code(compiler_common.compiler);
 		compiler_common.machine->init_match = (void*)sljit_get_label_addr(label);
 #ifdef SLJIT_INDIRECT_CALL
-		compiler_common.machine->init_match_ptr = &machine->init_match;
+		compiler_common.machine->init_match_ptr = &compiler_common.machine->init_match;
 #endif
 #ifdef REGEX_MATCH_VERBOSE
 		if (compiler_common.flags & REGEX_MATCH_VERBOSE)
@@ -2285,9 +2430,6 @@ void regex_reset_match(struct regex_match *match)
 	sljit_w current, index;
 	sljit_w *current_ptr;
 
-	match->index = 1;
-	match->best_begin = -1;
-	match->best_id = 0;
 	match->best_end = 0;
 	match->fast_quit = 0;
 	match->fast_forward = 0;
@@ -2302,7 +2444,7 @@ void regex_reset_match(struct regex_match *match)
 			current_ptr[index] = -1;
 		} while (current != 0);
 	}
-	match->head = machine->call_init(match->current);
+	match->head = machine->call_init(match->current, match);
 }
 
 void regex_free_match(struct regex_match *match)
@@ -2318,42 +2460,61 @@ void regex_continue_match(struct regex_match *match, regex_char_t *input_string,
 int regex_get_result(struct regex_match *match, int *end, int *id)
 {
 	int flags = match->machine->flags;
+	sljit_w no_states;
 
 	*end = match->best_end;
 	*id = match->best_id;
-	if (!(flags & REGEX_MATCH_END))
+	if (!(flags & (REGEX_MATCH_END | REGEX_FAKE_MATCH_END)))
 		return match->best_begin;
 
-	// Check the status of the last code
-	if (!(flags & REGEX_MATCH_BEGIN)) {
-		// No shortcut in this case
-		if (!(flags & REGEX_ID_CHECK)) {
+	if (flags & REGEX_FAKE_MATCH_END) {
+		SLJIT_ASSERT(!(flags & (REGEX_MATCH_BEGIN | REGEX_MATCH_END)));
+		if (match->best_begin != -1)
+			return match->best_begin;
+
+		no_states = match->machine->no_states;
+		if (match->current[no_states + 1] == -1)
+			return -1;
+		if (flags & REGEX_ID_CHECK)
+			*id = match->current[no_states + 3];
+		if (!(flags & REGEX_FAKE_MATCH_BEGIN))
+			*end = match->index - 1;
+		else
+			*end = match->index - 2;
+		return match->current[no_states + 2];
+	}
+	else {
+		// Check the status of the last code
+		if (!(flags & REGEX_MATCH_BEGIN)) {
+			// No shortcut in this case
+			if (!(flags & REGEX_ID_CHECK)) {
+				if (match->current[1] == -1)
+					return -1;
+				*end = match->index - 1;
+				return match->current[2];
+			}
+
 			if (match->current[1] == -1)
 				return -1;
 			*end = match->index - 1;
+			*id = match->current[3];
 			return match->current[2];
 		}
 
-		if (match->current[1] == -1)
-			return -1;
-		*end = match->index - 1;
-		*id = match->current[3];
-		return match->current[2];
-	}
+		// Shortcut is possible in this case
+		if (!(flags & REGEX_ID_CHECK)) {
+			if (match->current[1] == -1 || match->head == -1)
+				return -1;
+			*end = match->index - 1;
+			return 0;
+		}
 
-	// Shortcut is possible in this case
-	if (!(flags & REGEX_ID_CHECK)) {
 		if (match->current[1] == -1 || match->head == -1)
 			return -1;
 		*end = match->index - 1;
+		*id = match->current[2];
 		return 0;
 	}
-
-	if (match->current[1] == -1 || match->head == -1)
-		return -1;
-	*end = match->index - 1;
-	*id = match->current[2];
-	return 0;
 }
 
 int regex_is_match_finished(struct regex_match *match)

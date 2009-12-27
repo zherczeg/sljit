@@ -48,7 +48,8 @@ struct regex_match;
 #define REGEX_MATCH_BEGIN	0x01
 // Force matching to continue until the last character (same as $)
 #define REGEX_MATCH_END		0x02
-// Changes . to [^\r\n] and appends \r\n to all [^...] expressions
+// Changes . to [^\r\n]
+//   Note: [...] and [^...] are NOT affected at all (as other regex engines do)
 #define REGEX_NEWLINE		0x04
 // Non greedy matching. In case of Thompson (non-recursive) algorithm,
 // it (usually) does not have a significant speed gain
