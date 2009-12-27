@@ -110,6 +110,10 @@ void run_tests(struct test_case* test)
 				return;
 			}
 		}
+		else if (test->flags != 0) {
+			printf("ABORT: flag must be 0 if no pattern\n");
+			return;
+		}
 
 		ptr = test->string;
 		while (*ptr)
@@ -213,6 +217,14 @@ static struct test_case tests[] = {
   S("baaa|baa|sbaaaa"), S("sbaaaaa") },
 { 1, 4, 0, 1, REGEX_MATCH_NON_GREEDY,
   S("baaa|baa"), S("xbaaa") },
+{ 0, 0, 3, 1, 0,
+  S("{3!}"), S("xx") },
+{ 0, 0, 1, 1, 0,
+  S("{1!}(a{2!})*"), S("xx") },
+{ 0, 2, 2, 0, 0,
+  NULL, S("aa") },
+{ 0, 0, 1, 1, REGEX_MATCH_NON_GREEDY,
+  S("{1!}(a{2!})*"), S("aaxx") },
 { 4, 12, 0, 1, 0,
   S("(.[]-]){3}[^]-]{2}"), S("ax-xs-[][]lmn") },
 { 3, 7, 1, 1, 0,
@@ -231,8 +243,24 @@ static struct test_case tests[] = {
   S("[^x-y]+[a-c_]{2,3}"), S("x_a_y") },
 { 4, 11, 0, 0, 0,
   NULL, S("ssaymmaa_ccl") },
-{ 6, 9, 0, 1, REGEX_NEWLINE,
-  S(".a[^k]"), S("\na\nxa\nsas\n") },
+{ 3, 6, 0, 1, REGEX_NEWLINE,
+  S(".a[^k]"), S("\na\nxa\ns") },
+{ 0, 2, 0, 1, REGEX_NEWLINE,
+  S("^a+"), S("aa\n") },
+{ 1, 4, 0, 1, 0 /* =REGEX_NEWLINE */,
+  NULL, S("\naaa\n") },
+{ 2, 3, 0, 1, 0 /* =REGEX_NEWLINE */,
+  NULL, S("\n\na\n") },
+{ 0, 2, 0, 1, REGEX_NEWLINE,
+  S("a+$"), S("aa\n") },
+{ 0, 3, 0, 0, 0 /* =REGEX_NEWLINE */,
+  NULL, S("aaa") },
+{ 2, 4, 1, 1, REGEX_NEWLINE,
+  S("^a(a{1!})*$"), S("\n\naa\n\n") },
+{ 0, 1, 0, 0, 0 /* REGEX_NEWLINE */,
+  NULL, S("a") },
+{ -1, 0, 0, -1, 0 /* REGEX_NEWLINE */,
+  NULL, S("ab\nba") },
 { -1, 0, 0, 0, 0,
   NULL, NULL }
 };
