@@ -1003,6 +1003,22 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	return SLJIT_NO_ERROR;
 }
 
+int sljit_emit_op0(struct sljit_compiler *compiler, int op)
+{
+	FUNCTION_ENTRY();
+
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_DEBUGGER);
+	sljit_emit_op0_verbose();
+
+	op = GET_OPCODE(op);
+	switch (op) {
+	case SLJIT_DEBUGGER:
+		break;
+	}
+
+	return SLJIT_NO_ERROR;
+}
+
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)

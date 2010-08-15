@@ -30,8 +30,8 @@
 //    - A fixed stack space can be allocated for local variables
 //    - The compiler is thread-safe
 //  Disadvantages:
-//    - Limited number of registers (only 6 integer registers, max 3
-//      temporary and max 3 general, and only 4 floating point registers)
+//    - Limited number of registers (only 6+4 integer registers, max 3+2
+//      temporary and max 3+2 general, and 4 floating point registers)
 //  In practice:
 //    - This approach is very effective for interpreters
 //      - One of the general registers tipically points to a stack interface
@@ -305,22 +305,29 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 // By default, the instructions may, or may not set the CPU status flags.
 // Forcing to set status flags can be done with the following flags:
 
-// Set Equal (Zero) status flag
+// Set Equal (Zero) status flag (E)
 #define SLJIT_SET_E			0x0200
-// Set signed status flags
+// Set signed status flag (S)
 #define SLJIT_SET_S			0x0400
-// Set unsgined status flags
+// Set unsgined status flag (U)
 #define SLJIT_SET_U			0x0800
-// Set signed overflow
+// Set signed overflow flag (O)
 #define SLJIT_SET_O			0x1000
-// Set carry (kinda unsigned overflow, but behaves differently on various cpus)
+// Set carry flag (C)
+// (kinda unsigned overflow, but behaves differently on various cpus)
 #define SLJIT_SET_C			0x2000
 
 // Notes:
 //   - CPU flags are NEVER set for MOV instructions
 //   - you cannot postpone conditional jump instructions depending on
 //     one of these instructions except if the next instruction is a MOV
-//   - flag combinations: '|' 'logical or' and '^' 'both cannot be specified together'
+//   - flag combinations: '|' means 'logical or'
+
+// Flags: -
+// Debugger instruction is not supported by all architectures
+#define SLJIT_DEBUGGER			0
+
+int sljit_emit_op0(struct sljit_compiler *compiler, int op);
 
 // Notes for MOV instructions:
 // U = Mov with update (post form). If source or destination defined as SLJIT_MEM1(r1)
@@ -331,65 +338,65 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 // SH = unsgined half (16 bit)
 
 // Flags: -
-#define SLJIT_MOV			0
+#define SLJIT_MOV			1
 // Flags: -
-#define SLJIT_MOV_UB			1
+#define SLJIT_MOV_UB			2
 // Flags: -
-#define SLJIT_MOV_SB			2
+#define SLJIT_MOV_SB			3
 // Flags: -
-#define SLJIT_MOV_UH			3
+#define SLJIT_MOV_UH			4
 // Flags: -
-#define SLJIT_MOV_SH			4
+#define SLJIT_MOV_SH			5
 // Flags: -
-#define SLJIT_MOV_UI			5
+#define SLJIT_MOV_UI			6
 // Flags: -
-#define SLJIT_MOV_SI			6
+#define SLJIT_MOV_SI			7
 // Flags: -
-#define SLJIT_MOVU			7
+#define SLJIT_MOVU			8
 // Flags: -
-#define SLJIT_MOVU_UB			8
+#define SLJIT_MOVU_UB			9
 // Flags: -
-#define SLJIT_MOVU_SB			9
+#define SLJIT_MOVU_SB			10
 // Flags: -
-#define SLJIT_MOVU_UH			10
+#define SLJIT_MOVU_UH			11
 // Flags: -
-#define SLJIT_MOVU_SH			11
+#define SLJIT_MOVU_SH			12
 // Flags: -
-#define SLJIT_MOVU_UI			12
+#define SLJIT_MOVU_UI			13
 // Flags: -
-#define SLJIT_MOVU_SI			13
+#define SLJIT_MOVU_SI			14
 // Flags: E
-#define SLJIT_NOT			14
+#define SLJIT_NOT			15
 // Flags: E | O
-#define SLJIT_NEG			15
+#define SLJIT_NEG			16
 
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
 // Flags: E | O | C
-#define SLJIT_ADD			16
+#define SLJIT_ADD			17
 // Flags: E | O | C
-#define SLJIT_ADDC			17
+#define SLJIT_ADDC			18
 // Flags: E | O | C | S | U
-#define SLJIT_SUB			18
+#define SLJIT_SUB			19
 // Flags: E | O | C | S | U
-#define SLJIT_SUBC			19
+#define SLJIT_SUBC			20
 // Note: integer mul
 // Flags: -
-#define SLJIT_MUL			20
+#define SLJIT_MUL			21
 // Flags: E
-#define SLJIT_AND			21
+#define SLJIT_AND			22
 // Flags: E
-#define SLJIT_OR			22
+#define SLJIT_OR			23
 // Flags: E
-#define SLJIT_XOR			23
+#define SLJIT_XOR			24
 // Flags: E
-#define SLJIT_SHL			24
+#define SLJIT_SHL			25
 // Flags: E
-#define SLJIT_LSHR			25
+#define SLJIT_LSHR			26
 // Flags: E
-#define SLJIT_ASHR			26
+#define SLJIT_ASHR			27
 
 int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
@@ -400,26 +407,26 @@ int sljit_is_fpu_available(void);
 
 // Note: dst is the left and src is the right operand for SLJIT_FCMP
 // Flags: E | U (looks like cpus prefer this way...)
-#define SLJIT_FCMP			27
+#define SLJIT_FCMP			28
 // Flags: -
-#define SLJIT_FMOV			28
+#define SLJIT_FMOV			29
 // Flags: -
-#define SLJIT_FNEG			29
+#define SLJIT_FNEG			30
 // Flags: -
-#define SLJIT_FABS			30
+#define SLJIT_FABS			31
 
 int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
 // Flags: -
-#define SLJIT_FADD			31
+#define SLJIT_FADD			32
 // Flags: -
-#define SLJIT_FSUB			32
+#define SLJIT_FSUB			33
 // Flags: -
-#define SLJIT_FMUL			33
+#define SLJIT_FMUL			34
 // Flags: -
-#define SLJIT_FDIV			34
+#define SLJIT_FDIV			35
 
 int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,

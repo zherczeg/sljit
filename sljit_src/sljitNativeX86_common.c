@@ -358,6 +358,28 @@ static int emit_mov(struct sljit_compiler *compiler,
 #include "sljitNativeX86_64.c"
 #endif
 
+int sljit_emit_op0(struct sljit_compiler *compiler, int op)
+{
+	sljit_ub *buf;
+
+	FUNCTION_ENTRY();
+
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_DEBUGGER);
+	sljit_emit_op0_verbose();
+
+	op = GET_OPCODE(op);
+	switch (op) {
+	case SLJIT_DEBUGGER:
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+		TEST_MEM_ERROR(buf);
+		INC_SIZE(1);
+		*buf = 0xcc;
+		break;
+	}
+
+	return SLJIT_NO_ERROR;
+}
+
 static int emit_mov(struct sljit_compiler *compiler,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
