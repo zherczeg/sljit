@@ -479,6 +479,14 @@ static char* freg_names[] = {
 		sljit_verbose_param(src, srcw); \
 		fprintf(compiler->verbose, "\n"); \
 	}
+
+static char* op0_names[] = {
+	(char*)"debugger"
+};
+#define sljit_emit_op0_verbose() \
+	if (compiler->verbose) \
+		fprintf(compiler->verbose, "  %s\n", op0_names[GET_OPCODE(op)]); \
+
 static char* op1_names[] = {
 	(char*)"mov", (char*)"mov_ub", (char*)"mov_sb", (char*)"mov_uh",
 	(char*)"mov_sh", (char*)"mov_ui", (char*)"mov_si", (char*)"movu",
@@ -487,13 +495,14 @@ static char* op1_names[] = {
 };
 #define sljit_emit_op1_verbose() \
 	if (compiler->verbose) { \
-		fprintf(compiler->verbose, "  %s%s%s%s%s%s%s ", !(op & SLJIT_INT_OP) ? "" : "i", op1_names[GET_OPCODE(op)], \
+		fprintf(compiler->verbose, "  %s%s%s%s%s%s%s ", !(op & SLJIT_INT_OP) ? "" : "i", op1_names[GET_OPCODE(op) - SLJIT_MOV], \
 			!(op & SLJIT_SET_E) ? "" : "E", !(op & SLJIT_SET_S) ? "" : "S", !(op & SLJIT_SET_U) ? "" : "U", !(op & SLJIT_SET_O) ? "" : "O", !(op & SLJIT_SET_C) ? "" : "C"); \
 		sljit_verbose_param(dst, dstw); \
 		fprintf(compiler->verbose, ", "); \
 		sljit_verbose_param(src, srcw); \
 		fprintf(compiler->verbose, "\n"); \
 	}
+
 static char* op2_names[] = {
 	(char*)"add", (char*)"addc", (char*)"sub", (char*)"subc",
 	(char*)"mul", (char*)"and", (char*)"or", (char*)"xor",
@@ -510,6 +519,7 @@ static char* op2_names[] = {
 		sljit_verbose_param(src2, src2w); \
 		fprintf(compiler->verbose, "\n"); \
 	}
+
 static char* fop1_names[] = {
 	(char*)"fcmp", (char*)"fmov", (char*)"fneg", (char*)"fabs"
 };
@@ -521,6 +531,7 @@ static char* fop1_names[] = {
 		sljit_verbose_fparam(src, srcw); \
 		fprintf(compiler->verbose, "\n"); \
 	}
+
 static char* fop2_names[] = {
 	(char*)"fadd", (char*)"fsub", (char*)"fmul", (char*)"fdiv"
 };
@@ -534,6 +545,7 @@ static char* fop2_names[] = {
 		sljit_verbose_fparam(src2, src2w); \
 		fprintf(compiler->verbose, "\n"); \
 	}
+
 #define sljit_emit_label_verbose() \
 	if (compiler->verbose) fprintf(compiler->verbose, "label:\n");
 static char* jump_names[] = {
@@ -574,6 +586,7 @@ static char* jump_names[] = {
 #define sljit_emit_enter_verbose()
 #define sljit_fake_enter_verbose()
 #define sljit_emit_return_verbose()
+#define sljit_emit_op0_verbose()
 #define sljit_emit_op1_verbose()
 #define sljit_emit_op2_verbose()
 #define sljit_emit_fop1_verbose()

@@ -23,7 +23,7 @@
 
 // In ARM instruction words
 #define CONST_POOL_ALIGNMENT	8
-#define CONST_POOL_NO_DIFF	0xffffffff
+#define CONST_POOL_EMPTY	0xffffffff
 
 #define ALIGN_INSTRUCTION(ptr) \
 	(sljit_uw*)(((sljit_uw)(ptr) + (CONST_POOL_ALIGNMENT * sizeof(sljit_uw)) - 1) & ~((CONST_POOL_ALIGNMENT * sizeof(sljit_uw)) - 1))
@@ -79,7 +79,7 @@ static int push_cpool(struct sljit_compiler *compiler)
 		compiler->size++;
 		*inst = *cpool_ptr++;
 	}
-	compiler->cpool_diff = CONST_POOL_NO_DIFF;
+	compiler->cpool_diff = CONST_POOL_EMPTY;
 	compiler->cpool_fill = 0;
 	return 0;
 }
@@ -95,7 +95,7 @@ static int push_inst(struct sljit_compiler *compiler)
 
 	if (compiler->last_type == LIT_INS) {
 		// Test wheter the constant pool must be copied
-		if (compiler->cpool_diff != CONST_POOL_NO_DIFF && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4092))
+		if (compiler->cpool_diff != CONST_POOL_EMPTY && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4092))
 			TEST_FAIL(push_cpool(compiler));
 
 		inst = (sljit_uw*)ensure_buf(compiler, sizeof(sljit_uw));
@@ -110,7 +110,7 @@ static int push_inst(struct sljit_compiler *compiler)
 	else if (compiler->last_type >= LIT_CINS) {
 		// Test wheter the constant pool must be copied
 		cpool_index = CPOOL_SIZE;
-		if (compiler->cpool_diff != CONST_POOL_NO_DIFF && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4092)) {
+		if (compiler->cpool_diff != CONST_POOL_EMPTY && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4092)) {
 			TEST_FAIL(push_cpool(compiler));
 		}
 		else if (compiler->last_type == LIT_CINS && compiler->cpool_fill > 0) {
@@ -151,26 +151,25 @@ static int push_inst(struct sljit_compiler *compiler)
 		*inst = compiler->last_ins | cpool_index;
 		compiler->last_type = LIT_NONE;
 		compiler->size++;
-		if (compiler->cpool_diff == CONST_POOL_NO_DIFF)
+		if (compiler->cpool_diff == CONST_POOL_EMPTY)
 			compiler->cpool_diff = compiler->size;
 	}
 
 	return SLJIT_NO_ERROR;
 }
 
-static int emit_mov_ln_pc(struct sljit_compiler *compiler)
-{
-	sljit_uw last_type = compiler->last_type;
-	sljit_uw last_ins = compiler->last_ins;
+#define EMIT_BLX(reg)	(0xe12fff30 | reg_map[reg])
 
+static int emit_blx(struct sljit_compiler *compiler)
+{
 	if (compiler->last_type == LIT_INS) {
-		// Test wheter the constant pool must be copied
-		if (compiler->cpool_diff != CONST_POOL_NO_DIFF && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4088))
+		// Test whether the constant pool must be copied
+		if (compiler->cpool_diff != CONST_POOL_EMPTY && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4088))
 			TEST_FAIL(push_cpool(compiler));
 	}
 	else if (compiler->last_type >= LIT_CINS) {
-		// Test wheter the constant pool must be copied
-		if (compiler->cpool_diff != CONST_POOL_NO_DIFF && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4088)) {
+		// Test whether the constant pool must be copied
+		if (compiler->cpool_diff != CONST_POOL_EMPTY && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4088)) {
 			TEST_FAIL(push_cpool(compiler));
 		}
 		else if (compiler->cpool_fill >= CPOOL_SIZE) {
@@ -178,15 +177,13 @@ static int emit_mov_ln_pc(struct sljit_compiler *compiler)
 		}
 	}
 
-	// Must be immediately before the "mov/ldr pc, ..." instruction
-	compiler->last_type = LIT_INS;
-	compiler->last_ins = 0xe1a0e00f; // mov lr, pc
+	SLJIT_ASSERT(compiler->last_type >= LIT_CINS && ((compiler->last_ins & 0x0fffffff) == 0x059ff000));
+	compiler->last_ins = (compiler->last_ins & 0xffff0fff) | (reg_map[TMP_REG1] << 12);
 
 	TEST_FAIL(push_inst(compiler));
 
-	compiler->last_type = last_type;
-	compiler->last_ins = last_ins;
-
+	compiler->last_type = LIT_INS;
+	compiler->last_ins = EMIT_BLX(TMP_REG1); // blx tmp1
 	return SLJIT_NO_ERROR;
 }
 
@@ -1574,6 +1571,25 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	return SLJIT_NO_ERROR;
 }
 
+int sljit_emit_op0(struct sljit_compiler *compiler, int op)
+{
+	FUNCTION_ENTRY();
+
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_DEBUGGER);
+	sljit_emit_op0_verbose();
+
+	op = GET_OPCODE(op);
+	switch (op) {
+	case SLJIT_DEBUGGER:
+		TEST_FAIL(push_inst(compiler));
+		compiler->last_type = LIT_INS;
+		compiler->last_ins = 0xe1200070;
+		break;
+	}
+
+	return SLJIT_NO_ERROR;
+}
+
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
@@ -2006,8 +2022,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	sljit_emit_jump_verbose();
 
 	// Flush the pipe to get the real addr
-	if (push_inst(compiler))
-		return NULL;
+	TEST_FAIL2(push_inst(compiler));
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	TEST_MEM_ERROR2(jump);
@@ -2038,10 +2053,8 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	}
 
 	if (type >= SLJIT_CALL0)
-		if (emit_mov_ln_pc(compiler))
-			return NULL;
+		TEST_FAIL2(emit_blx(compiler));
 
-	/* now we can fill the address of the jump */
 	jump->addr = compiler->size;
 	return jump;
 }
@@ -2080,18 +2093,22 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		compiler->last_imm = srcw;
 
 		if (type >= SLJIT_CALL0)
-			TEST_FAIL(emit_mov_ln_pc(compiler));
-
+			TEST_FAIL(emit_blx(compiler));
 		jump->addr = compiler->size;
 	}
 	else {
 		TEST_FAIL(emit_op(compiler, SLJIT_MOV, ALLOW_ANY_IMM, TMP_REG2, 0, TMP_REG1, 0, src, srcw));
 		SLJIT_ASSERT((compiler->last_ins & 0x0c00f000) == (sljit_uw)(0x00000000 | (reg_map[TMP_REG2] << 12)) ||
 			(compiler->last_ins & 0x0c00f000) == (sljit_uw)(0x04000000 | (reg_map[TMP_REG2] << 12)));
-		compiler->last_ins |= 0x0000f000;
 
-		if (type >= SLJIT_CALL0)
-			TEST_FAIL(emit_mov_ln_pc(compiler));
+		if (type < SLJIT_CALL0) {
+			// Changing the Rd to PC
+			compiler->last_ins |= 0x0000f000;
+		} else {
+			TEST_FAIL(push_inst(compiler));
+			compiler->last_type = LIT_INS;
+			compiler->last_ins = EMIT_BLX(TMP_REG2);
+		}
 	}
 
 	return SLJIT_NO_ERROR;
