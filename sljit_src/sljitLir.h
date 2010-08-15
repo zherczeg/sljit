@@ -184,7 +184,7 @@ struct sljit_compiler {
 	int mode32;
 #endif
 
-#ifdef SLJIT_CONFIG_ARM
+#if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
 	// Constant pool handling
 	sljit_uw *cpool;
 	sljit_ub *cpool_unique;

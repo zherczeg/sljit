@@ -500,11 +500,6 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	return code;
 }
 
-void sljit_free_code(void* code)
-{
-	SLJIT_FREE_EXEC(code);
-}
-
 // emit_op inp_flags
 // WRITE_BACK must be the first, since it is a flag
 #define WRITE_BACK	0x01
@@ -1700,6 +1695,8 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 //  Floating point operators
 // ---------------------------------------------------------------------
 
+#ifdef SLJIT_CONFIG_ARM_V5
+
 // Two ARM fpus are supported: vfp and fpa
 
 // 0 - no fpu
@@ -1722,6 +1719,19 @@ int sljit_is_fpu_available(void)
 		init_compiler();
 	return (arm_fpu_type > 0) ? 1 : 0;
 }
+
+#elif defined(SLJIT_CONFIG_ARM_V7)
+
+#define arm_fpu_type 1
+
+int sljit_is_fpu_available(void)
+{
+	return 1;
+}
+
+#else
+#error "Unknown ARM architecture"
+#endif
 
 #define EMIT_FPU_DATA_TRANSFER(add, load, base, freg, offs) \
 	(((arm_fpu_type == 1) ? 0xed000b00 : 0xed008100) | ((add) << 23) | ((load) << 20) | (reg_map[base] << 16) | (freg << 12) | (offs))
