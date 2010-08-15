@@ -23,7 +23,9 @@
 //   option, or define SLJIT_CONFIG_AUTO)
 //#define SLJIT_CONFIG_X86_32
 //#define SLJIT_CONFIG_X86_64
-//#define SLJIT_CONFIG_ARM
+//#define SLJIT_CONFIG_ARM_V5
+//#define SLJIT_CONFIG_ARM_V7
+//#define SLJIT_CONFIG_ARM_THUMB2
 //#define SLJIT_CONFIG_PPC_32
 //#define SLJIT_CONFIG_PPC_64
 
@@ -36,7 +38,7 @@
 #elif defined(__x86_64__)
 #define SLJIT_CONFIG_X86_64
 #elif defined(__arm__) || defined(__ARM__)
-#define SLJIT_CONFIG_ARM
+#define SLJIT_CONFIG_ARM_V5
 #elif (__ppc64__) || (__powerpc64__)
 #define SLJIT_CONFIG_PPC_64
 #elif defined(__ppc__) || defined(__powerpc__)
@@ -51,7 +53,7 @@
 #if defined(_M_X64)
 #define SLJIT_CONFIG_X86_64
 #elif defined(_ARM_)
-#define SLJIT_CONFIG_ARM
+#define SLJIT_CONFIG_ARM_V5
 #else
 #define SLJIT_CONFIG_X86_32
 #endif
@@ -154,7 +156,7 @@ typedef long int sljit_w;
 
 #endif /* defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64) */
 
-#ifdef SLJIT_CONFIG_ARM
+#ifdef SLJIT_CONFIG_ARM_V5
 	// Just call __ARM_NR_cacheflush on Linux
 #define SLJIT_CACHE_FLUSH(from, to) \
 	__clear_cache((char*)(from), (char*)(to))

@@ -63,7 +63,7 @@
 #endif
 #endif
 
-#ifdef SLJIT_CONFIG_ARM
+#if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
 	#define PATCH_B		0x4
 	#define IS_BL		0x8
 
@@ -116,7 +116,7 @@ static void sljit_free_exec(void* ptr)
 //  Public functions
 // ---------------------------------------------------------------------
 
-#if defined(SLJIT_CONFIG_ARM) || (defined(SLJIT_SSE2) && (defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)))
+#if defined(SLJIT_CONFIG_ARM_V5) || (defined(SLJIT_SSE2) && (defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)))
 #define NEEDS_COMPILER_INIT
 static int compiler_initialized = 0;
 // A thread safe initialization
@@ -165,7 +165,7 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->args = -1;
 #endif
 
-#ifdef SLJIT_CONFIG_ARM
+#if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
 	compiler->cpool = (sljit_uw*)SLJIT_MALLOC(CPOOL_SIZE * sizeof(sljit_uw) + CPOOL_SIZE * sizeof(sljit_ub));
 	if (!compiler->cpool) {
 		SLJIT_FREE(compiler->buf);
@@ -178,7 +178,6 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->cpool_fill = 0;
 	compiler->patches = 0;
 	compiler->last_type = LIT_NONE;
-
 #endif
 
 #ifdef SLJIT_VERBOSE
@@ -214,10 +213,15 @@ void sljit_free_compiler(struct sljit_compiler *compiler)
 		SLJIT_FREE(curr);
 	}
 
-#ifdef SLJIT_CONFIG_ARM
-	//SLJIT_FREE(compiler->cpool);
+#if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
+	SLJIT_FREE(compiler->cpool);
 #endif
 	SLJIT_FREE(compiler);
+}
+
+void sljit_free_code(void* code)
+{
+	SLJIT_FREE_EXEC(code);
 }
 
 void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
@@ -607,8 +611,10 @@ static char* jump_names[] = {
 	#include "sljitNativeX86_common.c"
 #elif defined(SLJIT_CONFIG_X86_64)
 	#include "sljitNativeX86_common.c"
-#elif defined(SLJIT_CONFIG_ARM)
-	#include "sljitNativeARM.c"
+#elif defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
+	#include "sljitNativeARM_v5.c"
+#elif defined(SLJIT_CONFIG_ARM_THUMB2)
+	#include "sljitNativeARM_Thumb2.c"
 #elif defined(SLJIT_CONFIG_PPC_32)
 	#include "sljitNativePPC_common.c"
 #elif defined(SLJIT_CONFIG_PPC_64)

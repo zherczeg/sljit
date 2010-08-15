@@ -327,11 +327,6 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	return (void*)code;
 }
 
-void sljit_free_code(void* code)
-{
-	SLJIT_FREE_EXEC(code);
-}
-
 // ---------------------------------------------------------------------
 //  Operators
 // ---------------------------------------------------------------------

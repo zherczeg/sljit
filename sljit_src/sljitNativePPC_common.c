@@ -235,11 +235,6 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	return code;
 }
 
-void sljit_free_code(void* code)
-{
-	SLJIT_FREE_EXEC(code);
-}
-
 static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm);
 static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	int dst, sljit_w dstw,
