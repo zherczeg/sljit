@@ -88,7 +88,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	if (size == 0)
 		return SLJIT_NO_ERROR;
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 
 	INC_SIZE(size);
 	if (generals > 4) {
@@ -182,7 +182,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 
 	if (compiler->local_size > 0) {
 		compiler->mode32 = 0;
-		TEST_FAIL(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
+		FAIL_IF(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
 				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
 	}
 
@@ -190,7 +190,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	if (compiler->generals >= 2)
 		size += compiler->generals - 1;
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 
 	INC_SIZE(size);
 
@@ -227,7 +227,7 @@ static int emit_do_imm32(struct sljit_compiler *compiler, sljit_ub rex, sljit_ub
 
 	if (rex != 0) {
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 2 + sizeof(sljit_hw));
-		TEST_MEM_ERROR(buf);
+		FAIL_IF(!buf);
 		INC_SIZE(2 + sizeof(sljit_hw));
 		*buf++ = rex;
 		*buf++ = opcode;
@@ -235,7 +235,7 @@ static int emit_do_imm32(struct sljit_compiler *compiler, sljit_ub rex, sljit_ub
 	}
 	else {
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1 + sizeof(sljit_hw));
-		TEST_MEM_ERROR(buf);
+		FAIL_IF(!buf);
 		INC_SIZE(1 + sizeof(sljit_hw));
 		*buf++ = opcode;
 		*(sljit_hw*)buf = imm;
@@ -248,7 +248,7 @@ static int emit_load_imm64(struct sljit_compiler *compiler, int reg, sljit_w imm
 	sljit_ub *buf;
 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 2 + sizeof(sljit_w));
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 	INC_SIZE(2 + sizeof(sljit_w));
 	*buf++ = REX_W | ((reg_map[reg] <= 7) ? 0 : REX_B);
 	*buf++ = 0xb8 + (reg_map[reg] & 0x7);
@@ -296,7 +296,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 				if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
 					b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM_FLAG;
 				buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);
-				TEST_MEM_ERROR2(buf);
+				PTR_FAIL_IF(!buf);
 				INC_SIZE(4);
 				*buf++ = REX_W | REX_X | REX_R | ((reg_map[(b >> 4) & 0x0f] >= 8) ? REX_B : 0);
 				*buf++ = 0x8d;
@@ -394,7 +394,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		total_size++;
 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + total_size);
-	TEST_MEM_ERROR2(buf);
+	PTR_FAIL_IF(!buf);
 
 	// Encoding the byte
 	INC_SIZE(total_size);
@@ -496,7 +496,7 @@ static int call_with_args(struct sljit_compiler *compiler, int type)
 	SLJIT_ASSERT(reg_map[SLJIT_TEMPORARY_REG2] == 6 && reg_map[SLJIT_TEMPORARY_REG1] < 8 && reg_map[SLJIT_TEMPORARY_REG3] < 8);
 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 	INC_SIZE((type < SLJIT_CALL3) ? 3 : 6);
 	if (type >= SLJIT_CALL3) {
 		*buf++ = REX_W;
@@ -528,7 +528,7 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 	if (src & SLJIT_IMM) {
 		compiler->mode32 = 1;
 		code = emit_x86_instruction(compiler, 1, SLJIT_IMM, (sljit_w)(int)srcw, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0xc7;
 		compiler->mode32 = 0;
 		return SLJIT_NO_ERROR;
@@ -541,32 +541,32 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 	else {
 		if (sign) {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, src, srcw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code++ = 0x63;
 		}
 		else {
 			if (dst_r == src) {
 				compiler->mode32 = 1;
 				code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src, 0);
-				TEST_MEM_ERROR(code);
+				FAIL_IF(!code);
 				*code++ = 0x8b;
 				compiler->mode32 = 0;
 			}
 			// xor reg, reg
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, dst_r, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code++ = 0x33;
 			if (dst_r != src) {
 				compiler->mode32 = 1;
 				code = emit_x86_instruction(compiler, 1, dst_r, 0, src, srcw);
-				TEST_MEM_ERROR(code);
+				FAIL_IF(!code);
 				*code++ = 0x8b;
 				compiler->mode32 = 0;
 			}
 			else {
 				compiler->mode32 = 1;
 				code = emit_x86_instruction(compiler, 1, src, 0, TMP_REGISTER, 0);
-				TEST_MEM_ERROR(code);
+				FAIL_IF(!code);
 				*code++ = 0x8b;
 				compiler->mode32 = 0;
 			}
@@ -576,7 +576,7 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 	if (dst & SLJIT_MEM_FLAG) {
 		compiler->mode32 = 1;
 		code = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0x89;
 		compiler->mode32 = 0;
 	}

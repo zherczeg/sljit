@@ -19,7 +19,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 	if (imm <= SIMM_MAX && imm >= SIMM_MIN)
 		return push_inst(compiler, INS_FORM_IMM(14, reg, 0, (imm & 0xffff)));
 
-	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((imm >> 16) & 0xffff))));
+	FAIL_IF(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((imm >> 16) & 0xffff))));
 	return (imm & 0xffff) ? push_inst(compiler, INS_FORM_IMM(24, reg, reg, (imm & 0xffff))) : SLJIT_NO_ERROR;
 }
 
@@ -61,15 +61,15 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 			return push_inst(compiler, INS_FORM_CMP2(31, 4, src1, src2, (32 << 1)));
 		}
 		if (flags & ALT_FORM4)
-			TEST_FAIL(push_inst(compiler, INS_FORM_CMP2(31, 4, src1, src2, (32 << 1))));
+			FAIL_IF(push_inst(compiler, INS_FORM_CMP2(31, 4, src1, src2, (32 << 1))));
 		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (8 << 1) | 1 | (1 << 10)));
 
 	case SLJIT_SUBC:
 		if (flags & ALT_FORM4) {
 			// Unfortunately this is really complicated case
-			TEST_FAIL(push_inst(compiler, INS_FORM_OP1(31, ZERO_REG, src1, 234 << 1)));
-			TEST_FAIL(push_inst(compiler, INS_FORM_CMP2(31, 4, ZERO_REG, src2, (32 << 1))));
-			TEST_FAIL(push_inst(compiler, INS_FORM_IMM(14, ZERO_REG, 0, 0)));
+			FAIL_IF(push_inst(compiler, INS_FORM_OP1(31, ZERO_REG, src1, 234 << 1)));
+			FAIL_IF(push_inst(compiler, INS_FORM_CMP2(31, 4, ZERO_REG, src2, (32 << 1))));
+			FAIL_IF(push_inst(compiler, INS_FORM_IMM(14, ZERO_REG, 0, 0)));
 		}
 		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (136 << 1) | 1 | (1 << 10)));
 
@@ -186,7 +186,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 
 static int emit_const(struct sljit_compiler *compiler, int reg, sljit_w initval)
 {
-	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((initval >> 16) & 0xffff))));
+	FAIL_IF(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((initval >> 16) & 0xffff))));
 	return push_inst(compiler, INS_FORM_IMM(24, reg, reg, (initval & 0xffff)));
 }
 
