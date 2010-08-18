@@ -38,7 +38,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 		return push_inst(compiler, INS_FORM_IMM(14, reg, 0, (imm & 0xffff)));
 
 	if (imm <= 0x7fffffff && imm >= -0x80000000l) {
-		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((imm >> 16) & 0xffff))));
+		FAIL_IF(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((imm >> 16) & 0xffff))));
 		return (imm & 0xffff) ? push_inst(compiler, INS_FORM_IMM(24, reg, reg, (imm & 0xffff))) : SLJIT_NO_ERROR;
 	}
 
@@ -50,14 +50,14 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 	tmp = (imm << shift);
 
 	if ((tmp & ~0xffff000000000000ul) == 0) {
-		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(14, reg, 0, ((tmp >> 48) & 0xffff))));
+		FAIL_IF(push_inst(compiler, INS_FORM_IMM(14, reg, 0, ((tmp >> 48) & 0xffff))));
 		shift += 15;
 		return SLJIT_PUSH_RLDICR(reg, shift);
 	}
 
 	if ((tmp & ~0xffffffff00000000ul) == 0) {
-		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((tmp >> 48) & 0xffff))));
-		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(24, reg, reg, ((tmp >> 32) & 0xffff))));
+		FAIL_IF(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((tmp >> 48) & 0xffff))));
+		FAIL_IF(push_inst(compiler, INS_FORM_IMM(24, reg, reg, ((tmp >> 32) & 0xffff))));
 		shift += 31;
 		return SLJIT_PUSH_RLDICR(reg, shift);
 	}
@@ -67,15 +67,15 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 	tmp2 = imm & ((1ul << (63 - shift)) - 1);
 
 	if (tmp2 <= 0xffff) {
-		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(14, reg, 0, ((tmp >> 48) & 0xffff))));
-		TEST_FAIL(SLJIT_PUSH_RLDICR(reg, shift));
+		FAIL_IF(push_inst(compiler, INS_FORM_IMM(14, reg, 0, ((tmp >> 48) & 0xffff))));
+		FAIL_IF(SLJIT_PUSH_RLDICR(reg, shift));
 		return push_inst(compiler, INS_FORM_IMM(24, reg, reg, tmp2));
 	}
 
 	if (tmp2 <= 0xffffffff) {
-		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(14, reg, 0, ((tmp >> 48) & 0xffff))));
-		TEST_FAIL(SLJIT_PUSH_RLDICR(reg, shift));
-		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(25, reg, reg, (tmp2 >> 16))));
+		FAIL_IF(push_inst(compiler, INS_FORM_IMM(14, reg, 0, ((tmp >> 48) & 0xffff))));
+		FAIL_IF(SLJIT_PUSH_RLDICR(reg, shift));
+		FAIL_IF(push_inst(compiler, INS_FORM_IMM(25, reg, reg, (tmp2 >> 16))));
 		return (imm & 0xffff) ? push_inst(compiler, INS_FORM_IMM(24, reg, reg, (tmp2 & 0xffff))) : SLJIT_NO_ERROR;
 	}
 
@@ -83,19 +83,19 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 	tmp2 <<= shift2;
 
 	if ((tmp2 & ~0xffff000000000000ul) == 0) {
-		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(14, reg, 0, ((tmp >> 48) & 0xffff))));
+		FAIL_IF(push_inst(compiler, INS_FORM_IMM(14, reg, 0, ((tmp >> 48) & 0xffff))));
 		shift2 += 15;
 		shift += (63 - shift2);
-		TEST_FAIL(SLJIT_PUSH_RLDICR(reg, shift));
-		TEST_FAIL(push_inst(compiler, INS_FORM_IMM(24, reg, reg, ((tmp2 >> 48) & 0xffff))));
+		FAIL_IF(SLJIT_PUSH_RLDICR(reg, shift));
+		FAIL_IF(push_inst(compiler, INS_FORM_IMM(24, reg, reg, ((tmp2 >> 48) & 0xffff))));
 		return SLJIT_PUSH_RLDICR(reg, shift2);
 	}
 
 	// The general version
-	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((imm >> 48) & 0xffff))));
-	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(24, reg, reg, ((imm >> 32) & 0xffff))));
-	TEST_FAIL(SLJIT_PUSH_RLDICR(reg, 31));
-	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(25, reg, reg, ((imm >> 16) & 0xffff))));
+	FAIL_IF(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((imm >> 48) & 0xffff))));
+	FAIL_IF(push_inst(compiler, INS_FORM_IMM(24, reg, reg, ((imm >> 32) & 0xffff))));
+	FAIL_IF(SLJIT_PUSH_RLDICR(reg, 31));
+	FAIL_IF(push_inst(compiler, INS_FORM_IMM(25, reg, reg, ((imm >> 16) & 0xffff))));
 	return push_inst(compiler, INS_FORM_IMM(24, reg, reg, (imm & 0xffff)));
 }
 
@@ -105,25 +105,25 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 // Sign extension for integer operations
 #define UN_EXTS() \
 	if ((flags & (ALT_SIGN_EXT | REG2_SOURCE)) == (ALT_SIGN_EXT | REG2_SOURCE)) { \
-		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(31, src2, TMP_REG2, 986 << 1))); \
+		FAIL_IF(push_inst(compiler, INS_FORM_OP1(31, src2, TMP_REG2, 986 << 1))); \
 		src2 = TMP_REG2; \
 	}
 
 #define BIN_EXTS() \
 	if (flags & ALT_SIGN_EXT) { \
 		if (flags & REG1_SOURCE) { \
-			TEST_FAIL(push_inst(compiler, INS_FORM_OP1(31, src1, TMP_REG1, 986 << 1))); \
+			FAIL_IF(push_inst(compiler, INS_FORM_OP1(31, src1, TMP_REG1, 986 << 1))); \
 			src1 = TMP_REG1; \
 		} \
 		if (flags & REG2_SOURCE) { \
-			TEST_FAIL(push_inst(compiler, INS_FORM_OP1(31, src2, TMP_REG2, 986 << 1))); \
+			FAIL_IF(push_inst(compiler, INS_FORM_OP1(31, src2, TMP_REG2, 986 << 1))); \
 			src2 = TMP_REG2; \
 		} \
 	}
 
 #define BIN_IMM_EXTS() \
 	if ((flags & (ALT_SIGN_EXT | REG1_SOURCE)) == (ALT_SIGN_EXT | REG1_SOURCE)) { \
-		TEST_FAIL(push_inst(compiler, INS_FORM_OP1(31, src1, TMP_REG1, 986 << 1))); \
+		FAIL_IF(push_inst(compiler, INS_FORM_OP1(31, src1, TMP_REG1, 986 << 1))); \
 		src1 = TMP_REG1; \
 	}
 
@@ -169,16 +169,16 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		}
 		BIN_EXTS();
 		if (flags & ALT_FORM4)
-			TEST_FAIL(push_inst(compiler, INS_FORM_CMP2(31, 4 | ((flags & ALT_SIGN_EXT) ? 0 : 1), src1, src2, (32 << 1))));
+			FAIL_IF(push_inst(compiler, INS_FORM_CMP2(31, 4 | ((flags & ALT_SIGN_EXT) ? 0 : 1), src1, src2, (32 << 1))));
 		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (8 << 1) | 1 | (1 << 10)));
 
 	case SLJIT_SUBC:
 		BIN_EXTS();
 		if (flags & ALT_FORM4) {
 			// Unfortunately this is really complicated case
-			TEST_FAIL(push_inst(compiler, INS_FORM_OP1(31, ZERO_REG, src1, 234 << 1)));
-			TEST_FAIL(push_inst(compiler, INS_FORM_CMP2(31, 4 | ((flags & ALT_SIGN_EXT) ? 0 : 1), ZERO_REG, src2, (32 << 1))));
-			TEST_FAIL(push_inst(compiler, INS_FORM_IMM(14, ZERO_REG, 0, 0)));
+			FAIL_IF(push_inst(compiler, INS_FORM_OP1(31, ZERO_REG, src1, 234 << 1)));
+			FAIL_IF(push_inst(compiler, INS_FORM_CMP2(31, 4 | ((flags & ALT_SIGN_EXT) ? 0 : 1), ZERO_REG, src2, (32 << 1))));
+			FAIL_IF(push_inst(compiler, INS_FORM_IMM(14, ZERO_REG, 0, 0)));
 		}
 		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (136 << 1) | 1 | (1 << 10)));
 
@@ -339,10 +339,10 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 
 static int emit_const(struct sljit_compiler *compiler, int reg, sljit_w initval)
 {
-	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((initval >> 48) & 0xffff))));
-	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(24, reg, reg, ((initval >> 32) & 0xffff))));
-	TEST_FAIL(SLJIT_PUSH_RLDICR(reg, 31));
-	TEST_FAIL(push_inst(compiler, INS_FORM_IMM(25, reg, reg, ((initval >> 16) & 0xffff))));
+	FAIL_IF(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((initval >> 48) & 0xffff))));
+	FAIL_IF(push_inst(compiler, INS_FORM_IMM(24, reg, reg, ((initval >> 32) & 0xffff))));
+	FAIL_IF(SLJIT_PUSH_RLDICR(reg, 31));
+	FAIL_IF(push_inst(compiler, INS_FORM_IMM(25, reg, reg, ((initval >> 16) & 0xffff))));
 	return push_inst(compiler, INS_FORM_IMM(24, reg, reg, (initval & 0xffff)));
 }
 

@@ -96,8 +96,20 @@
 // Verbose operations
 #define SLJIT_VERBOSE
 
+// Compiler specific features. Disable them if they are not supported
+
+#ifdef __GNUC__
+#define SLJIT_LIKELY(x)		__builtin_expect((x), 1)
+#define SLJIT_UNLIKELY(x)	__builtin_expect((x), 0)
+#else
+#define SLJIT_LIKELY(x)		(x)
+#define SLJIT_UNLIKELY(x)	(x)
+#endif
+
 // Inline functions
-#define INLINE __inline
+#define SLJIT_INLINE __inline
+// Const variables
+#define SLJIT_CONST const
 
 // Byte type
 typedef unsigned char sljit_ub;

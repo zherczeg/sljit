@@ -19,25 +19,33 @@
 #define FUNCTION_ENTRY() \
 	SLJIT_ASSERT(compiler->error == SLJIT_NO_ERROR)
 
-#define TEST_MEM_ERROR(ptr) \
-	if (!(ptr)) { \
-		compiler->error = SLJIT_MEMORY_ERROR; \
-		return SLJIT_MEMORY_ERROR; \
-	}
+#define FAIL_IF_NULL(ptr) \
+	do { \
+		if (SLJIT_UNLIKELY(!(ptr))) { \
+			compiler->error = SLJIT_MEMORY_ERROR; \
+			return SLJIT_MEMORY_ERROR; \
+		} \
+	} while (0)
 
-#define TEST_MEM_ERROR2(ptr) \
-	if (!(ptr)) { \
-		compiler->error = SLJIT_MEMORY_ERROR; \
-		return NULL; \
-	}
+#define PTR_FAIL_IF_NULL(ptr) \
+	do { \
+		if (SLJIT_UNLIKELY(!(ptr))) { \
+			compiler->error = SLJIT_MEMORY_ERROR; \
+			return NULL; \
+		} \
+	} while (0)
 
-#define TEST_FAIL(expr) \
-	if (expr) \
-		return compiler->error;
+#define FAIL_IF(expr) \
+	do { \
+		if (SLJIT_UNLIKELY(expr)) \
+			return compiler->error; \
+	} while (0)
 
-#define TEST_FAIL2(expr) \
-	if (expr) \
-		return NULL;
+#define PTR_FAIL_IF(expr) \
+	do { \
+		if (SLJIT_UNLIKELY(expr)) \
+			return NULL; \
+	} while (0)
 
 #define GET_OPCODE(op) \
 	((op) & ~(SLJIT_INT_OP | SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C))
@@ -219,10 +227,18 @@ void sljit_free_compiler(struct sljit_compiler *compiler)
 	SLJIT_FREE(compiler);
 }
 
+#ifndef SLJIT_CONFIG_ARM_THUMB2
 void sljit_free_code(void* code)
 {
 	SLJIT_FREE_EXEC(code);
 }
+#else
+void sljit_free_code(void* code)
+{
+	// Remove thumb mode flag
+	SLJIT_FREE_EXEC((void*)((sljit_uw)code & ~0x1));
+}
+#endif
 
 void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
 {
@@ -255,8 +271,7 @@ static void* ensure_buf(struct sljit_compiler *compiler, int size)
 		return ret;
 	}
 	new_frag = (struct sljit_memory_fragment*)SLJIT_MALLOC(BUF_SIZE);
-	if (!new_frag)
-		return NULL;
+	PTR_FAIL_IF_NULL(new_frag);
 	new_frag->next = compiler->buf;
 	compiler->buf = new_frag;
 	new_frag->used_size = size;
@@ -274,8 +289,7 @@ static void* ensure_abuf(struct sljit_compiler *compiler, int size)
 		return ret;
 	}
 	new_frag = (struct sljit_memory_fragment*)SLJIT_MALLOC(ABUF_SIZE);
-	if (!new_frag)
-		return NULL;
+	PTR_FAIL_IF_NULL(new_frag);
 	new_frag->next = compiler->abuf;
 	compiler->abuf = new_frag;
 	new_frag->used_size = size;

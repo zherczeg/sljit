@@ -62,7 +62,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 
 	size = 1 + (generals <= 3 ? generals : 3) + ((args > 0) ? (2 + args * 3) : 0);
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 
 	INC_SIZE(size);
 	PUSH_REG(reg_map[TMP_REGISTER]);
@@ -155,14 +155,14 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 		emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw);
 
 	if (compiler->local_size > 0)
-		TEST_FAIL(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
+		FAIL_IF(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
 				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
 
 	size = 2 + (compiler->generals <= 3 ? compiler->generals : 3);
 	if (compiler->args > 0)
 		size += 2;
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 
 	INC_SIZE(size);
 
@@ -190,7 +190,7 @@ static int emit_do_imm(struct sljit_compiler *compiler, sljit_ub opcode, sljit_w
 	sljit_ub *buf;
 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 1 + sizeof(sljit_w));
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 	INC_SIZE(1 + sizeof(sljit_w));
 	*buf++ = opcode;
 	*(sljit_w*)buf = imm;
@@ -278,7 +278,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		SLJIT_ASSERT(!(flags & EX86_SHIFT_INS) || a == SLJIT_PREF_SHIFT_REG);
 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + total_size);
-	TEST_MEM_ERROR2(buf);
+	PTR_FAIL_IF(!buf);
 
 	// Encoding the byte
 	INC_SIZE(total_size);
@@ -376,7 +376,7 @@ static int call_with_args(struct sljit_compiler *compiler, int type)
 	sljit_ub *buf;
 
 	buf = (sljit_ub*)ensure_buf(compiler, type - SLJIT_CALL0 + 1);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 	INC_SIZE(type - SLJIT_CALL0);
 	if (type >= SLJIT_CALL3)
 		PUSH_REG(reg_map[SLJIT_TEMPORARY_REG3]);

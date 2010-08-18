@@ -45,7 +45,7 @@
 // Last register + 1
 #define TMP_REGISTER	(SLJIT_LOCALS_REG + 1)
 
-static sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
+static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
   0, 0, 2, 1, 0, 0, 3, 6, 7, 0, 0, 4, 5
 };
 
@@ -69,12 +69,12 @@ static sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
 // Note: r12 & 0x7 == 0b100, which decoded as SIB byte present
 // therefore r12 is better for GENERAL_EREG than GENERAL_REG
 // 2nd argument passed in rsi, 3rd in rdx
-static sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
+static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
   0, 0, 6, 1, 2, 11, 3, 15, 14, 13, 12, 4, 7, 8, 9
 };
 
 // re low-map. reg_map & 0x7
-static sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
+static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
   0, 0, 6, 1, 2,  3, 3, 7,  6,  5,  4,  4, 7, 0, 1
 };
 
@@ -241,11 +241,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 	// Second code generation pass
 	code = (sljit_ub*)SLJIT_MALLOC_EXEC(compiler->size);
-	if (!code) {
-		compiler->error = SLJIT_EX_MEMORY_ERROR;
-		return NULL;
-	}
-
+	PTR_FAIL_IF_NULL(code);
 	buf = compiler->buf;
 
 	code_ptr = code;
@@ -366,7 +362,7 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 	switch (op) {
 	case SLJIT_DEBUGGER:
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
-		TEST_MEM_ERROR(buf);
+		FAIL_IF(!buf);
 		INC_SIZE(1);
 		*buf = 0xcc;
 		break;
@@ -385,14 +381,14 @@ static int emit_mov(struct sljit_compiler *compiler,
 		// No destination, doesn't need to setup flags
 		if (src & SLJIT_MEM_FLAG) {
 			code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src, srcw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x8b;
 		}
 		return SLJIT_NO_ERROR;
 	}
 	if (src >= SLJIT_TEMPORARY_REG1 && src <= TMP_REGISTER) {
 		code = emit_x86_instruction(compiler, 1, src, 0, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0x89;
 		return SLJIT_NO_ERROR;
 	}
@@ -411,44 +407,42 @@ static int emit_mov(struct sljit_compiler *compiler,
 		}
 #ifdef SLJIT_CONFIG_X86_64
 		if (!compiler->mode32 && NOT_HALFWORD(srcw)) {
-			TEST_FAIL(emit_load_imm64(compiler, TMP_REG2, srcw));
+			FAIL_IF(emit_load_imm64(compiler, TMP_REG2, srcw));
 			code = emit_x86_instruction(compiler, 1, TMP_REG2, 0, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x89;
 			return SLJIT_NO_ERROR;
 		}
 #endif
 		code = emit_x86_instruction(compiler, 1, SLJIT_IMM, srcw, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0xc7;
 		return SLJIT_NO_ERROR;
 	}
 	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REGISTER) {
 		code = emit_x86_instruction(compiler, 1, dst, 0, src, srcw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0x8b;
 		return SLJIT_NO_ERROR;
 	}
 
 	// Memory to memory move. Requires two instruction
 	code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src, srcw);
-	TEST_MEM_ERROR(code);
+	FAIL_IF(!code);
 	*code = 0x8b;
 	code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, dst, dstw);
-	TEST_MEM_ERROR(code);
+	FAIL_IF(!code);
 	*code = 0x89;
 	return SLJIT_NO_ERROR;
 }
 
 #define EMIT_MOV(compiler, dst, dstw, src, srcw) \
-	do { \
-		TEST_FAIL(emit_mov(compiler, dst, dstw, src, srcw)); \
-	} while (0)
+	FAIL_IF(emit_mov(compiler, dst, dstw, src, srcw));
 
 #define ENCODE_PREFIX(prefix) \
 	do { \
 		code = (sljit_ub*)ensure_buf(compiler, 1 + 1); \
-		TEST_MEM_ERROR(code); \
+		FAIL_IF(!code); \
 		INC_CSIZE(1); \
 		*code = (prefix); \
 	} while (0)
@@ -472,7 +466,7 @@ static int emit_mov_byte(struct sljit_compiler *compiler, int sign,
 
 	if (src & SLJIT_IMM) {
 		code = emit_x86_instruction(compiler, 1 | EX86_BYTE_ARG | EX86_NO_REXW, SLJIT_IMM, srcw & 0xff, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0xc6;
 		return SLJIT_NO_ERROR;
 	}
@@ -497,7 +491,7 @@ static int emit_mov_byte(struct sljit_compiler *compiler, int sign,
 		if (reg_map[dst] < 4) {
 			EMIT_MOV(compiler, dst, 0, src, 0);
 			code = emit_x86_instruction(compiler, 2 | EX86_REX, dst, 0, dst, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code++ = 0x0f;
 			*code = sign ? 0xbe : 0xb6;
 		}
@@ -505,7 +499,7 @@ static int emit_mov_byte(struct sljit_compiler *compiler, int sign,
 			ENCODE_PREFIX(0x90 + reg_map[TMP_REGISTER]);
 			EMIT_MOV(compiler, SLJIT_TEMPORARY_REG1, 0, src, 0);
 			code = emit_x86_instruction(compiler, 2 | EX86_REX, dst, 0, SLJIT_TEMPORARY_REG1, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code++ = 0x0f;
 			*code = sign ? 0xbe : 0xb6;
 			ENCODE_PREFIX(0x90 + reg_map[TMP_REGISTER]);
@@ -514,7 +508,7 @@ static int emit_mov_byte(struct sljit_compiler *compiler, int sign,
 #endif
 	else {
 		code = emit_x86_instruction(compiler, 2, dst_r, 0, src, srcw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0x0f;
 		*code = sign ? 0xbe : 0xb6;
 	}
@@ -543,12 +537,12 @@ static int emit_mov_byte(struct sljit_compiler *compiler, int sign,
 			}
 			else {
 				code = emit_x86_instruction(compiler, 1, work_r, 0, dst_r, 0);
-				TEST_MEM_ERROR(code);
+				FAIL_IF(!code);
 				*code = 0x87;
 			}
 
 			code = emit_x86_instruction(compiler, 1, work_r, 0, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x88;
 
 			if (work_r == SLJIT_TEMPORARY_REG1) {
@@ -556,18 +550,18 @@ static int emit_mov_byte(struct sljit_compiler *compiler, int sign,
 			}
 			else {
 				code = emit_x86_instruction(compiler, 1, work_r, 0, dst_r, 0);
-				TEST_MEM_ERROR(code);
+				FAIL_IF(!code);
 				*code = 0x87;
 			}
 		}
 		else {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x88;
 		}
 #else
 		code = emit_x86_instruction(compiler, 1 | EX86_NO_REXW, dst_r, 0, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0x88;
 #endif
 	}
@@ -591,7 +585,7 @@ static int emit_mov_half(struct sljit_compiler *compiler, int sign,
 
 	if (src & SLJIT_IMM) {
 		code = emit_x86_instruction(compiler, 1 | EX86_HALF_ARG | EX86_NO_REXW | EX86_PREF_66, SLJIT_IMM, srcw & 0xffff, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0xc7;
 		return SLJIT_NO_ERROR;
 	}
@@ -602,14 +596,14 @@ static int emit_mov_half(struct sljit_compiler *compiler, int sign,
 		dst_r = src;
 	else {
 		code = emit_x86_instruction(compiler, 2, dst_r, 0, src, srcw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0x0f;
 		*code = sign ? 0xbf : 0xb7;
 	}
 
 	if (dst & SLJIT_MEM_FLAG) {
 		code = emit_x86_instruction(compiler, 1 | EX86_NO_REXW | EX86_PREF_66, dst_r, 0, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0x89;
 	}
 
@@ -625,7 +619,7 @@ static int emit_unary(struct sljit_compiler *compiler, int un_index,
 	if (dst == SLJIT_UNUSED) {
 		EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
 		code = emit_x86_instruction(compiler, 1, 0, 0, TMP_REGISTER, 0);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0xf7;
 		*code |= (un_index) << 3;
 		return SLJIT_NO_ERROR;
@@ -633,7 +627,7 @@ static int emit_unary(struct sljit_compiler *compiler, int un_index,
 	if (dst == src && dstw == srcw) {
 		/* Same input and output */
 		code = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0xf7;
 		*code |= (un_index) << 3;
 		return SLJIT_NO_ERROR;
@@ -641,14 +635,14 @@ static int emit_unary(struct sljit_compiler *compiler, int un_index,
 	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
 		EMIT_MOV(compiler, dst, 0, src, srcw);
 		code = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0xf7;
 		*code |= (un_index) << 3;
 		return SLJIT_NO_ERROR;
 	}
 	EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
 	code = emit_x86_instruction(compiler, 1, 0, 0, TMP_REGISTER, 0);
-	TEST_MEM_ERROR(code);
+	FAIL_IF(!code);
 	*code++ = 0xf7;
 	*code |= (un_index) << 3;
 	EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
@@ -664,32 +658,32 @@ static int emit_not_with_flags(struct sljit_compiler *compiler,
 	if (dst == SLJIT_UNUSED) {
 		EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
 		code = emit_x86_instruction(compiler, 1, 0, 0, TMP_REGISTER, 0);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0xf7;
 		*code |= 0x2 << 3;
 		code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, TMP_REGISTER, 0);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0x0b;
 		return SLJIT_NO_ERROR;
 	}
 	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
 		EMIT_MOV(compiler, dst, 0, src, srcw);
 		code = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0xf7;
 		*code |= 0x2 << 3;
 		code = emit_x86_instruction(compiler, 1, dst, 0, dst, 0);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0x0b;
 		return SLJIT_NO_ERROR;
 	}
 	EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
 	code = emit_x86_instruction(compiler, 1, 0, 0, TMP_REGISTER, 0);
-	TEST_MEM_ERROR(code);
+	FAIL_IF(!code);
 	*code++ = 0xf7;
 	*code |= 0x2 << 3;
 	code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, TMP_REGISTER, 0);
-	TEST_MEM_ERROR(code);
+	FAIL_IF(!code);
 	*code = 0x0b;
 	EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
 	return SLJIT_NO_ERROR;
@@ -758,7 +752,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 			compiler->mode32 = 0;
 #endif
 			code = emit_x86_instruction(compiler, 1, src & 0xf, 0, src, srcw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x8d;
 #ifdef SLJIT_CONFIG_X86_64
 			compiler->mode32 = op & SLJIT_INT_OP;
@@ -773,32 +767,32 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		case SLJIT_MOVU_UI:
 		case SLJIT_MOVU_SI:
 #endif
-			TEST_FAIL(emit_mov(compiler, dst, dstw, src, srcw));
+			FAIL_IF(emit_mov(compiler, dst, dstw, src, srcw));
 			break;
 
 		case SLJIT_MOVU_UB:
-			TEST_FAIL(emit_mov_byte(compiler, 0, dst, dstw, src, srcw));
+			FAIL_IF(emit_mov_byte(compiler, 0, dst, dstw, src, srcw));
 			break;
 
 		case SLJIT_MOVU_SB:
-			TEST_FAIL(emit_mov_byte(compiler, 1, dst, dstw, src, srcw));
+			FAIL_IF(emit_mov_byte(compiler, 1, dst, dstw, src, srcw));
 			break;
 
 		case SLJIT_MOVU_UH:
-			TEST_FAIL(emit_mov_half(compiler, 0, dst, dstw, src, srcw));
+			FAIL_IF(emit_mov_half(compiler, 0, dst, dstw, src, srcw));
 			break;
 
 		case SLJIT_MOVU_SH:
-			TEST_FAIL(emit_mov_half(compiler, 1, dst, dstw, src, srcw));
+			FAIL_IF(emit_mov_half(compiler, 1, dst, dstw, src, srcw));
 			break;
 
 #ifdef SLJIT_CONFIG_X86_64
 		case SLJIT_MOVU_UI:
-			TEST_FAIL(emit_mov_int(compiler, 0, dst, dstw, src, srcw));
+			FAIL_IF(emit_mov_int(compiler, 0, dst, dstw, src, srcw));
 			break;
 
 		case SLJIT_MOVU_SI:
-			TEST_FAIL(emit_mov_int(compiler, 1, dst, dstw, src, srcw));
+			FAIL_IF(emit_mov_int(compiler, 1, dst, dstw, src, srcw));
 			break;
 #endif
 
@@ -808,7 +802,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 			compiler->mode32 = 0;
 #endif
 			code = emit_x86_instruction(compiler, 1, dst & 0xf, 0, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x8d;
 		}
 		return SLJIT_NO_ERROR;
@@ -830,13 +824,13 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 #define BINARY_IMM(_op_imm_, _op_mr_, immw, arg, argw) \
 	if (IS_HALFWORD(immw) || compiler->mode32) { \
 		code = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, immw, arg, argw); \
-		TEST_MEM_ERROR(code); \
+		FAIL_IF(!code); \
 		*(code + 1) |= (_op_imm_); \
 	} \
 	else { \
-		TEST_FAIL(emit_load_imm64(compiler, TMP_REG2, immw)); \
+		FAIL_IF(emit_load_imm64(compiler, TMP_REG2, immw)); \
 		code = emit_x86_instruction(compiler, 1, TMP_REG2, 0, arg, argw); \
-		TEST_MEM_ERROR(code); \
+		FAIL_IF(!code); \
 		*code = (_op_mr_); \
 	}
 
@@ -847,7 +841,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 
 #define BINARY_IMM(_op_imm_, _op_mr_, immw, arg, argw) \
 	code = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, immw, arg, argw); \
-	TEST_MEM_ERROR(code); \
+	FAIL_IF(!code); \
 	*(code + 1) |= (_op_imm_);
 
 #define BINARY_EAX_IMM(_op_eax_imm_, immw) \
@@ -870,7 +864,7 @@ static int emit_cum_binary(struct sljit_compiler *compiler,
 		}
 		else {
 			code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_rm;
 		}
 		return SLJIT_NO_ERROR;
@@ -891,18 +885,18 @@ static int emit_cum_binary(struct sljit_compiler *compiler,
 		}
 		else if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
 			code = emit_x86_instruction(compiler, 1, dst, dstw, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_rm;
 		}
 		else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_LOCALS_REG) {
 			code = emit_x86_instruction(compiler, 1, src2, src2w, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_mr;
 		}
 		else {
 			EMIT_MOV(compiler, TMP_REGISTER, 0, src2, src2w);
 			code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_mr;
 		}
 		return SLJIT_NO_ERROR;
@@ -924,18 +918,18 @@ static int emit_cum_binary(struct sljit_compiler *compiler,
 		}
 		else if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
 			code = emit_x86_instruction(compiler, 1, dst, dstw, src1, src1w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_rm;
 		}
 		else if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= SLJIT_LOCALS_REG) {
 			code = emit_x86_instruction(compiler, 1, src1, src1w, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_mr;
 		}
 		else {
 			EMIT_MOV(compiler, TMP_REGISTER, 0, src1, src1w);
 			code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_mr;
 		}
 		return SLJIT_NO_ERROR;
@@ -949,7 +943,7 @@ static int emit_cum_binary(struct sljit_compiler *compiler,
 		}
 		else {
 			code = emit_x86_instruction(compiler, 1, dst, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_rm;
 		}
 	}
@@ -961,7 +955,7 @@ static int emit_cum_binary(struct sljit_compiler *compiler,
 		}
 		else {
 			code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_rm;
 		}
 		EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
@@ -985,7 +979,7 @@ static int emit_non_cum_binary(struct sljit_compiler *compiler,
 		}
 		else {
 			code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_rm;
 		}
 		return SLJIT_NO_ERROR;
@@ -1006,18 +1000,18 @@ static int emit_non_cum_binary(struct sljit_compiler *compiler,
 		}
 		else if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
 			code = emit_x86_instruction(compiler, 1, dst, dstw, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_rm;
 		}
 		else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_LOCALS_REG) {
 			code = emit_x86_instruction(compiler, 1, src2, src2w, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_mr;
 		}
 		else {
 			EMIT_MOV(compiler, TMP_REGISTER, 0, src2, src2w);
 			code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_mr;
 		}
 		return SLJIT_NO_ERROR;
@@ -1031,7 +1025,7 @@ static int emit_non_cum_binary(struct sljit_compiler *compiler,
 		}
 		else {
 			code = emit_x86_instruction(compiler, 1, dst, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_rm;
 		}
 	}
@@ -1043,7 +1037,7 @@ static int emit_non_cum_binary(struct sljit_compiler *compiler,
 		}
 		else {
 			code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = op_rm;
 		}
 		EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
@@ -1065,13 +1059,13 @@ static int emit_mul(struct sljit_compiler *compiler,
 	// Register destination
 	if (dst_r == src1 && !(src2 & SLJIT_IMM)) {
 		code = emit_x86_instruction(compiler, 2, dst_r, 0, src2, src2w);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0x0f;
 		*code = 0xaf;
 	}
 	else if (dst_r == src2 && !(src1 & SLJIT_IMM)) {
 		code = emit_x86_instruction(compiler, 2, dst_r, 0, src1, src1w);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0x0f;
 		*code = 0xaf;
 	}
@@ -1084,30 +1078,30 @@ static int emit_mul(struct sljit_compiler *compiler,
 
 		if (src1w <= 127 && src1w >= -128) {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x6b;
 			code = (sljit_ub*)ensure_buf(compiler, 1 + 1);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			INC_CSIZE(1);
 			*code = (sljit_b)src1w;
 		}
 #ifdef SLJIT_CONFIG_X86_32
 		else {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x69;
 			code = (sljit_ub*)ensure_buf(compiler, 1 + 4);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			INC_CSIZE(4);
 			*(sljit_w*)code = src1w;
 		}
 #else
 		else if (IS_HALFWORD(src1w)) {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x69;
 			code = (sljit_ub*)ensure_buf(compiler, 1 + 4);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			INC_CSIZE(4);
 			*(sljit_hw*)code = src1w;
 		}
@@ -1116,7 +1110,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 			if (dst_r != src2)
 				EMIT_MOV(compiler, dst_r, 0, src2, src2w);
 			code = emit_x86_instruction(compiler, 2, dst_r, 0, TMP_REG2, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code++ = 0x0f;
 			*code = 0xaf;
 		}
@@ -1127,30 +1121,30 @@ static int emit_mul(struct sljit_compiler *compiler,
 
 		if (src2w <= 127 && src2w >= -128) {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, src1, src1w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x6b;
 			code = (sljit_ub*)ensure_buf(compiler, 1 + 1);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			INC_CSIZE(1);
 			*code = (sljit_b)src2w;
 		}
 #ifdef SLJIT_CONFIG_X86_32
 		else {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, src1, src1w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x69;
 			code = (sljit_ub*)ensure_buf(compiler, 1 + 4);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			INC_CSIZE(4);
 			*(sljit_w*)code = src2w;
 		}
 #else
 		else if (IS_HALFWORD(src2w)) {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, src1, src1w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x69;
 			code = (sljit_ub*)ensure_buf(compiler, 1 + 4);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			INC_CSIZE(4);
 			*(sljit_hw*)code = src2w;
 		}
@@ -1159,7 +1153,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 			if (dst_r != src1)
 				EMIT_MOV(compiler, dst_r, 0, src1, src1w);
 			code = emit_x86_instruction(compiler, 2, dst_r, 0, TMP_REG2, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code++ = 0x0f;
 			*code = 0xaf;
 		}
@@ -1171,7 +1165,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 			dst_r = TMP_REGISTER;
 		EMIT_MOV(compiler, dst_r, 0, src1, src1w);
 		code = emit_x86_instruction(compiler, 2, dst_r, 0, src2, src2w);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0x0f;
 		*code = 0xaf;
 	}
@@ -1203,7 +1197,7 @@ static int emit_lea_binary(struct sljit_compiler *compiler,
 			// It is not possible to be both SLJIT_LOCALS_REG
 			if (src1 != SLJIT_LOCALS_REG || src2 != SLJIT_LOCALS_REG) {
 				code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM2(src1, src2), 0);
-				TEST_MEM_ERROR(code);
+				FAIL_IF(!code);
 				*code = 0x8d;
 				done = 1;
 			}
@@ -1215,7 +1209,7 @@ static int emit_lea_binary(struct sljit_compiler *compiler,
 		if (src2 & SLJIT_IMM) {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src1), src2w);
 #endif
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x8d;
 			done = 1;
 		}
@@ -1228,7 +1222,7 @@ static int emit_lea_binary(struct sljit_compiler *compiler,
 		if (src1 & SLJIT_IMM) {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src2), src1w);
 #endif
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x8d;
 			done = 1;
 		}
@@ -1263,7 +1257,7 @@ static int emit_cmp_binary(struct sljit_compiler *compiler,
 		}
 		else {
 			code = emit_x86_instruction(compiler, 1, src1, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x3b;
 		}
 		return SLJIT_NO_ERROR;
@@ -1271,7 +1265,7 @@ static int emit_cmp_binary(struct sljit_compiler *compiler,
 
 	if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_LOCALS_REG && !(src1 & SLJIT_IMM)) {
 		code = emit_x86_instruction(compiler, 1, src2, 0, src1, src1w);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0x39;
 		return SLJIT_NO_ERROR;
 	}
@@ -1287,7 +1281,7 @@ static int emit_cmp_binary(struct sljit_compiler *compiler,
 	else {
 		EMIT_MOV(compiler, TMP_REGISTER, 0, src1, src1w);
 		code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src2, src2w);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0x3b;
 	}
 	return SLJIT_NO_ERROR;
@@ -1322,24 +1316,24 @@ static int emit_test_binary(struct sljit_compiler *compiler,
 #ifdef SLJIT_CONFIG_X86_64
 			if (IS_HALFWORD(src2w) || compiler->mode32) {
 				code = emit_x86_instruction(compiler, 1, SLJIT_IMM, src2w, src1, 0);
-				TEST_MEM_ERROR(code);
+				FAIL_IF(!code);
 				*code = 0xf7;
 			}
 			else {
-				TEST_FAIL(emit_load_imm64(compiler, TMP_REG2, src2w));
+				FAIL_IF(emit_load_imm64(compiler, TMP_REG2, src2w));
 				code = emit_x86_instruction(compiler, 1, TMP_REG2, 0, src1, 0);
-				TEST_MEM_ERROR(code);
+				FAIL_IF(!code);
 				*code = 0x85;
 			}
 #else
 			code = emit_x86_instruction(compiler, 1, SLJIT_IMM, src2w, src1, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0xf7;
 #endif
 		}
 		else {
 			code = emit_x86_instruction(compiler, 1, src1, 0, src2, src2w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x85;
 		}
 		return SLJIT_NO_ERROR;
@@ -1350,24 +1344,24 @@ static int emit_test_binary(struct sljit_compiler *compiler,
 #ifdef SLJIT_CONFIG_X86_64
 			if (IS_HALFWORD(src1w) || compiler->mode32) {
 				code = emit_x86_instruction(compiler, 1, SLJIT_IMM, src1w, src2, 0);
-				TEST_MEM_ERROR(code);
+				FAIL_IF(!code);
 				*code = 0xf7;
 			}
 			else {
-				TEST_FAIL(emit_load_imm64(compiler, TMP_REG2, src1w));
+				FAIL_IF(emit_load_imm64(compiler, TMP_REG2, src1w));
 				code = emit_x86_instruction(compiler, 1, TMP_REG2, 0, src2, 0);
-				TEST_MEM_ERROR(code);
+				FAIL_IF(!code);
 				*code = 0x85;
 			}
 #else
 			code = emit_x86_instruction(compiler, 1, src1, src1w, src2, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0xf7;
 #endif
 		}
 		else {
 			code = emit_x86_instruction(compiler, 1, src2, 0, src1, src1w);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x85;
 		}
 		return SLJIT_NO_ERROR;
@@ -1378,24 +1372,24 @@ static int emit_test_binary(struct sljit_compiler *compiler,
 #ifdef SLJIT_CONFIG_X86_64
 		if (IS_HALFWORD(src2w) || compiler->mode32) {
 			code = emit_x86_instruction(compiler, 1, SLJIT_IMM, src2w, TMP_REGISTER, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0xf7;
 		}
 		else {
-			TEST_FAIL(emit_load_imm64(compiler, TMP_REG2, src2w));
+			FAIL_IF(emit_load_imm64(compiler, TMP_REG2, src2w));
 			code = emit_x86_instruction(compiler, 1, TMP_REG2, 0, TMP_REGISTER, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code = 0x85;
 		}
 #else
 		code = emit_x86_instruction(compiler, 1, SLJIT_IMM, src2w, TMP_REGISTER, 0);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0xf7;
 #endif
 	}
 	else {
 		code = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, src2, src2w);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code = 0x85;
 	}
 	return SLJIT_NO_ERROR;
@@ -1412,28 +1406,28 @@ static int emit_shift(struct sljit_compiler *compiler,
 	if ((src2 & SLJIT_IMM) || (src2 == SLJIT_PREF_SHIFT_REG)) {
 		if (dst == src1 && dstw == src1w) {
 			code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, src2, src2w, dst, dstw);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code |= mode;
 			return SLJIT_NO_ERROR;
 		}
 		if (dst == SLJIT_UNUSED) {
 			EMIT_MOV(compiler, TMP_REGISTER, 0, src1, src1w);
 			code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, src2, src2w, TMP_REGISTER, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code |= mode;
 			return SLJIT_NO_ERROR;
 		}
 		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
 			EMIT_MOV(compiler, dst, 0, src1, src1w);
 			code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, src2, src2w, dst, 0);
-			TEST_MEM_ERROR(code);
+			FAIL_IF(!code);
 			*code |= mode;
 			return SLJIT_NO_ERROR;
 		}
 
 		EMIT_MOV(compiler, TMP_REGISTER, 0, src1, src1w);
 		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, src2, src2w, TMP_REGISTER, 0);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code |= mode;
 		EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
 		return SLJIT_NO_ERROR;
@@ -1443,7 +1437,7 @@ static int emit_shift(struct sljit_compiler *compiler,
 		EMIT_MOV(compiler, TMP_REGISTER, 0, src1, src1w);
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, src2, src2w);
 		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_PREF_SHIFT_REG, 0, TMP_REGISTER, 0);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code |= mode;
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, TMP_REGISTER, 0);
 	}
@@ -1453,7 +1447,7 @@ static int emit_shift(struct sljit_compiler *compiler,
 		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_PREF_SHIFT_REG, 0);
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, src2, src2w);
 		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_PREF_SHIFT_REG, 0, dst, 0);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code |= mode;
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, TMP_REGISTER, 0);
 	}
@@ -1470,7 +1464,7 @@ static int emit_shift(struct sljit_compiler *compiler,
 		EMIT_MOV(compiler, TMP_REGISTER, 0, src1, src1w);
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, src2, src2w);
 		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_PREF_SHIFT_REG, 0, TMP_REGISTER, 0);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code |= mode;
 
 #ifdef SLJIT_CONFIG_X86_64
@@ -1624,7 +1618,7 @@ static int emit_sse2(struct sljit_compiler *compiler, sljit_ub opcode,
 	sljit_ub *buf;
 
 	buf = emit_x86_instruction(compiler, 2 | EX86_PREF_F2 | EX86_SSE2, xmm1, 0, xmm2, xmm2w);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 	*buf++ = 0x0f;
 	*buf = opcode;
 	return SLJIT_NO_ERROR;
@@ -1636,19 +1630,19 @@ static int emit_sse2_logic(struct sljit_compiler *compiler, sljit_ub opcode,
 	sljit_ub *buf;
 
 	buf = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2, xmm1, 0, xmm2, xmm2w);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 	*buf++ = 0x0f;
 	*buf = opcode;
 	return SLJIT_NO_ERROR;
 }
 
-static INLINE int emit_sse2_load(struct sljit_compiler *compiler,
+static SLJIT_INLINE int emit_sse2_load(struct sljit_compiler *compiler,
 	int dst, int src, sljit_w srcw)
 {
 	return emit_sse2(compiler, 0x10, dst, src, srcw);
 }
 
-static INLINE int emit_sse2_store(struct sljit_compiler *compiler,
+static SLJIT_INLINE int emit_sse2_store(struct sljit_compiler *compiler,
 	int dst, sljit_w dstw, int src)
 {
 	return emit_sse2(compiler, 0x11, src, dst, dstw);
@@ -1685,7 +1679,7 @@ static int sljit_emit_sse2_fop1(struct sljit_compiler *compiler, int op,
 			dst_r = dst;
 		else {
 			dst_r = TMP_FREG;
-			TEST_FAIL(emit_sse2_load(compiler, dst_r, dst, dstw));
+			FAIL_IF(emit_sse2_load(compiler, dst_r, dst, dstw));
 		}
 		return emit_sse2_logic(compiler, 0x2f, dst_r, src, srcw);
 	}
@@ -1695,28 +1689,27 @@ static int sljit_emit_sse2_fop1(struct sljit_compiler *compiler, int op,
 			return emit_sse2_load(compiler, dst, src, srcw);
 		if (src >= SLJIT_FLOAT_REG1 && src <= SLJIT_FLOAT_REG4)
 			return emit_sse2_store(compiler, dst, dstw, src);
-		TEST_FAIL(emit_sse2_load(compiler, TMP_FREG, src, srcw));
+		FAIL_IF(emit_sse2_load(compiler, TMP_FREG, src, srcw));
 		return emit_sse2_store(compiler, dst, dstw, TMP_FREG);
 	}
 
 	if (dst >= SLJIT_FLOAT_REG1 && dst <= SLJIT_FLOAT_REG4) {
 		dst_r = dst;
-		if (dst != src) {
-			TEST_FAIL(emit_sse2_load(compiler, dst_r, src, srcw));
-		}
+		if (dst != src)
+			FAIL_IF(emit_sse2_load(compiler, dst_r, src, srcw));
 	}
 	else {
 		dst_r = TMP_FREG;
-		TEST_FAIL(emit_sse2_load(compiler, dst_r, src, srcw));
+		FAIL_IF(emit_sse2_load(compiler, dst_r, src, srcw));
 	}
 
 	switch (op) {
 	case SLJIT_FNEG:
-		TEST_FAIL(emit_sse2_logic(compiler, 0x57, dst_r, SLJIT_MEM0(), (sljit_w)sse2_buffer));
+		FAIL_IF(emit_sse2_logic(compiler, 0x57, dst_r, SLJIT_MEM0(), (sljit_w)sse2_buffer));
 		break;
 
 	case SLJIT_FABS:
-		TEST_FAIL(emit_sse2_logic(compiler, 0x54, dst_r, SLJIT_MEM0(), (sljit_w)(sse2_buffer + 4)));
+		FAIL_IF(emit_sse2_logic(compiler, 0x54, dst_r, SLJIT_MEM0(), (sljit_w)(sse2_buffer + 4)));
 		break;
 	}
 
@@ -1762,34 +1755,33 @@ static int sljit_emit_sse2_fop2(struct sljit_compiler *compiler, int op,
 			src2 = src1;
 			src2w = src1w;
 		}
-		else if (dst != src2) {
-			TEST_FAIL(emit_sse2_load(compiler, dst_r, src1, src1w));
-		}
+		else if (dst != src2)
+			FAIL_IF(emit_sse2_load(compiler, dst_r, src1, src1w));
 		else {
 			dst_r = TMP_FREG;
-			TEST_FAIL(emit_sse2_load(compiler, TMP_FREG, src1, src1w));
+			FAIL_IF(emit_sse2_load(compiler, TMP_FREG, src1, src1w));
 		}
 	}
 	else {
 		dst_r = TMP_FREG;
-		TEST_FAIL(emit_sse2_load(compiler, TMP_FREG, src1, src1w));
+		FAIL_IF(emit_sse2_load(compiler, TMP_FREG, src1, src1w));
 	}
 
 	switch (op) {
 	case SLJIT_FADD:
-		TEST_FAIL(emit_sse2(compiler, 0x58, dst_r, src2, src2w));
+		FAIL_IF(emit_sse2(compiler, 0x58, dst_r, src2, src2w));
 		break;
 
 	case SLJIT_FSUB:
-		TEST_FAIL(emit_sse2(compiler, 0x5c, dst_r, src2, src2w));
+		FAIL_IF(emit_sse2(compiler, 0x5c, dst_r, src2, src2w));
 		break;
 
 	case SLJIT_FMUL:
-		TEST_FAIL(emit_sse2(compiler, 0x59, dst_r, src2, src2w));
+		FAIL_IF(emit_sse2(compiler, 0x59, dst_r, src2, src2w));
 		break;
 
 	case SLJIT_FDIV:
-		TEST_FAIL(emit_sse2(compiler, 0x5e, dst_r, src2, src2w));
+		FAIL_IF(emit_sse2(compiler, 0x5e, dst_r, src2, src2w));
 		break;
 	}
 
@@ -1809,7 +1801,7 @@ static int emit_fld(struct sljit_compiler *compiler,
 
 	if (src >= SLJIT_FLOAT_REG1 && src <= SLJIT_FLOAT_REG4) {
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 2);
-		TEST_MEM_ERROR(buf);
+		FAIL_IF(!buf);
 		INC_SIZE(2);
 		*buf++ = 0xd9;
 		*buf = 0xc0 + src - 1;
@@ -1817,7 +1809,7 @@ static int emit_fld(struct sljit_compiler *compiler,
 	}
 
 	buf = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 	*buf = 0xdd;
 	return SLJIT_NO_ERROR;
 }
@@ -1831,7 +1823,7 @@ static int emit_fop(struct sljit_compiler *compiler,
 
 	if (src >= SLJIT_FLOAT_REG1 && src <= SLJIT_FLOAT_REG4) {
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 2);
-		TEST_MEM_ERROR(buf);
+		FAIL_IF(!buf);
 		INC_SIZE(2);
 		*buf++ = st_arg;
 		*buf = st_arg2 + src;
@@ -1839,7 +1831,7 @@ static int emit_fop(struct sljit_compiler *compiler,
 	}
 
 	buf = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 	*buf++ = m64fp_arg;
 	*buf |= m64fp_arg2;
 	return SLJIT_NO_ERROR;
@@ -1852,7 +1844,7 @@ static int emit_fop_regs(struct sljit_compiler *compiler,
 	sljit_ub *buf;
 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 2);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 	INC_SIZE(2);
 	*buf++ = st_arg;
 	*buf = st_arg2 + src;
@@ -1889,13 +1881,13 @@ static int sljit_emit_fpu_fop1(struct sljit_compiler *compiler, int op,
 
 	if (GET_OPCODE(op) == SLJIT_FCMP) {
 #ifndef SLJIT_CONFIG_X86_64
-		TEST_FAIL(emit_fld(compiler, dst, dstw));
-		TEST_FAIL(emit_fop(compiler, 0xd8, 0xd8, 0xdc, 0x3 << 3, src, srcw));
+		FAIL_IF(emit_fld(compiler, dst, dstw));
+		FAIL_IF(emit_fop(compiler, 0xd8, 0xd8, 0xdc, 0x3 << 3, src, srcw));
 
 		// Copy flags
 		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG1, 0);
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3);
-		TEST_MEM_ERROR(buf);
+		FAIL_IF(!buf);
 		INC_SIZE(3);
 		*buf++ = 0xdf;
 		*buf++ = 0xe0;
@@ -1904,30 +1896,30 @@ static int sljit_emit_fpu_fop1(struct sljit_compiler *compiler, int op,
 		EMIT_MOV(compiler, SLJIT_TEMPORARY_REG1, 0, TMP_REGISTER, 0);
 #else
 		if (src >= SLJIT_FLOAT_REG1 && src <= SLJIT_FLOAT_REG4) {
-			TEST_FAIL(emit_fld(compiler, dst, dstw));
-			TEST_FAIL(emit_fop_regs(compiler, 0xdf, 0xe8, src));
+			FAIL_IF(emit_fld(compiler, dst, dstw));
+			FAIL_IF(emit_fop_regs(compiler, 0xdf, 0xe8, src));
 		} else {
-			TEST_FAIL(emit_fld(compiler, src, srcw));
-			TEST_FAIL(emit_fld(compiler, dst + ((dst >= SLJIT_FLOAT_REG1 && dst <= SLJIT_FLOAT_REG4) ? 1 : 0), dstw));
-			TEST_FAIL(emit_fop_regs(compiler, 0xdf, 0xe8, src));
-			TEST_FAIL(emit_fop_regs(compiler, 0xdd, 0xd8, 0));
+			FAIL_IF(emit_fld(compiler, src, srcw));
+			FAIL_IF(emit_fld(compiler, dst + ((dst >= SLJIT_FLOAT_REG1 && dst <= SLJIT_FLOAT_REG4) ? 1 : 0), dstw));
+			FAIL_IF(emit_fop_regs(compiler, 0xdf, 0xe8, src));
+			FAIL_IF(emit_fop_regs(compiler, 0xdd, 0xd8, 0));
 		}
 #endif
 		return SLJIT_NO_ERROR;
 	}
 
-	TEST_FAIL(emit_fld(compiler, src, srcw));
+	FAIL_IF(emit_fld(compiler, src, srcw));
 
 	switch (op) {
 	case SLJIT_FNEG:
-		TEST_FAIL(emit_fop_regs(compiler, 0xd9, 0xe0, 0));
+		FAIL_IF(emit_fop_regs(compiler, 0xd9, 0xe0, 0));
 		break;
 	case SLJIT_FABS:
-		TEST_FAIL(emit_fop_regs(compiler, 0xd9, 0xe1, 0));
+		FAIL_IF(emit_fop_regs(compiler, 0xd9, 0xe1, 0));
 		break;
 	}
 
-	TEST_FAIL(emit_fop(compiler, 0xdd, 0xd8, 0xdd, 0x3 << 3, dst, dstw));
+	FAIL_IF(emit_fop(compiler, 0xdd, 0xd8, 0xdd, 0x3 << 3, dst, dstw));
 
 	return SLJIT_NO_ERROR;
 }
@@ -1959,40 +1951,40 @@ static int sljit_emit_fpu_fop2(struct sljit_compiler *compiler, int op,
 #endif
 
 	if (src1 >= SLJIT_FLOAT_REG1 && src1 <= SLJIT_FLOAT_REG4 && dst == src1) {
-		TEST_FAIL(emit_fld(compiler, src2, src2w));
+		FAIL_IF(emit_fld(compiler, src2, src2w));
 
 		switch (op) {
 		case SLJIT_FADD:
-			TEST_FAIL(emit_fop_regs(compiler, 0xde, 0xc0, src1));
+			FAIL_IF(emit_fop_regs(compiler, 0xde, 0xc0, src1));
 			break;
 		case SLJIT_FSUB:
-			TEST_FAIL(emit_fop_regs(compiler, 0xde, 0xe8, src1));
+			FAIL_IF(emit_fop_regs(compiler, 0xde, 0xe8, src1));
 			break;
 		case SLJIT_FMUL:
-			TEST_FAIL(emit_fop_regs(compiler, 0xde, 0xc8, src1));
+			FAIL_IF(emit_fop_regs(compiler, 0xde, 0xc8, src1));
 			break;
 		case SLJIT_FDIV:
-			TEST_FAIL(emit_fop_regs(compiler, 0xde, 0xf8, src1));
+			FAIL_IF(emit_fop_regs(compiler, 0xde, 0xf8, src1));
 			break;
 		}
 		return SLJIT_NO_ERROR;
 	}
 
-	TEST_FAIL(emit_fld(compiler, src1, src1w));
+	FAIL_IF(emit_fld(compiler, src1, src1w));
 
 	if (src2 >= SLJIT_FLOAT_REG1 && src2 <= SLJIT_FLOAT_REG4 && dst == src2) {
 		switch (op) {
 		case SLJIT_FADD:
-			TEST_FAIL(emit_fop_regs(compiler, 0xde, 0xc0, src2));
+			FAIL_IF(emit_fop_regs(compiler, 0xde, 0xc0, src2));
 			break;
 		case SLJIT_FSUB:
-			TEST_FAIL(emit_fop_regs(compiler, 0xde, 0xe0, src2));
+			FAIL_IF(emit_fop_regs(compiler, 0xde, 0xe0, src2));
 			break;
 		case SLJIT_FMUL:
-			TEST_FAIL(emit_fop_regs(compiler, 0xde, 0xc8, src2));
+			FAIL_IF(emit_fop_regs(compiler, 0xde, 0xc8, src2));
 			break;
 		case SLJIT_FDIV:
-			TEST_FAIL(emit_fop_regs(compiler, 0xde, 0xf0, src2));
+			FAIL_IF(emit_fop_regs(compiler, 0xde, 0xf0, src2));
 			break;
 		}
 		return SLJIT_NO_ERROR;
@@ -2000,20 +1992,20 @@ static int sljit_emit_fpu_fop2(struct sljit_compiler *compiler, int op,
 
 	switch (op) {
 	case SLJIT_FADD:
-		TEST_FAIL(emit_fop(compiler, 0xd8, 0xc0, 0xdc, 0x0 << 3, src2, src2w));
+		FAIL_IF(emit_fop(compiler, 0xd8, 0xc0, 0xdc, 0x0 << 3, src2, src2w));
 		break;
 	case SLJIT_FSUB:
-		TEST_FAIL(emit_fop(compiler, 0xd8, 0xe0, 0xdc, 0x4 << 3, src2, src2w));
+		FAIL_IF(emit_fop(compiler, 0xd8, 0xe0, 0xdc, 0x4 << 3, src2, src2w));
 		break;
 	case SLJIT_FMUL:
-		TEST_FAIL(emit_fop(compiler, 0xd8, 0xc8, 0xdc, 0x1 << 3, src2, src2w));
+		FAIL_IF(emit_fop(compiler, 0xd8, 0xc8, 0xdc, 0x1 << 3, src2, src2w));
 		break;
 	case SLJIT_FDIV:
-		TEST_FAIL(emit_fop(compiler, 0xd8, 0xf0, 0xdc, 0x6 << 3, src2, src2w));
+		FAIL_IF(emit_fop(compiler, 0xd8, 0xf0, 0xdc, 0x6 << 3, src2, src2w));
 		break;
 	}
 
-	TEST_FAIL(emit_fop(compiler, 0xdd, 0xd8, 0xdd, 0x3 << 3, dst, dstw));
+	FAIL_IF(emit_fop(compiler, 0xdd, 0xd8, 0xdd, 0x3 << 3, dst, dstw));
 
 	return SLJIT_NO_ERROR;
 }
@@ -2061,7 +2053,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 		return compiler->last_label;
 
 	label = (struct sljit_label*)ensure_abuf(compiler, sizeof(struct sljit_label));
-	TEST_MEM_ERROR2(label);
+	PTR_FAIL_IF(!label);
 
 	label->next = NULL;
 	label->size = compiler->size;
@@ -2072,7 +2064,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 	compiler->last_label = label;
 
 	buf = (sljit_ub*)ensure_buf(compiler, 2);
-	TEST_MEM_ERROR2(buf);
+	PTR_FAIL_IF(!buf);
 
 	*buf++ = 0;
 	*buf++ = 0;
@@ -2092,7 +2084,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	sljit_emit_jump_verbose();
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
-	TEST_MEM_ERROR2(jump);
+	PTR_FAIL_IF(!jump);
 
 	jump->next = NULL;
 	jump->flags = type & SLJIT_LONG_JUMP;
@@ -2115,7 +2107,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 #endif
 
 	buf = (sljit_ub*)ensure_buf(compiler, 2);
-	TEST_MEM_ERROR2(buf);
+	PTR_FAIL_IF(!buf);
 
 	*buf++ = 0;
 	*buf++ = type + 4;
@@ -2138,11 +2130,11 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	CHECK_EXTRA_REGS(src, srcw);
 
 	if (type >= SLJIT_CALL1)
-		TEST_FAIL(call_with_args(compiler, type));
+		FAIL_IF(call_with_args(compiler, type));
 
 	if (src == SLJIT_IMM) {
 		buf = (sljit_ub*)ensure_buf(compiler, 2 + sizeof(sljit_w));
-		TEST_MEM_ERROR(buf);
+		FAIL_IF(!buf);
 
 #ifdef SLJIT_CONFIG_X86_32
 		compiler->size += 5;
@@ -2160,7 +2152,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 					 and we know that src is not immediate */
 #endif
 		code = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
-		TEST_MEM_ERROR(code);
+		FAIL_IF(!code);
 		*code++ = 0xff;
 		*code |= (type >= SLJIT_CALL0) ? (2 << 3) : (4 << 3);
 	}
@@ -2245,7 +2237,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		reg = TMP_REGISTER;
 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 4 + 4);
-	TEST_MEM_ERROR(buf);
+	FAIL_IF(!buf);
 	INC_SIZE(4 + 4);
 	// Set al to conditional flag
 	*buf++ = (reg_map[reg] <= 7) ? 0x40 : REX_B;
@@ -2263,7 +2255,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 #else
 	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_TEMPORARY_REG3) {
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3 + 3);
-		TEST_MEM_ERROR(buf);
+		FAIL_IF(!buf);
 		INC_SIZE(3 + 3);
 		// Set al to conditional flag
 		*buf++ = 0x0f;
@@ -2277,7 +2269,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG1, 0);
 
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3 + 3);
-		TEST_MEM_ERROR(buf);
+		FAIL_IF(!buf);
 		INC_SIZE(3 + 3);
 		// Set al to conditional flag
 		*buf++ = 0x0f;
@@ -2317,7 +2309,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 	CHECK_EXTRA_REGS(dst, dstw);
 
 	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
-	TEST_MEM_ERROR2(const_);
+	PTR_FAIL_IF(!const_);
 
 	const_->next = NULL;
 	if (compiler->last_const)
@@ -2341,7 +2333,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 #endif
 
 	buf = (sljit_ub*)ensure_buf(compiler, 2);
-	TEST_MEM_ERROR2(buf);
+	PTR_FAIL_IF(!buf);
 
 	*buf++ = 0;
 	*buf++ = 1;
