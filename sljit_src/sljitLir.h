@@ -461,7 +461,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_CALL2			15
 #define SLJIT_CALL3			16
 
-// The target may be redefined during runtime
+// The target may be changed during runtime
 #define SLJIT_LONG_JUMP			0x100
 
 struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type);
