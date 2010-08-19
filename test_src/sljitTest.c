@@ -77,7 +77,7 @@ static void test1(void)
 	sljit_free_compiler(compiler);
 
 	FAILED(code.func3(3, -21, 86) != -21, "test1 case 1 failed\n");
-	FAILED(code.func3(4789, 47890, 997) != 47890, "test1 case 1 failed\n");
+	FAILED(code.func3(4789, 47890, 997) != 47890, "test1 case 2 failed\n");
 	sljit_free_code(code.code);
 	printf("test1 ok\n");
 }
