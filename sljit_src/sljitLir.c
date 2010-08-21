@@ -94,24 +94,24 @@
 #if defined(SLJIT_CONFIG_X86_64) || defined(SLJIT_CONFIG_PPC_64)
 #include <sys/mman.h>
 
-static void* sljit_malloc_exec(int size)
+static void* sljit_malloc_exec(sljit_w size)
 {
 	void* ptr;
 
-	size += sizeof(int);
+	size += sizeof(sljit_w);
 	ptr = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
 	if (ptr == MAP_FAILED)
 		return NULL;
 
-	*(int*)ptr = size;
-	ptr = (void*)(((sljit_ub*)ptr) + sizeof(int));
+	*(sljit_w*)ptr = size;
+	ptr = (void*)(((sljit_ub*)ptr) + sizeof(sljit_w));
 	return ptr;
 }
 
 static void sljit_free_exec(void* ptr)
 {
-	ptr = (void*)(((sljit_ub*)ptr) - sizeof(int));
-	munmap(ptr, *(int*)ptr);
+	ptr = (void*)(((sljit_ub*)ptr) - sizeof(sljit_w));
+	munmap(ptr, *(sljit_w*)ptr);
 }
 
 #endif
@@ -227,16 +227,23 @@ void sljit_free_compiler(struct sljit_compiler *compiler)
 	SLJIT_FREE(compiler);
 }
 
-#ifndef SLJIT_CONFIG_ARM_THUMB2
+#if defined(SLJIT_CONFIG_ARM_THUMB2)
 void sljit_free_code(void* code)
 {
+	// Remove thumb mode flag
+	SLJIT_FREE_EXEC((void*)((sljit_uw)code & ~0x1));
+}
+#elif defined(SLJIT_CONFIG_PPC_64)
+void sljit_free_code(void* code)
+{
+	// Resolve indirection
+	code = (void*)(*(sljit_uw*)code);
 	SLJIT_FREE_EXEC(code);
 }
 #else
 void sljit_free_code(void* code)
 {
-	// Remove thumb mode flag
-	SLJIT_FREE_EXEC((void*)((sljit_uw)code & ~0x1));
+	SLJIT_FREE_EXEC(code);
 }
 #endif
 
@@ -313,7 +320,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 }
 
 #define depends_on(exp, reg) \
-	(((exp) & SLJIT_MEM_FLAG) && (((exp) & 0xf) == reg || (((exp) >> 4) & 0xf) == reg))
+	(((exp) & SLJIT_MEM) && (((exp) & 0xf) == reg || (((exp) >> 4) & 0xf) == reg))
 
 #ifdef SLJIT_DEBUG
 #define FUNCTION_CHECK_OP() \
@@ -360,7 +367,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) == SLJIT_IMM) \
 		; \
-	else if ((p) & SLJIT_MEM_FLAG) { \
+	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
 		if (((p) & 0xf) != 0) { \
 			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(((p) >> 4) & 0xf)); \
@@ -378,7 +385,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 			((p) >= SLJIT_GENERAL_REG1 && (p) <= SLJIT_GENERAL_REG1 - 1 + compiler->generals) || \
 			(p) == SLJIT_UNUSED) \
 		SLJIT_ASSERT(i == 0); \
-	else if ((p) & SLJIT_MEM_FLAG) { \
+	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
 		if (((p) & 0xf) != 0) { \
 			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(((p) >> 4) & 0xf)); \
@@ -393,7 +400,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 #define FUNCTION_FCHECK(p, i) \
 	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG4) \
 		SLJIT_ASSERT(i == 0); \
-	else if ((p) & SLJIT_MEM_FLAG) { \
+	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_LOCALS_REG); \
 		if (((p) & 0xf) != 0) { \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_LOCALS_REG); \
@@ -411,7 +418,7 @@ static void reverse_buf(struct sljit_compiler *compiler)
 			SLJIT_ASSERT(!(op & SLJIT_INT_OP)); \
 	} \
         if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_SH) { \
-		if ((src & SLJIT_MEM_FLAG) && (src & 0xf)) { \
+		if ((src & SLJIT_MEM) && (src & 0xf)) { \
 			SLJIT_ASSERT((src & 0xf) != SLJIT_LOCALS_REG); \
 			SLJIT_ASSERT((dst & 0xf) != (src & 0xf) && ((dst >> 4) & 0xf) != (src & 0xf)); \
 		} \
@@ -452,7 +459,7 @@ static char* freg_names[] = {
 #define sljit_verbose_param(p, i) \
 	if ((p) & SLJIT_IMM) \
 		fprintf(compiler->verbose, "#%"SLJIT_PRINT_D"d", (i)); \
-	else if ((p) & SLJIT_MEM_FLAG) { \
+	else if ((p) & SLJIT_MEM) { \
 		if ((p) & 0xF) { \
 			if ((i) != 0) { \
 				if (((p) >> 4) & 0xF) \
@@ -472,7 +479,7 @@ static char* freg_names[] = {
 	} else \
 		fprintf(compiler->verbose, "%s", reg_names[p]);
 #define sljit_verbose_fparam(p, i) \
-	if ((p) & SLJIT_MEM_FLAG) { \
+	if ((p) & SLJIT_MEM) { \
 		if ((p) & 0xF) { \
 			if ((i) != 0) { \
 				if (((p) >> 4) & 0xF) \

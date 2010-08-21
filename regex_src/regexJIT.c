@@ -79,17 +79,10 @@ struct regex_match
 	// machine
 	struct regex_machine *machine;
 
-#ifndef SLJIT_INDIRECT_CALL
 	union {
 		void *continue_match;
 		SLJIT_CALL void (*call_continue)(struct regex_match *match, regex_char_t *input_string, int length);
 	};
-#else
-	union {
-		void **continue_match_ptr;
-		SLJIT_CALL void (*call_continue)(struct regex_match *match, regex_char_t *input_string, int length);
-	};
-#endif
 
 	// Variable sized array to contain the state arrays
 	sljit_w states[1];
@@ -2414,11 +2407,7 @@ struct regex_match* regex_begin_match(struct regex_machine *machine)
 
 	SLJIT_ASSERT(ptr1 == end);
 
-#ifdef SLJIT_INDIRECT_CALL
-	match->continue_match_ptr = &machine->continue_match;
-#else
 	match->continue_match = machine->continue_match;
-#endif
 
 	regex_reset_match(match);
 	return match;

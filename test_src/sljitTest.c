@@ -14,7 +14,6 @@
 
 #include "sljitLir.h"
 
-#ifndef SLJIT_INDIRECT_CALL
 union executable_code {
 	void* code;
 	SLJIT_CALL sljit_w (*func0)(void);
@@ -23,19 +22,6 @@ union executable_code {
 	SLJIT_CALL sljit_w (*func3)(sljit_w a, sljit_w b, sljit_w c);
 };
 typedef union executable_code executable_code;
-#else
-struct executable_code {
-	void* code;
-	union {
-		SLJIT_CALL sljit_w (*func0)(void);
-		SLJIT_CALL sljit_w (*func1)(sljit_w a);
-		SLJIT_CALL sljit_w (*func2)(sljit_w a, sljit_w b);
-		SLJIT_CALL sljit_w (*func3)(sljit_w a, sljit_w b, sljit_w c);
-		void** code_ptr;
-	};
-};
-typedef struct executable_code executable_code;
-#endif
 
 #define FAILED(cond, text) \
 	if (cond) { \
@@ -70,9 +56,6 @@ static void test1(void)
 	T(sljit_emit_return(compiler, SLJIT_GENERAL_REG2, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -107,9 +90,6 @@ static void test2(void)
 	T(sljit_emit_return(compiler, SLJIT_TEMPORARY_REG3, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -143,9 +123,6 @@ static void test3(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -179,9 +156,6 @@ static void test4(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -232,9 +206,6 @@ static void test5(void)
 	T(sljit_emit_return(compiler, SLJIT_TEMPORARY_REG1, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -292,9 +263,6 @@ static void test6(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -345,9 +313,6 @@ static void test7(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -418,9 +383,6 @@ static void test8(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -498,9 +460,6 @@ static void test9(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -557,9 +516,6 @@ static void test10(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -607,9 +563,6 @@ static void test11(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	const1_addr = sljit_get_const_addr(const1);
 	const2_addr = sljit_get_const_addr(const2);
@@ -678,9 +631,6 @@ static void test12(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	jump1_addr = sljit_get_jump_addr(jump1);
 	label1_addr = sljit_get_label_addr(label1);
@@ -760,9 +710,6 @@ static void test13(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -852,9 +799,6 @@ static void test14(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -908,9 +852,6 @@ static void test15(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -973,9 +914,6 @@ static void test16(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1013,9 +951,6 @@ static void test17(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1095,9 +1030,6 @@ static void test18(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1186,9 +1118,6 @@ static void test19(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1231,9 +1160,6 @@ static void test20(void)
 	T(sljit_emit_return(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), 4 * sizeof(sljit_uw)));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1272,9 +1198,6 @@ static void test21(void)
 	sljit_set_target(jump, 0);
 
 	code1.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code1.code_ptr = &code1.code;
-#endif
 	FAILED(!code1.code, "code generation error\n");
 	addr = sljit_get_jump_addr(jump);
 	sljit_free_compiler(compiler);
@@ -1292,13 +1215,10 @@ static void test21(void)
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
 	code2.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code2.code_ptr = &code2.code;
-#endif
 	FAILED(!code2.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
-	sljit_set_jump_addr(addr, (sljit_uw)code2.code);
+	sljit_set_jump_addr(addr, SLJIT_FUNC_OFFSET(code2.code));
 
 	FAILED(code1.func1((sljit_w)&buf) != 19, "test21 case 1 failed\n");
 	FAILED(buf[2] != -16, "test21 case 2 failed\n");
@@ -1373,9 +1293,6 @@ static void test22(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1457,9 +1374,6 @@ static void test23(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1542,9 +1456,6 @@ static void test24(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1606,9 +1517,6 @@ static void test25(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1685,9 +1593,6 @@ static void test26(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1796,9 +1701,6 @@ static void test27(void)
 	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	sljit_free_compiler(compiler);
 
@@ -1876,9 +1778,6 @@ static void test28(void)
 	T(sljit_emit_return(compiler, SLJIT_TEMPORARY_EREG2, 0));
 
 	code.code = sljit_generate_code(compiler);
-#ifdef SLJIT_INDIRECT_CALL
-	code.code_ptr = &code.code;
-#endif
 	FAILED(!code.code, "code generation error\n");
 	label_addr = sljit_get_label_addr(label);
 	sljit_set_const(sljit_get_const_addr(const1), label_addr);
