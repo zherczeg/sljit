@@ -199,6 +199,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 	SLJIT_ASSERT(code_ptr - code <= (int)compiler->size);
 
+	compiler->error = SLJIT_CODE_GENERATED;
 	// Set thumb mode flag
 	return (void*)((sljit_uw)code | 0x1);
 }
@@ -590,7 +591,7 @@ static int emit_op_mem(struct sljit_compiler *compiler, int flags, int dst, int 
 	int high_reg = (base >> 4) & 0xf;
 	sljit_w tmp;
 
-	SLJIT_ASSERT(base & SLJIT_MEM_FLAG);
+	SLJIT_ASSERT(base & SLJIT_MEM);
 	base &= 0xf;
 	if (flags & UPDATE) {
 		flags &= ~UPDATE;
@@ -702,7 +703,7 @@ static int emit_fop_mem(struct sljit_compiler *compiler, int flags, int dst, int
 {
 	sljit_w tmp;
 
-	SLJIT_ASSERT(base & SLJIT_MEM_FLAG);
+	SLJIT_ASSERT(base & SLJIT_MEM);
 	if (!(base & 0xf0)) {
 		if (base & 0xf)
 			base &= 0xf;
@@ -712,7 +713,7 @@ static int emit_fop_mem(struct sljit_compiler *compiler, int flags, int dst, int
 			offset = 0;
 		}
 	} else {
-		base &= ~SLJIT_MEM_FLAG;
+		base &= ~SLJIT_MEM;
 		FAIL_IF(push_inst32(compiler, ADD_W | RD4(TMP_REG2) | RN4(base & 0xf) | RM4(base >> 4)));
 		base = TMP_REG2;
 	}
@@ -979,10 +980,10 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 
 		if (src & SLJIT_IMM)
 			FAIL_IF(emit_op_imm(compiler, SLJIT_MOV | ARG2_IMM, dst_r, TMP_REG1, srcw));
-		else if (src & SLJIT_MEM_FLAG)
+		else if (src & SLJIT_MEM)
 			FAIL_IF(emit_op_mem(compiler, flags, dst_r, src, srcw));
 
-		if (dst & SLJIT_MEM_FLAG)
+		if (dst & SLJIT_MEM)
 			FAIL_IF(emit_op_mem(compiler, flags | STORE, dst_r, dst, dstw));
 	}
 
@@ -990,7 +991,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		return sljit_emit_op2(compiler, GET_FLAGS(op) | SLJIT_SUB, dst, dstw, SLJIT_IMM, 0, src, srcw);
 
 	flags = GET_FLAGS(op) ? SET_FLAGS : 0;
-	if (src & SLJIT_MEM_FLAG) {
+	if (src & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, src, srcw));
 		src = TMP_REG2;
 	}
@@ -1002,7 +1003,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 
 	emit_op_imm(compiler, flags | op_type, dst_r, TMP_REG1, srcw);
 
-	if (dst & SLJIT_MEM_FLAG)
+	if (dst & SLJIT_MEM)
 		return emit_op_mem(compiler, WORD_SIZE | STORE, dst_r, dst, dstw);
 	return SLJIT_NO_ERROR;
 }
@@ -1031,11 +1032,11 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_LOCALS_REG) ? dst : TMP_REG1;
 
 	flags = GET_FLAGS(op) ? SET_FLAGS : 0;
-	if (src1 & SLJIT_MEM_FLAG) {
+	if (src1 & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, src1, src1w));
 		src1 = TMP_REG1;
 	}
-	if (src2 & SLJIT_MEM_FLAG) {
+	if (src2 & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, src2, src2w));
 		src2 = TMP_REG2;
 	}
@@ -1051,7 +1052,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 
 	emit_op_imm(compiler, flags | GET_OPCODE(op), dst_r, src1w, src2w);
 
-	if (dst & SLJIT_MEM_FLAG)
+	if (dst & SLJIT_MEM)
 		return emit_op_mem(compiler, WORD_SIZE | STORE, dst_r, dst, dstw);
 	return SLJIT_NO_ERROR;
 }
@@ -1087,11 +1088,11 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	compiler->cache_argw = 0;
 
 	if (GET_OPCODE(op) == SLJIT_FCMP) {
-		if (dst & SLJIT_MEM_FLAG) {
+		if (dst & SLJIT_MEM) {
 			emit_fop_mem(compiler, 0, TMP_FREG1, dst, dstw);
 			dst = TMP_FREG1;
 		}
-		if (src & SLJIT_MEM_FLAG) {
+		if (src & SLJIT_MEM) {
 			emit_fop_mem(compiler, 0, TMP_FREG2, src, srcw);
 			src = TMP_FREG2;
 		}
@@ -1099,8 +1100,8 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 		return push_inst32(compiler, VMRS);
 	}
 
-	dst_r = (dst & SLJIT_MEM_FLAG) ? TMP_FREG1 : dst;
-	if (src & SLJIT_MEM_FLAG) {
+	dst_r = (dst & SLJIT_MEM) ? TMP_FREG1 : dst;
+	if (src & SLJIT_MEM) {
 		emit_fop_mem(compiler, 0, dst_r, src, srcw);
 		src = dst_r;
 	}
@@ -1118,7 +1119,7 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 		break;
 	}
 
-	if (dst & SLJIT_MEM_FLAG)
+	if (dst & SLJIT_MEM)
 		return emit_fop_mem(compiler, STORE, TMP_FREG1, dst, dstw);
 	return SLJIT_NO_ERROR;
 }
@@ -1146,12 +1147,12 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_r = (dst & SLJIT_MEM_FLAG) ? TMP_FREG1 : dst;
-	if (src1 & SLJIT_MEM_FLAG) {
+	dst_r = (dst & SLJIT_MEM) ? TMP_FREG1 : dst;
+	if (src1 & SLJIT_MEM) {
 		emit_fop_mem(compiler, 0, TMP_FREG1, src1, src1w);
 		src1 = TMP_FREG1;
 	}
-	if (src2 & SLJIT_MEM_FLAG) {
+	if (src2 & SLJIT_MEM) {
 		emit_fop_mem(compiler, 0, TMP_FREG2, src2, src2w);
 		src2 = TMP_FREG2;
 	}
@@ -1171,7 +1172,7 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 		break;
 	}
 
-	if (dst & SLJIT_MEM_FLAG)
+	if (dst & SLJIT_MEM)
 		return emit_fop_mem(compiler, STORE, TMP_FREG1, dst, dstw);
 	return SLJIT_NO_ERROR;
 }
@@ -1285,7 +1286,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	FAIL_IF(push_inst16(compiler, MOVSI | 0x0 | RDN3(dst_r)));
 
 	if (dst_r == TMP_REG1) {
-		if (dst & SLJIT_MEM_FLAG) {
+		if (dst & SLJIT_MEM) {
 			compiler->cache_arg = 0;
 			compiler->cache_argw = 0;
 			return emit_op_mem(compiler, WORD_SIZE | STORE, dst_r, dst, dstw);

@@ -284,7 +284,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	size &= 0xf;
 	total_size = size;
 
-	if ((b & SLJIT_MEM_FLAG) && NOT_HALFWORD(immb)) {
+	if ((b & SLJIT_MEM) && NOT_HALFWORD(immb)) {
 		if (emit_load_imm64(compiler, TMP_REG3, immb))
 			return NULL;
 		immb = 0;
@@ -294,7 +294,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 			else {
 				// We need to replace the upper word. Rotate if it is the stack pointer
 				if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
-					b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM_FLAG;
+					b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM;
 				buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);
 				PTR_FAIL_IF(!buf);
 				INC_SIZE(4);
@@ -323,11 +323,11 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
-	if (b & SLJIT_MEM_FLAG) {
+	if (b & SLJIT_MEM) {
 		if ((b & 0xf) == SLJIT_LOCALS_REG && (b & 0xf0) == 0)
 			b |= SLJIT_LOCALS_REG << 4;
 		else if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
-			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM_FLAG;
+			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM;
 
 		if ((b & 0xf0) != SLJIT_UNUSED) {
 			total_size += 1; // SIB byte
@@ -436,7 +436,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		*buf_ptr = 0;
 	}
 
-	if (!(b & SLJIT_MEM_FLAG))
+	if (!(b & SLJIT_MEM))
 #ifdef SLJIT_SSE2
 		*buf_ptr++ |= 0xc0 + ((!(flags & EX86_SSE2)) ? reg_lmap[b] : b);
 #else
@@ -522,7 +522,7 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 
 	compiler->mode32 = 0;
 
-	if (dst == SLJIT_UNUSED && !(src & SLJIT_MEM_FLAG))
+	if (dst == SLJIT_UNUSED && !(src & SLJIT_MEM))
 		return SLJIT_NO_ERROR; // Empty instruction
 
 	if (src & SLJIT_IMM) {
@@ -536,7 +536,7 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 
 	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3) ? dst : TMP_REGISTER;
 
-	if ((dst & SLJIT_MEM_FLAG) && (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_GENERAL_REG3))
+	if ((dst & SLJIT_MEM) && (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_GENERAL_REG3))
 		dst_r = src;
 	else {
 		if (sign) {
@@ -573,7 +573,7 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 		}
 	}
 
-	if (dst & SLJIT_MEM_FLAG) {
+	if (dst & SLJIT_MEM) {
 		compiler->mode32 = 1;
 		code = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
 		FAIL_IF(!code);

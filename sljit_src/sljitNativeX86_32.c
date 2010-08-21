@@ -232,11 +232,11 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
-	if (b & SLJIT_MEM_FLAG) {
+	if (b & SLJIT_MEM) {
 		if ((b & 0xf) == SLJIT_LOCALS_REG && (b & 0xf0) == 0)
 			b |= SLJIT_LOCALS_REG << 4;
 		else if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
-			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM_FLAG;
+			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM;
 
 		if ((b & 0xf0) != SLJIT_UNUSED)
 			total_size += 1; // SIB byte
@@ -319,7 +319,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		*buf_ptr = 0;
 	}
 
-	if (!(b & SLJIT_MEM_FLAG))
+	if (!(b & SLJIT_MEM))
 #ifdef SLJIT_SSE2
 		*buf_ptr++ |= 0xc0 + ((!(flags & EX86_SSE2)) ? reg_map[b] : b);
 #else

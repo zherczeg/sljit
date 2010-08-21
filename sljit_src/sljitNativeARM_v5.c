@@ -1097,7 +1097,7 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int r
 		return (inp_flags & ARG_TEST) ? SLJIT_NO_ERROR : 0;
 	}
 
-	SLJIT_ASSERT(arg & SLJIT_MEM_FLAG);
+	SLJIT_ASSERT(arg & SLJIT_MEM);
 
 	// Fast loads/stores
 	if ((arg & 0xf) != 0) {
@@ -1153,7 +1153,7 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 		return 0;
 
 	if ((arg & 0xf) == 0) {
-		if ((next_arg & SLJIT_MEM_FLAG) && ((sljit_uw)argw - (sljit_uw)next_argw <= 0xfff || (sljit_uw)next_argw - (sljit_uw)argw <= 0xfff))
+		if ((next_arg & SLJIT_MEM) && ((sljit_uw)argw - (sljit_uw)next_argw <= 0xfff || (sljit_uw)next_argw - (sljit_uw)argw <= 0xfff))
 			return 1;
 		return 0;
 	}
@@ -1167,7 +1167,7 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 		return 0;
 	}
 
-	if (argw == next_argw && (next_arg & SLJIT_MEM_FLAG))
+	if (argw == next_argw && (next_arg & SLJIT_MEM))
 		return 1;
 
 	if (arg == next_arg && ((sljit_uw)argw - (sljit_uw)next_argw <= 0xfff || (sljit_uw)next_argw - (sljit_uw)argw <= 0xfff))
@@ -1209,7 +1209,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		return load_immediate(compiler, reg, argw);
 	}
 
-	SLJIT_ASSERT(arg & SLJIT_MEM_FLAG);
+	SLJIT_ASSERT(arg & SLJIT_MEM);
 
 	tmp_reg = (inp_flags & LOAD_DATA) ? reg : TMP_REG3;
 	max_delta = IS_TYPE1_TRANSFER(inp_flags) ? 0xfff : 0xff;
@@ -1237,7 +1237,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 
 		// With write back, we can create some sophisticated loads, but
 		// it is hard to decide whether we should convert downward (0s) or upward (1s)
-		if ((next_arg & SLJIT_MEM_FLAG) && ((sljit_uw)argw - (sljit_uw)next_argw <= (sljit_uw)max_delta || (sljit_uw)next_argw - (sljit_uw)argw <= (sljit_uw)max_delta)) {
+		if ((next_arg & SLJIT_MEM) && ((sljit_uw)argw - (sljit_uw)next_argw <= (sljit_uw)max_delta || (sljit_uw)next_argw - (sljit_uw)argw <= (sljit_uw)max_delta)) {
 			SLJIT_ASSERT(inp_flags & LOAD_DATA);
 
 			compiler->cache_arg = SLJIT_IMM;
@@ -1294,7 +1294,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		if (arg & 0xf0) {
 			if (inp_flags & (WRITE_BACK | LOAD_DATA)) {
 				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(0x08, tmp_reg, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
-				arg = tmp_reg | SLJIT_MEM_FLAG;
+				arg = tmp_reg | SLJIT_MEM;
 			}
 			else {
 				SLJIT_ASSERT(tmp_reg == TMP_REG3);
@@ -1332,7 +1332,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		return SLJIT_NO_ERROR;
 	}
 
-	if (argw == next_argw && (next_arg & SLJIT_MEM_FLAG)) {
+	if (argw == next_argw && (next_arg & SLJIT_MEM)) {
 		SLJIT_ASSERT(inp_flags & LOAD_DATA);
 		FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
 
@@ -1346,7 +1346,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 			}
 			else {
 				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(0x08, tmp_reg, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
-				arg = tmp_reg | SLJIT_MEM_FLAG;
+				arg = tmp_reg | SLJIT_MEM;
 			}
 		}
 
@@ -1382,9 +1382,9 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 }
 
 #define ORDER_IND_REGS(arg) \
-	SLJIT_ASSERT(arg & SLJIT_MEM_FLAG); \
+	SLJIT_ASSERT(arg & SLJIT_MEM); \
 	if (((arg >> 4) & 0xf) > (arg & 0xf)) \
-		arg = SLJIT_MEM_FLAG | ((arg << 4) & 0xf0) | ((arg >> 4) & 0xf)
+		arg = SLJIT_MEM | ((arg << 4) & 0xf0) | ((arg >> 4) & 0xf)
 
 static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	int dst, sljit_w dstw,
@@ -1414,12 +1414,12 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 			sugg_src2_r = dst_r;
 	}
 	else if (dst == SLJIT_UNUSED) {
-		if (op >= SLJIT_MOV && op <= SLJIT_MOVU_SI && !(src2 & SLJIT_MEM_FLAG))
+		if (op >= SLJIT_MOV && op <= SLJIT_MOVU_SI && !(src2 & SLJIT_MEM))
 			return SLJIT_NO_ERROR;
 		dst_r = TMP_REG2;
 	}
 	else {
-		SLJIT_ASSERT(dst & SLJIT_MEM_FLAG);
+		SLJIT_ASSERT(dst & SLJIT_MEM);
 		if (getput_arg_fast(compiler, inp_flags | ARG_TEST, TMP_REG2, dst, dstw)) {
 			flags |= FAST_DEST;
 			dst_r = TMP_REG2;
@@ -1731,7 +1731,7 @@ int sljit_is_fpu_available(void)
 
 static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, int load, int arg, sljit_w argw)
 {
-	SLJIT_ASSERT(arg & SLJIT_MEM_FLAG);
+	SLJIT_ASSERT(arg & SLJIT_MEM);
 
 	// Fast loads and stores
 	if ((arg & 0xf) != 0 && (arg & 0xf0) == 0 && (argw & 0x3) == 0) {
