@@ -201,13 +201,12 @@ struct sljit_compiler {
 	sljit_w cache_argw;
 #endif
 
-#ifdef SLJIT_CONFIG_PPC_32
-	sljit_w imm;
+#ifdef SLJIT_CONFIG_ARM_THUMB2
 	int cache_arg;
 	sljit_w cache_argw;
 #endif
 
-#ifdef SLJIT_CONFIG_PPC_64
+#if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
 	sljit_w imm;
 	int cache_arg;
 	sljit_w cache_argw;
