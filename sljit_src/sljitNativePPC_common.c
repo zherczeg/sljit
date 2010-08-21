@@ -444,7 +444,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 #endif
 
 
-static sljit_i data_transfer_insts[64] = {
+static SLJIT_CONST sljit_i data_transfer_insts[64] = {
 
 // No write-back
 

@@ -19,6 +19,18 @@
 #define FUNCTION_ENTRY() \
 	SLJIT_ASSERT(compiler->error == SLJIT_NO_ERROR)
 
+#define FAIL_IF(expr) \
+	do { \
+		if (SLJIT_UNLIKELY(expr)) \
+			return compiler->error; \
+	} while (0)
+
+#define PTR_FAIL_IF(expr) \
+	do { \
+		if (SLJIT_UNLIKELY(expr)) \
+			return NULL; \
+	} while (0)
+
 #define FAIL_IF_NULL(ptr) \
 	do { \
 		if (SLJIT_UNLIKELY(!(ptr))) { \
@@ -33,18 +45,6 @@
 			compiler->error = SLJIT_MEMORY_ERROR; \
 			return NULL; \
 		} \
-	} while (0)
-
-#define FAIL_IF(expr) \
-	do { \
-		if (SLJIT_UNLIKELY(expr)) \
-			return compiler->error; \
-	} while (0)
-
-#define PTR_FAIL_IF(expr) \
-	do { \
-		if (SLJIT_UNLIKELY(expr)) \
-			return NULL; \
 	} while (0)
 
 #define GET_OPCODE(op) \
