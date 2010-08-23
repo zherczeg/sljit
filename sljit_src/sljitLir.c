@@ -72,8 +72,8 @@
 #endif
 
 #if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
-	#define PATCH_B		0x4
-	#define IS_BL		0x8
+	#define IS_BL		0x4
+	#define PATCH_B		0x8
 
 #define CPOOL_SIZE	512
 #define LIT_NONE	0
@@ -83,6 +83,11 @@
 #define LIT_CINS	2
 // Instruction with a unique constant
 #define LIT_UCINS	3
+#endif
+
+#if defined(SLJIT_CONFIG_ARM_THUMB2)
+	#define IS_CONDITIONAL	0x04
+	#define IS_BL		0x08
 #endif
 
 #if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)

@@ -174,9 +174,9 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		buf = buf->next;
 	} while (buf);
 
-	SLJIT_ASSERT(label == NULL);
-	SLJIT_ASSERT(jump == NULL);
-	SLJIT_ASSERT(const_ == NULL);
+	SLJIT_ASSERT(!label);
+	SLJIT_ASSERT(!jump);
+	SLJIT_ASSERT(!const_);
 #ifdef SLJIT_CONFIG_PPC_64
 	SLJIT_ASSERT(code_ptr - code <= (int)compiler->size - ((compiler->size & 0x1) ? 3 : 2));
 #else
