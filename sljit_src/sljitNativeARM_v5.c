@@ -349,6 +349,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	label = compiler->labels;
 	jump = compiler->jumps;
 	const_ = compiler->consts;
+
 	do {
 		buf_ptr = (sljit_uw*)buf->memory;
 		buf_end = buf_ptr + (buf->used_size >> 2);
@@ -411,9 +412,9 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		buf = buf->next;
 	} while (buf);
 
-	SLJIT_ASSERT(label == NULL);
-	SLJIT_ASSERT(jump == NULL);
-	SLJIT_ASSERT(const_ == NULL);
+	SLJIT_ASSERT(!label);
+	SLJIT_ASSERT(!jump);
+	SLJIT_ASSERT(!const_);
 	SLJIT_ASSERT(copy == 0);
 
 	if (compiler->cpool_fill > 0) {
@@ -2036,7 +2037,6 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	compiler->last_jump = jump;
 
 	// In ARM, we don't need to touch the arguments
-
 	if (!jump->flags) {
 		if (type >= SLJIT_CALL0)
 			jump->flags |= IS_BL;
@@ -2073,7 +2073,6 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	FAIL_IF(push_inst(compiler));
 
 	// In ARM, we don't need to touch the arguments
-
 	if (src & SLJIT_IMM) {
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);

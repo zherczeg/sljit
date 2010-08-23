@@ -23,6 +23,8 @@ union executable_code {
 };
 typedef union executable_code executable_code;
 
+static int successful_tests = 0;
+
 #define FAILED(cond, text) \
 	if (cond) { \
 		printf(text); \
@@ -63,6 +65,7 @@ static void test1(void)
 	FAILED(code.func3(4789, 47890, 997) != 47890, "test1 case 2 failed\n");
 	sljit_free_code(code.code);
 	printf("test1 ok\n");
+	successful_tests++;
 }
 
 static void test2(void)
@@ -99,6 +102,7 @@ static void test2(void)
 	FAILED(buf[3] != 5678, "test2 case 4 failed\n");
 	sljit_free_code(code.code);
 	printf("test2 ok\n");
+	successful_tests++;
 }
 
 static void test3(void)
@@ -132,6 +136,7 @@ static void test3(void)
 
 	sljit_free_code(code.code);
 	printf("test3 ok\n");
+	successful_tests++;
 }
 
 static void test4(void)
@@ -166,6 +171,7 @@ static void test4(void)
 
 	sljit_free_code(code.code);
 	printf("test4 ok\n");
+	successful_tests++;
 }
 
 static void test5(void)
@@ -218,6 +224,7 @@ static void test5(void)
 
 	sljit_free_code(code.code);
 	printf("test5 ok\n");
+	successful_tests++;
 }
 
 static void test6(void)
@@ -277,6 +284,7 @@ static void test6(void)
 
 	sljit_free_code(code.code);
 	printf("test6 ok\n");
+	successful_tests++;
 }
 
 static void test7(void)
@@ -326,6 +334,7 @@ static void test7(void)
 
 	sljit_free_code(code.code);
 	printf("test7 ok\n");
+	successful_tests++;
 }
 
 static void test8(void)
@@ -400,6 +409,7 @@ static void test8(void)
 
 	sljit_free_code(code.code);
 	printf("test8 ok\n");
+	successful_tests++;
 }
 
 static void test9(void)
@@ -477,6 +487,7 @@ static void test9(void)
 
 	sljit_free_code(code.code);
 	printf("test9 ok\n");
+	successful_tests++;
 }
 
 static void test10(void)
@@ -529,6 +540,7 @@ static void test10(void)
 
 	sljit_free_code(code.code);
 	printf("test10 ok\n");
+	successful_tests++;
 }
 
 static void test11(void)
@@ -539,26 +551,33 @@ static void test11(void)
 	struct sljit_const* const1;
 	struct sljit_const* const2;
 	struct sljit_const* const3;
+	struct sljit_const* const4;
 	sljit_uw const1_addr;
 	sljit_uw const2_addr;
 	sljit_uw const3_addr;
+	sljit_uw const4_addr;
 #ifdef SLJIT_64BIT_ARCHITECTURE
-	sljit_w big_value = 0x1122334455667788;
+	sljit_w word_value1 = 0xaaaaaaaaaaaaaaaal;
+	sljit_w word_value2 = 0xfee1deadfbadf00dl;
 #else
-	sljit_w big_value = 0x11223344;
+	sljit_w word_value1 = 0xaaaaaaaal;
+	sljit_w word_value2 = 0xfbadf00dl;
 #endif
-	sljit_w buf[2];
+	sljit_w buf[3];
 
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
+	buf[2] = 0;
 
 	T(sljit_emit_enter(compiler, 1, 3, 1, 0));
 
-	const1 = sljit_emit_const(compiler, SLJIT_MEM0(), (sljit_w)&buf[0], 12);
+	const1 = sljit_emit_const(compiler, SLJIT_MEM0(), (sljit_w)&buf[0], -0x81b9);
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 2 * sizeof(sljit_w)));
-	const2 = sljit_emit_const(compiler, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), -(int)sizeof(sljit_w), 2345);
-	const3 = sljit_emit_const(compiler, SLJIT_PREF_RET_REG, 0, 3456);
+	const2 = sljit_emit_const(compiler, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), -(int)sizeof(sljit_w), -65535);
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, (sljit_w)&buf[0]));
+	const3 = sljit_emit_const(compiler, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), 0, word_value1);
+	const4 = sljit_emit_const(compiler, SLJIT_PREF_RET_REG, 0, 0xf7afcdb7);
 
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
@@ -567,22 +586,27 @@ static void test11(void)
 	const1_addr = sljit_get_const_addr(const1);
 	const2_addr = sljit_get_const_addr(const2);
 	const3_addr = sljit_get_const_addr(const3);
+	const4_addr = sljit_get_const_addr(const4);
 	sljit_free_compiler(compiler);
 
-	FAILED(code.func1((sljit_w)&buf) != 3456, "test11 case 1 failed\n");
-	FAILED(buf[0] != 12, "test11 case 2 failed\n");
-	FAILED(buf[1] != 2345, "test11 case 3 failed\n");
+	FAILED(code.func1((sljit_w)&buf) != 0xf7afcdb7, "test11 case 1 failed\n");
+	FAILED(buf[0] != -0x81b9, "test11 case 2 failed\n");
+	FAILED(buf[1] != -65535, "test11 case 3 failed\n");
+	FAILED(buf[2] != word_value1, "test11 case 4 failed\n");
 
-	sljit_set_const(const1_addr, 1234567);
-	sljit_set_const(const2_addr, big_value);
-	sljit_set_const(const3_addr, 60089);
+	sljit_set_const(const1_addr, -1);
+	sljit_set_const(const2_addr, word_value2);
+	sljit_set_const(const3_addr, 0xbab0fea1);
+	sljit_set_const(const4_addr, -60089);
 
-	FAILED(code.func1((sljit_w)&buf) != 60089, "test11 case 4 failed\n");
-	FAILED(buf[0] != 1234567, "test11 case 5 failed\n");
-	FAILED(buf[1] != big_value, "test11 case 6 failed\n");
+	FAILED(code.func1((sljit_w)&buf) != -60089, "test11 case 5 failed\n");
+	FAILED(buf[0] != -1, "test11 case 6 failed\n");
+	FAILED(buf[1] != word_value2, "test11 case 7 failed\n");
+	FAILED(buf[2] != 0xbab0fea1, "test11 case 8 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test11 ok\n");
+	successful_tests++;
 }
 
 static void test12(void)
@@ -653,6 +677,7 @@ static void test12(void)
 
 	sljit_free_code(code.code);
 	printf("test12 ok\n");
+	successful_tests++;
 }
 
 static void test13(void)
@@ -728,6 +753,7 @@ static void test13(void)
 
 	sljit_free_code(code.code);
 	printf("test13 ok\n");
+	successful_tests++;
 }
 
 static void test14(void)
@@ -818,6 +844,7 @@ static void test14(void)
 
 	sljit_free_code(code.code);
 	printf("test14 ok\n");
+	successful_tests++;
 }
 
 static sljit_w SLJIT_CALL func(sljit_w a, sljit_w b)
@@ -861,6 +888,7 @@ static void test15(void)
 
 	sljit_free_code(code.code);
 	printf("test15 ok\n");
+	successful_tests++;
 }
 
 static void test16(void)
@@ -923,6 +951,7 @@ static void test16(void)
 
 	sljit_free_code(code.code);
 	printf("test16 ok\n");
+	successful_tests++;
 }
 
 static void test17(void)
@@ -963,6 +992,7 @@ static void test17(void)
 
 	sljit_free_code(code.code);
 	printf("test17 ok\n");
+	successful_tests++;
 }
 
 static void test18(void)
@@ -1066,6 +1096,7 @@ static void test18(void)
 
 	sljit_free_code(code.code);
 	printf("test18 ok\n");
+	successful_tests++;
 }
 
 static void test19(void)
@@ -1133,6 +1164,7 @@ static void test19(void)
 
 	sljit_free_code(code.code);
 	printf("test19 ok\n");
+	successful_tests++;
 }
 
 static void test20(void)
@@ -1170,6 +1202,7 @@ static void test20(void)
 
 	sljit_free_code(code.code);
 	printf("test20 ok\n");
+	successful_tests++;
 }
 
 static void test21(void)
@@ -1227,6 +1260,7 @@ static void test21(void)
 	sljit_free_code(code1.code);
 	sljit_free_code(code2.code);
 	printf("test21 ok\n");
+	successful_tests++;
 }
 
 static void test22(void)
@@ -1316,6 +1350,7 @@ static void test22(void)
 
 	sljit_free_code(code.code);
 	printf("test22 ok\n");
+	successful_tests++;
 }
 
 static void test23(void)
@@ -1391,6 +1426,7 @@ static void test23(void)
 
 	sljit_free_code(code.code);
 	printf("test23 ok\n");
+	successful_tests++;
 }
 
 static void test24(void)
@@ -1471,6 +1507,7 @@ static void test24(void)
 
 	sljit_free_code(code.code);
 	printf("test24 ok\n");
+	successful_tests++;
 }
 
 static void test25(void)
@@ -1539,6 +1576,7 @@ static void test25(void)
 	sljit_free_code(code.code);
 #endif
 	printf("test25 ok\n");
+	successful_tests++;
 }
 
 static void test26(void)
@@ -1611,6 +1649,7 @@ static void test26(void)
 
 	sljit_free_code(code.code);
 	printf("test26 ok\n");
+	successful_tests++;
 }
 
 static void test27(void)
@@ -1737,6 +1776,7 @@ static void test27(void)
 
 	FAILED(buf[24] != 10, "test27 case 25 failed\n");
 	printf("test27 ok\n");
+	successful_tests++;
 #undef SET_NEXT_BYTE
 #undef RESULT
 }
@@ -1790,6 +1830,7 @@ static void test28(void)
 	FAILED(buf[4] != label_addr, "test28 case 5 failed\n");
 	sljit_free_code(code.code);
 	printf("test28 ok\n");
+	successful_tests++;
 }
 
 void sljit_test(void)
@@ -1822,5 +1863,9 @@ void sljit_test(void)
 	test26();
 	test27();
 	test28();
+	if (successful_tests == 28)
+		printf("All tests are passed.\n");
+	else
+		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 28);
 }
 

@@ -296,6 +296,10 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		buf = buf->next;
 	} while (buf);
 
+	SLJIT_ASSERT(!label);
+	SLJIT_ASSERT(!jump);
+	SLJIT_ASSERT(!const_);
+
 	jump = compiler->jumps;
 	while (jump) {
 		if (jump->flags & PATCH_MB) {
