@@ -153,7 +153,7 @@ static int push_inst16(struct sljit_compiler *compiler, sljit_i inst)
 	FAIL_IF(!ptr);
 	*ptr = inst;
 	compiler->size++;
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 static int push_inst32(struct sljit_compiler *compiler, sljit_i inst)
@@ -163,7 +163,7 @@ static int push_inst32(struct sljit_compiler *compiler, sljit_i inst)
 	*ptr++ = inst >> 16;
 	*ptr = inst;
 	compiler->size += 2;
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 static SLJIT_INLINE int emit_imm32_const(struct sljit_compiler *compiler, int dst, sljit_uw imm)
@@ -327,7 +327,7 @@ static int load_immediate(struct sljit_compiler *compiler, int dst, sljit_uw imm
 	if (imm >= 0x10000)
 		return push_inst32(compiler, MOVT | RD4(dst) |
 			COPY_BITS(imm, 12 + 16, 16, 4) | COPY_BITS(imm, 11 + 16, 26, 1) | COPY_BITS(imm, 8 + 16, 12, 3) | ((imm & 0xff0000) >> 16));
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 #define ARG1_IMM	0x10000
@@ -505,7 +505,7 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 			return push_inst32(compiler, MUL | RD4(dst) | RN4(arg1) | RM4(arg2));
 		SLJIT_ASSERT_STOP();
 		//FAIL_IF(push_inst16(compiler, MULS 0x4340 | RD3(dst) | RN3(arg2)));
-		return SLJIT_NO_ERROR;
+		return SLJIT_SUCCESS;
 	case SLJIT_AND:
 		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, ANDS | RD3(dst) | RN3(arg2));
@@ -533,7 +533,7 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 	}
 
 	SLJIT_ASSERT_STOP();
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 #define STORE		0x01
@@ -853,7 +853,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	if (args >= 3)
 		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_GENERAL_REG3, SLJIT_TEMPORARY_REG3)));
 
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
@@ -943,7 +943,7 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 		break;
 	}
 
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
@@ -1039,7 +1039,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 
 		if (dst & SLJIT_MEM)
 			return emit_op_mem(compiler, flags | STORE, dst_r, dst, dstw);
-		return SLJIT_NO_ERROR;
+		return SLJIT_SUCCESS;
 	}
 
 	if (op_type == SLJIT_NEG)
@@ -1060,7 +1060,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 
 	if (dst & SLJIT_MEM)
 		return emit_op_mem(compiler, WORD_SIZE | STORE, dst_r, dst, dstw);
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 int sljit_emit_op2(struct sljit_compiler *compiler, int op,
@@ -1109,7 +1109,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 
 	if (dst & SLJIT_MEM)
 		return emit_op_mem(compiler, WORD_SIZE | STORE, dst_r, dst, dstw);
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 // ---------------------------------------------------------------------
@@ -1176,7 +1176,7 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 
 	if (dst & SLJIT_MEM)
 		return emit_fop_mem(compiler, STORE, TMP_FREG1, dst, dstw);
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
@@ -1229,7 +1229,7 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 
 	if (dst & SLJIT_MEM)
 		return emit_fop_mem(compiler, STORE, TMP_FREG1, dst, dstw);
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 // ---------------------------------------------------------------------
@@ -1394,7 +1394,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		if (type >= SLJIT_CALL0)
 			return push_inst16(compiler, BLX | RN3(TMP_REG1));
 	}
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
@@ -1428,7 +1428,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 			return push_inst16(compiler, MOV | SET_REGS44(dst, TMP_REG1));
 	}
 
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval)

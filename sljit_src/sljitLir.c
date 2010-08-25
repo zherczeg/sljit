@@ -17,7 +17,7 @@
 #ifndef SLJIT_CONFIG_UNSUPPORTED
 
 #define FUNCTION_ENTRY() \
-	SLJIT_ASSERT(compiler->error == SLJIT_NO_ERROR)
+	SLJIT_ASSERT(compiler->error == SLJIT_SUCCESS)
 
 #define FAIL_IF(expr) \
 	do { \
@@ -143,7 +143,7 @@ struct sljit_compiler* sljit_create_compiler(void)
 	if (!compiler)
 		return NULL;
 
-	compiler->error = SLJIT_NO_ERROR;
+	compiler->error = SLJIT_SUCCESS;
 
 	compiler->labels = NULL;
 	compiler->jumps = NULL;

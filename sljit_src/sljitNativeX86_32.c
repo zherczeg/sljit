@@ -107,7 +107,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 			SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, local_size);
 
 	// Mov arguments to general registers
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
@@ -178,7 +178,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	else
 		RET();
 
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 // ---------------------------------------------------------------------
@@ -194,7 +194,7 @@ static int emit_do_imm(struct sljit_compiler *compiler, sljit_ub opcode, sljit_w
 	INC_SIZE(1 + sizeof(sljit_w));
 	*buf++ = opcode;
 	*(sljit_w*)buf = imm;
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 // Size contains the flags as well
@@ -383,5 +383,5 @@ static int call_with_args(struct sljit_compiler *compiler, int type)
 	if (type >= SLJIT_CALL2)
 		PUSH_REG(reg_map[SLJIT_TEMPORARY_REG2]);
 	PUSH_REG(reg_map[SLJIT_TEMPORARY_REG1]);
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }

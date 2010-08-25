@@ -39,7 +39,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 
 	if (imm <= 0x7fffffff && imm >= -0x80000000l) {
 		FAIL_IF(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((imm >> 16) & 0xffff))));
-		return (imm & 0xffff) ? push_inst(compiler, INS_FORM_IMM(24, reg, reg, (imm & 0xffff))) : SLJIT_NO_ERROR;
+		return (imm & 0xffff) ? push_inst(compiler, INS_FORM_IMM(24, reg, reg, (imm & 0xffff))) : SLJIT_SUCCESS;
 	}
 
 	// Count leading zeroes
@@ -76,7 +76,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 		FAIL_IF(push_inst(compiler, INS_FORM_IMM(14, reg, 0, ((tmp >> 48) & 0xffff))));
 		FAIL_IF(SLJIT_PUSH_RLDICR(reg, shift));
 		FAIL_IF(push_inst(compiler, INS_FORM_IMM(25, reg, reg, (tmp2 >> 16))));
-		return (imm & 0xffff) ? push_inst(compiler, INS_FORM_IMM(24, reg, reg, (tmp2 & 0xffff))) : SLJIT_NO_ERROR;
+		return (imm & 0xffff) ? push_inst(compiler, INS_FORM_IMM(24, reg, reg, (tmp2 & 0xffff))) : SLJIT_SUCCESS;
 	}
 
 	SLJIT_CLZ(tmp2, shift2);
@@ -281,7 +281,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		if (dst != src2)
 			return push_inst(compiler, INS_FORM_OP2(31, src2, dst, src2, 444 << 1));
-		return SLJIT_NO_ERROR;
+		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_UI:
 	case SLJIT_MOV_SI:
@@ -294,7 +294,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		}
 		else if (dst != src2)
 			SLJIT_ASSERT_STOP();
-		return SLJIT_NO_ERROR;
+		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_UB:
 	case SLJIT_MOV_SB:
@@ -309,7 +309,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 			return push_inst(compiler, INS_FORM_OP1(31, src2, dst, 954 << 1));
 		else if (dst != src2)
 			SLJIT_ASSERT_STOP();
-		return SLJIT_NO_ERROR;
+		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_UH:
 	case SLJIT_MOV_SH:
@@ -322,7 +322,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		}
 		else if (dst != src2)
 			SLJIT_ASSERT_STOP();
-		return SLJIT_NO_ERROR;
+		return SLJIT_SUCCESS;
 
 	case SLJIT_NOT:
 		UN_EXTS();
@@ -334,7 +334,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 	}
 
 	SLJIT_ASSERT_STOP();
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 static int emit_const(struct sljit_compiler *compiler, int reg, sljit_w initval)
