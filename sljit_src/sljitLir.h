@@ -51,7 +51,7 @@
 // ---------------------------------------------------------------------
 
 // Indicates no error
-#define SLJIT_NO_ERROR		0
+#define SLJIT_SUCCESS		0
 // After the call of sljit_generate_code(), the error code of the compiler
 // is set to this value to avoid future sljit calls (in debug mode at least).
 // The complier should only be freed after sljit_generate_code()

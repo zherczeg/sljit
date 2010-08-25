@@ -32,7 +32,7 @@ static int successful_tests = 0;
 	}
 
 #define T(value) \
-	if ((value) != SLJIT_NO_ERROR) { \
+	if ((value) != SLJIT_SUCCESS) { \
 		printf("Compiler error: %d\n", compiler->error); \
 		sljit_free_compiler(compiler); \
 		return; \

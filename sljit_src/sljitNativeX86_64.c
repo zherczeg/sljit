@@ -86,7 +86,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 		size += generals - 1;
 	size += args * 3;
 	if (size == 0)
-		return SLJIT_NO_ERROR;
+		return SLJIT_SUCCESS;
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	FAIL_IF(!buf);
 
@@ -141,7 +141,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	}
 
 	// Mov arguments to general registers
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
@@ -214,7 +214,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	}
 
 	RET();
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 // ---------------------------------------------------------------------
@@ -240,7 +240,7 @@ static int emit_do_imm32(struct sljit_compiler *compiler, sljit_ub rex, sljit_ub
 		*buf++ = opcode;
 		*(sljit_hw*)buf = imm;
 	}
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 static int emit_load_imm64(struct sljit_compiler *compiler, int reg, sljit_w imm)
@@ -253,7 +253,7 @@ static int emit_load_imm64(struct sljit_compiler *compiler, int reg, sljit_w imm
 	*buf++ = REX_W | ((reg_map[reg] <= 7) ? 0 : REX_B);
 	*buf++ = 0xb8 + (reg_map[reg] & 0x7);
 	*(sljit_w*)buf = imm;
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
@@ -506,7 +506,7 @@ static int call_with_args(struct sljit_compiler *compiler, int type)
 	*buf++ = REX_W;
 	*buf++ = 0x8b;
 	*buf++ = 0xc0 | (0x7 << 3) | reg_lmap[SLJIT_TEMPORARY_REG1];
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
 // ---------------------------------------------------------------------
@@ -523,7 +523,7 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 	compiler->mode32 = 0;
 
 	if (dst == SLJIT_UNUSED && !(src & SLJIT_MEM))
-		return SLJIT_NO_ERROR; // Empty instruction
+		return SLJIT_SUCCESS; // Empty instruction
 
 	if (src & SLJIT_IMM) {
 		compiler->mode32 = 1;
@@ -531,7 +531,7 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 		FAIL_IF(!code);
 		*code = 0xc7;
 		compiler->mode32 = 0;
-		return SLJIT_NO_ERROR;
+		return SLJIT_SUCCESS;
 	}
 
 	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_GENERAL_REG3) ? dst : TMP_REGISTER;
@@ -581,6 +581,6 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 		compiler->mode32 = 0;
 	}
 
-	return SLJIT_NO_ERROR;
+	return SLJIT_SUCCESS;
 }
 
