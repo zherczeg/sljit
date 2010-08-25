@@ -857,11 +857,13 @@ static void test15(void)
 	// Test function call
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_w buf[2];
+	struct sljit_jump* jump;
+	sljit_w buf[3];
 
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
+	buf[2] = 0;
 
 	T(sljit_emit_enter(compiler, 1, 3, 1, 0));
 
@@ -870,21 +872,29 @@ static void test15(void)
 	T(sljit_emit_ijump(compiler, SLJIT_CALL2, SLJIT_IMM, SLJIT_FUNC_OFFSET(func)));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_PREF_RET_REG, 0));
 
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, -5));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, -10));
+	jump = sljit_emit_jump(compiler, SLJIT_CALL2 | SLJIT_LONG_JUMP); TP(jump);
+	sljit_set_target(jump, (sljit_w)-1);
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_PREF_RET_REG, 0));
+
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 10));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 16));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, SLJIT_FUNC_OFFSET(func)));
 	T(sljit_emit_ijump(compiler, SLJIT_CALL2, SLJIT_TEMPORARY_REG3, 0));
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_PREF_RET_REG, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 2 * sizeof(sljit_w), SLJIT_PREF_RET_REG, 0));
 
 	T(sljit_emit_return(compiler, SLJIT_PREF_RET_REG, 0));
 
 	code.code = sljit_generate_code(compiler);
 	FAILED(!code.code, "code generation error\n");
+	sljit_set_jump_addr(sljit_get_jump_addr(jump), SLJIT_FUNC_OFFSET(func));
 	sljit_free_compiler(compiler);
 
 	FAILED(code.func1((sljit_w)&buf) != 31, "test15 case 1 failed\n");
 	FAILED(buf[0] != 17, "test15 case 2 failed\n");
-	FAILED(buf[1] != 31, "test15 case 3 failed\n");
+	FAILED(buf[1] != -10, "test15 case 3 failed\n");
+	FAILED(buf[2] != 31, "test15 case 4 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test15 ok\n");
@@ -1190,6 +1200,9 @@ static void test20(void)
 	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_GENERAL_REG1), 3 * sizeof(sljit_uw), SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_LOCALS_REG), 0, SLJIT_MEM1(SLJIT_LOCALS_REG), 0));
 
 	T(sljit_emit_return(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), 4 * sizeof(sljit_uw)));
+	// Dummy codes
+	TP(sljit_emit_const(compiler, SLJIT_TEMPORARY_REG1, 0, -9));
+	TP(sljit_emit_label(compiler));
 
 	code.code = sljit_generate_code(compiler);
 	FAILED(!code.code, "code generation error\n");

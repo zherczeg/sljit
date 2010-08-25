@@ -90,6 +90,7 @@
 // SLJIT_MEM2(SLJIT_LOCALS_REG, SLJIT_LOCALS_REG) is not supported
 #define SLJIT_LOCALS_REG	11
 
+// Number of registers
 #define SLJIT_NO_TMP_REGISTERS	5
 #define SLJIT_NO_GEN_REGISTERS	5
 #define SLJIT_NO_REGISTERS	11
@@ -191,10 +192,8 @@ struct sljit_compiler {
 	sljit_uw cpool_diff;
 	sljit_uw cpool_fill;
 	// General fields
+	// Contains pointer, "ldr pc, [...]" pairs
 	sljit_uw patches;
-	sljit_uw last_type;
-	sljit_uw last_ins;
-	sljit_uw last_imm;
 	// Temporary fields
 	sljit_uw shift_imm;
 	int cache_arg;

@@ -190,7 +190,6 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->cpool_diff = 0xffffffff;
 	compiler->cpool_fill = 0;
 	compiler->patches = 0;
-	compiler->last_type = LIT_NONE;
 #endif
 
 #ifdef SLJIT_VERBOSE
