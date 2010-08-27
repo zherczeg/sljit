@@ -59,6 +59,7 @@ static void test1(void)
 
 	code.code = sljit_generate_code(compiler);
 	FAILED(!code.code, "code generation error\n");
+	SLJIT_ASSERT(compiler->error == SLJIT_ERR_COMPILED);
 	sljit_free_compiler(compiler);
 
 	FAILED(code.func3(3, -21, 86) != -21, "test1 case 1 failed\n");
@@ -630,7 +631,7 @@ static void test12(void)
 
 	T(sljit_emit_enter(compiler, 2, 3, 2, 0));
 	T(sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_S, SLJIT_UNUSED, 0, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 10));
-	jump1 = sljit_emit_jump(compiler, SLJIT_LONG_JUMP | SLJIT_C_SIG_GREATER);
+	jump1 = sljit_emit_jump(compiler, SLJIT_REWRITABLE_JUMP | SLJIT_C_SIG_GREATER);
 	T(compiler->error);
 	// Default handler
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, 5));
@@ -874,7 +875,7 @@ static void test15(void)
 
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, -5));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, -10));
-	jump = sljit_emit_jump(compiler, SLJIT_CALL2 | SLJIT_LONG_JUMP); TP(jump);
+	jump = sljit_emit_jump(compiler, SLJIT_CALL2 | SLJIT_REWRITABLE_JUMP); TP(jump);
 	sljit_set_target(jump, (sljit_w)-1);
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_PREF_RET_REG, 0));
 
@@ -1239,7 +1240,7 @@ static void test21(void)
 
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), 0, SLJIT_IMM, 10));
 	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_LOCALS_REG), sizeof(sljit_w), SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_MEM1(SLJIT_LOCALS_REG), 0));
-	jump = sljit_emit_jump(compiler, SLJIT_JUMP | SLJIT_LONG_JUMP);
+	jump = sljit_emit_jump(compiler, SLJIT_JUMP | SLJIT_REWRITABLE_JUMP);
 	T(compiler->error);
 	sljit_set_target(jump, 0);
 

@@ -148,7 +148,7 @@ static SLJIT_INLINE int optimize_jump(struct sljit_jump *jump, sljit_i *code_ptr
 	sljit_w diff;
 	sljit_uw absolute_addr;
 
-	if (jump->flags & SLJIT_LONG_JUMP)
+	if (jump->flags & SLJIT_REWRITABLE_JUMP)
 		return 0;
 
 	if (jump->flags & JUMP_ADDR)
@@ -205,7 +205,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	compiler->size += (compiler->size & 0x1) ? 3 : 2;
 #endif
 	code = (sljit_i*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_uw));
-	PTR_FAIL_IF_NULL(code);
+	PTR_FAIL_WITH_EXEC_IF(code);
 	buf = compiler->buf;
 
 	code_ptr = code;
@@ -278,7 +278,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		do {
 			addr = (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target;
 			buf_ptr = (sljit_i*)jump->addr;
-			if (!(jump->flags & SLJIT_LONG_JUMP) && (jump->flags & PATCH_B)) {
+			if (!(jump->flags & SLJIT_REWRITABLE_JUMP) && (jump->flags & PATCH_B)) {
 				if (jump->flags & UNCOND_ADDR) {
 					if (!(jump->flags & ABSOLUTE_B)) {
 						addr = addr - jump->addr;
@@ -321,7 +321,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 	SLJIT_CACHE_FLUSH((char *)code, (char *)code_ptr);
 
-	compiler->error = SLJIT_CODE_GENERATED;
+	compiler->error = SLJIT_ERR_COMPILED;
 #ifdef SLJIT_CONFIG_PPC_64
 	if (((sljit_w)code_ptr) & 0x4)
 		code_ptr++;
@@ -1650,7 +1650,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	PTR_FAIL_IF(!jump);
 
 	jump->next = NULL;
-	jump->flags = type & SLJIT_LONG_JUMP;
+	jump->flags = type & SLJIT_REWRITABLE_JUMP;
 	type &= 0xff;
 	if (compiler->last_jump)
 		compiler->last_jump->next = jump;
