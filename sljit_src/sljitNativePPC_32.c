@@ -17,14 +17,14 @@
 static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 {
 	if (imm <= SIMM_MAX && imm >= SIMM_MIN)
-		return push_inst(compiler, INS_FORM_IMM(14, reg, 0, (imm & 0xffff)));
+		return push_inst(compiler, ADDI | D(reg) | A(0) | IMM(imm));
 
-	FAIL_IF(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((imm >> 16) & 0xffff))));
-	return (imm & 0xffff) ? push_inst(compiler, INS_FORM_IMM(24, reg, reg, (imm & 0xffff))) : SLJIT_SUCCESS;
+	FAIL_IF(push_inst(compiler, ADDIS | D(reg) | A(0) | IMM(imm >> 16)));
+	return (imm & 0xffff) ? push_inst(compiler, ORI | S(reg) | A(reg) | IMM(imm)) : SLJIT_SUCCESS;
 }
 
 #define INS_CLEAR_LEFT(dst, src, from) \
-	INS_FORM_OP1(21, src, dst, ((from) << 6) | (31 << 1))
+	(RLWINM | S(src) | A(dst) | ((from) << 6) | (31 << 1))
 
 static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 	int dst, int src1, int src2)
@@ -33,116 +33,115 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 	case SLJIT_ADD:
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(14, dst, src1, compiler->imm));
+			return push_inst(compiler, ADDI | D(dst) | A(src1) | compiler->imm);
 		}
 		if (flags & ALT_FORM2) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(15, dst, src1, compiler->imm));
+			return push_inst(compiler, ADDIS | D(dst) | A(src1) | compiler->imm);
 		}
 		if (flags & ALT_FORM3) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(13, dst, src1, compiler->imm));
+			return push_inst(compiler, ADDIC | D(dst) | A(src1) | compiler->imm);
 		}
-		return push_inst(compiler, INS_FORM_OP2(31, dst, src1, src2, (10 << 1) | 1 | (1 << 10)));
+		return push_inst(compiler, ADDC | O | R | D(dst) | A(src1) | B(src2));
 
 	case SLJIT_ADDC:
-		return push_inst(compiler, INS_FORM_OP2(31, dst, src1, src2, (138 << 1) | 1 | (1 << 10)));
+		return push_inst(compiler, ADDE | O | R | D(dst) | A(src1) | B(src2));
 
 	case SLJIT_SUB:
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(8, dst, src1, compiler->imm));
+			return push_inst(compiler, SUBFIC | D(dst) | A(src1) | compiler->imm);
 		}
 		if (flags & ALT_FORM2) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_CMP1(10, 4, src1, compiler->imm));
+			return push_inst(compiler, CMPLI | CRD(4) | A(src1) | compiler->imm);
 		}
-		if (flags & ALT_FORM3) {
-			return push_inst(compiler, INS_FORM_CMP2(31, 4, src1, src2, (32 << 1)));
-		}
+		if (flags & ALT_FORM3)
+			return push_inst(compiler, CMPL | CRD(4) | A(src1) | B(src2));
 		if (flags & ALT_FORM4)
-			FAIL_IF(push_inst(compiler, INS_FORM_CMP2(31, 4, src1, src2, (32 << 1))));
-		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (8 << 1) | 1 | (1 << 10)));
+			FAIL_IF(push_inst(compiler, CMPL | CRD(4) | A(src1) | B(src2)));
+		return push_inst(compiler, SUBFC | O | R | D(dst) | A(src2) | B(src1));
 
 	case SLJIT_SUBC:
 		if (flags & ALT_FORM4) {
 			// Unfortunately this is really complicated case
-			FAIL_IF(push_inst(compiler, INS_FORM_OP1(31, ZERO_REG, src1, 234 << 1)));
-			FAIL_IF(push_inst(compiler, INS_FORM_CMP2(31, 4, ZERO_REG, src2, (32 << 1))));
-			FAIL_IF(push_inst(compiler, INS_FORM_IMM(14, ZERO_REG, 0, 0)));
+			FAIL_IF(push_inst(compiler, ADDME | D(ZERO_REG) | A(src1)));
+			FAIL_IF(push_inst(compiler, CMPL | CRD(4) | A(ZERO_REG) | B(src2)));
+			FAIL_IF(push_inst(compiler, ADDI | D(ZERO_REG) | A(0) | 0));
 		}
-		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (136 << 1) | 1 | (1 << 10)));
+		return push_inst(compiler, SUBFE | O | R | D(dst) | A(src2) | B(src1));
 
 	case SLJIT_MUL:
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(7, dst, src1, compiler->imm));
+			return push_inst(compiler, MULLI | D(dst) | A(src1) | compiler->imm);
 		}
-		return push_inst(compiler, INS_FORM_OP2(31, dst, src2, src1, (235 << 1) | 1 | (1 << 10)));
+		return push_inst(compiler, MULLW | O | R | D(dst) | A(src2) | B(src1));
 
 	case SLJIT_AND:
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(28, src1, dst, compiler->imm));
+			return push_inst(compiler, ANDI | S(src1) | A(dst) | compiler->imm);
 		}
 		if (flags & ALT_FORM2) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(29, src1, dst, compiler->imm));
+			return push_inst(compiler, ANDIS | S(src1) | A(dst) | compiler->imm);
 		}
-		return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (28 << 1) | 1));
+		return push_inst(compiler, AND | R | S(src1) | A(dst) | B(src2));
 
 	case SLJIT_OR:
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(24, src1, dst, compiler->imm));
+			return push_inst(compiler, ORI | S(src1) | A(dst) | compiler->imm);
 		}
 		if (flags & ALT_FORM2) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(25, src1, dst, compiler->imm));
+			return push_inst(compiler, ORIS | S(src1) | A(dst) | compiler->imm);
 		}
-		return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (444 << 1) | 1));
+		return push_inst(compiler, OR | R | S(src1) | A(dst) | B(src2));
 
 	case SLJIT_XOR:
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(26, src1, dst, compiler->imm));
+			return push_inst(compiler, XORI | S(src1) | A(dst) | compiler->imm);
 		}
 		if (flags & ALT_FORM2) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
-			return push_inst(compiler, INS_FORM_IMM(27, src1, dst, compiler->imm));
+			return push_inst(compiler, XORIS | S(src1) | A(dst) | compiler->imm);
 		}
-		return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (316 << 1) | 1));
+		return push_inst(compiler, XOR | R | S(src1) | A(dst) | B(src2));
 
 	case SLJIT_SHL:
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			compiler->imm &= 0x1f;
-			return push_inst(compiler, INS_FORM_OP1(21, src1, dst, (compiler->imm << 11) | ((31 - compiler->imm) << 1) | 1));
+			return push_inst(compiler, RLWINM | R | S(src1) | A(dst) | (compiler->imm << 11) | ((31 - compiler->imm) << 1));
 		}
-		return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (24 << 1) | 1));
+		return push_inst(compiler, SLW | R | S(src1) | A(dst) | B(src2));
 
 	case SLJIT_LSHR:
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			compiler->imm &= 0x1f;
-			return push_inst(compiler, INS_FORM_OP1(21, src1, dst, (((32 - compiler->imm) & 0x1f) << 11) | (compiler->imm << 6) | (31 << 1) | 1));
+			return push_inst(compiler, RLWINM | R | S(src1) | A(dst) | (((32 - compiler->imm) & 0x1f) << 11) | (compiler->imm << 6) | (31 << 1));
 		}
-		return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (536 << 1) | 1));
+		return push_inst(compiler, SRW | R | S(src1) | A(dst) | B(src2));
 
 	case SLJIT_ASHR:
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			compiler->imm &= 0x1f;
-			return push_inst(compiler, INS_FORM_OP1(31, src1, dst, (compiler->imm << 11) | (824 << 1) | 1));
+			return push_inst(compiler, SRAWI | R | S(src1) | A(dst) | (compiler->imm << 11));
 		}
-		return push_inst(compiler, INS_FORM_OP2(31, src1, dst, src2, (792 << 1) | 1));
+		return push_inst(compiler, SRAW | R | S(src1) | A(dst) | B(src2));
 
 	case SLJIT_MOV:
 	case SLJIT_MOV_UI:
 	case SLJIT_MOV_SI:
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		if (dst != src2)
-			return push_inst(compiler, INS_FORM_OP2(31, src2, dst, src2, 444 << 1));
+			return push_inst(compiler, OR | S(src2) | A(dst) | B(src2));
 		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_UB:
@@ -150,12 +149,12 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 			if (op == SLJIT_MOV_SB)
-				return push_inst(compiler, INS_FORM_OP1(31, src2, dst, 954 << 1));
+				return push_inst(compiler, EXTSB | S(src2) | A(dst));
 			else
 				return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 24));
 		}
 		else if ((flags & REG_DEST) && op == SLJIT_MOV_SB)
-			return push_inst(compiler, INS_FORM_OP1(31, src2, dst, 954 << 1));
+			return push_inst(compiler, EXTSB | S(src2) | A(dst));
 		else if (dst != src2)
 			SLJIT_ASSERT_STOP();
 		return SLJIT_SUCCESS;
@@ -165,7 +164,7 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 			if (op == SLJIT_MOV_SH)
-				return push_inst(compiler, INS_FORM_OP1(31, src2, dst, 922 << 1));
+				return push_inst(compiler, EXTSH | S(src2) | A(dst));
 			else
 				return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 16));
 		}
@@ -174,10 +173,10 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 		return SLJIT_SUCCESS;
 
 	case SLJIT_NOT:
-		return push_inst(compiler, INS_FORM_OP2(31, src2, dst, src2, (124 << 1) | 1));
+		return push_inst(compiler, NOR | R | S(src2) | A(dst) | B(src2));
 
 	case SLJIT_NEG:
-		return push_inst(compiler, INS_FORM_OP1(31, dst, src2, (104 << 1) | 1 | (1 << 10)));
+		return push_inst(compiler, NEG | O | R | D(dst) | A(src2));
 	}
 
 	SLJIT_ASSERT_STOP();
@@ -186,8 +185,8 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 
 static int emit_const(struct sljit_compiler *compiler, int reg, sljit_w initval)
 {
-	FAIL_IF(push_inst(compiler, INS_FORM_IMM(15, reg, 0, ((initval >> 16) & 0xffff))));
-	return push_inst(compiler, INS_FORM_IMM(24, reg, reg, (initval & 0xffff)));
+	FAIL_IF(push_inst(compiler, ADDIS | D(reg) | A(0) | IMM(initval >> 16)));
+	return push_inst(compiler, ORI | S(reg) | A(reg) | IMM(initval));
 }
 
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
