@@ -241,7 +241,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 	// Second code generation pass
 	code = (sljit_ub*)SLJIT_MALLOC_EXEC(compiler->size);
-	PTR_FAIL_IF_NULL(code);
+	PTR_FAIL_WITH_EXEC_IF(code);
 	buf = compiler->buf;
 
 	code_ptr = code;
@@ -262,7 +262,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 			else {
 				if (*buf_ptr >= 4) {
 					jump->addr = (sljit_uw)code_ptr;
-					if (!(jump->flags & SLJIT_LONG_JUMP))
+					if (!(jump->flags & SLJIT_REWRITABLE_JUMP))
 						code_ptr = generate_near_jump_code(jump, code_ptr, code, *buf_ptr - 4);
 					else
 						code_ptr = generate_far_jump_code(jump, code_ptr, *buf_ptr - 4);
@@ -323,7 +323,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 	// Maybe we waste some space because of short jumps
 	SLJIT_ASSERT(code_ptr <= code + compiler->size);
-	compiler->error = SLJIT_CODE_GENERATED;
+	compiler->error = SLJIT_ERR_COMPILED;
 	return (void*)code;
 }
 
@@ -1190,9 +1190,9 @@ static int emit_lea_binary(struct sljit_compiler *compiler,
 
 	// These cases better be left to handled by normal way
 	if (dst == src1 && dstw == src1w)
-		return SLJIT_UNSUPPORTED;
+		return SLJIT_ERR_UNSUPPORTED;
 	if (dst == src2 && dstw == src2w)
-		return SLJIT_UNSUPPORTED;
+		return SLJIT_ERR_UNSUPPORTED;
 
 	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REGISTER;
 
@@ -1237,7 +1237,7 @@ static int emit_lea_binary(struct sljit_compiler *compiler,
 			return emit_mov(compiler, dst, dstw, TMP_REGISTER, 0);
 		return SLJIT_SUCCESS;
 	}
-	return SLJIT_UNSUPPORTED;
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 static int emit_cmp_binary(struct sljit_compiler *compiler,
@@ -1508,7 +1508,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
 		if (GET_FLAGS(op) == 0)
-			if (emit_lea_binary(compiler, dst, dstw, src1, src1w, src2, src2w) != SLJIT_UNSUPPORTED)
+			if (emit_lea_binary(compiler, dst, dstw, src1, src1w, src2, src2w) != SLJIT_ERR_UNSUPPORTED)
 				return compiler->error;
 		return emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
 			dst, dstw, src1, src1w, src2, src2w);
@@ -1519,7 +1519,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 		if (dst == SLJIT_UNUSED)
 			return emit_cmp_binary(compiler, src1, src1w, src2, src2w);
 		if (GET_FLAGS(op) == 0 && (src2 & SLJIT_IMM))
-			if (emit_lea_binary(compiler, dst, dstw, src1, src1w, SLJIT_IMM, -src2w) != SLJIT_UNSUPPORTED)
+			if (emit_lea_binary(compiler, dst, dstw, src1, src1w, SLJIT_IMM, -src2w) != SLJIT_ERR_UNSUPPORTED)
 				return compiler->error;
 		return emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
 			dst, dstw, src1, src1w, src2, src2w);
@@ -2091,7 +2091,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	PTR_FAIL_IF(!jump);
 
 	jump->next = NULL;
-	jump->flags = type & SLJIT_LONG_JUMP;
+	jump->flags = type & SLJIT_REWRITABLE_JUMP;
 	type &= 0xff;
 	if (compiler->last_jump)
 		compiler->last_jump->next = jump;

@@ -34,15 +34,23 @@
 #define FAIL_IF_NULL(ptr) \
 	do { \
 		if (SLJIT_UNLIKELY(!(ptr))) { \
-			compiler->error = SLJIT_MEMORY_ERROR; \
-			return SLJIT_MEMORY_ERROR; \
+			compiler->error = SLJIT_ERR_ALLOC_FAILED; \
+			return SLJIT_ERR_ALLOC_FAILED; \
 		} \
 	} while (0)
 
 #define PTR_FAIL_IF_NULL(ptr) \
 	do { \
 		if (SLJIT_UNLIKELY(!(ptr))) { \
-			compiler->error = SLJIT_MEMORY_ERROR; \
+			compiler->error = SLJIT_ERR_ALLOC_FAILED; \
+			return NULL; \
+		} \
+	} while (0)
+
+#define PTR_FAIL_WITH_EXEC_IF(ptr) \
+	do { \
+		if (SLJIT_UNLIKELY(!(ptr))) { \
+			compiler->error = SLJIT_ERR_EX_ALLOC_FAILED; \
 			return NULL; \
 		} \
 	} while (0)
@@ -260,7 +268,7 @@ void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
 
 void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
 {
-	SLJIT_ASSERT(jump->flags & SLJIT_LONG_JUMP);
+	SLJIT_ASSERT(jump->flags & SLJIT_REWRITABLE_JUMP);
 
 	jump->flags &= ~JUMP_LABEL;
 	jump->flags |= JUMP_ADDR;
@@ -590,7 +598,7 @@ static char* jump_names[] = {
 	(char*)"call0", (char*)"call1", (char*)"call2", (char*)"call3"
 };
 #define sljit_emit_jump_verbose() \
-	if (compiler->verbose) fprintf(compiler->verbose, "  jump <%s> %s\n", jump_names[type & 0xff], (type & SLJIT_LONG_JUMP) ? "(long)" : "");
+	if (compiler->verbose) fprintf(compiler->verbose, "  jump <%s> %s\n", jump_names[type & 0xff], (type & SLJIT_REWRITABLE_JUMP) ? "(rewritable)" : "");
 #define sljit_emit_ijump_verbose() \
 	if (compiler->verbose) { \
 		fprintf(compiler->verbose, "  ijump <%s> ", jump_names[type]); \
@@ -692,7 +700,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	(void)generals;
 	(void)local_size;
 	SLJIT_ASSERT_STOP();
-	return SLJIT_UNSUPPORTED;
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
@@ -711,7 +719,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	(void)src;
 	(void)srcw;
 	SLJIT_ASSERT_STOP();
-	return SLJIT_UNSUPPORTED;
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
@@ -725,7 +733,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	(void)src;
 	(void)srcw;
 	SLJIT_ASSERT_STOP();
-	return SLJIT_UNSUPPORTED;
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 int sljit_emit_op2(struct sljit_compiler *compiler, int op,
@@ -742,7 +750,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	(void)src2;
 	(void)src2w;
 	SLJIT_ASSERT_STOP();
-	return SLJIT_UNSUPPORTED;
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 int sljit_is_fpu_available(void)
@@ -762,7 +770,7 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	(void)src;
 	(void)srcw;
 	SLJIT_ASSERT_STOP();
-	return SLJIT_UNSUPPORTED;
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
@@ -779,7 +787,7 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	(void)src2;
 	(void)src2w;
 	SLJIT_ASSERT_STOP();
-	return SLJIT_UNSUPPORTED;
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
@@ -818,7 +826,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	(void)src;
 	(void)srcw;
 	SLJIT_ASSERT_STOP();
-	return SLJIT_UNSUPPORTED;
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
@@ -828,7 +836,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	(void)dstw;
 	(void)type;
 	SLJIT_ASSERT_STOP();
-	return SLJIT_UNSUPPORTED;
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval)

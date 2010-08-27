@@ -51,18 +51,18 @@
 // ---------------------------------------------------------------------
 
 // Indicates no error
-#define SLJIT_SUCCESS		0
+#define SLJIT_SUCCESS			0
 // After the call of sljit_generate_code(), the error code of the compiler
 // is set to this value to avoid future sljit calls (in debug mode at least).
-// The complier should only be freed after sljit_generate_code()
-#define SLJIT_CODE_GENERATED	1
+// The complier should be freed after sljit_generate_code()
+#define SLJIT_ERR_COMPILED		1
 // Cannot allocate non executable memory
-#define SLJIT_MEMORY_ERROR	2
+#define SLJIT_ERR_ALLOC_FAILED		2
 // Cannot allocate executable memory
 // Only for sljit_generate_code()
-#define SLJIT_EX_MEMORY_ERROR	3
+#define SLJIT_ERR_EX_ALLOC_FAILED	3
 // return value for SLJIT_CONFIG_UNSUPPORTED empty architecture
-#define SLJIT_UNSUPPORTED	4
+#define SLJIT_ERR_UNSUPPORTED		4
 
 // ---------------------------------------------------------------------
 //  Registers
@@ -459,14 +459,17 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_CALL2			15
 #define SLJIT_CALL3			16
 
-// The target may be changed during runtime
-#define SLJIT_LONG_JUMP			0x100
+// The target can be changed during runtime (see: sljit_set_jump_addr)
+#define SLJIT_REWRITABLE_JUMP		0x100
 
+// Emit a jump instruction. The destination is not set, only the type of the jump.
+//  type must be between SLJIT_C_EQUAL and SLJIT_CALL3
 struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type);
 
+// Set the destination of the jump to this label
 void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label);
-// Only for jumps defined with SLJIT_LONG_JUMP flag
-// Use sljit_emit_ijump for fixed jumps
+// Only for jumps defined with SLJIT_REWRITABLE_JUMP flag
+// Note: Use sljit_emit_ijump for fixed jumps
 void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 
 // Call function or jump anywhere. Both direct and indirect form
@@ -475,7 +478,11 @@ void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 //  Indirect form: any other valid addressing mode
 int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw);
 
+// Set dst to 1 if condition is fulfilled, 0 otherwise
+//  type must be between SLJIT_C_EQUAL and SLJIT_C_NOT_OVERFLOW
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);
+
+// The constant can be changed runtime (see: sljit_set_const)
 struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval);
 
 // After the code generation the address for label, jump and const instructions
@@ -485,13 +492,14 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 #define sljit_get_jump_addr(jump)	((jump)->addr)
 #define sljit_get_const_addr(const_)	((const_)->addr)
 
-// Only the addresses are required to rewrite the code
+// Only the address is required to rewrite the code
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr);
 void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 
 // Portble helper function to get an offset of a member
 #define SLJIT_OFFSETOF(base, member) 	((sljit_w)(&((base*)0x10)->member) - 0x10)
 
+// Get the entry address of a given function
 #ifndef SLJIT_INDIRECT_CALL
 #define SLJIT_FUNC_OFFSET(func_name)	((sljit_w)func_name)
 #else

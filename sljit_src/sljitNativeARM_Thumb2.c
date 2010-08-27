@@ -203,7 +203,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	reverse_buf(compiler);
 
 	code = (sljit_uh*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_uh));
-	PTR_FAIL_IF_NULL(code);
+	PTR_FAIL_WITH_EXEC_IF(code);
 	buf = compiler->buf;
 
 	code_ptr = code;
@@ -251,7 +251,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		jump = jump->next;
 	}
 
-	compiler->error = SLJIT_CODE_GENERATED;
+	compiler->error = SLJIT_ERR_COMPILED;
 	// Set thumb mode flag
 	return (void*)((sljit_uw)code | 0x1);
 }
@@ -634,7 +634,7 @@ static int emit_set_delta(struct sljit_compiler *compiler, int dst, int reg, slj
 		if (value != INVALID_IMM)
 			return push_inst32(compiler, SUB_WI | RD4(dst) | RN4(reg) | value);
 	}
-	return SLJIT_UNSUPPORTED;
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 static int emit_op_mem(struct sljit_compiler *compiler, int flags, int dst, int base, sljit_uw offset)
@@ -1320,7 +1320,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	PTR_FAIL_IF(!jump);
 
 	jump->next = NULL;
-	jump->flags = type & SLJIT_LONG_JUMP;
+	jump->flags = type & SLJIT_REWRITABLE_JUMP;
 	type &= 0xff;
 	if (compiler->last_jump)
 		compiler->last_jump->next = jump;
