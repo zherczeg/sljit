@@ -734,7 +734,6 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst_is_ereg = 0;
 	int src_is_ereg = 0;
 #else
-	#define	dst_is_ereg 0
 	#define src_is_ereg 0
 #endif
 
@@ -846,7 +845,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 			return emit_mov(compiler, SLJIT_MEM1(SLJIT_LOCALS_REG), dstw, TMP_REGISTER, 0);
 #endif
 
-		if (SLJIT_UNLIKELY(update) && (dst & SLJIT_MEM) && !dst_is_ereg && (dst & 0xf) && (dstw != 0 || (dst & 0xf0) != 0)) {
+		if (SLJIT_UNLIKELY(update) && (dst & SLJIT_MEM) && (dst & 0xf) && (dstw != 0 || (dst & 0xf0) != 0)) {
 			code = emit_x86_instruction(compiler, 1, dst & 0xf, 0, dst, dstw);
 			FAIL_IF(!code);
 			*code = 0x8d;
@@ -867,7 +866,6 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	return SLJIT_SUCCESS;
 
 #ifdef SLJIT_CONFIG_X86_64
-	#undef dst_is_ereg
 	#undef src_is_ereg
 #endif
 }

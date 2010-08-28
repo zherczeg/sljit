@@ -271,7 +271,7 @@ static sljit_uw patch_pc_relative_loads(sljit_uw *last_pc_patch, sljit_uw *code_
 	return counter;
 }
 
-static SLJIT_INLINE int optimize_jump(struct sljit_jump *jump, sljit_uw *code_ptr, sljit_uw *code)
+static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uw *code_ptr, sljit_uw *code)
 {
 	sljit_w diff;
 
@@ -459,7 +459,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				}
 				if (jump && jump->addr == word_count) {
 					SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
-					if (optimize_jump(jump, code_ptr, code))
+					if (detect_jump_type(jump, code_ptr, code))
 						code_ptr--;
 
 					jump->addr = (sljit_uw)code_ptr;

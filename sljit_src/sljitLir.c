@@ -108,6 +108,20 @@
 #if defined(SLJIT_CONFIG_ARM_THUMB2)
 	#define IS_CONDITIONAL	0x04
 	#define IS_BL		0x08
+	/* cannot be encoded as branch */
+	#define B_TYPE0		0x00
+	/* conditional + imm8 */
+	#define B_TYPE1		0x10
+	/* conditional + imm20 */
+	#define B_TYPE2		0x20
+	/* IT + imm24 */
+	#define B_TYPE3		0x30
+	/* imm11 */
+	#define B_TYPE4		0x40
+	/* imm24 */
+	#define B_TYPE5		0x50
+	/* BL + imm24 */
+	#define BL_TYPE6	0x60
 #endif
 
 #if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
