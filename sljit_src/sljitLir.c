@@ -437,15 +437,14 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT_STOP();
 
 #define FUNCTION_CHECK_OP1() \
-	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SH) { \
-		if (GET_OPCODE(op) != SLJIT_MOV && GET_OPCODE(op) != SLJIT_MOVU) \
-			SLJIT_ASSERT(!(op & SLJIT_INT_OP)); \
+	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SI) { \
+		SLJIT_ASSERT(!GET_FLAGS(op)); \
 	} \
-        if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_SH) { \
-		if ((src & SLJIT_MEM) && (src & 0xf)) { \
-			SLJIT_ASSERT((src & 0xf) != SLJIT_LOCALS_REG); \
+        if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_SI) { \
+		SLJIT_ASSERT(!(src & SLJIT_MEM) || (src & 0xf) != SLJIT_LOCALS_REG); \
+		SLJIT_ASSERT(!(dst & SLJIT_MEM) || (dst & 0xf) != SLJIT_LOCALS_REG); \
+		if ((src & SLJIT_MEM) && (src & 0xf)) \
 			SLJIT_ASSERT((dst & 0xf) != (src & 0xf) && ((dst >> 4) & 0xf) != (src & 0xf)); \
-		} \
 	}
 
 #define FUNCTION_CHECK_FOP() \
