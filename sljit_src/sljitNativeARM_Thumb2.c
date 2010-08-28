@@ -204,6 +204,123 @@ static SLJIT_INLINE void modify_imm32_const(sljit_uh* inst, sljit_uw new_imm)
 	inst[3] = dst | COPY_BITS(new_imm, 8 + 16, 12, 3) | ((new_imm & 0xff0000) >> 16);
 }
 
+static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uh *code_ptr, sljit_uh *code)
+{
+	sljit_w diff;
+
+	if (jump->flags & SLJIT_REWRITABLE_JUMP)
+		return 0;
+
+	if (jump->flags & JUMP_ADDR) {
+		if (!(jump->target & 0x1))
+			return 0;
+		diff = ((sljit_w)jump->target - (sljit_w)(code_ptr + 2)) >> 1;
+	}
+	else {
+		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
+		diff = ((sljit_w)(code + jump->label->size) - (sljit_w)(code_ptr + 2)) >> 1;
+	}
+
+	if (jump->flags & IS_CONDITIONAL) {
+		SLJIT_ASSERT(!(jump->flags & IS_BL));
+		if (diff <= 127 && diff >= -128) {
+			jump->flags |= B_TYPE1;
+			return 5;
+		}
+		if (diff <= 524287 && diff >= -524288) {
+			jump->flags |= B_TYPE2;
+			return 4;
+		}
+		// +1 comes from the prefix IT instruction
+		diff--;
+		if (diff <= 8388607 && diff >= -8388608) {
+			jump->flags |= B_TYPE3;
+			return 3;
+		}
+	}
+	else if (jump->flags & IS_BL) {
+		if (diff <= 8388607 && diff >= -8388608) {
+			jump->flags |= BL_TYPE6;
+			return 3;
+		}
+	}
+	else {
+		if (diff <= 1023 && diff >= -1024) {
+			jump->flags |= B_TYPE4;
+			return 4;
+		}
+		if (diff <= 8388607 && diff >= -8388608) {
+			jump->flags |= B_TYPE5;
+			return 3;
+		}
+	}
+
+	return 0;
+}
+
+static SLJIT_INLINE void set_jump_instruction(struct sljit_jump *jump)
+{
+	int type = (jump->flags >> 4) & 0xf;
+	sljit_w diff;
+	sljit_uh *jump_inst;
+	int s, j1, j2;
+
+	if (SLJIT_UNLIKELY(type == 0)) {
+		sljit_set_jump_addr(jump->addr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target);
+		return;
+	}
+
+	if (jump->flags & JUMP_ADDR) {
+		SLJIT_ASSERT(jump->target & 0x1);
+		diff = ((sljit_w)jump->target - (sljit_w)(jump->addr + 4)) >> 1;
+	}
+	else
+		diff = ((sljit_w)(jump->label->addr) - (sljit_w)(jump->addr + 4)) >> 1;
+	jump_inst = (sljit_uh*)jump->addr;
+
+	switch (type) {
+	case 1:
+		/* Encoding T1 of 'B' instruction */
+		SLJIT_ASSERT(diff <= 127 && diff >= -128 && (jump->flags & IS_CONDITIONAL));
+		jump_inst[0] = 0xd000 | ((jump->flags >> 4) & 0xf00) | (diff & 0xff);
+		return;
+	case 2:
+		/* Encoding T3 of 'B' instruction */
+		SLJIT_ASSERT(diff <= 524287 && diff >= -524288 && (jump->flags & IS_CONDITIONAL));
+		jump_inst[0] = 0xf000 | COPY_BITS(jump->flags, 12, 6, 4) | COPY_BITS(diff, 11, 0, 6) | COPY_BITS(diff, 19, 10, 1);
+		jump_inst[1] = 0x8000 | COPY_BITS(diff, 17, 13, 1) | COPY_BITS(diff, 18, 11, 1) | (diff & 0x7ff);
+		return;
+	case 3:
+		SLJIT_ASSERT(jump->flags & IS_CONDITIONAL);
+		*jump_inst++ = IT | ((jump->flags >> 8) & 0xf0) | 0x8;
+		diff--;
+		type = 5;
+		break;
+	case 4:
+		/* Encoding T2 of 'B' instruction */
+		SLJIT_ASSERT(diff <= 1023 && diff >= -1024 && !(jump->flags & IS_CONDITIONAL));
+		jump_inst[0] = 0xe000 | (diff & 0x7ff);
+		return;
+	}
+
+	SLJIT_ASSERT(diff <= 8388607 && diff >= -8388608);
+
+	// Really complex instruction form for branches
+	s = (diff >> 23) & 0x1;
+	j1 = (~(diff >> 21) ^ s) & 0x1;
+	j2 = (~(diff >> 22) ^ s) & 0x1;
+	jump_inst[0] = 0xf000 | (s << 10) | COPY_BITS(diff, 11, 0, 10);
+	jump_inst[1] = (j1 << 13) | (j2 << 11) | (diff & 0x7ff);
+
+	// The others have a common form
+	if (type == 5) /* Encoding T4 of 'B' instruction */
+		jump_inst[1] |= 0x9000;
+	else if (type == 6) /* Encoding T1 of 'BL' instruction */
+		jump_inst[1] |= 0xd000;
+	else
+		SLJIT_ASSERT_STOP();
+}
+
 void* sljit_generate_code(struct sljit_compiler *compiler)
 {
 	struct sljit_memory_fragment *buf;
@@ -250,6 +367,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 					SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
 
 					jump->addr = (sljit_uw)code_ptr - ((jump->flags & IS_CONDITIONAL) ? 10 : 8);
+					code_ptr -= detect_jump_type(jump, code_ptr, code);
 					jump = jump->next;
 			}
 			if (const_ && const_->addr == half_count) {
@@ -276,7 +394,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 
 	jump = compiler->jumps;
 	while (jump) {
-		sljit_set_jump_addr(jump->addr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target);
+		set_jump_instruction(jump);
 		jump = jump->next;
 	}
 
@@ -770,7 +888,7 @@ static int emit_op_mem(struct sljit_compiler *compiler, int flags, int dst, int 
 
 				if (emit_set_delta(compiler, base, base, tmp)) {
 					FAIL_IF(compiler->error);
-					FAIL_IF(load_immediate(compiler, TMP_REG2, tmp));
+					FAIL_IF(load_immediate(compiler, TMP_REG2, offset));
 					high_reg = TMP_REG2;
 					offset = 0;
 				}
