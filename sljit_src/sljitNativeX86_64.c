@@ -187,8 +187,6 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 
 	sljit_emit_return_verbose();
 
-	CHECK_EXTRA_REGS(src, srcw);
-
 	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
 		emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw);
 
@@ -538,6 +536,8 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 		return SLJIT_SUCCESS; // Empty instruction
 
 	if (src & SLJIT_IMM) {
+		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
+			return emit_load_imm64(compiler, dst, srcw);
 		compiler->mode32 = 1;
 		code = emit_x86_instruction(compiler, 1, SLJIT_IMM, (sljit_w)(int)srcw, dst, dstw);
 		FAIL_IF(!code);

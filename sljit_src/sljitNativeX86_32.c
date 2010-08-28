@@ -161,7 +161,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 
 	sljit_emit_return_verbose();
 
-	CHECK_EXTRA_REGS(src, srcw);
+	CHECK_EXTRA_REGS(src, srcw, (void)0);
 
 	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
 		emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw);
