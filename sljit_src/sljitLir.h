@@ -393,7 +393,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 // Flags: E | O | C | S | U
 #define SLJIT_SUBC			20
 // Note: integer mul
-// Flags: -
+// Flags: O
 #define SLJIT_MUL			21
 // Flags: E
 #define SLJIT_AND			22

@@ -103,6 +103,8 @@ typedef unsigned short sljit_uh;
 #define BKPT		0xbe00
 #define BLX		0x4780
 #define BX		0x4700
+#define CMPI		0x2800
+#define CMP_W		0xebb00f00
 #define EORS		0x4040
 #define EORSI		0xf0900000
 #define EORS_W		0xea900000
@@ -137,6 +139,7 @@ typedef unsigned short sljit_uh;
 #define SBCS		0x4180
 #define SBCSI		0xf1700000
 #define SBCS_W		0xeb700000
+#define SMULL		0xfb800000
 #define STR_SP		0x9000
 #define SUBS		0x1a00
 #define SUBSI3		0x1e00
@@ -150,6 +153,7 @@ typedef unsigned short sljit_uh;
 #define SXTB_W		0xfa4ff080
 #define SXTH		0xb200
 #define SXTH_W		0xfa0ff080
+#define TST		0x4200
 #define UXTB		0xb2c0
 #define UXTB_W		0xfa5ff080
 #define UXTH		0xb280
@@ -258,6 +262,15 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uh *code
 	return 0;
 }
 
+static SLJIT_INLINE void inline_set_jump_addr(sljit_uw addr, sljit_uw new_addr, int flush)
+{
+	sljit_uh* inst = (sljit_uh*)addr;
+	modify_imm32_const(inst, new_addr);
+	if (flush) {
+		SLJIT_CACHE_FLUSH(inst, inst + 3);
+	}
+}
+
 static SLJIT_INLINE void set_jump_instruction(struct sljit_jump *jump)
 {
 	int type = (jump->flags >> 4) & 0xf;
@@ -266,7 +279,7 @@ static SLJIT_INLINE void set_jump_instruction(struct sljit_jump *jump)
 	int s, j1, j2;
 
 	if (SLJIT_UNLIKELY(type == 0)) {
-		sljit_set_jump_addr(jump->addr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target);
+		inline_set_jump_addr(jump->addr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target, 0);
 		return;
 	}
 
@@ -477,9 +490,11 @@ static int load_immediate(struct sljit_compiler *compiler, int dst, sljit_uw imm
 	return SLJIT_SUCCESS;
 }
 
-#define ARG1_IMM	0x10000
-#define ARG2_IMM	0x20000
-#define SET_FLAGS	0x40000
+#define ARG1_IMM	0x010000
+#define ARG2_IMM	0x020000
+#define SET_FLAGS	0x040000
+#define SET_MULOV	0x080000
+#define UNUSED_RETURN	0x100000
 static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, sljit_uw arg1, sljit_uw arg2)
 {
 	// dst must be register, TMP_REG1
@@ -532,8 +547,12 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 				if (IS_2_LO_REGS(reg, dst)) {
 					if (imm <= 0x7)
 						return push_inst16(compiler, SUBSI3 | IMM3(imm) | RD3(dst) | RN3(reg));
-					if (reg == dst && imm <= 0xff)
-						return push_inst16(compiler, SUBSI8 | IMM8(imm) | RDN3(dst));
+					if (imm <= 0xff) {
+						if (reg == dst)
+							return push_inst16(compiler, SUBSI8 | IMM8(imm) | RDN3(dst));
+						if (flags & UNUSED_RETURN)
+							return push_inst16(compiler, CMPI | IMM8(imm) | RDN3(reg));
+					}
 				}
 				if (imm <= 0xfff && !(flags & SET_FLAGS))
 					return push_inst32(compiler, SUBWI | RD4(dst) | RN4(reg) | IMM12(imm));
@@ -679,12 +698,19 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 	case SLJIT_MUL:
 		if (!(flags & SET_FLAGS))
 			return push_inst32(compiler, MUL | RD4(dst) | RN4(arg1) | RM4(arg2));
-		SLJIT_ASSERT_STOP();
-		//FAIL_IF(push_inst16(compiler, MULS 0x4340 | RD3(dst) | RN3(arg2)));
-		return SLJIT_SUCCESS;
+		SLJIT_ASSERT(reg_map[TMP_REG2] <= 7 && dst != TMP_REG2);
+		FAIL_IF(push_inst32(compiler, SMULL | RT4(dst) | RD4(TMP_REG2) | RN4(arg1) | RM4(arg2)));
+		// cmp TMP_REG2, dst asr #31
+		FAIL_IF(push_inst32(compiler, CMP_W | RN4(TMP_REG2) | 0x70e0 | RM4(dst)));
+		FAIL_IF(push_inst16(compiler, IT | (0x1 << 4) | 0xc));
+		SLJIT_ASSERT(get_imm(0x80000000) == 0x4000);
+		FAIL_IF(push_inst32(compiler, MOV_WI | RD4(TMP_REG2) | 0x4000));
+		return push_inst16(compiler, CMPI | RDN3(TMP_REG2) | 1);
 	case SLJIT_AND:
 		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, ANDS | RD3(dst) | RN3(arg2));
+		if ((flags & UNUSED_RETURN) && IS_2_LO_REGS(arg1, arg2))
+			return push_inst16(compiler, TST | RD3(arg1) | RN3(arg2));
 		return push_inst32(compiler, ANDS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_OR:
 		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
@@ -1310,6 +1336,12 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	else
 		src2w = src2;
 
+	if (dst == SLJIT_UNUSED)
+		flags |= UNUSED_RETURN;
+
+	if (GET_OPCODE(op) == SLJIT_MUL && (op & SLJIT_SET_O))
+		flags |= SET_MULOV;
+
 	emit_op_imm(compiler, flags | GET_OPCODE(op), dst_r, src1w, src2w);
 
 	if (dst & SLJIT_MEM)
@@ -1671,9 +1703,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 {
-	sljit_uh* inst = (sljit_uh*)addr;
-	modify_imm32_const(inst, new_addr);
-	SLJIT_CACHE_FLUSH(inst, inst + 3);
+	inline_set_jump_addr(addr, new_addr, 1);
 }
 
 void sljit_set_const(sljit_uw addr, sljit_w new_constant)

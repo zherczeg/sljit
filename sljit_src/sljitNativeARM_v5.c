@@ -72,13 +72,16 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define BL		0xeb000000
 #define BLX		0xe12fff30
 #define BX		0xe12fff10
+#define CMP_DP		0x15
 #define DEBUGGER	0xe1200070
 #define EORS_DP		0x03
 #define MOV_DP		0x1a
 #define MOVS_DP		0x1b
-#define MUL		0xe0100090
+#define MUL		0xe0000090
+#define SMULL		0xe0c00090
 #define MVN_DP		0x1e
 #define MVNS_DP		0x1f
+#define NOP		0xe1a00000
 #define ORR_DP		0x18
 #define ORRS_DP		0x19
 #define PUSH		0xe92d0000
@@ -362,6 +365,93 @@ static SLJIT_INLINE int resolve_const_pool_index(struct future_patch **first_pat
 	return SLJIT_SUCCESS;
 }
 
+static SLJIT_INLINE void inline_set_jump_addr(sljit_uw addr, sljit_uw new_addr, int flush)
+{
+	sljit_uw *ptr = (sljit_uw*)addr;
+	sljit_uw *inst = (sljit_uw*)ptr[0];
+	sljit_uw mov_pc = ptr[1];
+	int bl = (mov_pc & 0x0000f000) != RD(TMP_PC);
+	sljit_w diff = (sljit_w)(((sljit_w)new_addr - (sljit_w)(inst + 2)) >> 2);
+
+	if (diff <= 0x7fffff && diff >= -0x800000) {
+		// Turn to branch
+		if (!bl) {
+			inst[0] = (mov_pc & COND_MASK) | (B - CONDITIONAL) | (diff & 0xffffff);
+			if (flush) {
+				SLJIT_CACHE_FLUSH(inst, inst + 1);
+			}
+		} else {
+			inst[0] = (mov_pc & COND_MASK) | (BL - CONDITIONAL) | (diff & 0xffffff);
+			inst[1] = NOP;
+			if (flush) {
+				SLJIT_CACHE_FLUSH(inst, inst + 2);
+			}
+		}
+	} else {
+		// Get the position of the constant
+		if (mov_pc & (1 << 23))
+			ptr = inst + ((mov_pc & 0xfff) >> 2) + 2;
+		else
+			ptr = inst + 1;
+
+		if (*inst != mov_pc) {
+			inst[0] = mov_pc;
+			if (!bl) {
+				if (flush) {
+					SLJIT_CACHE_FLUSH(inst, inst + 1);
+				}
+			} else {
+				inst[1] = BLX | RM(TMP_REG1);
+				if (flush) {
+					SLJIT_CACHE_FLUSH(inst, inst + 2);
+				}
+			}
+		}
+		*ptr = new_addr;
+	}
+}
+
+static sljit_uw get_immediate(sljit_uw imm);
+
+static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_w new_constant, int flush)
+{
+	sljit_uw *ptr = (sljit_uw*)addr;
+	sljit_uw *inst = (sljit_uw*)ptr[0];
+	sljit_uw ldr_literal = ptr[1];
+	sljit_uw src2;
+
+	src2 = get_immediate(new_constant);
+	if (src2 != 0) {
+		*inst = 0xe3a00000 | (ldr_literal & 0xf000) | src2;
+		if (flush) {
+			SLJIT_CACHE_FLUSH(inst, inst + 1);
+		}
+		return;
+	}
+
+	src2 = get_immediate(~new_constant);
+	if (src2 != 0) {
+		*inst = 0xe3e00000 | (ldr_literal & 0xf000) | src2;
+		if (flush) {
+			SLJIT_CACHE_FLUSH(inst, inst + 1);
+		}
+		return;
+	}
+
+	if (ldr_literal & (1 << 23))
+		ptr = inst + ((ldr_literal & 0xfff) >> 2) + 2;
+	else
+		ptr = inst + 1;
+
+	if (*inst != ldr_literal) {
+		*inst = ldr_literal;
+		if (flush) {
+			SLJIT_CACHE_FLUSH(inst, inst + 1);
+		}
+	}
+	*ptr = new_constant;
+}
+
 void* sljit_generate_code(struct sljit_compiler *compiler)
 {
 	struct sljit_memory_fragment *buf;
@@ -537,7 +627,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		else {
 			code_ptr[0] = (sljit_uw)buf_ptr;
 			code_ptr[1] = *buf_ptr;
-			sljit_set_jump_addr((sljit_uw)code_ptr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target);
+			inline_set_jump_addr((sljit_uw)code_ptr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target, 0);
 			code_ptr += 2;
 		}
 		jump = jump->next;
@@ -556,7 +646,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		else
 			buf_ptr += 1;
 		// Set the value again (can be a simple constant)
-		sljit_set_const((sljit_uw)code_ptr, *buf_ptr);
+		inline_set_const((sljit_uw)code_ptr, *buf_ptr, 0);
 		code_ptr += 2;
 
 		const_ = const_->next;
@@ -789,10 +879,12 @@ static sljit_w data_transfer_insts[16] = {
 	} \
 	return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOVS_DP, dst, SLJIT_UNUSED, (reg_map[(flags & ARGS_SWAPPED) ? src1 : src2] << 8) | (opcode << 5) | 0x10 | ((flags & ARGS_SWAPPED) ? reg_map[src2] : reg_map[src1])));
 
-static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
+static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 	int dst, int src1, int src2)
 {
-	switch (op) {
+	sljit_w mul_inst;
+
+	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
 		SLJIT_ASSERT((flags & INV_IMM) == 0);
 		EMIT_DATA_PROCESS_INS_AND_RETURN(ADDS_DP);
@@ -816,15 +908,33 @@ static int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 	case SLJIT_MUL:
 		SLJIT_ASSERT((flags & INV_IMM) == 0);
 		SLJIT_ASSERT((src2 & SRC2_IMM) == 0);
-		if (dst != src2)
-			return push_inst(compiler, MUL | (reg_map[dst] << 16) | (reg_map[src1] << 8) | reg_map[src2]);
-		else if (dst != src1)
-			return push_inst(compiler, MUL | (reg_map[dst] << 16) | (reg_map[src2] << 8) | reg_map[src1]);
-		// Rm and Rd must not be the same register
-		SLJIT_ASSERT(dst != TMP_REG1);
-		FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, TMP_REG1, SLJIT_UNUSED, reg_map[src2])));
-		return push_inst(compiler, MUL | (reg_map[dst] << 16) | (reg_map[src2] << 8) | reg_map[TMP_REG1]);
+		if (SLJIT_UNLIKELY(op & SLJIT_SET_O))
+			mul_inst = SMULL | (reg_map[TMP_REG3] << 16) | (reg_map[dst] << 12);
+		else
+			mul_inst = MUL | (reg_map[dst] << 16);
 
+		if (dst != src2)
+			FAIL_IF(push_inst(compiler, mul_inst | (reg_map[src1] << 8) | reg_map[src2]));
+		else if (dst != src1)
+			FAIL_IF(push_inst(compiler, mul_inst | (reg_map[src2] << 8) | reg_map[src1]));
+		else {
+			// Rm and Rd must not be the same register
+			SLJIT_ASSERT(dst != TMP_REG1);
+			FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, TMP_REG1, SLJIT_UNUSED, reg_map[src2])));
+			FAIL_IF(push_inst(compiler, mul_inst | (reg_map[src2] << 8) | reg_map[TMP_REG1]));
+		}
+
+		if (!(op & SLJIT_SET_O))
+			return SLJIT_SUCCESS;
+
+		// We need to use TMP_REG3
+		compiler->cache_arg = 0;
+		compiler->cache_argw = 0;
+		// cmp TMP_REG2, dst asr #31
+		FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(CMP_DP, SLJIT_UNUSED, TMP_REG3, RM(dst) | 0xfc0)));
+		SLJIT_ASSERT(get_immediate(0x80000000) == (SRC2_IMM | 0x480));
+		FAIL_IF(push_inst(compiler, (EMIT_DATA_PROCESS_INS(MOV_DP, TMP_REG3, SLJIT_UNUSED, SRC2_IMM | 0x480) - CONDITIONAL) | 0x10000000));
+		return push_inst(compiler, (EMIT_DATA_PROCESS_INS(CMP_DP, SLJIT_UNUSED, TMP_REG3, SRC2_IMM | 0x1) - CONDITIONAL) | 0x10000000);
 	case SLJIT_AND:
 		if (!(flags & INV_IMM))
 			EMIT_DATA_PROCESS_INS_AND_RETURN(ANDS_DP);
@@ -1586,8 +1696,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 #endif
 	sljit_emit_op1_verbose();
 
-	op = GET_OPCODE(op);
-	switch (op) {
+	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
 	case SLJIT_MOV_UI:
 	case SLJIT_MOV_SI:
@@ -1648,8 +1757,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 #endif
 	sljit_emit_op2_verbose();
 
-	op = GET_OPCODE(op);
-	switch (op) {
+	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
 	case SLJIT_ADDC:
 	case SLJIT_SUB:
@@ -2152,71 +2260,10 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 {
-	sljit_uw *ptr = (sljit_uw*)addr;
-	sljit_uw *inst = (sljit_uw*)ptr[0];
-	sljit_uw mov_pc = ptr[1];
-	int bl = (mov_pc & 0x0000f000) != RD(TMP_PC);
-	sljit_w diff = (sljit_w)(((sljit_w)new_addr - (sljit_w)(inst + 2)) >> 2);
-
-	if (diff <= 0x7fffff && diff >= -0x800000) {
-		// Turn to branch
-		if (!bl) {
-			inst[0] = (mov_pc & COND_MASK) | (B - CONDITIONAL) | (diff & 0xffffff);
-			SLJIT_CACHE_FLUSH(inst, inst + 1);
-		} else {
-			inst[0] = (mov_pc & COND_MASK) | (BL - CONDITIONAL) | (diff & 0xffffff);
-			inst[1] = EMIT_DATA_PROCESS_INS(MOV_DP, SLJIT_TEMPORARY_REG1, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG1));
-			SLJIT_CACHE_FLUSH(inst, inst + 2);
-		}
-	} else {
-		// Get the position of the constant
-		if (mov_pc & (1 << 23))
-			ptr = inst + ((mov_pc & 0xfff) >> 2) + 2;
-		else
-			ptr = inst + 1;
-
-		if (*inst != mov_pc) {
-			inst[0] = mov_pc;
-			if (!bl) {
-				SLJIT_CACHE_FLUSH(inst, inst + 1);
-			} else {
-				inst[1] = BLX | RM(TMP_REG1);
-				SLJIT_CACHE_FLUSH(inst, inst + 2);
-			}
-		}
-		*ptr = new_addr;
-	}
+	inline_set_jump_addr(addr, new_addr, 1);
 }
 
 void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 {
-	sljit_uw *ptr = (sljit_uw*)addr;
-	sljit_uw *inst = (sljit_uw*)ptr[0];
-	sljit_uw ldr_literal = ptr[1];
-	sljit_uw src2;
-
-	src2 = get_immediate(new_constant);
-	if (src2 != 0) {
-		*inst = 0xe3a00000 | (ldr_literal & 0xf000) | src2;
-		SLJIT_CACHE_FLUSH(inst, inst + 1);
-		return;
-	}
-
-	src2 = get_immediate(~new_constant);
-	if (src2 != 0) {
-		*inst = 0xe3e00000 | (ldr_literal & 0xf000) | src2;
-		SLJIT_CACHE_FLUSH(inst, inst + 1);
-		return;
-	}
-
-	if (ldr_literal & (1 << 23))
-		ptr = inst + ((ldr_literal & 0xfff) >> 2) + 2;
-	else
-		ptr = inst + 1;
-
-	if (*inst != ldr_literal) {
-		*inst = ldr_literal;
-		SLJIT_CACHE_FLUSH(inst, inst + 1);
-	}
-	*ptr = new_constant;
+	inline_set_const(addr, new_constant, 1);
 }
