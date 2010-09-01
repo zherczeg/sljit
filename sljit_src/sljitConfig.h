@@ -180,12 +180,11 @@ typedef long int sljit_w;
 
 #endif /* defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64) */
 
-#ifdef SLJIT_CONFIG_ARM_V5
+#if !defined(SLJIT_CONFIG_X86_32) && !defined(SLJIT_CONFIG_X86_64)
 	// Just call __ARM_NR_cacheflush on Linux
 #define SLJIT_CACHE_FLUSH(from, to) \
 	__clear_cache((char*)(from), (char*)(to))
 #else
-	// TODO: PPC/PPC-64 requires an implemetation
 	// Not required to implement on archs with unified caches
 #define SLJIT_CACHE_FLUSH(from, to)
 #endif

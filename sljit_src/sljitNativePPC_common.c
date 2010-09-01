@@ -331,9 +331,9 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		jump = jump->next;
 	}
 
-	SLJIT_CACHE_FLUSH((char *)code, (char *)code_ptr);
-
+	SLJIT_CACHE_FLUSH(code, code_ptr);
 	compiler->error = SLJIT_ERR_COMPILED;
+
 #ifdef SLJIT_CONFIG_PPC_64
 	if (((sljit_w)code_ptr) & 0x4)
 		code_ptr++;

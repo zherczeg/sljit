@@ -411,6 +411,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		jump = jump->next;
 	}
 
+	SLJIT_CACHE_FLUSH(code, code_ptr);
 	compiler->error = SLJIT_ERR_COMPILED;
 	// Set thumb mode flag
 	return (void*)((sljit_uw)code | 0x1);
