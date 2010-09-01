@@ -379,8 +379,8 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT(!(op & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_C))); \
 		break; \
 	case SLJIT_FCMP: \
-		SLJIT_ASSERT(!(op & (SLJIT_SET_S | SLJIT_SET_O | SLJIT_SET_C))); \
-		SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_SET_U))); \
+		SLJIT_ASSERT(!(op & (SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C))); \
+		SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_SET_S))); \
 		break; \
 	case SLJIT_ADD: \
 	case SLJIT_ADDC: \

@@ -140,21 +140,27 @@ static sljit_ub get_jump_code(int type)
 {
 	switch (type) {
 	case SLJIT_C_EQUAL:
+	case SLJIT_C_FLOAT_EQUAL:
 		return 0x84;
 
 	case SLJIT_C_NOT_EQUAL:
+	case SLJIT_C_FLOAT_NOT_EQUAL:
 		return 0x85;
 
 	case SLJIT_C_LESS:
+	case SLJIT_C_FLOAT_LESS:
 		return 0x82;
 
 	case SLJIT_C_NOT_LESS:
+	case SLJIT_C_FLOAT_NOT_LESS:
 		return 0x83;
 
 	case SLJIT_C_GREATER:
+	case SLJIT_C_FLOAT_GREATER:
 		return 0x87;
 
 	case SLJIT_C_NOT_GREATER:
+	case SLJIT_C_FLOAT_NOT_GREATER:
 		return 0x86;
 
 	case SLJIT_C_SIG_LESS:
@@ -170,10 +176,18 @@ static sljit_ub get_jump_code(int type)
 		return 0x8e;
 
 	case SLJIT_C_OVERFLOW:
+	case SLJIT_C_MUL_OVERFLOW:
 		return 0x80;
 
 	case SLJIT_C_NOT_OVERFLOW:
+	case SLJIT_C_MUL_NOT_OVERFLOW:
 		return 0x81;
+
+	case SLJIT_C_FLOAT_NAN:
+		return 0x8a;
+
+	case SLJIT_C_FLOAT_NOT_NAN:
+		return 0x8b;
 	}
 	return 0;
 }
@@ -1732,7 +1746,7 @@ static int sljit_emit_sse2_fop1(struct sljit_compiler *compiler, int op,
 			dst_r = TMP_FREG;
 			FAIL_IF(emit_sse2_load(compiler, dst_r, dst, dstw));
 		}
-		return emit_sse2_logic(compiler, 0x2f, dst_r, src, srcw);
+		return emit_sse2_logic(compiler, 0x2e, dst_r, src, srcw);
 	}
 
 	if (op == SLJIT_FMOV) {
@@ -2220,7 +2234,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 #endif
 
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type <= SLJIT_C_NOT_OVERFLOW);
+	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type < SLJIT_JUMP);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
@@ -2233,26 +2247,32 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 
 	switch (type) {
 	case SLJIT_C_EQUAL:
+	case SLJIT_C_FLOAT_EQUAL:
 		cond_set = 0x94;
 		break;
 
 	case SLJIT_C_NOT_EQUAL:
+	case SLJIT_C_FLOAT_NOT_EQUAL:
 		cond_set = 0x95;
 		break;
 
 	case SLJIT_C_LESS:
+	case SLJIT_C_FLOAT_LESS:
 		cond_set = 0x92;
 		break;
 
 	case SLJIT_C_NOT_LESS:
+	case SLJIT_C_FLOAT_NOT_LESS:
 		cond_set = 0x93;
 		break;
 
 	case SLJIT_C_GREATER:
+	case SLJIT_C_FLOAT_GREATER:
 		cond_set = 0x97;
 		break;
 
 	case SLJIT_C_NOT_GREATER:
+	case SLJIT_C_FLOAT_NOT_GREATER:
 		cond_set = 0x96;
 		break;
 
@@ -2273,11 +2293,21 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		break;
 
 	case SLJIT_C_OVERFLOW:
+	case SLJIT_C_MUL_OVERFLOW:
 		cond_set = 0x90;
 		break;
 
 	case SLJIT_C_NOT_OVERFLOW:
+	case SLJIT_C_MUL_NOT_OVERFLOW:
 		cond_set = 0x91;
+		break;
+
+	case SLJIT_C_FLOAT_NAN:
+		cond_set = 0x9a;
+		break;
+
+	case SLJIT_C_FLOAT_NOT_NAN:
+		cond_set = 0x9b;
 		break;
 	}
 

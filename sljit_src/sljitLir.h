@@ -312,7 +312,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 //  - zero flag
 //  - negative/positive flag (depends on arc)
 
-// By default, the instructions may, or may not set the CPU status flags.
+// By default, the instructions may, or may not set the CPU status flags
 // Forcing to set status flags can be done with the following flags:
 
 // Set Equal (Zero) status flag (E)
@@ -328,12 +328,11 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 #define SLJIT_SET_C			0x2000
 
 // Notes:
-//   - CPU flags are NEVER set for MOV instructions
-//   - you cannot postpone conditional jump instructions depending on
-//     one of these instructions except if the next instruction is a MOV
+//   - you cannot postpone conditional jump instructions except if noted that
+//     the instruction does not set flags
 //   - flag combinations: '|' means 'logical or'
 
-// Flags: -
+// Flags: - (never set any flags)
 // Debugger instruction is not supported by all architectures
 #define SLJIT_DEBUGGER			0
 
@@ -347,33 +346,33 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op);
 // UH = unsgined half (16 bit)
 // SH = unsgined half (16 bit)
 
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOV			1
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOV_UB			2
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOV_SB			3
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOV_UH			4
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOV_SH			5
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOV_UI			6
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOV_SI			7
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOVU			8
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOVU_UB			9
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOVU_SB			10
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOVU_UH			11
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOVU_SH			12
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOVU_UI			13
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_MOVU_SI			14
 // Flags: E
 #define SLJIT_NOT			15
@@ -393,7 +392,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 // Flags: E | O | C | S | U
 #define SLJIT_SUBC			20
 // Note: integer mul
-// Flags: O
+// Flags: O (see SLJIT_C_MUL_*)
 #define SLJIT_MUL			21
 // Flags: E
 #define SLJIT_AND			22
@@ -416,26 +415,28 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 int sljit_is_fpu_available(void);
 
 // Note: dst is the left and src is the right operand for SLJIT_FCMP
-// Flags: E | U (looks like cpus prefer this way...)
+// Note: NaN check is always performed. If SLJIT_C_FLOAT_NAN is set,
+//       the comparison result is unpredictable
+// Flags: E | S (see SLJIT_C_FLOAT_*)
 #define SLJIT_FCMP			28
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_FMOV			29
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_FNEG			30
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_FABS			31
 
 int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_FADD			32
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_FSUB			33
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_FMUL			34
-// Flags: -
+// Flags: - (never set any flags)
 #define SLJIT_FDIV			35
 
 int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
@@ -465,11 +466,23 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_C_OVERFLOW		10
 #define SLJIT_C_NOT_OVERFLOW		11
 
-#define SLJIT_JUMP			12
-#define SLJIT_CALL0			13
-#define SLJIT_CALL1			14
-#define SLJIT_CALL2			15
-#define SLJIT_CALL3			16
+#define SLJIT_C_MUL_OVERFLOW		12
+#define SLJIT_C_MUL_NOT_OVERFLOW	13
+
+#define SLJIT_C_FLOAT_EQUAL		14
+#define SLJIT_C_FLOAT_NOT_EQUAL		15
+#define SLJIT_C_FLOAT_LESS		16
+#define SLJIT_C_FLOAT_NOT_LESS		17
+#define SLJIT_C_FLOAT_GREATER		18
+#define SLJIT_C_FLOAT_NOT_GREATER	19
+#define SLJIT_C_FLOAT_NAN		20
+#define SLJIT_C_FLOAT_NOT_NAN		21
+
+#define SLJIT_JUMP			22
+#define SLJIT_CALL0			23
+#define SLJIT_CALL1			24
+#define SLJIT_CALL2			25
+#define SLJIT_CALL3			26
 
 // The target can be changed during runtime (see: sljit_set_jump_addr)
 #define SLJIT_REWRITABLE_JUMP		0x100
@@ -491,7 +504,7 @@ void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw);
 
 // Set dst to 1 if condition is fulfilled, 0 otherwise
-//  type must be between SLJIT_C_EQUAL and SLJIT_C_NOT_OVERFLOW
+//  type must be between SLJIT_C_EQUAL and SLJIT_C_FLOAT_NOT_NAN
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);
 
 // The constant can be changed runtime (see: sljit_set_const)

@@ -931,10 +931,8 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		compiler->cache_arg = 0;
 		compiler->cache_argw = 0;
 		// cmp TMP_REG2, dst asr #31
-		FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(CMP_DP, SLJIT_UNUSED, TMP_REG3, RM(dst) | 0xfc0)));
-		SLJIT_ASSERT(get_immediate(0x80000000) == (SRC2_IMM | 0x480));
-		FAIL_IF(push_inst(compiler, (EMIT_DATA_PROCESS_INS(MOV_DP, TMP_REG3, SLJIT_UNUSED, SRC2_IMM | 0x480) - CONDITIONAL) | 0x10000000));
-		return push_inst(compiler, (EMIT_DATA_PROCESS_INS(CMP_DP, SLJIT_UNUSED, TMP_REG3, SRC2_IMM | 0x1) - CONDITIONAL) | 0x10000000);
+		return push_inst(compiler, EMIT_DATA_PROCESS_INS(CMP_DP, SLJIT_UNUSED, TMP_REG3, RM(dst) | 0xfc0));
+
 	case SLJIT_AND:
 		if (!(flags & INV_IMM))
 			EMIT_DATA_PROCESS_INS_AND_RETURN(ANDS_DP);
@@ -2044,21 +2042,29 @@ static sljit_uw get_cc(int type)
 {
 	switch (type) {
 	case SLJIT_C_EQUAL:
+	case SLJIT_C_MUL_NOT_OVERFLOW:
+	case SLJIT_C_FLOAT_EQUAL:
 		return 0x00000000;
 
 	case SLJIT_C_NOT_EQUAL:
+	case SLJIT_C_MUL_OVERFLOW:
+	case SLJIT_C_FLOAT_NOT_EQUAL:
 		return 0x10000000;
 
 	case SLJIT_C_LESS:
+	case SLJIT_C_FLOAT_LESS:
 		return 0x30000000;
 
 	case SLJIT_C_NOT_LESS:
+	case SLJIT_C_FLOAT_NOT_LESS:
 		return 0x20000000;
 
 	case SLJIT_C_GREATER:
+	case SLJIT_C_FLOAT_GREATER:
 		return 0x80000000;
 
 	case SLJIT_C_NOT_GREATER:
+	case SLJIT_C_FLOAT_NOT_GREATER:
 		return 0x90000000;
 
 	case SLJIT_C_SIG_LESS:
@@ -2074,9 +2080,11 @@ static sljit_uw get_cc(int type)
 		return 0xd0000000;
 
 	case SLJIT_C_OVERFLOW:
+	case SLJIT_C_FLOAT_NAN:
 		return 0x60000000;
 
 	case SLJIT_C_NOT_OVERFLOW:
+	case SLJIT_C_FLOAT_NOT_NAN:
 		return 0x70000000;
 
 	default: // SLJIT_JUMP
@@ -2202,7 +2210,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	int reg;
 
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type <= SLJIT_C_NOT_OVERFLOW);
+	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type < SLJIT_JUMP);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
