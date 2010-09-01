@@ -701,11 +701,7 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 		SLJIT_ASSERT(reg_map[TMP_REG2] <= 7 && dst != TMP_REG2);
 		FAIL_IF(push_inst32(compiler, SMULL | RT4(dst) | RD4(TMP_REG2) | RN4(arg1) | RM4(arg2)));
 		// cmp TMP_REG2, dst asr #31
-		FAIL_IF(push_inst32(compiler, CMP_W | RN4(TMP_REG2) | 0x70e0 | RM4(dst)));
-		FAIL_IF(push_inst16(compiler, IT | (0x1 << 4) | 0xc));
-		SLJIT_ASSERT(get_imm(0x80000000) == 0x4000);
-		FAIL_IF(push_inst32(compiler, MOV_WI | RD4(TMP_REG2) | 0x4000));
-		return push_inst16(compiler, CMPI | RDN3(TMP_REG2) | 1);
+		return push_inst32(compiler, CMP_W | RN4(TMP_REG2) | 0x70e0 | RM4(dst));
 	case SLJIT_AND:
 		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, ANDS | RD3(dst) | RN3(arg2));
@@ -1477,21 +1473,29 @@ static sljit_uw get_cc(int type)
 {
 	switch (type) {
 	case SLJIT_C_EQUAL:
+	case SLJIT_C_MUL_NOT_OVERFLOW:
+	case SLJIT_C_FLOAT_EQUAL:
 		return 0x0;
 
 	case SLJIT_C_NOT_EQUAL:
+	case SLJIT_C_MUL_OVERFLOW:
+	case SLJIT_C_FLOAT_NOT_EQUAL:
 		return 0x1;
 
 	case SLJIT_C_LESS:
+	case SLJIT_C_FLOAT_LESS:
 		return 0x3;
 
 	case SLJIT_C_NOT_LESS:
+	case SLJIT_C_FLOAT_NOT_LESS:
 		return 0x2;
 
 	case SLJIT_C_GREATER:
+	case SLJIT_C_FLOAT_GREATER:
 		return 0x8;
 
 	case SLJIT_C_NOT_GREATER:
+	case SLJIT_C_FLOAT_NOT_GREATER:
 		return 0x9;
 
 	case SLJIT_C_SIG_LESS:
@@ -1507,9 +1511,11 @@ static sljit_uw get_cc(int type)
 		return 0xd;
 
 	case SLJIT_C_OVERFLOW:
+	case SLJIT_C_FLOAT_NAN:
 		return 0x6;
 
 	case SLJIT_C_NOT_OVERFLOW:
+	case SLJIT_C_FLOAT_NOT_NAN:
 		return 0x7;
 
 	default: // SLJIT_JUMP
@@ -1640,7 +1646,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	sljit_uw cc;
 
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type <= SLJIT_C_NOT_OVERFLOW);
+	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type < SLJIT_JUMP);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
