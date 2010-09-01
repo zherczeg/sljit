@@ -78,7 +78,6 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define MOV_DP		0x1a
 #define MOVS_DP		0x1b
 #define MUL		0xe0000090
-#define SMULL		0xe0c00090
 #define MVN_DP		0x1e
 #define MVNS_DP		0x1f
 #define NOP		0xe1a00000
@@ -89,8 +88,19 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define RSBS_DP		0x07
 #define RSCS_DP		0x0f
 #define SBCS_DP		0x0d
+#define SMULL		0xe0c00090
 #define SUB_DP		0x04
 #define SUBS_DP		0x05
+#define VABS_F64	0xeeb00bc0
+#define VADD_F64	0xee300b00
+#define VCMP_F64	0xeeb40b40
+#define VDIV_F64	0xee800b00
+#define VMOV_F64	0xeeb00b40
+#define VMRS		0xeef1fa10
+#define VMUL_F64	0xee200b00
+#define VNEG_F64	0xeeb10b40
+#define VSTR		0xed000b00
+#define VSUB_F64	0xee300b40
 
 static int push_cpool(struct sljit_compiler *compiler)
 {
@@ -1789,11 +1799,8 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 
 #ifdef SLJIT_CONFIG_ARM_V5
 
-// Two ARM fpus are supported: vfp and fpa
-
 // 0 - no fpu
 // 1 - vfp
-// 2 - fpa
 static int arm_fpu_type = -1;
 
 static void init_compiler()
@@ -1809,7 +1816,7 @@ int sljit_is_fpu_available(void)
 {
 	if (arm_fpu_type == -1)
 		init_compiler();
-	return (arm_fpu_type > 0) ? 1 : 0;
+	return arm_fpu_type;
 }
 
 #elif defined(SLJIT_CONFIG_ARM_V7)
@@ -1826,9 +1833,9 @@ int sljit_is_fpu_available(void)
 #endif
 
 #define EMIT_FPU_DATA_TRANSFER(add, load, base, freg, offs) \
-	(((arm_fpu_type == 1) ? 0xed000b00 : 0xed008100) | ((add) << 23) | ((load) << 20) | (reg_map[base] << 16) | (freg << 12) | (offs))
-#define EMIT_FPU_OPERATION(vfp_opcode, fpa_opcode, dst, src1, src2) \
-	(((arm_fpu_type == 1) ? vfp_opcode : fpa_opcode) | ((dst) << 12) | (src1) | ((src2) << 16))
+	(VSTR | ((add) << 23) | ((load) << 20) | (reg_map[base] << 16) | (freg << 12) | (offs))
+#define EMIT_FPU_OPERATION(opcode, dst, src1, src2) \
+	((opcode) | ((dst) << 12) | (src1) | ((src2) << 16))
 
 static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, int load, int arg, sljit_w argw)
 {
@@ -1940,12 +1947,8 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 			FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src, srcw));
 			src = TMP_FREG2;
 		}
-		if (arm_fpu_type == 1) {
-			EMIT_INSTRUCTION(0xeeb40b40 | (dst << 12) | src);
-			EMIT_INSTRUCTION(0xeef1fa10);
-		}
-		else
-			EMIT_INSTRUCTION(0xee90f110 | (dst << 16) | src);
+		EMIT_INSTRUCTION(VCMP_F64 | (dst << 12) | src);
+		EMIT_INSTRUCTION(VMRS);
 		return SLJIT_SUCCESS;
 	}
 
@@ -1959,13 +1962,13 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	switch (op) {
 		case SLJIT_FMOV:
 			if (src != dst_freg && dst_freg != TMP_FREG1)
-				EMIT_INSTRUCTION(EMIT_FPU_OPERATION(0xeeb00b40, 0xee008180, dst_freg, src, 0));
+				EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VMOV_F64, dst_freg, src, 0));
 			break;
 		case SLJIT_FNEG:
-			EMIT_INSTRUCTION(EMIT_FPU_OPERATION(0xeeb10b40, 0xee108180, dst_freg, src, 0));
+			EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VNEG_F64, dst_freg, src, 0));
 			break;
 		case SLJIT_FABS:
-			EMIT_INSTRUCTION(EMIT_FPU_OPERATION(0xeeb00bc0, 0xee208180, dst_freg, src, 0));
+			EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VABS_F64, dst_freg, src, 0));
 			break;
 	}
 
@@ -2012,19 +2015,19 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 
 	switch (op) {
 	case SLJIT_FADD:
-		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(0xee300b00, 0xee000180, dst_freg, src2, src1));
+		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VADD_F64, dst_freg, src2, src1));
 		break;
 
 	case SLJIT_FSUB:
-		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(0xee300b40, 0xee200180, dst_freg, src2, src1));
+		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VSUB_F64, dst_freg, src2, src1));
 		break;
 
 	case SLJIT_FMUL:
-		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(0xee200b00, 0xee100180, dst_freg, src2, src1));
+		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VMUL_F64, dst_freg, src2, src1));
 		break;
 
 	case SLJIT_FDIV:
-		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(0xee800b00, 0xee400180, dst_freg, src2, src1));
+		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VDIV_F64, dst_freg, src2, src1));
 		break;
 	}
 
