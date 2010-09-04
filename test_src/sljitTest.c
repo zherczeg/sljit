@@ -38,20 +38,20 @@ typedef union executable_code executable_code;
 static int successful_tests = 0;
 
 #define FAILED(cond, text) \
-	if (cond) { \
+	if (SLJIT_UNLIKELY(cond)) { \
 		printf(text); \
 		return; \
 	}
 
 #define T(value) \
-	if ((value) != SLJIT_SUCCESS) { \
+	if (SLJIT_UNLIKELY((value) != SLJIT_SUCCESS)) { \
 		printf("Compiler error: %d\n", compiler->error); \
 		sljit_free_compiler(compiler); \
 		return; \
 	}
 
 #define TP(value) \
-	if ((value) == NULL) { \
+	if (SLJIT_UNLIKELY(!value)) { \
 		printf("Compiler error: %d\n", compiler->error); \
 		sljit_free_compiler(compiler); \
 		return; \
@@ -69,6 +69,45 @@ static void cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int
 	label = sljit_emit_label(compiler); TP(label);
 	sljit_set_label(jump, label);
 }
+
+#define MALLOC_EXEC(result, size) \
+	result = SLJIT_MALLOC_EXEC(size); \
+	if (!result) { \
+		printf("Cannot allocate executable memory\n"); \
+		return; \
+	} \
+	memset(result, 255, size);
+
+static void test_exec_allocator(void)
+{
+	// This is not an sljit test
+	void *ptr1;
+	void *ptr2;
+	void *ptr3;
+
+	MALLOC_EXEC(ptr1, 32);
+	MALLOC_EXEC(ptr2, 512);
+	MALLOC_EXEC(ptr3, 512);
+	SLJIT_FREE_EXEC(ptr2);
+	SLJIT_FREE_EXEC(ptr3);
+	SLJIT_FREE_EXEC(ptr1);
+	MALLOC_EXEC(ptr1, 262104);
+	MALLOC_EXEC(ptr2, 32000);
+	SLJIT_FREE_EXEC(ptr1);
+	MALLOC_EXEC(ptr1, 262104);
+	SLJIT_FREE_EXEC(ptr1);
+	MALLOC_EXEC(ptr1, 512);
+	MALLOC_EXEC(ptr2, 512);
+	MALLOC_EXEC(ptr3, 512);
+	SLJIT_FREE_EXEC(ptr2);
+	MALLOC_EXEC(ptr2, 512);
+	SLJIT_FREE_EXEC(ptr3);
+	SLJIT_FREE_EXEC(ptr1);
+	SLJIT_FREE_EXEC(ptr2);
+	printf("Executable allocator: ok\n");
+}
+
+#undef MALLOC_EXEC
 
 static void test1(void)
 {
@@ -2276,6 +2315,7 @@ static void test32(void)
 
 void sljit_test(void)
 {
+	test_exec_allocator();
 	test1();
 	test2();
 	test3();

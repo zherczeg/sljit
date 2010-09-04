@@ -86,19 +86,9 @@
 #define SLJIT_FREE(ptr) free(ptr)
 
 // Executable code allocation
-#if !defined(SLJIT_CONFIG_X86_64) && !defined(SLJIT_CONFIG_PPC_64)
-
-#define SLJIT_MALLOC_EXEC(size) malloc(size)
-#define SLJIT_FREE_EXEC(ptr) free(ptr)
-
-#else
-
-// We use mmap on x86-64 and PPC-64, but that
-// is not OS independent standard C function
-#define SLJIT_MALLOC_EXEC(size) sljit_malloc_exec(size)
-#define SLJIT_FREE_EXEC(ptr) sljit_free_exec(ptr)
-
-#endif
+// If SLJIT_EXECUTABLE_ALLOCATOR is not defined, the application should
+// define both SLJIT_MALLOC_EXEC and SLJIT_FREE_EXEC
+#define SLJIT_EXECUTABLE_ALLOCATOR
 
 #define SLJIT_MEMMOVE(dest, src, len) memmove(dest, src, len)
 
@@ -187,6 +177,13 @@ typedef long int sljit_w;
 #else
 	// Not required to implement on archs with unified caches
 #define SLJIT_CACHE_FLUSH(from, to)
+#endif
+
+#ifdef SLJIT_EXECUTABLE_ALLOCATOR
+void* sljit_malloc_exec(sljit_w size);
+void sljit_free_exec(void* ptr);
+#define SLJIT_MALLOC_EXEC(size) sljit_malloc_exec(size)
+#define SLJIT_FREE_EXEC(ptr) sljit_free_exec(ptr)
 #endif
 
 // Feel free to overwrite these assert defines

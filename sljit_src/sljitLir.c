@@ -130,29 +130,8 @@
 	#define ABSOLUTE_B	0x10
 #endif
 
-#if defined(SLJIT_CONFIG_X86_64) || defined(SLJIT_CONFIG_PPC_64)
-#include <sys/mman.h>
-
-static void* sljit_malloc_exec(sljit_w size)
-{
-	void* ptr;
-
-	size += sizeof(sljit_w);
-	ptr = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
-	if (ptr == MAP_FAILED)
-		return NULL;
-
-	*(sljit_w*)ptr = size;
-	ptr = (void*)(((sljit_ub*)ptr) + sizeof(sljit_w));
-	return ptr;
-}
-
-static void sljit_free_exec(void* ptr)
-{
-	ptr = (void*)(((sljit_ub*)ptr) - sizeof(sljit_w));
-	munmap(ptr, *(sljit_w*)ptr);
-}
-
+#ifdef SLJIT_EXECUTABLE_ALLOCATOR
+#include "sljitExecAllocator.c"
 #endif
 
 #if defined(SLJIT_SSE2_AUTO) && !defined(SLJIT_SSE2)
