@@ -1369,7 +1369,6 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	FUNCTION_CHECK_OP();
 	FUNCTION_FCHECK(src, srcw);
 	FUNCTION_FCHECK(dst, dstw);
-	FUNCTION_CHECK_FOP();
 #endif
 	sljit_emit_fop1_verbose();
 
@@ -1429,7 +1428,6 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	FUNCTION_FCHECK(src1, src1w);
 	FUNCTION_FCHECK(src2, src2w);
 	FUNCTION_FCHECK(dst, dstw);
-	FUNCTION_CHECK_FOP();
 #endif
 	sljit_emit_fop2_verbose();
 
