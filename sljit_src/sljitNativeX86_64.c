@@ -92,6 +92,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 
 	compiler->temporaries = temporaries;
 	compiler->generals = generals;
+	compiler->flags_saved = 0;
 
 	size = generals;
 	if (generals >= 2)
@@ -186,6 +187,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 #endif
 
 	sljit_emit_return_verbose();
+
+	compiler->flags_saved = 0;
 
 	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
 		emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw);
@@ -595,4 +598,3 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 
 	return SLJIT_SUCCESS;
 }
-

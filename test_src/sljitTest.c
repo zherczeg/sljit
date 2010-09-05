@@ -2313,6 +2313,66 @@ static void test32(void)
 	successful_tests++;
 }
 
+static void test33(void)
+{
+	// Test keep flags
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+
+#ifdef SLJIT_64BIT_ARCHITECTURE
+	sljit_w big_word = 0x8000000000000003l;
+#else
+	sljit_w big_word = 0x80000003;
+#endif
+
+	sljit_w buf[12];
+	buf[0] = 3;
+	buf[1] = 3;
+	buf[2] = 3;
+	buf[3] = 3;
+	buf[4] = 3;
+	buf[5] = 3;
+	buf[6] = 3;
+	buf[7] = 3;
+	buf[8] = 3;
+	buf[9] = 3;
+	buf[10] = 3;
+	buf[11] = 3;
+
+	T(sljit_emit_enter(compiler, 1, 3, 3, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, big_word));
+	T(sljit_emit_op2(compiler, SLJIT_ADD | SLJIT_SET_O | SLJIT_SET_E, SLJIT_TEMPORARY_REG2, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, big_word));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_TEMPORARY_REG2, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 8));
+	T(sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_KEEP_FLAGS, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 8));
+	T(sljit_emit_cond_set(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_C_NOT_ZERO));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0));
+	T(sljit_emit_op2(compiler, SLJIT_ADDC | SLJIT_KEEP_FLAGS, SLJIT_TEMPORARY_REG2, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0));
+	T(sljit_emit_op2(compiler, SLJIT_ADDC, SLJIT_MEM1(SLJIT_GENERAL_REG1), 2 * sizeof(sljit_w), SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 7));
+
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 8));
+	T(sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 8));
+	T(sljit_emit_op2(compiler, SLJIT_SHL | SLJIT_KEEP_FLAGS, SLJIT_MEM1(SLJIT_GENERAL_REG1), 3 * sizeof(sljit_w), SLJIT_MEM1(SLJIT_GENERAL_REG1), 2 * sizeof(sljit_w), SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w)));
+	T(sljit_emit_cond_set(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), 4 * sizeof(sljit_w), SLJIT_C_EQUAL));
+
+	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_w)&buf);
+
+	FAILED(buf[0] != 6, "test33 case 1 failed\n");
+	FAILED(buf[1] != 1, "test33 case 2 failed\n");
+	FAILED(buf[2] != 8, "test33 case 3 failed\n");
+	FAILED(buf[3] != 16, "test33 case 4 failed\n");
+	FAILED(buf[4] != 1, "test33 case 5 failed\n");
+	sljit_free_code(code.code);
+	printf("test33 ok\n");
+	successful_tests++;
+}
+
 void sljit_test(void)
 {
 	test_exec_allocator();
@@ -2348,9 +2408,10 @@ void sljit_test(void)
 	test30();
 	test31();
 	test32();
-	if (successful_tests == 32)
+	test33();
+	if (successful_tests == 33)
 		printf("All tests are passed.\n");
 	else
-		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 32);
+		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 33);
 }
 

@@ -255,7 +255,7 @@ void sljit_free_exec(void* ptr)
 		header->prev_size = free_block->size;
 	}
 
-	if (!free_block->header.prev_size && header->size == 1) {
+	if (SLJIT_UNLIKELY(!free_block->header.prev_size && header->size == 1)) {
 		if (total_size - free_block->size > (allocated_size * 3 / 2)) {
 			sljit_remove_free_block(free_block);
 			free_chunk(free_block, free_block->size + sizeof(struct block_header));

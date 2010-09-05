@@ -188,13 +188,17 @@ struct sljit_compiler {
 	sljit_uw size;
 
 #ifdef SLJIT_CONFIG_X86_32
-	sljit_w args;
-	sljit_w temporaries_start;
-	sljit_w generals_start;
+	int args;
+	int temporaries_start;
+	int generals_start;
 #endif
 
 #ifdef SLJIT_CONFIG_X86_64
 	int mode32;
+#endif
+
+#if defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)
+	int flags_saved;
 #endif
 
 #if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
@@ -299,11 +303,11 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 #define SLJIT_MEM2(r1, r2)	(SLJIT_MEM | (r1) | ((r2) << 4))
 #define SLJIT_IMM		0x200
 
-// It may sound suprising, but the default int size on 64bit CPUs is still
-// 32 bit. The 64 bit registers are mostly used only for memory addressing.
-// This flag can be combined with the op argument of sljit_emit_op1 and
-// sljit_emit_op2. It does NOT have any effect on 32bit CPUs or the addressing
-// mode on 64 bit CPUs (SLJIT_MEMx macros)
+// Set 32 bit operation mode (I) on 64 bit CPUs. The flag is totally ignored on
+// 32 bit CPUs. The arithmetic instruction uses only the lower 32 bit of the
+// input register(s), and set the flags according to the 32 bit result. If the
+// destination is a register, the higher 32 bit of the result is undefined.
+// The addressing modes (SLJIT_MEM1/SLJIT_MEM2 macros) are unaffected by this flag
 #define SLJIT_INT_OP		0x100
 
 // Common CPU status flags for all architectures (x86, ARM, PPC)
@@ -313,7 +317,10 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 //  - negative/positive flag (depends on arc)
 
 // By default, the instructions may, or may not set the CPU status flags
-// Forcing to set status flags can be done with the following flags:
+// Forcing to set or keep status flags can be done with the following flags:
+
+// Note: sljit tries to emit the minimum number of instructions. Using these
+// flags can increase them, so use them wisely to avoid unnecessary code generation.
 
 // Set Equal (Zero) status flag (E)
 #define SLJIT_SET_E			0x0200
@@ -324,8 +331,11 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 // Set signed overflow flag (O)
 #define SLJIT_SET_O			0x1000
 // Set carry flag (C)
-// (kinda unsigned overflow, but behaves differently on various cpus)
+// (Kinda unsigned overflow, but behaves differently on various cpus)
 #define SLJIT_SET_C			0x2000
+// Do not modify the flags (K)
+// (This flag cannot be combined with any other SLJIT_SET_* flag)
+#define SLJIT_KEEP_FLAGS		0x4000
 
 // Notes:
 //   - you cannot postpone conditional jump instructions except if noted that
@@ -374,37 +384,37 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op);
 #define SLJIT_MOVU_UI			13
 // Flags: - (never set any flags)
 #define SLJIT_MOVU_SI			14
-// Flags: E
+// Flags: I | E | K
 #define SLJIT_NOT			15
-// Flags: E | O
+// Flags: I | E | O | K
 #define SLJIT_NEG			16
 
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
-// Flags: E | O | C
+// Flags: I | E | O | C | K
 #define SLJIT_ADD			17
-// Flags: E | O | C
+// Flags: I | E | O | C | K
 #define SLJIT_ADDC			18
-// Flags: E | O | C | S | U
+// Flags: I | E | S | U | O | C | K
 #define SLJIT_SUB			19
-// Flags: E | O | C | S | U
+// Flags: I | E | S | U | O | C | K
 #define SLJIT_SUBC			20
 // Note: integer mul
-// Flags: O (see SLJIT_C_MUL_*)
+// Flags: I | O (see SLJIT_C_MUL_*) | K
 #define SLJIT_MUL			21
-// Flags: E
+// Flags: I | E | K
 #define SLJIT_AND			22
-// Flags: E
+// Flags: I | E | K
 #define SLJIT_OR			23
-// Flags: E
+// Flags: I | E | K
 #define SLJIT_XOR			24
-// Flags: E
+// Flags: I | E | K
 #define SLJIT_SHL			25
-// Flags: E
+// Flags: I | E | K
 #define SLJIT_LSHR			26
-// Flags: E
+// Flags: I | E | K
 #define SLJIT_ASHR			27
 
 int sljit_emit_op2(struct sljit_compiler *compiler, int op,
@@ -489,6 +499,8 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 
 // Emit a jump instruction. The destination is not set, only the type of the jump.
 //  type must be between SLJIT_C_EQUAL and SLJIT_CALL3
+// Flags: - (never set any flags) for both conditional and unconditional jumps
+// Flags: destroy all flags for calls
 struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type);
 
 // Set the destination of the jump to this label
@@ -501,13 +513,17 @@ void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 //  type must be between SLJIT_JUMP and SLJIT_CALL3
 //  Direct form: set src to SLJIT_IMM() and srcw to the address
 //  Indirect form: any other valid addressing mode
+// Flags: - (never set any flags) for unconditional jumps
+// Flags: destroy all flags for calls
 int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw);
 
 // Set dst to 1 if condition is fulfilled, 0 otherwise
 //  type must be between SLJIT_C_EQUAL and SLJIT_C_FLOAT_NOT_NAN
+// Flags: - (never set any flags)
 int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);
 
 // The constant can be changed runtime (see: sljit_set_const)
+// Flags: - (never set any flags)
 struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval);
 
 // After the code generation the address for label, jump and const instructions

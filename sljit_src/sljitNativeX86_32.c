@@ -71,6 +71,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	compiler->temporaries = temporaries;
 	compiler->generals = generals;
 	compiler->args = args;
+	compiler->flags_saved = 0;
 
 	size = 1 + (generals <= 3 ? generals : 3) + ((args > 0) ? (2 + args * 3) : 0);
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
@@ -161,6 +162,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 
 	sljit_emit_return_verbose();
 
+	compiler->flags_saved = 0;
 	CHECK_EXTRA_REGS(src, srcw, (void)0);
 
 	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
