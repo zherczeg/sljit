@@ -62,35 +62,29 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define PUSH_POOL	0xff000000
 
 // DP - Data Processing instruction (use with EMIT_DATA_PROCESS_INS)
-#define ADCS_DP		0x0b
-#define ADD_DP		0x08
-#define ADDS_DP		0x09
-#define ANDS_DP		0x01
+#define ADC_DP		0x5
+#define ADD_DP		0x4
+#define AND_DP		0x0
 #define B		0xea000000
-#define BIC_DP		0x1c
-#define BICS_DP		0x1d
+#define BIC_DP		0xe
 #define BL		0xeb000000
 #define BLX		0xe12fff30
 #define BX		0xe12fff10
-#define CMP_DP		0x15
+#define CMP_DP		0xa
 #define DEBUGGER	0xe1200070
-#define EORS_DP		0x03
-#define MOV_DP		0x1a
-#define MOVS_DP		0x1b
+#define EOR_DP		0x1
+#define MOV_DP		0xd
 #define MUL		0xe0000090
-#define MVN_DP		0x1e
-#define MVNS_DP		0x1f
+#define MVN_DP		0xf
 #define NOP		0xe1a00000
-#define ORR_DP		0x18
-#define ORRS_DP		0x19
+#define ORR_DP		0xc
 #define PUSH		0xe92d0000
 #define POP		0xe8bd0000
-#define RSBS_DP		0x07
-#define RSCS_DP		0x0f
-#define SBCS_DP		0x0d
+#define RSB_DP		0x3
+#define RSC_DP		0x7
+#define SBC_DP		0x6
 #define SMULL		0xe0c00090
-#define SUB_DP		0x04
-#define SUBS_DP		0x05
+#define SUB_DP		0x2
 #define VABS_F64	0xeeb00bc0
 #define VADD_F64	0xee300b00
 #define VCMP_F64	0xeeb40b40
@@ -431,7 +425,7 @@ static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_w new_constant, i
 	sljit_uw src2;
 
 	src2 = get_immediate(new_constant);
-	if (src2 != 0) {
+	if (src2) {
 		*inst = 0xe3a00000 | (ldr_literal & 0xf000) | src2;
 		if (flush) {
 			SLJIT_CACHE_FLUSH(inst, inst + 1);
@@ -440,7 +434,7 @@ static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_w new_constant, i
 	}
 
 	src2 = get_immediate(~new_constant);
-	if (src2 != 0) {
+	if (src2) {
 		*inst = 0xe3e00000 | (ldr_literal & 0xf000) | src2;
 		if (flush) {
 			SLJIT_CACHE_FLUSH(inst, inst + 1);
@@ -688,8 +682,8 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	FAIL_IF(push_inst(compiler, (inst)))
 
 // Condition: AL
-#define EMIT_DATA_PROCESS_INS(opcode, dst, src1, src2) \
-	(0xe0000000 | ((opcode) << 20) | RD(dst) | RN(src1) | (src2))
+#define EMIT_DATA_PROCESS_INS(opcode, set_flags, dst, src1, src2) \
+	(0xe0000000 | ((opcode) << 21) | (set_flags) | RD(dst) | RN(src1) | (src2))
 
 static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	int dst, sljit_w dstw,
@@ -744,11 +738,11 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 		FAIL_IF(emit_op(compiler, SLJIT_SUB, ALLOW_IMM, SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, local_size));
 
 	if (args >= 1)
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, SLJIT_GENERAL_REG1, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG1)));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, SLJIT_GENERAL_REG1, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG1)));
 	if (args >= 2)
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, SLJIT_GENERAL_REG2, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG2)));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, SLJIT_GENERAL_REG2, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG2)));
 	if (args >= 3)
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, SLJIT_GENERAL_REG3, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG3)));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, SLJIT_GENERAL_REG3, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG3)));
 
 	return SLJIT_SUCCESS;
 }
@@ -868,26 +862,28 @@ static sljit_w data_transfer_insts[16] = {
 #define FAST_DEST	0x10
   // Multiple instructions are required
 #define SLOW_DEST	0x20
+// SET_FLAGS must be (1 << 20) as it is also the value of S bit (can be used for optimization)
+#define SET_FLAGS	(1 << 20)
 // dst: reg
 // src1: reg
 // src2: reg or imm (if allowed)
-// This flag fits for data processing instructions
+// SRC2_IMM must be (1 << 25) as it is also the value of I bit (can be used for optimization)
 #define SRC2_IMM	(1 << 25)
 
 #define EMIT_DATA_PROCESS_INS_AND_RETURN(opcode) \
-	return push_inst(compiler, EMIT_DATA_PROCESS_INS(opcode, dst, src1, (src2 & SRC2_IMM) ? src2 : RM(src2)))
+	return push_inst(compiler, EMIT_DATA_PROCESS_INS(opcode, flags & SET_FLAGS, dst, src1, (src2 & SRC2_IMM) ? src2 : RM(src2)))
 
 #define EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(opcode, dst, src1, src2) \
-	return push_inst(compiler, EMIT_DATA_PROCESS_INS(opcode, dst, src1, src2))
+	return push_inst(compiler, EMIT_DATA_PROCESS_INS(opcode, flags & SET_FLAGS, dst, src1, src2))
 
 #define EMIT_SHIFT_INS_AND_RETURN(opcode) \
 	SLJIT_ASSERT(!(flags & INV_IMM) && !(src2 & SRC2_IMM)); \
 	if (compiler->shift_imm != 0x20) { \
 		SLJIT_ASSERT(src1 == TMP_REG1); \
 		SLJIT_ASSERT(!(flags & ARGS_SWAPPED)); \
-		return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOVS_DP, dst, SLJIT_UNUSED, (compiler->shift_imm << 7) | (opcode << 5) | reg_map[src2])); \
+		return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, flags & SET_FLAGS, dst, SLJIT_UNUSED, (compiler->shift_imm << 7) | (opcode << 5) | reg_map[src2])); \
 	} \
-	return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOVS_DP, dst, SLJIT_UNUSED, (reg_map[(flags & ARGS_SWAPPED) ? src1 : src2] << 8) | (opcode << 5) | 0x10 | ((flags & ARGS_SWAPPED) ? reg_map[src2] : reg_map[src1])));
+	return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, flags & SET_FLAGS, dst, SLJIT_UNUSED, (reg_map[(flags & ARGS_SWAPPED) ? src1 : src2] << 8) | (opcode << 5) | 0x10 | ((flags & ARGS_SWAPPED) ? reg_map[src2] : reg_map[src1])));
 
 static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
 	int dst, int src1, int src2)
@@ -896,28 +892,28 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
-		SLJIT_ASSERT((flags & INV_IMM) == 0);
-		EMIT_DATA_PROCESS_INS_AND_RETURN(ADDS_DP);
+		SLJIT_ASSERT(!(flags & INV_IMM));
+		EMIT_DATA_PROCESS_INS_AND_RETURN(ADD_DP);
 
 	case SLJIT_ADDC:
-		SLJIT_ASSERT((flags & INV_IMM) == 0);
-		EMIT_DATA_PROCESS_INS_AND_RETURN(ADCS_DP);
+		SLJIT_ASSERT(!(flags & INV_IMM));
+		EMIT_DATA_PROCESS_INS_AND_RETURN(ADC_DP);
 
 	case SLJIT_SUB:
-		SLJIT_ASSERT((flags & INV_IMM) == 0);
+		SLJIT_ASSERT(!(flags & INV_IMM));
 		if (!(flags & ARGS_SWAPPED))
-			EMIT_DATA_PROCESS_INS_AND_RETURN(SUBS_DP);
-		EMIT_DATA_PROCESS_INS_AND_RETURN(RSBS_DP);
+			EMIT_DATA_PROCESS_INS_AND_RETURN(SUB_DP);
+		EMIT_DATA_PROCESS_INS_AND_RETURN(RSB_DP);
 
 	case SLJIT_SUBC:
-		SLJIT_ASSERT((flags & INV_IMM) == 0);
+		SLJIT_ASSERT(!(flags & INV_IMM));
 		if (!(flags & ARGS_SWAPPED))
-			EMIT_DATA_PROCESS_INS_AND_RETURN(SBCS_DP);
-		EMIT_DATA_PROCESS_INS_AND_RETURN(RSCS_DP);
+			EMIT_DATA_PROCESS_INS_AND_RETURN(SBC_DP);
+		EMIT_DATA_PROCESS_INS_AND_RETURN(RSC_DP);
 
 	case SLJIT_MUL:
-		SLJIT_ASSERT((flags & INV_IMM) == 0);
-		SLJIT_ASSERT((src2 & SRC2_IMM) == 0);
+		SLJIT_ASSERT(!(flags & INV_IMM));
+		SLJIT_ASSERT(!(src2 & SRC2_IMM));
 		if (SLJIT_UNLIKELY(op & SLJIT_SET_O))
 			mul_inst = SMULL | (reg_map[TMP_REG3] << 16) | (reg_map[dst] << 12);
 		else
@@ -930,7 +926,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		else {
 			// Rm and Rd must not be the same register
 			SLJIT_ASSERT(dst != TMP_REG1);
-			FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, TMP_REG1, SLJIT_UNUSED, reg_map[src2])));
+			FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG1, SLJIT_UNUSED, reg_map[src2])));
 			FAIL_IF(push_inst(compiler, mul_inst | (reg_map[src2] << 8) | reg_map[TMP_REG1]));
 		}
 
@@ -941,20 +937,20 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		compiler->cache_arg = 0;
 		compiler->cache_argw = 0;
 		// cmp TMP_REG2, dst asr #31
-		return push_inst(compiler, EMIT_DATA_PROCESS_INS(CMP_DP, SLJIT_UNUSED, TMP_REG3, RM(dst) | 0xfc0));
+		return push_inst(compiler, EMIT_DATA_PROCESS_INS(CMP_DP, SET_FLAGS, SLJIT_UNUSED, TMP_REG3, RM(dst) | 0xfc0));
 
 	case SLJIT_AND:
 		if (!(flags & INV_IMM))
-			EMIT_DATA_PROCESS_INS_AND_RETURN(ANDS_DP);
-		EMIT_DATA_PROCESS_INS_AND_RETURN(BICS_DP);
+			EMIT_DATA_PROCESS_INS_AND_RETURN(AND_DP);
+		EMIT_DATA_PROCESS_INS_AND_RETURN(BIC_DP);
 
 	case SLJIT_OR:
 		SLJIT_ASSERT(!(flags & INV_IMM));
-		EMIT_DATA_PROCESS_INS_AND_RETURN(ORRS_DP);
+		EMIT_DATA_PROCESS_INS_AND_RETURN(ORR_DP);
 
 	case SLJIT_XOR:
 		SLJIT_ASSERT(!(flags & INV_IMM));
-		EMIT_DATA_PROCESS_INS_AND_RETURN(EORS_DP);
+		EMIT_DATA_PROCESS_INS_AND_RETURN(EOR_DP);
 
 	case SLJIT_SHL:
 		EMIT_SHIFT_INS_AND_RETURN(0);
@@ -981,8 +977,8 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	case SLJIT_MOV_SB:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
 		if ((flags & (REG_DEST | REG_SOURCE)) == (REG_DEST | REG_SOURCE)) {
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, dst, SLJIT_UNUSED, (24 << 7) | reg_map[src2]));
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, dst, SLJIT_UNUSED, (24 << 7) | (op == SLJIT_MOV_UB ? 0x20 : 0x40) | reg_map[dst]));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (24 << 7) | reg_map[src2]));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (24 << 7) | (op == SLJIT_MOV_UB ? 0x20 : 0x40) | reg_map[dst]));
 		}
 		else if (dst != src2) {
 			SLJIT_ASSERT(src2 & SRC2_IMM);
@@ -996,8 +992,8 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	case SLJIT_MOV_SH:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
 		if ((flags & (REG_DEST | REG_SOURCE)) == (REG_DEST | REG_SOURCE)) {
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, dst, SLJIT_UNUSED, (16 << 7) | reg_map[src2]));
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, dst, SLJIT_UNUSED, (16 << 7) | (op == SLJIT_MOV_UH ? 0x20 : 0x40) | reg_map[dst]));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (16 << 7) | reg_map[src2]));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (16 << 7) | (op == SLJIT_MOV_UH ? 0x20 : 0x40) | reg_map[dst]));
 		}
 		else if (dst != src2) {
 			SLJIT_ASSERT(src2 & SRC2_IMM);
@@ -1010,14 +1006,18 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	case SLJIT_NOT:
 		if (src2 & SRC2_IMM) {
 			if (flags & INV_IMM)
-				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOVS_DP, dst, SLJIT_UNUSED, src2);
-			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVNS_DP, dst, SLJIT_UNUSED, src2);
+				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, src2);
+			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, src2);
 		}
-		EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVNS_DP, dst, SLJIT_UNUSED, reg_map[src2]);
+		EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, reg_map[src2]);
 	}
 	SLJIT_ASSERT_STOP();
 	return SLJIT_SUCCESS;
 }
+
+#undef EMIT_DATA_PROCESS_INS_AND_RETURN
+#undef EMIT_FULL_DATA_PROCESS_INS_AND_RETURN
+#undef EMIT_SHIFT_INS_AND_RETURN
 
 // Tests whether the immediate can be stored in the 12 bit imm field
 // returns 0 if not possible
@@ -1028,7 +1028,7 @@ static sljit_uw get_immediate(sljit_uw imm)
 	if (imm <= 0xff)
 		return SRC2_IMM | imm;
 
-	if ((imm & 0xff000000) == 0) {
+	if (!(imm & 0xff000000)) {
 		imm <<= 8;
 		rol = 8;
 	}
@@ -1037,22 +1037,22 @@ static sljit_uw get_immediate(sljit_uw imm)
 		rol = 0;
 	}
 
-	if ((imm & 0xff000000) == 0) {
+	if (!(imm & 0xff000000)) {
 		imm <<= 8;
 		rol += 4;
 	}
 
-	if ((imm & 0xf0000000) == 0) {
+	if (!(imm & 0xf0000000)) {
 		imm <<= 4;
 		rol += 2;
 	}
 
-	if ((imm & 0xc0000000) == 0) {
+	if (!(imm & 0xc0000000)) {
 		imm <<= 2;
 		rol += 1;
 	}
 
-	if ((imm & 0x00ffffff) == 0)
+	if (!(imm & 0x00ffffff))
 		return SRC2_IMM | (imm >> 24) | (rol << 8);
 	else
 		return 0;
@@ -1069,7 +1069,7 @@ static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, 
 	mask = 0xff000000;
 	rol = 8;
 	while(1) {
-		if ((imm & mask) == 0) {
+		if (!(imm & mask)) {
 			// rol imm by rol
 			imm = (imm << rol) | (imm >> (32 - rol));
 			// calculate arm rol
@@ -1084,7 +1084,7 @@ static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, 
 			mask = 0xff00;
 			rol = 24;
 			while (1) {
-				if ((imm & mask) == 0) {
+				if (!(imm & mask)) {
 					// rol imm by rol
 					imm = (imm << rol) | (imm >> (32 - rol));
 					// calculate arm rol
@@ -1101,9 +1101,9 @@ static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, 
 	}
 
 	// The low 8 bit must be zero
-	SLJIT_ASSERT((imm & 0xff) == 0);
+	SLJIT_ASSERT(!(imm & 0xff));
 
-	if ((imm & 0xff000000) == 0) {
+	if (!(imm & 0xff000000)) {
 		imm1 = SRC2_IMM | ((imm >> 16) & 0xff) | (((rol + 4) & 0xf) << 8);
 		imm2 = SRC2_IMM | ((imm >> 8) & 0xff) | (((rol + 8) & 0xf) << 8);
 	}
@@ -1112,33 +1112,33 @@ static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, 
 		imm <<= 8;
 		rol += 4;
 
-		if ((imm & 0xff000000) == 0) {
+		if (!(imm & 0xff000000)) {
 			imm <<= 8;
 			rol += 4;
 		}
 
-		if ((imm & 0xf0000000) == 0) {
+		if (!(imm & 0xf0000000)) {
 			imm <<= 4;
 			rol += 2;
 		}
 
-		if ((imm & 0xc0000000) == 0) {
+		if (!(imm & 0xc0000000)) {
 			imm <<= 2;
 			rol += 1;
 		}
 
-		if ((imm & 0x00ffffff) == 0)
+		if (!(imm & 0x00ffffff))
 			imm2 = SRC2_IMM | (imm >> 24) | ((rol & 0xf) << 8);
 		else
 			return 0;
 	}
 	else {
-		if ((imm & 0xf0000000) == 0) {
+		if (!(imm & 0xf0000000)) {
 			imm <<= 4;
 			rol += 2;
 		}
 
-		if ((imm & 0xc0000000) == 0) {
+		if (!(imm & 0xc0000000)) {
 			imm <<= 2;
 			rol += 1;
 		}
@@ -1147,24 +1147,24 @@ static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, 
 		imm <<= 8;
 		rol += 4;
 
-		if ((imm & 0xf0000000) == 0) {
+		if (!(imm & 0xf0000000)) {
 			imm <<= 4;
 			rol += 2;
 		}
 
-		if ((imm & 0xc0000000) == 0) {
+		if (!(imm & 0xc0000000)) {
 			imm <<= 2;
 			rol += 1;
 		}
 
-		if ((imm & 0x00ffffff) == 0)
+		if (!(imm & 0x00ffffff))
 			imm2 = SRC2_IMM | (imm >> 24) | ((rol & 0xf) << 8);
 		else
 			return 0;
 	}
 
-	EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(positive ? MOV_DP : MVN_DP, reg, SLJIT_UNUSED, imm1));
-	EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(positive ? ORR_DP : BIC_DP, reg, reg, imm2));
+	EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(positive ? MOV_DP : MVN_DP, 0, reg, SLJIT_UNUSED, imm1));
+	EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(positive ? ORR_DP : BIC_DP, 0, reg, reg, imm2));
 	return 1;
 }
 
@@ -1175,13 +1175,13 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_uw imm
 	// Create imm by 1 inst
 	tmp = get_immediate(imm);
 	if (tmp) {
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, reg, SLJIT_UNUSED, tmp));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, reg, SLJIT_UNUSED, tmp));
 		return SLJIT_SUCCESS;
 	}
 
 	tmp = get_immediate(~imm);
 	if (tmp) {
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MVN_DP, reg, SLJIT_UNUSED, tmp));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MVN_DP, 0, reg, SLJIT_UNUSED, tmp));
 		return SLJIT_SUCCESS;
 	}
 
@@ -1200,17 +1200,17 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int r
 
 	if (arg & SLJIT_IMM) {
 		imm = get_immediate(argw);
-		if (imm != 0) {
+		if (imm) {
 			if (inp_flags & ARG_TEST)
 				return 1;
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, reg, SLJIT_UNUSED, imm));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, reg, SLJIT_UNUSED, imm));
 			return -1;
 		}
 		imm = get_immediate(~argw);
-		if (imm != 0) {
+		if (imm) {
 			if (inp_flags & ARG_TEST)
 				return 1;
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MVN_DP, reg, SLJIT_UNUSED, imm));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MVN_DP, 0, reg, SLJIT_UNUSED, imm));
 			return -1;
 		}
 		return (inp_flags & ARG_TEST) ? SLJIT_SUCCESS : 0;
@@ -1219,8 +1219,8 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int r
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
 	// Fast loads/stores
-	if ((arg & 0xf) != 0) {
-		if ((arg & 0xf0) == 0) {
+	if (arg & 0xf) {
+		if (!(arg & 0xf0)) {
 			if (IS_TYPE1_TRANSFER(inp_flags)) {
 				if (argw >= 0 && argw <= 0xfff) {
 					if (inp_flags & ARG_TEST)
@@ -1271,7 +1271,7 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 	if (arg & SLJIT_IMM)
 		return 0;
 
-	if ((arg & 0xf) == 0) {
+	if (!(arg & 0xf)) {
 		if ((next_arg & SLJIT_MEM) && ((sljit_uw)argw - (sljit_uw)next_argw <= 0xfff || (sljit_uw)next_argw - (sljit_uw)argw <= 0xfff))
 			return 1;
 		return 0;
@@ -1308,7 +1308,7 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 			/* This can only happen for stores */ \
 			/* since ldr reg, [reg, ...]! has no meaning */ \
 			SLJIT_ASSERT(!(inp_flags & LOAD_DATA)); \
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, TMP_REG3, SLJIT_UNUSED, reg_map[reg])); \
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG3, SLJIT_UNUSED, reg_map[reg])); \
 			reg = TMP_REG3; \
 		} \
 	}
@@ -1379,11 +1379,11 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 			argw = -argw;
 		}
 
-		// Optimization: add is 0x08, sub is 0x04. Sign is 1 for add and 0 for sub
+		// Optimization: add is 0x4, sub is 0x2. Sign is 1 for add and 0 for sub
 		if (max_delta & 0xf00)
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(SUB_DP << sign, tmp_reg, arg & 0xf, SRC2_IMM | (argw >> 12) | 0xa00));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(SUB_DP << sign, 0, tmp_reg, arg & 0xf, SRC2_IMM | (argw >> 12) | 0xa00));
 		else
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(SUB_DP << sign, tmp_reg, arg & 0xf, SRC2_IMM | (argw >> 8) | 0xc00));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(SUB_DP << sign, 0, tmp_reg, arg & 0xf, SRC2_IMM | (argw >> 8) | 0xc00));
 
 		argw &= max_delta;
 		GETPUT_ARG_DATA_TRANSFER(sign, inp_flags & WRITE_BACK, reg, tmp_reg, argw);
@@ -1408,12 +1408,12 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		TEST_WRITE_BACK();
 		if (arg & 0xf0) {
 			if (inp_flags & (WRITE_BACK | LOAD_DATA)) {
-				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, tmp_reg, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
+				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, tmp_reg, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
 				arg = tmp_reg | SLJIT_MEM;
 			}
 			else {
 				SLJIT_ASSERT(tmp_reg == TMP_REG3);
-				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, TMP_REG3, TMP_REG3, reg_map[(arg >> 4) & 0xf]));
+				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, TMP_REG3, TMP_REG3, reg_map[(arg >> 4) & 0xf]));
 			}
 		}
 
@@ -1423,7 +1423,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 
 	if (argw >= -max_delta && argw <= max_delta) {
 		// Since getput_arg_fast doesn't caught it, that means two arguments is given
-		SLJIT_ASSERT(argw != 0);
+		SLJIT_ASSERT(argw);
 		SLJIT_ASSERT((arg & 0xf0) != SLJIT_UNUSED);
 
 		TEST_WRITE_BACK();
@@ -1442,7 +1442,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 			tmp_reg = TMP_REG3;
 		}
 
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, tmp_reg, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, tmp_reg, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
 		GETPUT_ARG_DATA_TRANSFER(sign, inp_flags & WRITE_BACK, reg, tmp_reg, argw);
 		return SLJIT_SUCCESS;
 	}
@@ -1457,10 +1457,10 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		TEST_WRITE_BACK();
 		if (arg & 0xf0) {
 			if (inp_flags & WRITE_BACK) {
-				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, arg & 0xf, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
+				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, arg & 0xf, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
 			}
 			else {
-				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, tmp_reg, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
+				EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, tmp_reg, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
 				arg = tmp_reg | SLJIT_MEM;
 			}
 		}
@@ -1474,10 +1474,10 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
 
 		if ((arg & 0xf0) != SLJIT_UNUSED) {
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, TMP_REG3, TMP_REG3, reg_map[(arg >> 4) & 0xf]));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, TMP_REG3, TMP_REG3, reg_map[(arg >> 4) & 0xf]));
 		}
 
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, TMP_REG3, TMP_REG3, reg_map[arg & 0xf]));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, TMP_REG3, TMP_REG3, reg_map[arg & 0xf]));
 
 		compiler->cache_arg = arg;
 		compiler->cache_argw = argw;
@@ -1489,7 +1489,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 	FAIL_IF(load_immediate(compiler, tmp_reg, argw));
 
 	if ((arg & 0xf0) != SLJIT_UNUSED) {
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, tmp_reg, tmp_reg, reg_map[(arg >> 4) & 0xf]));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, tmp_reg, tmp_reg, reg_map[(arg >> 4) & 0xf]));
 	}
 
 	EMIT_INSTRUCTION(EMIT_DATA_TRANSFER(inp_flags, 1, inp_flags & WRITE_BACK, reg, arg & 0xf, reg_map[tmp_reg] | (max_delta & 0xf00 ? SRC2_IMM : 0)));
@@ -1516,7 +1516,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	int src1_r;
 	int src2_r = 0;
 	int sugg_src2_r = TMP_REG2;
-	int flags = 0;
+	int flags = GET_FLAGS(op) ? SET_FLAGS : 0;
 
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
@@ -1558,14 +1558,14 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 		if ((inp_flags & ALLOW_ANY_IMM) && (src1 & SLJIT_IMM)) {
 			// The second check will generate a hit
 			src2_r = get_immediate(src1w);
-			if (src2_r != 0) {
+			if (src2_r) {
 				flags |= ARGS_SWAPPED;
 				src1 = src2;
 				src1w = src2w;
 			}
 			if (inp_flags & ALLOW_INV_IMM) {
 				src2_r = get_immediate(~src1w);
-				if (src2_r != 0) {
+				if (src2_r) {
 					flags |= ARGS_SWAPPED | INV_IMM;
 					src1 = src2;
 					src1w = src2w;
@@ -1591,11 +1591,11 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 		else do { // do { } while(0) is used because of breaks
 			if ((inp_flags & ALLOW_ANY_IMM) && (src2 & SLJIT_IMM)) {
 				src2_r = get_immediate(src2w);
-				if (src2_r != 0)
+				if (src2_r)
 					break;
 				if (inp_flags & ALLOW_INV_IMM) {
 					src2_r = get_immediate(~src2w);
-					if (src2_r != 0) {
+					if (src2_r) {
 						flags |= INV_IMM;
 						break;
 					}
@@ -1740,10 +1740,10 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		return emit_op(compiler, SLJIT_MOV_SH, ALLOW_ANY_IMM | SIGNED_DATA | HALF_DATA | WRITE_BACK, dst, dstw, TMP_REG1, 0, src, (src & SLJIT_IMM) ? (signed short)srcw : srcw);
 
 	case SLJIT_NOT:
-		return emit_op(compiler, SLJIT_NOT, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, src, srcw);
+		return emit_op(compiler, op, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_NEG:
-		return sljit_emit_op2(compiler, SLJIT_SUB, dst, dstw, SLJIT_IMM, 0, src, srcw);
+		return sljit_emit_op2(compiler, SLJIT_SUB | GET_FLAGS(op), dst, dstw, SLJIT_IMM, 0, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;
@@ -1842,7 +1842,7 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
 	// Fast loads and stores
-	if ((arg & 0xf) != 0 && (arg & 0xf0) == 0 && (argw & 0x3) == 0) {
+	if ((arg & 0xf) && !(arg & 0xf0) && (argw & 0x3) == 0) {
 		if (argw >= 0 && argw <= 0x3ff) {
 			EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(1, load, arg & 0xf, fpu_reg, argw >> 2));
 			return SLJIT_SUCCESS;
@@ -1852,16 +1852,16 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 			return SLJIT_SUCCESS;
 		}
 		if (argw >= 0 && argw <= 0x3ffff) {
-			SLJIT_ASSERT(get_immediate(argw & 0x3fc00) != 0);
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, TMP_REG1, arg & 0xf, get_immediate(argw & 0x3fc00)));
+			SLJIT_ASSERT(get_immediate(argw & 0x3fc00));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, TMP_REG1, arg & 0xf, get_immediate(argw & 0x3fc00)));
 			argw &= 0x3ff;
 			EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(1, load, TMP_REG1, fpu_reg, argw >> 2));
 			return SLJIT_SUCCESS;
 		}
 		if (argw < 0 && argw >= -0x3ffff) {
 			argw = -argw;
-			SLJIT_ASSERT(get_immediate(argw & 0x3fc00) != 0);
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(SUB_DP, TMP_REG1, arg & 0xf, get_immediate(argw & 0x3fc00)));
+			SLJIT_ASSERT(get_immediate(argw & 0x3fc00));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(SUB_DP, 0, TMP_REG1, arg & 0xf, get_immediate(argw & 0x3fc00)));
 			argw &= 0x3ff;
 			EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(0, load, TMP_REG1, fpu_reg, argw >> 2));
 			return SLJIT_SUCCESS;
@@ -1883,8 +1883,8 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 
 	compiler->cache_arg = arg;
 	compiler->cache_argw = 0;
-	if ((arg & 0xf0) != 0) {
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, TMP_REG3, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
+	if (arg & 0xf0) {
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, TMP_REG3, arg & 0xf, reg_map[(arg >> 4) & 0xf]));
 
 		if ((argw & 0x3) == 0) {
 			if (argw >= 0 && argw <= 0x3ff) {
@@ -1900,13 +1900,13 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 		compiler->cache_argw = argw;
 		FAIL_IF(load_immediate(compiler, TMP_REG1, argw));
 
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, TMP_REG3, TMP_REG3, reg_map[TMP_REG1]));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, TMP_REG3, TMP_REG3, reg_map[TMP_REG1]));
 	}
-	else if ((arg & 0xf) != 0) {
+	else if (arg & 0xf) {
 		compiler->cache_argw = argw;
 		FAIL_IF(load_immediate(compiler, TMP_REG1, argw));
 
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, TMP_REG3, arg & 0xf, reg_map[TMP_REG1]));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, TMP_REG3, arg & 0xf, reg_map[TMP_REG1]));
 	}
 	else {
 		compiler->cache_argw = argw;
@@ -2225,8 +2225,8 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	else
 		reg = TMP_REG2;
 
-	EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, reg, SLJIT_UNUSED, SRC2_IMM | 0));
-	EMIT_INSTRUCTION((EMIT_DATA_PROCESS_INS(MOV_DP, reg, SLJIT_UNUSED, SRC2_IMM | 1) & ~COND_MASK) | get_cc(type));
+	EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, reg, SLJIT_UNUSED, SRC2_IMM | 0));
+	EMIT_INSTRUCTION((EMIT_DATA_PROCESS_INS(MOV_DP, 0, reg, SLJIT_UNUSED, SRC2_IMM | 1) & ~COND_MASK) | get_cc(type));
 
 	if (reg == TMP_REG2)
 		return emit_op(compiler, SLJIT_MOV, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, TMP_REG2, 0);

@@ -65,7 +65,7 @@ static void cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int
 
 	T(sljit_emit_cond_set(compiler, dst, dstw, type));
 	jump = sljit_emit_jump(compiler, type); TP(jump);
-	T(sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, SLJIT_IMM, 2));
+	T(sljit_emit_op2(compiler, SLJIT_ADD | SLJIT_KEEP_FLAGS, dst, dstw, dst, dstw, SLJIT_IMM, 2));
 	label = sljit_emit_label(compiler); TP(label);
 	sljit_set_label(jump, label);
 }

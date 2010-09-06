@@ -79,44 +79,43 @@ typedef unsigned short sljit_uh;
 
 // dot '.' changed to _
 // I immediate form (possibly followed by number of immediate bits)
+#define ADCI		0xf1400000
 #define ADCS		0x4140
-#define ADCSI		0xf1500000
-#define ADCS_W		0xeb500000
+#define ADC_W		0xeb400000
 #define ADD		0x4400
 #define ADDS		0x1800
 #define ADDSI3		0x1c00
 #define ADDSI8		0x3000
-#define ADDS_W		0xeb100000
-#define ADDS_WI		0xf1100000
+#define ADD_W		0xeb000000
 #define ADDWI		0xf2000000
 #define ADD_SP		0xb000
 #define ADD_W		0xeb000000
 #define ADD_WI		0xf1000000
+#define ANDI		0xf0000000
 #define ANDS		0x4000
-#define ANDSI		0xf0100000
-#define ANDS_W		0xea100000
+#define AND_W		0xea000000
 #define ASRS		0x4100
 #define ASRSI		0x1000
-#define ASRS_W		0xfa50f000
-#define ASRS_WI		0xea5f0020
-#define BICSI		0xf0300000
+#define ASR_W		0xfa40f000
+#define ASR_WI		0xea4f0020
+#define BICI		0xf0200000
 #define BKPT		0xbe00
 #define BLX		0x4780
 #define BX		0x4700
 #define CMPI		0x2800
 #define CMP_W		0xebb00f00
+#define EORI		0xf0800000
 #define EORS		0x4040
-#define EORSI		0xf0900000
-#define EORS_W		0xea900000
+#define EOR_W		0xea800000
 #define IT		0xbf00
 #define LSLS		0x4080
 #define LSLSI		0x0000
-#define LSLS_W		0xfa10f000
-#define LSLS_WI		0xea5f0000
+#define LSL_W		0xfa00f000
+#define LSL_WI		0xea4f0000
 #define LSRS		0x40c0
 #define LSRSI		0x0800
-#define LSRS_W		0xfa30f000
-#define LSRS_WI		0xea5f0010
+#define LSR_W		0xfa20f000
+#define LSR_WI		0xea4f0010
 #define MOV		0x4600
 #define MOVSI		0x2000
 #define MOVT		0xf2c00000
@@ -124,28 +123,27 @@ typedef unsigned short sljit_uh;
 #define MOV_WI		0xf04f0000
 #define MUL		0xfb00f000
 #define MVNS		0x43c0
-#define MVNS_W		0xea7f0000
+#define MVN_W		0xea6f0000
 #define MVN_WI		0xf06f0000
-#define ORNSI		0xf0700000
+#define ORNI		0xf0600000
+#define ORRI		0xf0400000
 #define ORRS		0x4300
-#define ORRSI		0xf0500000
-#define ORRS_W		0xea500000
+#define ORR_W		0xea400000
 #define POP		0xbd00
 #define POP_W		0xe8bd0000
 #define PUSH		0xb500
 #define PUSH_W		0xe92d0000
+#define RSB_WI		0xf1c00000
 #define RSBSI		0x4240
-#define RSBS_WI		0xf1d00000
+#define SBCI		0xf1600000
 #define SBCS		0x4180
-#define SBCSI		0xf1700000
-#define SBCS_W		0xeb700000
+#define SBC_W		0xeb600000
 #define SMULL		0xfb800000
 #define STR_SP		0x9000
 #define SUBS		0x1a00
 #define SUBSI3		0x1e00
 #define SUBSI8		0x3800
-#define SUBS_W		0xebb00000
-#define SUBS_WI		0xf1b00000
+#define SUB_W		0xeba00000
 #define SUBWI		0xf2a00000
 #define SUB_SP		0xb080
 #define SUB_WI		0xf1a00000
@@ -493,9 +491,11 @@ static int load_immediate(struct sljit_compiler *compiler, int dst, sljit_uw imm
 
 #define ARG1_IMM	0x010000
 #define ARG2_IMM	0x020000
-#define SET_FLAGS	0x040000
+#define KEEP_FLAGS	0x040000
 #define SET_MULOV	0x080000
-#define UNUSED_RETURN	0x100000
+// SET_FLAGS must be 0x100000 as it is also the value of S bit (can be used for optimization)
+#define SET_FLAGS	0x100000
+#define UNUSED_RETURN	0x200000
 static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, sljit_uw arg1, sljit_uw arg2)
 {
 	// dst must be register, TMP_REG1
@@ -526,7 +526,7 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 			// Although I can do some clever things here, "NOT IMM" does not worth the efforts
 			break;
 		case SLJIT_ADD:
-			if (IS_2_LO_REGS(reg, dst)) {
+			if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(reg, dst)) {
 				if (imm <= 0x7)
 					return push_inst16(compiler, ADDSI3 | IMM3(imm) | RD3(dst) | RN3(reg));
 				if (reg == dst && imm <= 0xff)
@@ -536,16 +536,16 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 				return push_inst32(compiler, ADDWI | RD4(dst) | RN4(reg) | IMM12(imm));
 			imm = get_imm(imm);
 			if (imm != INVALID_IMM)
-				return push_inst32(compiler, ADDS_WI | RD4(dst) | RN4(reg) | imm);
+				return push_inst32(compiler, ADD_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_ADDC:
 			imm = get_imm(imm);
 			if (imm != INVALID_IMM)
-				return push_inst32(compiler, ADCSI | RD4(dst) | RN4(reg) | imm);
+				return push_inst32(compiler, ADCI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_SUB:
 			if (flags & ARG2_IMM) {
-				if (IS_2_LO_REGS(reg, dst)) {
+				if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(reg, dst)) {
 					if (imm <= 0x7)
 						return push_inst16(compiler, SUBSI3 | IMM3(imm) | RD3(dst) | RN3(reg));
 					if (imm <= 0xff) {
@@ -559,21 +559,21 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 					return push_inst32(compiler, SUBWI | RD4(dst) | RN4(reg) | IMM12(imm));
 				imm = get_imm(imm);
 				if (imm != INVALID_IMM)
-					return push_inst32(compiler, SUBS_WI | RD4(dst) | RN4(reg) | imm);
+					return push_inst32(compiler, SUB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			}
 			else {
-				if (imm == 0 && IS_2_LO_REGS(reg, dst))
+				if (!(flags & KEEP_FLAGS) && imm == 0 && IS_2_LO_REGS(reg, dst))
 					return push_inst16(compiler, RSBSI | RD3(dst) | RN3(reg));
 				imm = get_imm(imm);
 				if (imm != INVALID_IMM)
-					return push_inst32(compiler, RSBS_WI | RD4(dst) | RN4(reg) | imm);
+					return push_inst32(compiler, RSB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			}
 			break;
 		case SLJIT_SUBC:
 			if (flags & ARG2_IMM) {
 				imm = get_imm(imm);
 				if (imm != INVALID_IMM)
-					return push_inst32(compiler, SBCSI | RD4(dst) | RN4(reg) | imm);
+					return push_inst32(compiler, SBCI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			}
 			break;
 		case SLJIT_MUL:
@@ -582,46 +582,46 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 		case SLJIT_AND:
 			imm = get_imm(imm);
 			if (imm != INVALID_IMM)
-				return push_inst32(compiler, ANDSI | RD4(dst) | RN4(reg) | imm);
+				return push_inst32(compiler, ANDI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			imm = get_imm(~((flags & ARG2_IMM) ? arg2 : arg1));
 			if (imm != INVALID_IMM)
-				return push_inst32(compiler, BICSI | RD4(dst) | RN4(reg) | imm);
+				return push_inst32(compiler, BICI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_OR:
 			imm = get_imm(imm);
 			if (imm != INVALID_IMM)
-				return push_inst32(compiler, ORRSI | RD4(dst) | RN4(reg) | imm);
+				return push_inst32(compiler, ORRI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			imm = get_imm(~((flags & ARG2_IMM) ? arg2 : arg1));
 			if (imm != INVALID_IMM)
-				return push_inst32(compiler, ORNSI | RD4(dst) | RN4(reg) | imm);
+				return push_inst32(compiler, ORNI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_XOR:
 			imm = get_imm(imm);
 			if (imm != INVALID_IMM)
-				return push_inst32(compiler, EORSI | RD4(dst) | RN4(reg) | imm);
+				return push_inst32(compiler, EORI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_SHL:
 			if (flags & ARG2_IMM) {
 				imm &= 0x1f;
-				if (IS_2_LO_REGS(dst, reg))
+				if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, reg))
 					return push_inst16(compiler, LSLSI | RD3(dst) | RN3(reg) | (imm << 6));
-				return push_inst32(compiler, LSLS_WI | RD4(dst) | RM4(reg) | IMM5(imm));
+				return push_inst32(compiler, LSL_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
 			}
 			break;
 		case SLJIT_LSHR:
 			if (flags & ARG2_IMM) {
 				imm &= 0x1f;
-				if (IS_2_LO_REGS(dst, reg))
+				if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, reg))
 					return push_inst16(compiler, LSRSI | RD3(dst) | RN3(reg) | (imm << 6));
-				return push_inst32(compiler, LSRS_WI | RD4(dst) | RM4(reg) | IMM5(imm));
+				return push_inst32(compiler, LSR_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
 			}
 			break;
 		case SLJIT_ASHR:
 			if (flags & ARG2_IMM) {
 				imm &= 0x1f;
-				if (IS_2_LO_REGS(dst, reg))
+				if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, reg))
 					return push_inst16(compiler, ASRSI | RD3(dst) | RN3(reg) | (imm << 6));
-				return push_inst32(compiler, ASRS_WI | RD4(dst) | RM4(reg) | IMM5(imm));
+				return push_inst32(compiler, ASR_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
 			}
 			break;
 		default:
@@ -675,27 +675,27 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 		return push_inst32(compiler, SXTH_W | RD4(dst) | RM4(arg2));
 	case SLJIT_NOT:
 		SLJIT_ASSERT(arg1 == TMP_REG1);
-		if (IS_2_LO_REGS(dst, arg2))
+		if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, MVNS | RD3(dst) | RN3(arg2));
-		return push_inst32(compiler, MVNS_W | RD4(dst) | RM4(arg2));
+		return push_inst32(compiler, MVN_W | (flags & SET_FLAGS) | RD4(dst) | RM4(arg2));
 	case SLJIT_ADD:
-		if (IS_3_LO_REGS(dst, arg1, arg2))
+		if (!(flags & KEEP_FLAGS) && IS_3_LO_REGS(dst, arg1, arg2))
 			return push_inst16(compiler, ADDS | RD3(dst) | RN3(arg1) | RM3(arg2));
 		if (dst == arg1 && !(flags & SET_FLAGS))
 			return push_inst16(compiler, ADD | SET_REGS44(dst, arg2));
-		return push_inst32(compiler, ADDS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
+		return push_inst32(compiler, ADD_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_ADDC:
-		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
+		if (dst == arg1 && !(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, ADCS | RD3(dst) | RN3(arg2));
-		return push_inst32(compiler, ADCS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
+		return push_inst32(compiler, ADC_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_SUB:
-		if (IS_3_LO_REGS(dst, arg1, arg2))
+		if (!(flags & KEEP_FLAGS) && IS_3_LO_REGS(dst, arg1, arg2))
 			return push_inst16(compiler, SUBS | RD3(dst) | RN3(arg1) | RM3(arg2));
-		return push_inst32(compiler, SUBS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
+		return push_inst32(compiler, SUB_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_SUBC:
-		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
+		if (dst == arg1 && !(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, SBCS | RD3(dst) | RN3(arg2));
-		return push_inst32(compiler, SBCS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
+		return push_inst32(compiler, SBC_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_MUL:
 		if (!(flags & SET_FLAGS))
 			return push_inst32(compiler, MUL | RD4(dst) | RN4(arg1) | RM4(arg2));
@@ -704,31 +704,33 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 		// cmp TMP_REG2, dst asr #31
 		return push_inst32(compiler, CMP_W | RN4(TMP_REG2) | 0x70e0 | RM4(dst));
 	case SLJIT_AND:
-		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
-			return push_inst16(compiler, ANDS | RD3(dst) | RN3(arg2));
-		if ((flags & UNUSED_RETURN) && IS_2_LO_REGS(arg1, arg2))
-			return push_inst16(compiler, TST | RD3(arg1) | RN3(arg2));
-		return push_inst32(compiler, ANDS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
+		if (!(flags & KEEP_FLAGS)) {
+			if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
+				return push_inst16(compiler, ANDS | RD3(dst) | RN3(arg2));
+			if ((flags & UNUSED_RETURN) && IS_2_LO_REGS(arg1, arg2))
+				return push_inst16(compiler, TST | RD3(arg1) | RN3(arg2));
+		}
+		return push_inst32(compiler, AND_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_OR:
-		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
+		if (dst == arg1 && !(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, ORRS | RD3(dst) | RN3(arg2));
-		return push_inst32(compiler, ORRS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
+		return push_inst32(compiler, ORR_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_XOR:
-		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
+		if (dst == arg1 && !(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, EORS | RD3(dst) | RN3(arg2));
-		return push_inst32(compiler, EORS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
+		return push_inst32(compiler, EOR_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_SHL:
-		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
+		if (dst == arg1 && !(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, LSLS | RD3(dst) | RN3(arg2));
-		return push_inst32(compiler, LSLS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
+		return push_inst32(compiler, LSL_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_LSHR:
-		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
+		if (dst == arg1 && !(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, LSRS | RD3(dst) | RN3(arg2));
-		return push_inst32(compiler, LSRS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
+		return push_inst32(compiler, LSR_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_ASHR:
-		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
+		if (dst == arg1 && !(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, ASRS | RD3(dst) | RN3(arg2));
-		return push_inst32(compiler, ASRS_W | RD4(dst) | RN4(arg1) | RM4(arg2));
+		return push_inst32(compiler, ASR_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	}
 
 	SLJIT_ASSERT_STOP();
@@ -1273,7 +1275,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	if (op_type == SLJIT_NEG)
 		return sljit_emit_op2(compiler, GET_FLAGS(op) | SLJIT_SUB, dst, dstw, SLJIT_IMM, 0, src, srcw);
 
-	flags = GET_FLAGS(op) ? SET_FLAGS : 0;
+	flags = (GET_FLAGS(op) ? SET_FLAGS : 0) | ((op & SLJIT_KEEP_FLAGS) ? KEEP_FLAGS : 0);
 	if (src & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, src, srcw));
 		src = TMP_REG2;
@@ -1313,7 +1315,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	compiler->cache_argw = 0;
 
 	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG1;
-	flags = GET_FLAGS(op) ? SET_FLAGS : 0;
+	flags = (GET_FLAGS(op) ? SET_FLAGS : 0) | ((op & SLJIT_KEEP_FLAGS) ? KEEP_FLAGS : 0);
 
 	if (src1 & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, src1, src1w));
