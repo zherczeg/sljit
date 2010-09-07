@@ -232,6 +232,10 @@ struct sljit_compiler {
 #endif
 };
 
+// ---------------------------------------------------------------------
+//  Main functions
+// ---------------------------------------------------------------------
+
 // Creates an sljit compiler.
 // Returns NULL if failed
 struct sljit_compiler* sljit_create_compiler(void);
@@ -537,6 +541,18 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr);
 void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 
+// ---------------------------------------------------------------------
+//  Miscellaneous utility functions
+// ---------------------------------------------------------------------
+
+#define SLJIT_MAJOR_VERSION	0
+#define SLJIT_MINOR_VERSION	70
+
+// Get the human readable name of the platfrom
+// Can be useful for debugging on platforms like ARM, where ARM and
+// Thumb2 functions can be mixed.
+char* sljit_get_platform_name();
+
 // Portble helper function to get an offset of a member
 #define SLJIT_OFFSETOF(base, member) 	((sljit_w)(&((base*)0x10)->member) - 0x10)
 
@@ -548,4 +564,3 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 #endif
 
 #endif
-

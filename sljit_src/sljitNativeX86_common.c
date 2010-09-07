@@ -24,6 +24,15 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+char* sljit_get_platform_name()
+{
+#ifdef SLJIT_CONFIG_X86_32
+	return "x86-32";
+#else
+	return "x86-64";
+#endif
+}
+
 // 32b register indexes:
 //   0 - EAX
 //   1 - ECX
@@ -424,7 +433,7 @@ static SLJIT_INLINE int emit_restore_flags(struct sljit_compiler *compiler, int 
 
 #ifdef SLJIT_CONFIG_X86_32
 #include "sljitNativeX86_32.c"
-#elif defined(SLJIT_CONFIG_X86_64)
+#else
 #include "sljitNativeX86_64.c"
 #endif
 

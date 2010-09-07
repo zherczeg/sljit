@@ -24,6 +24,15 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+char* sljit_get_platform_name()
+{
+#ifdef SLJIT_CONFIG_PPC_32
+	return "ppc-32";
+#else
+	return "ppc-64";
+#endif
+}
+
 // Length of an instruction word
 // Both for ppc-32 and ppc-64
 typedef unsigned int sljit_i;
