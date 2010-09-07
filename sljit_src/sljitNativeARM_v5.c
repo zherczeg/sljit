@@ -24,6 +24,15 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+char* sljit_get_platform_name()
+{
+#ifdef SLJIT_CONFIG_ARM_V7
+	return "arm-v7";
+#else
+	return "arm-v5";
+#endif
+}
+
 // Last register + 1
 #define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
 #define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
@@ -289,12 +298,17 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uw *code
 		code_ptr--;
 
 	if (jump->flags & JUMP_ADDR)
-		diff = ((sljit_w)jump->target - (sljit_w)(code_ptr + 2)) >> 2;
+		diff = ((sljit_w)jump->target - (sljit_w)(code_ptr + 2));
 	else {
 		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
-		diff = ((sljit_w)(code + jump->label->size) - (sljit_w)(code_ptr + 2)) >> 2;
+		diff = ((sljit_w)(code + jump->label->size) - (sljit_w)(code_ptr + 2));
 	}
 
+	// Branch to Thumb code is not optimized yet
+	if (diff & 0x3)
+		return 0;
+
+	diff >>= 2;
 	if (jump->flags & IS_BL) {
 		if (diff <= 0x01ffffff && diff >= -0x02000000) {
 			*code_ptr = (BL - CONDITIONAL) | (*(code_ptr + 1) & COND_MASK);

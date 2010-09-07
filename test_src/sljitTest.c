@@ -2375,6 +2375,8 @@ static void test33(void)
 
 void sljit_test(void)
 {
+	printf("Generating code for: %s\n", sljit_get_platform_name());
+
 	test_exec_allocator();
 	test1();
 	test2();
@@ -2414,4 +2416,3 @@ void sljit_test(void)
 	else
 		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 33);
 }
-

@@ -869,4 +869,3 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 }
 
 #endif
-

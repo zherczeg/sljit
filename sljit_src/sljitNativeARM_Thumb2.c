@@ -24,6 +24,11 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+char* sljit_get_platform_name()
+{
+	return "arm-thumb2";
+}
+
 // Last register + 1
 #define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
 #define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
@@ -214,6 +219,7 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uh *code
 		return 0;
 
 	if (jump->flags & JUMP_ADDR) {
+		// Branch to ARM code is not optimized yet
 		if (!(jump->target & 0x1))
 			return 0;
 		diff = ((sljit_w)jump->target - (sljit_w)(code_ptr + 2)) >> 1;
@@ -1719,4 +1725,3 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 	modify_imm32_const(inst, new_constant);
 	SLJIT_CACHE_FLUSH(inst, inst + 3);
 }
-
