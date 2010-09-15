@@ -297,27 +297,12 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	size &= 0xf;
 	total_size = size;
 
-	if ((b & SLJIT_MEM) && NOT_HALFWORD(immb)) {
+	if ((b & SLJIT_MEM) && !(b & 0xf0) && NOT_HALFWORD(immb)) {
 		if (emit_load_imm64(compiler, TMP_REG3, immb))
 			return NULL;
 		immb = 0;
-		if ((b & 0x0f) != SLJIT_UNUSED) {
-			if ((b & 0xf0) == SLJIT_UNUSED)
-				b |= TMP_REG3 << 4;
-			else {
-				// We need to replace the upper word. Rotate if it is the stack pointer
-				if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
-					b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM;
-				buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);
-				PTR_FAIL_IF(!buf);
-				INC_SIZE(4);
-				*buf++ = REX_W | REX_X | REX_R | ((reg_map[(b >> 4) & 0x0f] >= 8) ? REX_B : 0);
-				*buf++ = 0x8d;
-				*buf++ = 0x04 | (reg_lmap[TMP_REG3] << 3);
-				*buf++ = (reg_lmap[TMP_REG3] << 3) | reg_lmap[(b >> 4) & 0x0f];
-				b = (b & ~0xf0) | (TMP_REG3 << 4);
-			}
-		}
+		if (b & 0xf)
+			b |= TMP_REG3 << 4;
 		else
 			b |= TMP_REG3;
 	}
@@ -337,29 +322,27 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM) {
-		if ((b & 0xf) == SLJIT_LOCALS_REG && (b & 0xf0) == 0)
-			b |= SLJIT_LOCALS_REG << 4;
-		else if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
-			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM;
-
-		if ((b & 0xf0) != SLJIT_UNUSED) {
-			total_size += 1; // SIB byte
-			if (reg_map[(b >> 4) & 0x0f] >= 8)
-				rex |= REX_X;
-		}
-
 		if ((b & 0x0f) == SLJIT_UNUSED)
 			total_size += 1 + sizeof(sljit_hw); // SIB byte required to avoid RIP based addressing
 		else {
 			if (reg_map[b & 0x0f] >= 8)
 				rex |= REX_B;
-			if (immb != 0) {
+			if (immb != 0 && !(b & 0xf0)) {
 				// Immediate operand
 				if (immb <= 127 && immb >= -128)
 					total_size += sizeof(sljit_b);
 				else
 					total_size += sizeof(sljit_hw);
 			}
+		}
+
+		if ((b & 0xf) == SLJIT_LOCALS_REG && (b & 0xf0) == 0)
+			b |= SLJIT_LOCALS_REG << 4;
+
+		if ((b & 0xf0) != SLJIT_UNUSED) {
+			total_size += 1; // SIB byte
+			if (reg_map[(b >> 4) & 0x0f] >= 8)
+				rex |= REX_X;
 		}
 	}
 #ifdef SLJIT_SSE2
@@ -456,27 +439,33 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		*buf_ptr++ |= 0xc0 + reg_lmap[b];
 #endif
 	else if ((b & 0x0f) != SLJIT_UNUSED) {
-		if (immb != 0) {
-			if (immb <= 127 && immb >= -128)
-				*buf_ptr |= 0x40;
-			else
-				*buf_ptr |= 0x80;
-		}
-
-		if ((b & 0xf0) == SLJIT_UNUSED) {
-			*buf_ptr++ |= reg_lmap[b & 0x0f];
-		} else {
-			*buf_ptr++ |= 0x04;
-			*buf_ptr++ = reg_lmap[b & 0x0f] | (reg_lmap[(b >> 4) & 0x0f] << 3);
-		}
-
-		if (immb != 0) {
-			if (immb <= 127 && immb >= -128)
-				*buf_ptr++ = immb; // 8 bit displacement
-			else {
-				*(sljit_hw*)buf_ptr = immb; // 32 bit displacement
-				buf_ptr += sizeof(sljit_hw);
+		if ((b & 0xf0) == SLJIT_UNUSED || (b & 0xf0) == (SLJIT_LOCALS_REG << 4)) {
+			if (immb != 0) {
+				if (immb <= 127 && immb >= -128)
+					*buf_ptr |= 0x40;
+				else
+					*buf_ptr |= 0x80;
 			}
+
+			if ((b & 0xf0) == SLJIT_UNUSED)
+				*buf_ptr++ |= reg_lmap[b & 0x0f];
+			else {
+				*buf_ptr++ |= 0x04;
+				*buf_ptr++ = reg_lmap[b & 0x0f] | (reg_lmap[(b >> 4) & 0x0f] << 3);
+			}
+
+			if (immb != 0) {
+				if (immb <= 127 && immb >= -128)
+					*buf_ptr++ = immb; // 8 bit displacement
+				else {
+					*(sljit_hw*)buf_ptr = immb; // 32 bit displacement
+					buf_ptr += sizeof(sljit_hw);
+				}
+			}
+		}
+		else {
+			*buf_ptr++ |= 0x04;
+			*buf_ptr++ = reg_lmap[b & 0x0f] | (reg_lmap[(b >> 4) & 0x0f] << 3) | (immb << 6);
 		}
 	}
 	else {

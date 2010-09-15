@@ -247,23 +247,21 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	// Calculate size of b
 	total_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM) {
-		if ((b & 0xf) == SLJIT_LOCALS_REG && (b & 0xf0) == 0)
-			b |= SLJIT_LOCALS_REG << 4;
-		else if ((b & 0xf0) == (SLJIT_LOCALS_REG << 4))
-			b = ((b & 0xf) << 4) | SLJIT_LOCALS_REG | SLJIT_MEM;
-
-		if ((b & 0xf0) != SLJIT_UNUSED)
-			total_size += 1; // SIB byte
-
 		if ((b & 0x0f) == SLJIT_UNUSED)
 			total_size += sizeof(sljit_w);
-		else if (immb != 0) {
+		else if (immb != 0 && !(b & 0xf0)) {
 			// Immediate operand
 			if (immb <= 127 && immb >= -128)
 				total_size += sizeof(sljit_b);
 			else
 				total_size += sizeof(sljit_w);
 		}
+
+		if ((b & 0xf) == SLJIT_LOCALS_REG && !(b & 0xf0))
+			b |= SLJIT_LOCALS_REG << 4;
+
+		if ((b & 0xf0) != SLJIT_UNUSED)
+			total_size += 1; // SIB byte
 	}
 
 	// Calculate size of a
@@ -340,27 +338,33 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		*buf_ptr++ |= 0xc0 + reg_map[b];
 #endif
 	else if ((b & 0x0f) != SLJIT_UNUSED) {
-		if (immb != 0) {
-			if (immb <= 127 && immb >= -128)
-				*buf_ptr |= 0x40;
-			else
-				*buf_ptr |= 0x80;
-		}
-
-		if ((b & 0xf0) == SLJIT_UNUSED) {
-			*buf_ptr++ |= reg_map[b & 0x0f];
-		} else {
-			*buf_ptr++ |= 0x04;
-			*buf_ptr++ = reg_map[b & 0x0f] | (reg_map[(b >> 4) & 0x0f] << 3);
-		}
-
-		if (immb != 0) {
-			if (immb <= 127 && immb >= -128)
-				*buf_ptr++ = immb; // 8 bit displacement
-			else {
-				*(sljit_w*)buf_ptr = immb; // 32 bit displacement
-				buf_ptr += sizeof(sljit_w);
+		if ((b & 0xf0) == SLJIT_UNUSED || (b & 0xf0) == (SLJIT_LOCALS_REG << 4)) {
+			if (immb != 0) {
+				if (immb <= 127 && immb >= -128)
+					*buf_ptr |= 0x40;
+				else
+					*buf_ptr |= 0x80;
 			}
+
+			if ((b & 0xf0) == SLJIT_UNUSED)
+				*buf_ptr++ |= reg_map[b & 0x0f];
+			else {
+				*buf_ptr++ |= 0x04;
+				*buf_ptr++ = reg_map[b & 0x0f] | (reg_map[(b >> 4) & 0x0f] << 3);
+			}
+
+			if (immb != 0) {
+				if (immb <= 127 && immb >= -128)
+					*buf_ptr++ = immb; // 8 bit displacement
+				else {
+					*(sljit_w*)buf_ptr = immb; // 32 bit displacement
+					buf_ptr += sizeof(sljit_w);
+				}
+			}
+		}
+		else {
+			*buf_ptr++ |= 0x04;
+			*buf_ptr++ = reg_map[b & 0x0f] | (reg_map[(b >> 4) & 0x0f] << 3) | (immb << 6);
 		}
 	}
 	else {

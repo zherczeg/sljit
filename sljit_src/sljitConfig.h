@@ -122,13 +122,18 @@ typedef char sljit_b;
 //   64 bit for 64 bit machines
 #if !defined(SLJIT_CONFIG_X86_64) && !defined(SLJIT_CONFIG_PPC_64)
 #define SLJIT_32BIT_ARCHITECTURE	1
+#define SLJIT_WORD_SHIFT		2
 typedef unsigned int sljit_uw;
 typedef int sljit_w;
 #else
 #define SLJIT_64BIT_ARCHITECTURE	1
+#define SLJIT_WORD_SHIFT		3
 typedef unsigned long int sljit_uw;
 typedef long int sljit_w;
 #endif
+
+// Double precision
+#define SLJIT_FLOAT_SHIFT		3
 
 #if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
 #define SLJIT_BIG_ENDIAN		1
