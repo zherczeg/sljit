@@ -98,8 +98,8 @@
 #define SLJIT_GENERAL_EREG1	9
 #define SLJIT_GENERAL_EREG2	10
 
-// Read-only register
-// SLJIT_MEM2(SLJIT_LOCALS_REG, SLJIT_LOCALS_REG) is not supported
+// Read-only register (cannot be the destination of an operation)
+// SLJIT_MEM2( ... , SLJIT_LOCALS_REG) is not supported (x86 limitation)
 #define SLJIT_LOCALS_REG	11
 
 // Number of registers
@@ -275,11 +275,13 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries
 int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 
 // Source and destination values for arithmetical instructions
-//  imm           - a simple immediate value (cannot be used as a destination)
-//  reg           - any of the registers (immediate argument unused)
-//  [imm]         - absolute immediate memory address
-//  [reg+imm]     - indirect memory address
-//  [reg+reg+imm] - two level indirect addressing
+//  imm              - a simple immediate value (cannot be used as a destination)
+//  reg              - any of the registers (immediate argument must be 0)
+//  [imm]            - absolute immediate memory address
+//  [reg+imm]        - indirect memory address
+//  [reg+(reg<<imm)] - indirect indexed memory address (shift must be between 0 and 3)
+//                     useful for (byte, half, int, sljit_w) array access
+//                     (fully supported by both x86 and ARM architectures, and cheap operation on others)
 
 // IMPORATNT NOTE: memory access MUST be naturally aligned.
 //   length | alignment
@@ -289,15 +291,20 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 //   int    | 4 byte (real_address & 0x3 == 0)
 //  sljit_w | 4 byte if SLJIT_32BIT_ARCHITECTURE defined
 //          | 8 byte if SLJIT_64BIT_ARCHITECTURE defined
-// This is a strict requirement for embedded systems.
+// (This is a strict requirement for embedded systems.)
 
 // Note: different architectures have different addressing limitations
-//  So sljit may generate several instructions if we use other addressing modes
-// x86: [reg+reg+imm] supported, -2^31 <= imm <= 2^31. Write-back not supported
-// arm: [reg+imm] [reg+reg] supported, -4095 <= imm <= 4095 for words and
-//      unsigned bytes. -255 <= imm <= 255 for other types. Write-back supported
-// ppc: [reg+imm], [reg+reg] supported -65535 <= imm <= 65535. Some immediates
-//      must be divisible by 4. Write-back supported
+//       Thus sljit may generate several instructions for other addressing modes
+// x86:  all addressing modes supported, but write-back is not supported
+//       (requires an extra instruction). On x86-64 only 32 bit signed
+//       integers are supported by the architecture.
+// arm:  [reg+imm] supported for small immediates (-4095 <= imm <= 4095
+//       or -255 <= imm <= 255 for loading signed bytes, any halfs or doubles)
+//       [reg+(reg<<imm)] are supported or requires only two instructions
+//       Write back is limited to small immediates on thumb2
+// ppc:  [reg+imm], -65535 <= imm <= 65535. 64 bit moves requires immediates
+//       divisible by 4. [reg+reg] supported, write-back supported
+//       [reg+(reg<<imm)] (imm != 0) is cheap (requires two instructions)
 
 // Register output: simply the name of the register
 // For destination, you can use SLJIT_UNUSED as well

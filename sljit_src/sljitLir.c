@@ -397,9 +397,9 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		; \
 	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
-		if (((p) & 0xf) != 0) { \
+		if ((p) & 0xf0) { \
 			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(((p) >> 4) & 0xf)); \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_LOCALS_REG || ((p) & 0xf) != SLJIT_LOCALS_REG); \
+			SLJIT_ASSERT(((p) & 0xf0) != (SLJIT_LOCALS_REG << 4) && !(i & ~0x3)); \
 		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
 		SLJIT_ASSERT(((p) >> 9) == 0); \
@@ -415,9 +415,9 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
-		if (((p) & 0xf) != 0) { \
+		if ((p) & 0xf0) { \
 			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(((p) >> 4) & 0xf)); \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_LOCALS_REG || ((p) & 0xf) != SLJIT_LOCALS_REG); \
+			SLJIT_ASSERT(((p) & 0xf0) != (SLJIT_LOCALS_REG << 4) && !(i & ~0x3)); \
 		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
 		SLJIT_ASSERT(((p) >> 9) == 0); \
@@ -429,10 +429,10 @@ static void reverse_buf(struct sljit_compiler *compiler)
 	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG4) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM) { \
-		SLJIT_ASSERT(((p) & 0xf) <= SLJIT_LOCALS_REG); \
-		if (((p) & 0xf) != 0) { \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) <= SLJIT_LOCALS_REG); \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) != SLJIT_LOCALS_REG || ((p) & 0xf) != SLJIT_LOCALS_REG); \
+		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
+		if ((p) & 0xf0) { \
+			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(((p) >> 4) & 0xf)); \
+			SLJIT_ASSERT(((p) & 0xf0) != (SLJIT_LOCALS_REG << 4) && !(i & ~0x3)); \
 		} else \
 			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
 		SLJIT_ASSERT(((p) >> 9) == 0); \
@@ -484,15 +484,15 @@ static char* freg_names[] = {
 	if ((p) & SLJIT_IMM) \
 		fprintf(compiler->verbose, "#%"SLJIT_PRINT_D"d", (i)); \
 	else if ((p) & SLJIT_MEM) { \
-		if ((p) & 0xF) { \
-			if ((i) != 0) { \
-				if (((p) >> 4) & 0xF) \
-					fprintf(compiler->verbose, "[%s + %s + #%"SLJIT_PRINT_D"d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], (i)); \
+		if ((p) & 0xf) { \
+			if (i) { \
+				if (((p) >> 4) & 0xf) \
+					fprintf(compiler->verbose, "[%s + %s * %d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], 1 << (i)); \
 				else \
 					fprintf(compiler->verbose, "[%s + #%"SLJIT_PRINT_D"d]", reg_names[(p) & 0xF], (i)); \
 			} \
 			else { \
-				if (((p) >> 4) & 0xF) \
+				if (((p) >> 4) & 0xf) \
 					fprintf(compiler->verbose, "[%s + %s]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF]); \
 				else \
 					fprintf(compiler->verbose, "[%s]", reg_names[(p) & 0xF]); \
@@ -504,10 +504,10 @@ static char* freg_names[] = {
 		fprintf(compiler->verbose, "%s", reg_names[p]);
 #define sljit_verbose_fparam(p, i) \
 	if ((p) & SLJIT_MEM) { \
-		if ((p) & 0xF) { \
-			if ((i) != 0) { \
-				if (((p) >> 4) & 0xF) \
-					fprintf(compiler->verbose, "[%s + %s + #%"SLJIT_PRINT_D"d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], (i)); \
+		if ((p) & 0xf) { \
+			if (i) { \
+				if (((p) >> 4) & 0xf) \
+					fprintf(compiler->verbose, "[%s + %s * %d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], 1 << (i)); \
 				else \
 					fprintf(compiler->verbose, "[%s + #%"SLJIT_PRINT_D"d]", reg_names[(p) & 0xF], (i)); \
 			} \

@@ -585,7 +585,7 @@ static int emit_mov_byte(struct sljit_compiler *compiler, int sign,
 		SLJIT_ASSERT(dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REGISTER);
 		if (reg_map[dst] < 4) {
 			EMIT_MOV(compiler, dst, 0, src, 0);
-			code = emit_x86_instruction(compiler, 2 | EX86_REX, dst, 0, dst, 0);
+			code = emit_x86_instruction(compiler, 2, dst, 0, dst, 0);
 			FAIL_IF(!code);
 			*code++ = 0x0f;
 			*code = sign ? 0xbe : 0xb6;
@@ -658,7 +658,7 @@ static int emit_mov_byte(struct sljit_compiler *compiler, int sign,
 			*code = 0x88;
 		}
 #else
-		code = emit_x86_instruction(compiler, 1 | EX86_NO_REXW, dst_r, 0, dst, dstw);
+		code = emit_x86_instruction(compiler, 1 | EX86_REX | EX86_NO_REXW, dst_r, 0, dst, dstw);
 		FAIL_IF(!code);
 		*code = 0x88;
 #endif
