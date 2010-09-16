@@ -702,7 +702,7 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int r
 #endif
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
-	if ((arg & 0xf) == SLJIT_UNUSED) {
+	if (!(arg & 0xf)) {
 #ifdef SLJIT_CONFIG_PPC_32
 		if (argw <= SIMM_MAX && argw >= SIMM_MIN) {
 			if (inp_flags & ARG_TEST)
@@ -727,7 +727,7 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int r
 		return (inp_flags & ARG_TEST) ? SLJIT_SUCCESS : 0;
 	}
 
-	if ((arg & 0xf0) == SLJIT_UNUSED) {
+	if (!(arg & 0xf0)) {
 #ifdef SLJIT_CONFIG_PPC_32
 		if (argw <= SIMM_MAX && argw >= SIMM_MIN) {
 			if (inp_flags & ARG_TEST)
@@ -756,7 +756,7 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int r
 		}
 #endif
 	}
-	else if (argw == 0) {
+	else if (!(argw & 0x3)) {
 		if (inp_flags & ARG_TEST)
 			return 1;
 		inst = data_transfer_insts[(inp_flags | INDEXED) & MEM_MASK];
@@ -775,11 +775,14 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 	SLJIT_ASSERT(next_arg & SLJIT_MEM);
 
-	if ((arg & 0xf) == 0) {
+	if (!(arg & 0xf)) {
 		if ((next_arg & SLJIT_MEM) && ((sljit_uw)argw - (sljit_uw)next_argw <= SIMM_MAX || (sljit_uw)next_argw - (sljit_uw)argw <= SIMM_MAX))
 			return 1;
 		return 0;
 	}
+
+	if (arg & 0xf0)
+		return 0;
 
 	if (argw <= SIMM_MAX && argw >= SIMM_MIN) {
 		if (arg == next_arg && (next_argw >= SIMM_MAX && next_argw <= SIMM_MIN))
@@ -791,18 +794,6 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 
 	return 0;
 }
-
-#define TEST_WRITE_BACK() \
-	if (inp_flags & WRITE_BACK) { \
-		tmp_reg = arg & 0xf; \
-		if (reg == tmp_reg) { \
-			/* This can only happen for stores */ \
-			/* since ld reg, reg, ? has no meaning */ \
-			SLJIT_ASSERT(!(inp_flags & LOAD_DATA)); \
-			FAIL_IF(push_inst(compiler, OR | S(reg) | A(TMP_REG3) | B(reg))); \
-			reg = TMP_REG3; \
-		} \
-	}
 
 #ifdef SLJIT_CONFIG_PPC_64
 #define ADJUST_CACHED_IMM(imm) \
@@ -827,7 +818,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 
 	tmp_reg = (inp_flags & LOAD_DATA) ? reg : TMP_REG3;
 
-	if ((arg & 0xf) == SLJIT_UNUSED) {
+	if (!(arg & 0xf)) {
 		inst = data_transfer_insts[(inp_flags & ~WRITE_BACK) & MEM_MASK];
 		if ((compiler->cache_arg & SLJIT_IMM) && (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= SIMM_MAX || ((sljit_uw)compiler->cache_argw - (sljit_uw)argw) <= SIMM_MAX)) {
 			argw = argw - compiler->cache_argw;
@@ -848,6 +839,20 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(tmp_reg));
 	}
 
+	if (arg & 0xf0) {
+		argw &= 0x3;
+		// Otherwise getput_arg_fast would capture it
+		SLJIT_ASSERT(argw);
+#ifdef SLJIT_CONFIG_PPC_32
+		FAIL_IF(push_inst(compiler, RLWINM | S((arg >> 4) & 0xf) | A(tmp_reg) | (argw << 11) | ((31 - argw) << 1)));
+#else
+		FAIL_IF(push_inst(compiler, RLDI(tmp_reg, (arg >> 4) & 0xf, argw, 63 - argw, 1)));
+#endif
+		inst = data_transfer_insts[(inp_flags | INDEXED) & MEM_MASK];
+		SLJIT_ASSERT(!(inst & (ADDR_MODE2 | UPDATE_REQ)));
+		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(arg & 0xf) | B(tmp_reg));
+	}
+
 	inst = data_transfer_insts[inp_flags & MEM_MASK];
 
 	if (compiler->cache_arg == arg && ((sljit_uw)argw - (sljit_uw)compiler->cache_argw <= SIMM_MAX || (sljit_uw)compiler->cache_argw - (sljit_uw)argw <= SIMM_MAX)) {
@@ -858,52 +863,9 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 	}
 
 	if ((compiler->cache_arg & SLJIT_IMM) && compiler->cache_argw == argw) {
-		TEST_WRITE_BACK();
-		if (arg & 0xf0) {
-			if (inp_flags & (WRITE_BACK | LOAD_DATA)) {
-				FAIL_IF(push_inst(compiler, ADD | D(tmp_reg) | A(arg & 0xf) | B((arg >> 4) & 0xf)));
-				arg = tmp_reg | SLJIT_MEM;
-			}
-			else {
-				SLJIT_ASSERT(tmp_reg == TMP_REG3);
-				FAIL_IF(push_inst(compiler, ADD | D(TMP_REG3) | A(TMP_REG3) | B((arg >> 4) & 0xf)));
-			}
-		}
-
 		inst = data_transfer_insts[(inp_flags | INDEXED) & MEM_MASK];
 		SLJIT_ASSERT(!(inst & (ADDR_MODE2 | UPDATE_REQ)));
-
 		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(arg & 0xf) | B(TMP_REG3));
-	}
-
-	if (argw <= SIMM_MAX && argw >= SIMM_MIN
-#ifdef SLJIT_CONFIG_PPC_64
-		&& (!(inst & ADDR_MODE2) || (argw & 0x3) == 0)
-#endif
-	) {
-		// Since getput_arg_fast doesn't caught it, that means two arguments is given
-		SLJIT_ASSERT(argw != 0);
-		SLJIT_ASSERT((arg & 0xf0) != SLJIT_UNUSED);
-
-		TEST_WRITE_BACK();
-		if (arg == next_arg && !(inp_flags & WRITE_BACK) && (next_argw <= SIMM_MAX && next_argw >= SIMM_MIN)) {
-			SLJIT_ASSERT(inp_flags & LOAD_DATA);
-
-			compiler->cache_arg = arg;
-			compiler->cache_argw = 0;
-			tmp_reg = TMP_REG3;
-		}
-
-		FAIL_IF(push_inst(compiler, ADD | D(tmp_reg) | A(arg & 0xf) | B((arg >> 4) & 0xf)));
-#ifdef SLJIT_CONFIG_PPC_64
-		if ((inp_flags & WRITE_BACK) && (inst & UPDATE_REQ)) {
-			if (push_inst(compiler, ADDI | D(tmp_reg) | A(arg & 0xf) | IMM(argw)))
-				return -1;
-			arg = tmp_reg | SLJIT_MEM;
-			argw = 0;
-		}
-#endif
-		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(tmp_reg) | IMM(argw));
 	}
 
 	if (argw == next_argw && (next_arg & SLJIT_MEM)) {
@@ -913,29 +875,14 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		compiler->cache_arg = SLJIT_IMM;
 		compiler->cache_argw = argw;
 
-		TEST_WRITE_BACK();
-		if (arg & 0xf0) {
-			if (inp_flags & WRITE_BACK)
-				FAIL_IF(push_inst(compiler, ADD | D(arg & 0xf) | A(arg & 0xf) | B((arg >> 4) & 0xf)));
-			else {
-				FAIL_IF(push_inst(compiler, ADD | D(tmp_reg) | A(arg & 0xf) | B((arg >> 4) & 0xf)));
-				arg = tmp_reg | SLJIT_MEM;
-			}
-		}
-
 		inst = data_transfer_insts[(inp_flags | INDEXED) & MEM_MASK];
 		SLJIT_ASSERT(!(inst & (ADDR_MODE2 | UPDATE_REQ)));
-
 		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(arg & 0xf) | B(TMP_REG3));
 	}
 
 	if (arg == next_arg && !(inp_flags & WRITE_BACK) && ((sljit_uw)argw - (sljit_uw)next_argw <= SIMM_MAX || (sljit_uw)next_argw - (sljit_uw)argw <= SIMM_MAX)) {
 		SLJIT_ASSERT(inp_flags & LOAD_DATA);
 		FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
-
-		if ((arg & 0xf0) != SLJIT_UNUSED)
-			FAIL_IF(push_inst(compiler, ADD | D(TMP_REG3) | A(TMP_REG3) | B((arg >> 4) & 0xf)));
-
 		FAIL_IF(push_inst(compiler, ADD | D(TMP_REG3) | A(TMP_REG3) | B(arg & 0xf)));
 
 		compiler->cache_arg = arg;
@@ -947,19 +894,9 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 	// Get the indexed version instead of the normal one
 	inst = data_transfer_insts[(inp_flags | INDEXED) & MEM_MASK];
 	SLJIT_ASSERT(!(inst & (ADDR_MODE2 | UPDATE_REQ)));
-
 	FAIL_IF(load_immediate(compiler, tmp_reg, argw));
-
-	if ((arg & 0xf0) != SLJIT_UNUSED)
-		FAIL_IF(push_inst(compiler, ADD | D(tmp_reg) | A(tmp_reg) | B((arg >> 4) & 0xf)));
-
 	return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(arg & 0xf) | B(tmp_reg));
 }
-
-#define ORDER_IND_REGS(arg) \
-	SLJIT_ASSERT(arg & SLJIT_MEM); \
-	if (((arg >> 4) & 0xf) > (arg & 0xf)) \
-		arg = SLJIT_MEM | ((arg << 4) & 0xf0) | ((arg >> 4) & 0xf)
 
 static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	int dst, sljit_w dstw,
@@ -1055,9 +992,6 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	// src1_r, src2_r and dst_r can be zero (=unprocessed)
 	// All arguments are complex addressing modes, and it is a binary operator
 	if (src1_r == 0 && src2_r == 0 && dst_r == 0) {
-		ORDER_IND_REGS(src1);
-		ORDER_IND_REGS(src2);
-		ORDER_IND_REGS(dst);
 		if (!can_cache(src1, src1w, src2, src2w) && can_cache(src1, src1w, dst, dstw)) {
 			FAIL_IF(getput_arg(compiler, inp_flags | LOAD_DATA, TMP_REG2, src2, src2w, src1, src1w));
 			FAIL_IF(getput_arg(compiler, inp_flags | LOAD_DATA, TMP_REG1, src1, src1w, dst, dstw));
@@ -1070,20 +1004,14 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 		src2_r = TMP_REG2;
 	}
 	else if (src1_r == 0 && src2_r == 0) {
-		ORDER_IND_REGS(src1);
-		ORDER_IND_REGS(src2);
 		FAIL_IF(getput_arg(compiler, inp_flags | LOAD_DATA, TMP_REG1, src1, src1w, src2, src2w));
 		src1_r = TMP_REG1;
 	}
 	else if (src1_r == 0 && dst_r == 0) {
-		ORDER_IND_REGS(src1);
-		ORDER_IND_REGS(dst);
 		FAIL_IF(getput_arg(compiler, inp_flags | LOAD_DATA, TMP_REG1, src1, src1w, dst, dstw));
 		src1_r = TMP_REG1;
 	}
 	else if (src2_r == 0 && dst_r == 0) {
-		ORDER_IND_REGS(src2);
-		ORDER_IND_REGS(dst);
 		FAIL_IF(getput_arg(compiler, inp_flags | LOAD_DATA, sugg_src2_r, src2, src2w, dst, dstw));
 		src2_r = sugg_src2_r;
 	}
@@ -1400,34 +1328,32 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
 	// Fast loads and stores
-	if ((arg & 0xf0) == SLJIT_UNUSED) {
+	if (!(arg & 0xf0)) {
 		// Both for (arg & 0xf) == SLJIT_UNUSED and (arg & 0xf) != SLJIT_UNUSED
 		if (argw <= SIMM_MAX && argw >= SIMM_MIN)
 			return push_inst(compiler, (load ? LFD : STFD) | FD(fpu_reg) | A(arg & 0xf) | IMM(argw));
 	}
 
-	if ((arg & 0xf0) != SLJIT_UNUSED && argw == 0)
+	if (arg & 0xf0) {
+		argw &= 0x3;
+		if (argw) {
+#ifdef SLJIT_CONFIG_PPC_32
+			FAIL_IF(push_inst(compiler, RLWINM | S((arg >> 4) & 0xf) | A(TMP_REG2) | (argw << 11) | ((31 - argw) << 1)));
+#else
+			FAIL_IF(push_inst(compiler, RLDI(TMP_REG2, (arg >> 4) & 0xf, argw, 63 - argw, 1)));
+#endif
+			return push_inst(compiler, (load ? LFDX : STFDX) | FD(fpu_reg) | A(arg & 0xf) | B(TMP_REG2));
+		}
 		return push_inst(compiler, (load ? LFDX : STFDX) | FD(fpu_reg) | A(arg & 0xf) | B((arg >> 4) & 0xf));
-
-	ORDER_IND_REGS(arg);
+	}
 
 	// Use cache
 	if (compiler->cache_arg == arg && argw - compiler->cache_argw <= SIMM_MAX && argw - compiler->cache_argw >= SIMM_MIN)
 		return push_inst(compiler, (load ? LFD : STFD) | FD(fpu_reg) | A(TMP_REG3) | IMM(argw - compiler->cache_argw));
 
 	if (compiler->cache_argw == argw) {
-		if ((compiler->cache_arg & 0xf) == SLJIT_UNUSED) {
-			if ((arg & 0xf0) == SLJIT_UNUSED)
-				return push_inst(compiler, (load ? LFDX : STFDX) | FD(fpu_reg) | A(arg & 0xf) | B(TMP_REG3));
-		}
-		else if ((compiler->cache_arg & 0xf0) == SLJIT_UNUSED) {
-			if ((arg & 0xf0) != SLJIT_UNUSED) {
-				if ((compiler->cache_arg & 0xf) == (arg & 0xf))
-					return push_inst(compiler, (load ? LFDX : STFDX) | FD(fpu_reg) | A((arg >> 4) & 0xf) | B(TMP_REG3));
-				if ((compiler->cache_arg & 0xf) == ((arg >> 4) & 0xf))
-					return push_inst(compiler, (load ? LFDX : STFDX) | FD(fpu_reg) | A(arg & 0xf) | B(TMP_REG3));
-			}
-		}
+		if (!(compiler->cache_arg & 0xf))
+			return push_inst(compiler, (load ? LFDX : STFDX) | FD(fpu_reg) | A(arg & 0xf) | B(TMP_REG3));
 	}
 
 	// Put value to cache
@@ -1435,12 +1361,8 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 	compiler->cache_argw = argw;
 
 	FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
-	if ((arg & 0xf) == SLJIT_UNUSED)
+	if (!(arg & 0xf))
 		return push_inst(compiler, (load ? LFDX : STFDX) | FD(fpu_reg) | A(0) | B(TMP_REG3));
-
-	if ((arg & 0xf0) != SLJIT_UNUSED)
-		FAIL_IF(push_inst(compiler, ADD | D(TMP_REG3) | A(TMP_REG3) | B((arg >> 4) & 0xf)));
-
 	return push_inst(compiler, (load ? LFDUX : STFDUX) | FD(fpu_reg) | A(TMP_REG3) | B(arg & 0xf));
 }
 

@@ -1353,7 +1353,7 @@ static void test22(void)
 	// Test simple byte and half-int data transfers
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_w buf[7];
+	sljit_w buf[9];
 	short sbuf[6];
 	signed char bbuf[5];
 
@@ -1365,6 +1365,8 @@ static void test22(void)
 	buf[4] = 0;
 	buf[5] = 0;
 	buf[6] = 0;
+	buf[7] = 0;
+	buf[8] = 0;
 
 	sbuf[0] = 0;
 	sbuf[1] = 0;
@@ -1389,11 +1391,15 @@ static void test22(void)
 	T(sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM1(SLJIT_TEMPORARY_REG2), sizeof(sljit_w), SLJIT_MEM1(SLJIT_TEMPORARY_REG1), sizeof(sljit_w)));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 1));
 	T(sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_TEMPORARY_REG1), SLJIT_WORD_SHIFT, SLJIT_TEMPORARY_REG2, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, sizeof(sljit_w)));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_TEMPORARY_REG1), 0, SLJIT_TEMPORARY_REG2, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 2));
+	T(sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_TEMPORARY_REG1), SLJIT_WORD_SHIFT, SLJIT_TEMPORARY_REG2, 0));
 
 	T(sljit_emit_op1(compiler, SLJIT_MOV_SH, SLJIT_MEM1(SLJIT_GENERAL_REG2), 0, SLJIT_IMM, -13));
 	T(sljit_emit_op1(compiler, SLJIT_MOVU_UH, SLJIT_MEM1(SLJIT_GENERAL_REG2), sizeof(short), SLJIT_IMM, 0x1234));
 	T(sljit_emit_op1(compiler, SLJIT_MOVU_SH, SLJIT_TEMPORARY_REG1, 0, SLJIT_MEM1(SLJIT_GENERAL_REG2), sizeof(short)));
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 5 * sizeof(sljit_w), SLJIT_TEMPORARY_REG1, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 7 * sizeof(sljit_w), SLJIT_TEMPORARY_REG1, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV_UH, SLJIT_MEM1(SLJIT_GENERAL_REG2), sizeof(short), SLJIT_MEM1(SLJIT_GENERAL_REG2), -(int)sizeof(short)));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0xff0000 + 8000));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 2));
@@ -1409,7 +1415,7 @@ static void test22(void)
 	T(sljit_emit_op1(compiler, SLJIT_MOV_SB, SLJIT_GENERAL_REG2, 0, SLJIT_TEMPORARY_REG2, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV_UB, SLJIT_GENERAL_REG2, 0, SLJIT_GENERAL_REG2, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV_SB, SLJIT_TEMPORARY_REG3, 0, SLJIT_GENERAL_REG2, 0));
-	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 6 * sizeof(sljit_w), SLJIT_TEMPORARY_REG3, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), 8 * sizeof(sljit_w), SLJIT_TEMPORARY_REG3, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV_UB, SLJIT_MEM1(SLJIT_GENERAL_REG3), sizeof(char), SLJIT_GENERAL_REG2, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV_UB, SLJIT_MEM2(SLJIT_GENERAL_REG3, SLJIT_TEMPORARY_REG1), 0, SLJIT_TEMPORARY_REG1, 0));
 
@@ -1424,19 +1430,21 @@ static void test22(void)
 	FAILED(buf[2] != 5, "test22 case 2 failed\n");
 	FAILED(buf[3] != -13, "test22 case 3 failed\n");
 	FAILED(buf[4] != (sljit_w)&buf[3], "test22 case 4 failed\n");
-	FAILED(buf[5] != -9, "test22 case 5 failed\n");
-	FAILED(buf[6] != -56, "test22 case 6 failed\n");
+	FAILED(buf[5] != (sljit_w)&buf[4], "test22 case 5 failed\n");
+	FAILED(buf[6] != (sljit_w)&buf[4], "test22 case 6 failed\n");
+	FAILED(buf[7] != -9, "test22 case 7 failed\n");
+	FAILED(buf[8] != -56, "test22 case 8 failed\n");
 
-	FAILED(sbuf[0] != -13, "test22 case 7 failed\n");
-	FAILED(sbuf[1] != 0x1234, "test22 case 8 failed\n");
-	FAILED(sbuf[3] != 0x1234, "test22 case 9 failed\n");
-	FAILED(sbuf[4] != 8000, "test22 case 10 failed\n");
-	FAILED(sbuf[5] != -9317, "test22 case 10 failed\n");
+	FAILED(sbuf[0] != -13, "test22 case 9 failed\n");
+	FAILED(sbuf[1] != 0x1234, "test22 case 10 failed\n");
+	FAILED(sbuf[3] != 0x1234, "test22 case 11 failed\n");
+	FAILED(sbuf[4] != 8000, "test22 case 12 failed\n");
+	FAILED(sbuf[5] != -9317, "test22 case 13 failed\n");
 
-	FAILED(bbuf[0] != -45, "test22 case 11 failed\n");
-	FAILED(bbuf[1] != 0x12, "test22 case 12 failed\n");
-	FAILED(bbuf[3] != -56, "test22 case 13 failed\n");
-	FAILED(bbuf[4] != 2, "test22 case 14 failed\n");
+	FAILED(bbuf[0] != -45, "test22 case 14 failed\n");
+	FAILED(bbuf[1] != 0x12, "test22 case 15 failed\n");
+	FAILED(bbuf[3] != -56, "test22 case 16 failed\n");
+	FAILED(bbuf[4] != 2, "test22 case 17 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test22 ok\n");
