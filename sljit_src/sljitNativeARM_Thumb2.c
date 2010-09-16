@@ -859,23 +859,15 @@ static int emit_op_mem(struct sljit_compiler *compiler, int flags, int dst, int 
 			update = 1;
 	}
 
-	if (!base) {
+	if (SLJIT_UNLIKELY(!base)) {
 		FAIL_IF(load_immediate(compiler, TMP_REG2, offset));
 		offset = 0;
 		base = TMP_REG2;
 	}
 
-	if (!update) {
-		if (high_reg && offset) {
-			if (emit_set_delta(compiler, TMP_REG2, high_reg, offset)) {
-				FAIL_IF(compiler->error);
-				FAIL_IF(load_immediate(compiler, TMP_REG2, offset));
-				FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(TMP_REG2, high_reg)));
-			}
-			offset = 0;
-			high_reg = TMP_REG2;
-		}
-
+	if (SLJIT_UNLIKELY(high_reg))
+		offset &= 0x3;
+	else if (!update) {
 		tmp = (sljit_w)offset;
 		if (tmp > 0xfff || tmp < -0xff) {
 			if (tmp > 0)
@@ -897,20 +889,13 @@ static int emit_op_mem(struct sljit_compiler *compiler, int flags, int dst, int 
 	else {
 		tmp = (sljit_w)offset;
 		if (base == dst) {
-			if (tmp > 0xfff || tmp < -0xff || (high_reg && tmp)) {
+			if (tmp > 0xfff || tmp < -0xff) {
 				FAIL_IF(load_immediate(compiler, TMP_REG2, tmp));
-				if (high_reg)
-					FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(TMP_REG2, high_reg)));
 				offset = 0;
 				high_reg = TMP_REG2;
 			}
 		}
 		else {
-			if (high_reg && tmp) {
-				FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(base, high_reg)));
-				high_reg = 0;
-			}
-
 			if (tmp > 0xfff || tmp < -0xff) {
 				if (tmp > 0)
 					tmp &= ~0xff;
@@ -920,8 +905,8 @@ static int emit_op_mem(struct sljit_compiler *compiler, int flags, int dst, int 
 				if (emit_set_delta(compiler, base, base, tmp)) {
 					FAIL_IF(compiler->error);
 					FAIL_IF(load_immediate(compiler, TMP_REG2, offset));
-					high_reg = TMP_REG2;
 					offset = 0;
+					high_reg = TMP_REG2;
 				}
 				else
 					offset -= tmp;
@@ -930,14 +915,29 @@ static int emit_op_mem(struct sljit_compiler *compiler, int flags, int dst, int 
 	}
 
 	if (SLJIT_UNLIKELY(high_reg)) {
-		SLJIT_ASSERT(offset == 0);
-		if (IS_3_LO_REGS(dst, base, high_reg))
-			FAIL_IF(push_inst16(compiler, sljit_mem16[flags] | RD3(dst) | RN3(base) | RM3(high_reg)));
-		else
-			FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | RT4(dst) | RN4(base) | RM4(high_reg)));
-		if (SLJIT_UNLIKELY(update))
-			return push_inst16(compiler, ADD | SET_REGS44(base, high_reg));
-		return SLJIT_SUCCESS;
+		SLJIT_ASSERT(!(offset & ~0x3));
+		if (SLJIT_UNLIKELY(update) && dst != base) {
+			if (!offset)
+				FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(base, high_reg)));
+			else
+				FAIL_IF(push_inst32(compiler, ADD_W | RD4(base) | RN4(base) | RM4(high_reg) | (offset << 6)));
+			high_reg = 0;
+			offset = 0;
+			update = 0;
+		}
+		else {
+			if (!offset && IS_3_LO_REGS(dst, base, high_reg))
+				FAIL_IF(push_inst16(compiler, sljit_mem16[flags] | RD3(dst) | RN3(base) | RM3(high_reg)));
+			else
+				FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | RT4(dst) | RN4(base) | RM4(high_reg) | (offset << 4)));
+
+			if (SLJIT_UNLIKELY(update)) {
+				if (!offset)
+					return push_inst16(compiler, ADD | SET_REGS44(base, high_reg));
+				return push_inst32(compiler, ADD_W | RD4(base) | RN4(base) | RM4(high_reg) | (offset << 6));
+			}
+			return SLJIT_SUCCESS;
+		}
 	}
 
 	// Thumb 16 bit encodings
@@ -1002,8 +1002,9 @@ static int emit_fop_mem(struct sljit_compiler *compiler, int flags, int dst, int
 		}
 	} else {
 		base &= ~SLJIT_MEM;
-		FAIL_IF(push_inst32(compiler, ADD_W | RD4(TMP_REG2) | RN4(base & 0xf) | RM4(base >> 4)));
+		FAIL_IF(push_inst32(compiler, ADD_W | RD4(TMP_REG2) | RN4(base & 0xf) | RM4(base >> 4) | ((offset & 0x3) << 6)));
 		base = TMP_REG2;
+		offset = 0;
 	}
 
 	tmp = offset;
