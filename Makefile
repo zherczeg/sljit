@@ -28,7 +28,7 @@ all: $(BINDIR) $(TARGET)
 $(BINDIR) :
 	mkdir $(BINDIR)
 
-$(BINDIR)/sljitLir.o : $(addprefix $(SRCDIR)/, sljitLir.c sljitLir.h sljitConfig.h sljitExecAllocator.c sljitNativeX86_common.c sljitNativeX86_32.c sljitNativeX86_64.c sljitNativeARM_v5.c sljitNativeARM_Thumb2.c sljitNativePPC_common.c sljitNativePPC_32.c sljitNativePPC_64.c) $(BINDIR)
+$(BINDIR)/sljitLir.o : $(addprefix $(SRCDIR)/, sljitLir.c sljitLir.h sljitConfig.h sljitExecAllocator.c sljitNativeX86_common.c sljitNativeX86_32.c sljitNativeX86_64.c sljitNativeARM_v5.c sljitNativeARM_Thumb2.c sljitNativePPC_common.c sljitNativePPC_32.c sljitNativePPC_64.c sljitNativeMIPS_common.c sljitNativeMIPS_32.c) $(BINDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(BINDIR)/sljitMain.o : $(TESTDIR)/sljitMain.c $(BINDIR) $(SRCDIR)/sljitLir.h $(SRCDIR)/sljitConfig.h

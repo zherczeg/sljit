@@ -98,14 +98,7 @@
 	#define IS_BL		0x4
 	#define PATCH_B		0x8
 
-#define CPOOL_SIZE	512
-#define LIT_NONE	0
-// Normal instruction
-#define LIT_INS		1
-// Instruction with a constant
-#define LIT_CINS	2
-// Instruction with a unique constant
-#define LIT_UCINS	3
+	#define CPOOL_SIZE	512
 #endif
 
 #if defined(SLJIT_CONFIG_ARM_THUMB2)
@@ -657,6 +650,8 @@ static char* jump_names[] = {
 	#include "sljitNativePPC_common.c"
 #elif defined(SLJIT_CONFIG_PPC_64)
 	#include "sljitNativePPC_common.c"
+#elif defined(SLJIT_CONFIG_MIPS_32)
+	#include "sljitNativeMIPS_common.c"
 #endif
 
 #else /* SLJIT_CONFIG_UNSUPPORTED */
