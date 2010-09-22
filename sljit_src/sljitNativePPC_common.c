@@ -49,8 +49,6 @@ typedef unsigned int sljit_i;
 // ---------------------------------------------------------------------
 //  Instrucion forms
 // ---------------------------------------------------------------------
-// The instruction includes the AL condition
-// INST_NAME - CONDITIONAL remove this flag
 #define D(d)		(reg_map[d] << 21)
 #define S(s)		(reg_map[s] << 21)
 #define A(a)		(reg_map[a] << 16)
@@ -355,7 +353,61 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 #endif
 }
 
-static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm);
+// inp_flags:
+
+// Creates an index in data_transfer_insts array
+#define WORD_DATA	0x00
+#define BYTE_DATA	0x01
+#define HALF_DATA	0x02
+#define INT_DATA	0x03
+#define SIGNED_DATA	0x04
+#define LOAD_DATA	0x08
+#define WRITE_BACK	0x10
+#define INDEXED		0x20
+
+#define MEM_MASK	0x3f
+
+// Other inp_flags
+
+#define ARG_TEST	0x0100
+#define ALT_FORM1	0x0200
+#define ALT_FORM2	0x0400
+#define ALT_FORM3	0x0800
+#define ALT_FORM4	0x1000
+// integer opertion and set flags -> requires exts on 64 bit systems
+#define ALT_SIGN_EXT	0x2000
+// this flag affects the R() and OR() macros
+#define ALT_SET_FLAGS	0x4000
+
+  // Source and destination is register
+#define REG_DEST	0x0001
+#define REG1_SOURCE	0x0002
+#define REG2_SOURCE	0x0004
+  // getput_arg_fast returned true
+#define FAST_DEST	0x0008
+  // Multiple instructions are required
+#define SLOW_DEST	0x0010
+// ALT_FORM1		0x0200
+// ALT_FORM2		0x0400
+// ALT_FORM3		0x0800
+// ALT_FORM4		0x1000
+// ALT_SIGN_EXT		0x2000
+// ALT_SET_FLAGS	0x4000
+
+#ifdef SLJIT_CONFIG_PPC_32
+#include "sljitNativePPC_32.c"
+#else
+#include "sljitNativePPC_64.c"
+#endif
+
+#ifdef SLJIT_CONFIG_PPC_32
+#define STACK_STORE	STW
+#define STACK_LOAD	LWZ
+#else
+#define STACK_STORE	STD
+#define STACK_LOAD	LD
+#endif
+
 static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	int dst, sljit_w dstw,
 	int src1, sljit_w src1w,
@@ -377,35 +429,19 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	compiler->generals = generals;
 
 	FAIL_IF(push_inst(compiler, MFLR | D(0)));
-#ifdef SLJIT_CONFIG_PPC_32
-	FAIL_IF(push_inst(compiler, STW | S(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(-(int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, STW | S(ZERO_REG) | A(REAL_STACK_PTR) | IMM(-2 * (int)(sizeof(sljit_w))) ));
+	FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(-(int)(sizeof(sljit_w))) ));
+	FAIL_IF(push_inst(compiler, STACK_STORE | S(ZERO_REG) | A(REAL_STACK_PTR) | IMM(-2 * (int)(sizeof(sljit_w))) ));
 	if (generals >= 1)
-		FAIL_IF(push_inst(compiler, STW | S(SLJIT_GENERAL_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_GENERAL_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
 	if (generals >= 2)
-		FAIL_IF(push_inst(compiler, STW | S(SLJIT_GENERAL_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_GENERAL_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
 	if (generals >= 3)
-		FAIL_IF(push_inst(compiler, STW | S(SLJIT_GENERAL_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_GENERAL_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
 	if (generals >= 4)
-		FAIL_IF(push_inst(compiler, STW | S(SLJIT_GENERAL_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_GENERAL_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
 	if (generals >= 5)
-		FAIL_IF(push_inst(compiler, STW | S(SLJIT_GENERAL_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, STW | S(0) | A(REAL_STACK_PTR) | IMM(sizeof(sljit_w)) ));
-#else
-	FAIL_IF(push_inst(compiler, STD | S(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(-(int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, STD | S(ZERO_REG) | A(REAL_STACK_PTR) | IMM(-2 * (int)(sizeof(sljit_w))) ));
-	if (generals >= 1)
-		FAIL_IF(push_inst(compiler, STD | S(SLJIT_GENERAL_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
-	if (generals >= 2)
-		FAIL_IF(push_inst(compiler, STD | S(SLJIT_GENERAL_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
-	if (generals >= 3)
-		FAIL_IF(push_inst(compiler, STD | S(SLJIT_GENERAL_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
-	if (generals >= 4)
-		FAIL_IF(push_inst(compiler, STD | S(SLJIT_GENERAL_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
-	if (generals >= 5)
-		FAIL_IF(push_inst(compiler, STD | S(SLJIT_GENERAL_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, STD | S(0)| A(REAL_STACK_PTR) | IMM(2 * sizeof(sljit_w)) ));
-#endif
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_GENERAL_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
+	FAIL_IF(push_inst(compiler, STACK_STORE | S(0) | A(REAL_STACK_PTR) | IMM(sizeof(sljit_w)) ));
 
 	FAIL_IF(push_inst(compiler, ADDI | D(ZERO_REG) | A(0) | 0));
 	if (args >= 1)
@@ -487,35 +523,19 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 		FAIL_IF(push_inst(compiler, ADD | D(REAL_STACK_PTR) | A(REAL_STACK_PTR) | B(0)));
 	}
 
-#ifdef SLJIT_CONFIG_PPC_32
-	FAIL_IF(push_inst(compiler, LWZ | D(0) | A(REAL_STACK_PTR) | IMM(sizeof(sljit_w))));
+	FAIL_IF(push_inst(compiler, STACK_LOAD | D(0) | A(REAL_STACK_PTR) | IMM(sizeof(sljit_w))));
 	if (compiler->generals >= 5)
-		FAIL_IF(push_inst(compiler, LWZ | D(SLJIT_GENERAL_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_GENERAL_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
 	if (compiler->generals >= 4)
-		FAIL_IF(push_inst(compiler, LWZ | D(SLJIT_GENERAL_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_GENERAL_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
 	if (compiler->generals >= 3)
-		FAIL_IF(push_inst(compiler, LWZ | D(SLJIT_GENERAL_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_GENERAL_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
 	if (compiler->generals >= 2)
-		FAIL_IF(push_inst(compiler, LWZ | D(SLJIT_GENERAL_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_GENERAL_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
 	if (compiler->generals >= 1)
-		FAIL_IF(push_inst(compiler, LWZ | D(SLJIT_GENERAL_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, LWZ | D(ZERO_REG) | A(REAL_STACK_PTR) | IMM(-2 * (int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, LWZ | D(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(-(int)(sizeof(sljit_w))) ));
-#else
-	FAIL_IF(push_inst(compiler, LD | D(0) | A(REAL_STACK_PTR) | IMM(2 * sizeof(sljit_w))));
-	if (compiler->generals >= 5)
-		FAIL_IF(push_inst(compiler, LD | D(SLJIT_GENERAL_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
-	if (compiler->generals >= 4)
-		FAIL_IF(push_inst(compiler, LD | D(SLJIT_GENERAL_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
-	if (compiler->generals >= 3)
-		FAIL_IF(push_inst(compiler, LD | D(SLJIT_GENERAL_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
-	if (compiler->generals >= 2)
-		FAIL_IF(push_inst(compiler, LD | D(SLJIT_GENERAL_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
-	if (compiler->generals >= 1)
-		FAIL_IF(push_inst(compiler, LD | D(SLJIT_GENERAL_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, LD | D(ZERO_REG) | A(REAL_STACK_PTR) | IMM(-2 * (int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, LD | D(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(-(int)(sizeof(sljit_w))) ));
-#endif
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_GENERAL_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
+	FAIL_IF(push_inst(compiler, STACK_LOAD | D(ZERO_REG) | A(REAL_STACK_PTR) | IMM(-2 * (int)(sizeof(sljit_w))) ));
+	FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(-(int)(sizeof(sljit_w))) ));
 
 	FAIL_IF(push_inst(compiler, MTLR | S(0)));
 	FAIL_IF(push_inst(compiler, BLR));
@@ -523,35 +543,12 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	return SLJIT_SUCCESS;
 }
 
+#undef STACK_STORE
+#undef STACK_LOAD
+
 // ---------------------------------------------------------------------
 //  Operators
 // ---------------------------------------------------------------------
-
-// inp_flags:
-
-// Creates an index in data_transfer_insts array
-#define WORD_DATA	0x00
-#define BYTE_DATA	0x01
-#define HALF_DATA	0x02
-#define INT_DATA	0x03
-#define SIGNED_DATA	0x04
-#define LOAD_DATA	0x08
-#define WRITE_BACK	0x10
-#define INDEXED		0x20
-
-#define MEM_MASK	0x3f
-
-// Other inp_flags
-
-#define ARG_TEST	0x0100
-#define ALT_FORM1	0x0200
-#define ALT_FORM2	0x0400
-#define ALT_FORM3	0x0800
-#define ALT_FORM4	0x1000
-// integer opertion and set flags -> requires exts on 64 bit systems
-#define ALT_SIGN_EXT	0x2000
-// this flag affects the R() and OR() macros
-#define ALT_SET_FLAGS	0x4000
 
 // i/x - immediate/indexed form
 // n/w - no write-back / write-back (1 bit)
@@ -572,7 +569,6 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 #define ARCH_DEPEND(a, b)	b
 #define GET_INST_CODE(index)	((inst) & ~(ADDR_MODE2 | UPDATE_REQ))
 #endif
-
 
 static SLJIT_CONST sljit_i data_transfer_insts[64] = {
 
@@ -671,27 +667,6 @@ static SLJIT_CONST sljit_i data_transfer_insts[64] = {
 };
 
 #undef ARCH_DEPEND
-
-  // Source and destination is register
-#define REG_DEST	0x0001
-#define REG1_SOURCE	0x0002
-#define REG2_SOURCE	0x0004
-  // getput_arg_fast returned true
-#define FAST_DEST	0x0008
-  // Multiple instructions are required
-#define SLOW_DEST	0x0010
-// ALT_FORM1		0x0200
-// ALT_FORM2		0x0400
-// ALT_FORM3		0x0800
-// ALT_FORM4		0x1000
-// ALT_SIGN_EXT		0x2000
-// ALT_SET_FLAGS	0x4000
-
-#ifdef SLJIT_CONFIG_PPC_32
-#include "sljitNativePPC_32.c"
-#else
-#include "sljitNativePPC_64.c"
-#endif
 
 // Simple cases, (no caching is required)
 static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int reg, int arg, sljit_w argw)

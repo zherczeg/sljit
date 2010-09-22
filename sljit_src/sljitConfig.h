@@ -40,6 +40,7 @@
 //#define SLJIT_CONFIG_ARM_THUMB2
 //#define SLJIT_CONFIG_PPC_32
 //#define SLJIT_CONFIG_PPC_64
+//#define SLJIT_CONFIG_MIPS_32
 
 // Auto select option (requires compiler support)
 #ifdef SLJIT_CONFIG_AUTO
@@ -55,6 +56,8 @@
 #define SLJIT_CONFIG_PPC_64
 #elif defined(__ppc__) || defined(__powerpc__)
 #define SLJIT_CONFIG_PPC_32
+#elif (__mips__)
+#define SLJIT_CONFIG_MIPS_32
 #else
 /* Unsupported machine */
 #define SLJIT_CONFIG_UNSUPPORTED
