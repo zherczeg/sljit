@@ -43,8 +43,8 @@ typedef unsigned int sljit_i;
 #define ZERO_REG	(SLJIT_NO_REGISTERS + 4)
 #define REAL_STACK_PTR	(SLJIT_NO_REGISTERS + 5)
 
-#define TMP_FREG1       (SLJIT_FLOAT_REG4 + 1)
-#define TMP_FREG2       (SLJIT_FLOAT_REG4 + 2)
+#define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
+#define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
 
 // ---------------------------------------------------------------------
 //  Instrucion forms
@@ -60,14 +60,12 @@ typedef unsigned int sljit_i;
 #define FC(fc)		((fc) << 6)
 #define IMM(imm)	((imm) & 0xffff)
 #define CRD(d)		((d) << 21)
-#define CRA(a)		((a) << 16)
-#define CRB(b)		((b) << 11)
 
 // Instruction bit sections
 // OE and Rc flag (see ALT_SET_FLAGS)
-#define OERC(flags)		(((flags & ALT_SET_FLAGS) >> 14) | ((flags & ALT_SET_FLAGS) >> 4))
+#define OERC(flags)	(((flags & ALT_SET_FLAGS) >> 14) | ((flags & ALT_SET_FLAGS) >> 4))
 // Rc flag (see ALT_SET_FLAGS)
-#define RC(flags)		((flags & ALT_SET_FLAGS) >> 14)
+#define RC(flags)	((flags & ALT_SET_FLAGS) >> 14)
 #define HI(opcode)	((opcode) << 26)
 #define LO(opcode)	((opcode) << 1)
 
@@ -892,7 +890,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	compiler->cache_argw = 0;
 
 	// Destination check
-	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REG3) {
+	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= ZERO_REG) {
 		dst_r = dst;
 		flags |= REG_DEST;
 		if (op >= SLJIT_MOV && op <= SLJIT_MOVU_SI)
@@ -916,7 +914,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	}
 
 	// Source 1
-	if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= TMP_REG3) {
+	if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= ZERO_REG) {
 		src1_r = src1;
 		flags |= REG1_SOURCE;
 	}
@@ -939,7 +937,8 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	else
 		src1_r = 0;
 
-	if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= TMP_REG3) {
+	// Source 2
+	if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= ZERO_REG) {
 		src2_r = src2;
 		flags |= REG2_SOURCE;
 		if (!(flags & REG_DEST) && op >= SLJIT_MOV && op <= SLJIT_MOVU_SI)
@@ -1048,6 +1047,9 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 #endif
 	sljit_emit_op1_verbose();
 
+	if ((src & SLJIT_IMM) && srcw == 0)
+		src = ZERO_REG;
+
 #ifdef SLJIT_CONFIG_PPC_64
 	if (op & SLJIT_INT_OP) {
 		inp_flags |= INT_DATA | SIGNED_DATA;
@@ -1145,6 +1147,11 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
 	sljit_emit_op2_verbose();
+
+	if ((src1 & SLJIT_IMM) && src1w == 0)
+		src1 = ZERO_REG;
+	if ((src2 & SLJIT_IMM) && src2w == 0)
+		src2 = ZERO_REG;
 
 #ifdef SLJIT_CONFIG_PPC_64
 	if (op & SLJIT_INT_OP) {
