@@ -227,6 +227,10 @@ struct sljit_compiler {
 	sljit_w cache_argw;
 #endif
 
+#if defined(SLJIT_CONFIG_MIPS_32)
+	int last_dest_reg;
+#endif
+
 #ifdef SLJIT_VERBOSE
 	FILE* verbose;
 #endif
@@ -326,6 +330,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 //  - overflow flag
 //  - zero flag
 //  - negative/positive flag (depends on arc)
+// On mips, these flags are emulated by software
 
 // By default, the instructions may, or may not set the CPU status flags
 // Forcing to set or keep status flags can be done with the following flags:
@@ -406,11 +411,11 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 
 // Flags: I | E | O | C | K
 #define SLJIT_ADD			17
-// Flags: I | E | O | C | K
+// Flags: I | C | K
 #define SLJIT_ADDC			18
 // Flags: I | E | S | U | O | C | K
 #define SLJIT_SUB			19
-// Flags: I | E | S | U | O | C | K
+// Flags: I | C | K
 #define SLJIT_SUBC			20
 // Note: integer mul
 // Flags: I | O (see SLJIT_C_MUL_*) | K

@@ -126,6 +126,11 @@
 	#define ABSOLUTE_B	0x10
 #endif
 
+#if defined(SLJIT_CONFIG_MIPS_32)
+	#define UNMOVABLE_INS	0x0
+	#define MOVABLE_INS	0x32
+#endif
+
 #ifdef SLJIT_EXECUTABLE_ALLOCATOR
 #include "sljitExecAllocator.c"
 #endif
@@ -203,6 +208,10 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->cpool_diff = 0xffffffff;
 	compiler->cpool_fill = 0;
 	compiler->patches = 0;
+#endif
+
+#if defined(SLJIT_CONFIG_MIPS_32)
+	compiler->last_dest_reg = UNMOVABLE_INS;
 #endif
 
 #ifdef SLJIT_VERBOSE
@@ -363,11 +372,13 @@ static void reverse_buf(struct sljit_compiler *compiler)
 		SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_SET_S))); \
 		break; \
 	case SLJIT_ADD: \
-	case SLJIT_ADDC: \
 		SLJIT_ASSERT(!(op & (SLJIT_SET_S | SLJIT_SET_U))); \
 		break; \
 	case SLJIT_SUB: \
+		break; \
+	case SLJIT_ADDC: \
 	case SLJIT_SUBC: \
+		SLJIT_ASSERT(!(op & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O))); \
 		break; \
 	default: \
 		/* Nothing allowed */ \
