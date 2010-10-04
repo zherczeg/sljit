@@ -130,6 +130,7 @@ typedef unsigned short sljit_uh;
 #define MVNS		0x43c0
 #define MVN_W		0xea6f0000
 #define MVN_WI		0xf06f0000
+#define NOP		0xbf00
 #define ORNI		0xf0600000
 #define ORRI		0xf0400000
 #define ORRS		0x4300
@@ -1170,13 +1171,16 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 {
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_DEBUGGER);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_NOP);
 	sljit_emit_op0_verbose();
 
 	op = GET_OPCODE(op);
 	switch (op) {
 	case SLJIT_DEBUGGER:
 		push_inst16(compiler, BKPT);
+		break;
+	case SLJIT_NOP:
+		push_inst16(compiler, NOP);
 		break;
 	}
 

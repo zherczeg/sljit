@@ -1626,13 +1626,16 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 {
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_DEBUGGER);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_NOP);
 	sljit_emit_op0_verbose();
 
 	op = GET_OPCODE(op);
 	switch (op) {
 	case SLJIT_DEBUGGER:
 		EMIT_INSTRUCTION(DEBUGGER);
+		break;
+	case SLJIT_NOP:
+		EMIT_INSTRUCTION(NOP);
 		break;
 	}
 

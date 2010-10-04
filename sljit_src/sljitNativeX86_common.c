@@ -443,7 +443,7 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_DEBUGGER);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_NOP);
 	sljit_emit_op0_verbose();
 
 	op = GET_OPCODE(op);
@@ -453,6 +453,12 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 		FAIL_IF(!buf);
 		INC_SIZE(1);
 		*buf = 0xcc;
+		break;
+	case SLJIT_NOP:
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+		FAIL_IF(!buf);
+		INC_SIZE(1);
+		*buf = 0x90;
 		break;
 	}
 
