@@ -98,51 +98,51 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	if (generals >= 2)
 		size += generals - 1;
 	size += args * 3;
-	if (size == 0)
-		return SLJIT_SUCCESS;
-	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
-	FAIL_IF(!buf);
+	if (size > 0) {
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
+		FAIL_IF(!buf);
 
-	INC_SIZE(size);
-	if (generals > 4) {
-		SLJIT_ASSERT(reg_map[SLJIT_GENERAL_EREG2] >= 8);
-		*buf++ = REX_B;
-		PUSH_REG(reg_lmap[SLJIT_GENERAL_EREG2]);
-	}
-	if (generals > 3) {
-		SLJIT_ASSERT(reg_map[SLJIT_GENERAL_EREG1] >= 8);
-		*buf++ = REX_B;
-		PUSH_REG(reg_lmap[SLJIT_GENERAL_EREG1]);
-	}
-	if (generals > 2) {
-		SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG3] >= 8);
-		*buf++ = REX_B;
-		PUSH_REG(reg_lmap[SLJIT_GENERAL_REG3]);
-	}
-	if (generals > 1) {
-		SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG2] >= 8);
-		*buf++ = REX_B;
-		PUSH_REG(reg_lmap[SLJIT_GENERAL_REG2]);
-	}
-	if (generals > 0) {
-		SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG1] < 8);
-		PUSH_REG(reg_map[SLJIT_GENERAL_REG1]);
-	}
+		INC_SIZE(size);
+		if (generals > 4) {
+			SLJIT_ASSERT(reg_map[SLJIT_GENERAL_EREG2] >= 8);
+			*buf++ = REX_B;
+			PUSH_REG(reg_lmap[SLJIT_GENERAL_EREG2]);
+		}
+		if (generals > 3) {
+			SLJIT_ASSERT(reg_map[SLJIT_GENERAL_EREG1] >= 8);
+			*buf++ = REX_B;
+			PUSH_REG(reg_lmap[SLJIT_GENERAL_EREG1]);
+		}
+		if (generals > 2) {
+			SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG3] >= 8);
+			*buf++ = REX_B;
+			PUSH_REG(reg_lmap[SLJIT_GENERAL_REG3]);
+		}
+		if (generals > 1) {
+			SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG2] >= 8);
+			*buf++ = REX_B;
+			PUSH_REG(reg_lmap[SLJIT_GENERAL_REG2]);
+		}
+		if (generals > 0) {
+			SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG1] < 8);
+			PUSH_REG(reg_map[SLJIT_GENERAL_REG1]);
+		}
 
-	if (args > 0) {
-		*buf++ = REX_W;
-		*buf++ = 0x8b;
-		*buf++ = 0xc0 | (reg_map[SLJIT_GENERAL_REG1] << 3) | 0x7;
-	}
-	if (args > 1) {
-		*buf++ = REX_W | REX_R;
-		*buf++ = 0x8b;
-		*buf++ = 0xc0 | (reg_lmap[SLJIT_GENERAL_REG2] << 3) | 0x6;
-	}
-	if (args > 2) {
-		*buf++ = REX_W | REX_R;
-		*buf++ = 0x8b;
-		*buf++ = 0xc0 | (reg_lmap[SLJIT_GENERAL_REG3] << 3) | 0x2;
+		if (args > 0) {
+			*buf++ = REX_W;
+			*buf++ = 0x8b;
+			*buf++ = 0xc0 | (reg_map[SLJIT_GENERAL_REG1] << 3) | 0x7;
+		}
+		if (args > 1) {
+			*buf++ = REX_W | REX_R;
+			*buf++ = 0x8b;
+			*buf++ = 0xc0 | (reg_lmap[SLJIT_GENERAL_REG2] << 3) | 0x6;
+		}
+		if (args > 2) {
+			*buf++ = REX_W | REX_R;
+			*buf++ = 0x8b;
+			*buf++ = 0xc0 | (reg_lmap[SLJIT_GENERAL_REG3] << 3) | 0x2;
+		}
 	}
 
 	local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);

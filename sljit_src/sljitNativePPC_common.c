@@ -112,6 +112,7 @@ typedef unsigned int sljit_i;
 #define MULLI		(HI(7))
 #define MULLW		(HI(31) | LO(235))
 #define NEG		(HI(31) | LO(104))
+#define NOP		(HI(24))
 #define NOR		(HI(31) | LO(124))
 #define OR		(HI(31) | LO(444))
 #define ORI		(HI(24))
@@ -1018,12 +1019,14 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 {
 	FUNCTION_ENTRY();
 
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_DEBUGGER);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_NOP);
 	sljit_emit_op0_verbose();
 
 	op = GET_OPCODE(op);
 	switch (op) {
 	case SLJIT_DEBUGGER:
+	case SLJIT_NOP:
+		return push_inst(compiler, NOP);
 		break;
 	}
 

@@ -79,9 +79,6 @@
 #define BUF_SIZE	2048
 #define ABUF_SIZE	512
 
-// Max local_size. This could be increased if it is really necessary.
-#define SLJIT_MAX_LOCAL_SIZE	65536
-
 // Jump flags
 #define JUMP_LABEL	0x1
 #define JUMP_ADDR	0x2
@@ -535,12 +532,12 @@ static char* freg_names[] = {
 
 static SLJIT_CONST char* op_names[] = {
 	// op0
-	(char*)"debugger",
+	(char*)"debugger", (char*)"nop",
 	// op1
-	(char*)"mov", (char*)"mov_ub", (char*)"mov_sb", (char*)"mov_uh",
-	(char*)"mov_sh", (char*)"mov_ui", (char*)"mov_si", (char*)"movu",
-	(char*)"movu_ub", (char*)"movu_sb", (char*)"movu_uh", (char*)"movu_sh",
-	(char*)"movu_ui", (char*)"movu_si", (char*)"not", (char*)"neg",
+	(char*)"mov", (char*)"mov.ub", (char*)"mov.sb", (char*)"mov.uh",
+	(char*)"mov.sh", (char*)"mov.ui", (char*)"mov.si", (char*)"movu",
+	(char*)"movu.ub", (char*)"movu.sb", (char*)"movu.uh", (char*)"movu.sh",
+	(char*)"movu.ui", (char*)"movu.si", (char*)"not", (char*)"neg",
 	// op2
 	(char*)"add", (char*)"addc", (char*)"sub", (char*)"subc",
 	(char*)"mul", (char*)"and", (char*)"or", (char*)"xor",

@@ -208,7 +208,7 @@ static void test3(void)
 
 static void test4(void)
 {
-	// Test not
+	// Test neg
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[4];
@@ -1253,6 +1253,8 @@ static void test20(void)
 	// Test stack
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
+	struct sljit_jump* jump;
+	struct sljit_label* label;
 	sljit_w buf[5];
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -1272,7 +1274,7 @@ static void test20(void)
 	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_GENERAL_REG1), 3 * sizeof(sljit_uw), SLJIT_MEM2(SLJIT_LOCALS_REG, SLJIT_TEMPORARY_REG1), SLJIT_WORD_SHIFT, SLJIT_MEM1(SLJIT_LOCALS_REG), 0));
 
 	T(sljit_emit_return(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), 4 * sizeof(sljit_uw)));
-	// Dummy codes
+	// Dummy last instructions
 	TP(sljit_emit_const(compiler, SLJIT_TEMPORARY_REG1, 0, -9));
 	TP(sljit_emit_label(compiler));
 
@@ -1284,8 +1286,29 @@ static void test20(void)
 
 	FAILED(buf[2] != 5, "test20 case 2 failed\n");
 	FAILED(buf[3] != 17, "test20 case 3 failed\n");
-
 	sljit_free_code(code.code);
+
+	compiler = sljit_create_compiler();
+	T(sljit_emit_enter(compiler, 0, 3, 0, SLJIT_MAX_LOCAL_SIZE));
+
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, SLJIT_MAX_LOCAL_SIZE - sizeof(sljit_w)));
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG2, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, sizeof(sljit_w)));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, -1));
+	label = sljit_emit_label(compiler); TP(label);
+	T(sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM1(SLJIT_TEMPORARY_REG2), sizeof(sljit_w), SLJIT_TEMPORARY_REG3, 0));
+	T(sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, SLJIT_TEMPORARY_REG2, 0, SLJIT_TEMPORARY_REG1, 0));
+	jump = sljit_emit_jump(compiler, SLJIT_C_NOT_EQUAL); TP(jump);
+	sljit_set_label(jump, label);
+
+	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	// Just survive this code
+	code.func0();
+
 	printf("test20 ok\n");
 	successful_tests++;
 }
@@ -1790,9 +1813,11 @@ static void test27(void)
 	// 0x100100000 on 64 bit machines, 0x100000 on 32 bit machines
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 0x800000));
 	T(sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_U, SLJIT_UNUSED, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG2, 0));
+	T(sljit_emit_op0(compiler, SLJIT_NOP)); // Nop should keep the flags
 	SET_NEXT_BYTE(SLJIT_C_GREATER);
 	SET_NEXT_BYTE(SLJIT_C_LESS);
 	T(sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_INT_OP | SLJIT_SET_U, SLJIT_UNUSED, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG2, 0));
+	T(sljit_emit_op0(compiler, SLJIT_NOP)); // Nop should keep the flags
 	SET_NEXT_BYTE(SLJIT_C_GREATER);
 	SET_NEXT_BYTE(SLJIT_C_LESS);
 
