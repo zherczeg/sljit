@@ -512,7 +512,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	sljit_emit_return_verbose();
 
 	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
-		FAIL_IF(emit_op(compiler, SLJIT_MOV, 0 /* WORD_DATA */, SLJIT_PREF_RET_REG, 0, TMP_REG1, 0, src, srcw));
+		FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, SLJIT_PREF_RET_REG, 0, TMP_REG1, 0, src, srcw));
 
 	if (compiler->local_size <= SIMM_MAX)
 		FAIL_IF(push_inst(compiler, ADDI | D(REAL_STACK_PTR) | A(REAL_STACK_PTR) | IMM(compiler->local_size)));
@@ -812,7 +812,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(tmp_reg));
 	}
 
-	if (arg & 0xf0) {
+	if (SLJIT_UNLIKELY(arg & 0xf0)) {
 		argw &= 0x3;
 		// Otherwise getput_arg_fast would capture it
 		SLJIT_ASSERT(argw);
@@ -1235,7 +1235,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 		return emit_op(compiler, SLJIT_SUB, inp_flags | (!(op & SLJIT_SET_U) ? 0 : ALT_FORM4), dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_SUBC:
-		return emit_op(compiler, SLJIT_SUBC, inp_flags | (!(op & SLJIT_SET_U) ? 0 : ALT_FORM4) | (!(op & SLJIT_KEEP_FLAGS) ? 0 : ALT_FORM1), dst, dstw, src1, src1w, src2, src2w);
+		return emit_op(compiler, SLJIT_SUBC, inp_flags | (!(op & SLJIT_KEEP_FLAGS) ? 0 : ALT_FORM1), dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_MUL:
 #ifdef SLJIT_CONFIG_PPC_64
@@ -1333,11 +1333,6 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 	if (compiler->cache_arg == arg && argw - compiler->cache_argw <= SIMM_MAX && argw - compiler->cache_argw >= SIMM_MIN)
 		return push_inst(compiler, (load ? LFD : STFD) | FD(fpu_reg) | A(TMP_REG3) | IMM(argw - compiler->cache_argw));
 
-	if (compiler->cache_argw == argw) {
-		if (!(compiler->cache_arg & 0xf))
-			return push_inst(compiler, (load ? LFDX : STFDX) | FD(fpu_reg) | A(arg & 0xf) | B(TMP_REG3));
-	}
-
 	// Put value to cache
 	compiler->cache_arg = arg;
 	compiler->cache_argw = argw;
@@ -1352,7 +1347,7 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
-	int dst_freg;
+	int dst_fr;
 
 	FUNCTION_ENTRY();
 
@@ -1380,27 +1375,27 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 		return push_inst(compiler, FCMPU | CRD(4) | FA(dst) | FB(src));
 	}
 
-	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+	dst_fr = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
 
 	if (src > SLJIT_FLOAT_REG4) {
-		FAIL_IF(emit_fpu_data_transfer(compiler, dst_freg, 1, src, srcw));
-		src = dst_freg;
+		FAIL_IF(emit_fpu_data_transfer(compiler, dst_fr, 1, src, srcw));
+		src = dst_fr;
 	}
 
 	switch (op) {
 		case SLJIT_FMOV:
-			if (src != dst_freg && dst_freg != TMP_FREG1)
-				FAIL_IF(push_inst(compiler, FMR | FD(dst_freg) | FB(src)));
+			if (src != dst_fr && dst_fr != TMP_FREG1)
+				FAIL_IF(push_inst(compiler, FMR | FD(dst_fr) | FB(src)));
 			break;
 		case SLJIT_FNEG:
-			FAIL_IF(push_inst(compiler, FNEG | FD(dst_freg) | FB(src)));
+			FAIL_IF(push_inst(compiler, FNEG | FD(dst_fr) | FB(src)));
 			break;
 		case SLJIT_FABS:
-			FAIL_IF(push_inst(compiler, FABS | FD(dst_freg) | FB(src)));
+			FAIL_IF(push_inst(compiler, FABS | FD(dst_fr) | FB(src)));
 			break;
 	}
 
-	if (dst_freg == TMP_FREG1)
+	if (dst_fr == TMP_FREG1)
 		FAIL_IF(emit_fpu_data_transfer(compiler, src, 0, dst, dstw));
 
 	return SLJIT_SUCCESS;
@@ -1411,7 +1406,7 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
 {
-	int dst_freg;
+	int dst_fr;
 
 	FUNCTION_ENTRY();
 
@@ -1428,7 +1423,7 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+	dst_fr = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
 
 	if (src2 > SLJIT_FLOAT_REG4) {
 		FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src2, src2w));
@@ -1442,23 +1437,23 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 
 	switch (op) {
 	case SLJIT_FADD:
-		FAIL_IF(push_inst(compiler, FADD | FD(dst_freg) | FA(src1) | FB(src2)));
+		FAIL_IF(push_inst(compiler, FADD | FD(dst_fr) | FA(src1) | FB(src2)));
 		break;
 
 	case SLJIT_FSUB:
-		FAIL_IF(push_inst(compiler, FSUB | FD(dst_freg) | FA(src1) | FB(src2)));
+		FAIL_IF(push_inst(compiler, FSUB | FD(dst_fr) | FA(src1) | FB(src2)));
 		break;
 
 	case SLJIT_FMUL:
-		FAIL_IF(push_inst(compiler, FMUL | FD(dst_freg) | FA(src1) | FC(src2) /* FMUL use FC as src2 */));
+		FAIL_IF(push_inst(compiler, FMUL | FD(dst_fr) | FA(src1) | FC(src2) /* FMUL use FC as src2 */));
 		break;
 
 	case SLJIT_FDIV:
-		FAIL_IF(push_inst(compiler, FDIV | FD(dst_freg) | FA(src1) | FB(src2)));
+		FAIL_IF(push_inst(compiler, FDIV | FD(dst_fr) | FA(src1) | FB(src2)));
 		break;
 	}
 
-	if (dst_freg == TMP_FREG1)
+	if (dst_fr == TMP_FREG1)
 		FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG1, 0, dst, dstw));
 
 	return SLJIT_SUCCESS;
@@ -1766,7 +1761,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 	if (emit_const(compiler, reg, initval))
 		return NULL;
 
-	if (reg == TMP_REG2 && dst != SLJIT_UNUSED)
+	if (dst & SLJIT_MEM)
 		if (emit_op(compiler, SLJIT_MOV, WORD_DATA, dst, dstw, TMP_REG1, 0, TMP_REG2, 0))
 			return NULL;
 	return const_;
