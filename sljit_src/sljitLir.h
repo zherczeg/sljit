@@ -229,6 +229,8 @@ struct sljit_compiler {
 
 #if defined(SLJIT_CONFIG_MIPS_32)
 	int last_dest_reg;
+	int cache_arg;
+	sljit_w cache_argw;
 #endif
 
 #ifdef SLJIT_VERBOSE

@@ -65,7 +65,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 			FAIL_IF(push_inst(compiler, ADDE | D(dst) | A(src1) | B(src2)));
 			return push_inst(compiler, MTXER | S(0));
 		}
-		return push_inst(compiler, ADDE | OERC(ALT_SET_FLAGS) | D(dst) | A(src1) | B(src2));
+		return push_inst(compiler, ADDE | D(dst) | A(src1) | B(src2));
 
 	case SLJIT_SUB:
 		if (flags & ALT_FORM1) {
@@ -90,13 +90,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 			FAIL_IF(push_inst(compiler, SUBFE | D(dst) | A(src2) | B(src1)));
 			return push_inst(compiler, MTXER | S(0));
 		}
-		if (flags & ALT_FORM4) {
-			// Unfortunately this is really complicated case
-			FAIL_IF(push_inst(compiler, ADDME | D(ZERO_REG) | A(src1)));
-			FAIL_IF(push_inst(compiler, CMPL | CRD(4) | A(ZERO_REG) | B(src2)));
-			FAIL_IF(push_inst(compiler, ADDI | D(ZERO_REG) | A(0) | 0));
-		}
-		return push_inst(compiler, SUBFE | OERC(ALT_SET_FLAGS) | D(dst) | A(src2) | B(src1));
+		return push_inst(compiler, SUBFE | D(dst) | A(src2) | B(src1));
 
 	case SLJIT_MUL:
 		if (flags & ALT_FORM1) {
@@ -197,9 +191,11 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		return SLJIT_SUCCESS;
 
 	case SLJIT_NOT:
+		SLJIT_ASSERT(src1 == TMP_REG1);
 		return push_inst(compiler, NOR | RC(flags) | S(src2) | A(dst) | B(src2));
 
 	case SLJIT_NEG:
+		SLJIT_ASSERT(src1 == TMP_REG1);
 		return push_inst(compiler, NEG | OERC(flags) | D(dst) | A(src2));
 	}
 
