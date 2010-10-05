@@ -228,7 +228,7 @@ struct sljit_compiler {
 #endif
 
 #if defined(SLJIT_CONFIG_MIPS_32)
-	int last_dest_reg;
+	int delay_slot;
 	int cache_arg;
 	sljit_w cache_argw;
 #endif
