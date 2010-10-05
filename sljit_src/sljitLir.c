@@ -124,8 +124,18 @@
 #endif
 
 #if defined(SLJIT_CONFIG_MIPS_32)
-	#define UNMOVABLE_INS	0x0
-	#define MOVABLE_INS	0x32
+	#define IS_MOVABLE	0x04
+	#define IS_ARIT_COND	0x08
+	#define IS_FLOAT_COND	0x10
+	#define IS_JAL		0x20
+
+	/* instruction types */
+	#define UNMOVABLE_INS	0
+	/* 1 - 31 last destination register */
+	/* 32 - 39 FCSR FCC bits */
+	#define FCSR_FCC	32
+	/* no destination (i.e: store) */
+	#define MOVABLE_INS	40
 #endif
 
 #ifdef SLJIT_EXECUTABLE_ALLOCATOR
@@ -208,7 +218,7 @@ struct sljit_compiler* sljit_create_compiler(void)
 #endif
 
 #if defined(SLJIT_CONFIG_MIPS_32)
-	compiler->last_dest_reg = UNMOVABLE_INS;
+	compiler->delay_slot = UNMOVABLE_INS;
 #endif
 
 #ifdef SLJIT_VERBOSE

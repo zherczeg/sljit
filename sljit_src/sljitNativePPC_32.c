@@ -119,6 +119,11 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			return push_inst(compiler, ORIS | S(src1) | A(dst) | compiler->imm);
 		}
+		if (flags & ALT_FORM3) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			FAIL_IF(push_inst(compiler, ORI | S(src1) | A(dst) | IMM(compiler->imm)));
+			return push_inst(compiler, ORIS | S(dst) | A(dst) | IMM(compiler->imm >> 16));
+		}
 		return push_inst(compiler, OR | RC(flags) | S(src1) | A(dst) | B(src2));
 
 	case SLJIT_XOR:
@@ -129,6 +134,11 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		if (flags & ALT_FORM2) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			return push_inst(compiler, XORIS | S(src1) | A(dst) | compiler->imm);
+		}
+		if (flags & ALT_FORM3) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
+			FAIL_IF(push_inst(compiler, XORI | S(src1) | A(dst) | IMM(compiler->imm)));
+			return push_inst(compiler, XORIS | S(dst) | A(dst) | IMM(compiler->imm >> 16));
 		}
 		return push_inst(compiler, XOR | RC(flags) | S(src1) | A(dst) | B(src2));
 
