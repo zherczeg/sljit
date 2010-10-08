@@ -93,12 +93,12 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
 // therefore r12 is better for GENERAL_EREG than GENERAL_REG
 // 2nd argument passed in rsi, 3rd in rdx
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
-  0, 0, 6, 1, 2, 11, 3, 15, 14, 13, 12, 4, 7, 8, 9
+  0, 0, 6, 1, 8, 11, 3, 15, 14, 13, 12, 4, 2, 7, 9
 };
 
 // re low-map. reg_map & 0x7
 static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
-  0, 0, 6, 1, 2,  3, 3, 7,  6,  5,  4,  4, 7, 0, 1
+  0, 0, 6, 1, 0, 3,  3, 7,  6,  5,  4,  4, 2, 7, 1
 };
 
 #define REX_W		0x48
@@ -1738,7 +1738,7 @@ static void init_compiler()
 	sse2_buffer[5] = 0x7fffffff;
 
 #ifdef SLJIT_SSE2_AUTO
-#if defined(__GNUC__)
+#ifdef __GNUC__
 	// AT&T syntax
 	asm (
 		"pushl %%ebx\n"
@@ -2267,8 +2267,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	compiler->last_jump = jump;
 
 	if (type >= SLJIT_CALL1)
-		if (call_with_args(compiler, type))
-			return NULL;
+		PTR_FAIL_IF(call_with_args(compiler, type));
 
 	// Worst case size
 #ifdef SLJIT_CONFIG_X86_32
@@ -2305,8 +2304,22 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		compiler->flags_saved = 0;
 	}
 
-	if (type >= SLJIT_CALL1)
+	if (type >= SLJIT_CALL1) {
+#ifdef SLJIT_CONFIG_X86_32
+#ifdef SLJIT_X86_32_FASTCALL
+		if (src == SLJIT_TEMPORARY_REG3) {
+			EMIT_MOV(compiler, TMP_REGISTER, 0, src, 0);
+			src = TMP_REGISTER;
+		}
+		if ((src & SLJIT_MEM) && (src & 0xf) == SLJIT_LOCALS_REG && type >= SLJIT_CALL3)
+			srcw += sizeof(sljit_w);
+#else
+		if ((src & SLJIT_MEM) && (src & 0xf) == SLJIT_LOCALS_REG)
+			srcw += sizeof(sljit_w) * (type - SLJIT_CALL0);
+#endif
+#endif
 		FAIL_IF(call_with_args(compiler, type));
+	}
 
 	if (src == SLJIT_IMM) {
 		buf = (sljit_ub*)ensure_buf(compiler, 2 + sizeof(sljit_w));

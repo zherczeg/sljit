@@ -191,7 +191,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	compiler->flags_saved = 0;
 
 	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
-		emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw);
+		FAIL_IF(emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw));
 
 	if (compiler->local_size > 0) {
 		compiler->mode32 = 0;
@@ -491,7 +491,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 //  Conditional instructions
 // ---------------------------------------------------------------------
 
-static int call_with_args(struct sljit_compiler *compiler, int type)
+static SLJIT_INLINE int call_with_args(struct sljit_compiler *compiler, int type)
 {
 	sljit_ub *buf;
 

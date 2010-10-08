@@ -148,7 +148,8 @@ typedef long int sljit_w;
 #ifdef SLJIT_CONFIG_X86_32
 
 #ifdef __GNUC__
-#define SLJIT_CALL __attribute__ ((stdcall))
+#define SLJIT_CALL __attribute__ ((fastcall))
+#define SLJIT_X86_32_FASTCALL
 #else
 #define SLJIT_CALL __stdcall
 #endif

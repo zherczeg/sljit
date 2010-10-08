@@ -91,6 +91,8 @@ typedef unsigned int sljit_i;
 #define ADDIU		(HI(9))
 #define AND		(HI(0) | LO(36))
 #define ANDI		(HI(12))
+#define B		(HI(4))
+#define BAL		(HI(1) | (17 << 16))
 #define BC1F		(HI(17) | (8 << 21))
 #define BC1T		(HI(17) | (8 << 21) | (1 << 16))
 #define BEQ		(HI(4))
@@ -176,6 +178,106 @@ static int push_inst(struct sljit_compiler *compiler, sljit_i ins, int delay_slo
 	return SLJIT_SUCCESS;
 }
 
+static SLJIT_INLINE sljit_i invert_branch(int flags)
+{
+	return (flags & IS_ARIT_COND) ? (1 << 26) : (1 << 16);
+}
+
+static SLJIT_INLINE sljit_i* optimize_jump(struct sljit_jump *jump, sljit_i *code_ptr, sljit_i *code)
+{
+	sljit_w diff;
+	sljit_uw target_addr;
+	sljit_i *inst;
+	sljit_i saved_inst;
+
+	if (jump->flags & SLJIT_REWRITABLE_JUMP)
+		return code_ptr;
+
+	if (jump->flags & JUMP_ADDR)
+		target_addr = jump->target;
+	else {
+		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
+		target_addr = (sljit_uw)(code + jump->label->size);
+	}
+	inst = (sljit_i*)jump->addr;
+	if (jump->flags & IS_COND)
+		inst--;
+
+	// B instructions
+	if (jump->flags & IS_MOVABLE) {
+		diff = ((sljit_w)target_addr - (sljit_w)(inst)) >> 2;
+		if (diff <= SIMM_MAX && diff >= SIMM_MIN) {
+			jump->flags |= PATCH_B;
+
+			if (!(jump->flags & IS_COND)) {
+				inst[0] = inst[-1];
+				inst[-1] = (jump->flags & IS_JAL) ? BAL : B;
+				jump->addr -= sizeof(sljit_i);
+				return inst;
+			}
+			saved_inst = inst[0];
+			inst[0] = inst[-1];
+			inst[-1] = saved_inst ^ invert_branch(jump->flags);
+			jump->addr -= 2 * sizeof(sljit_i);
+			return inst;
+		}
+	}
+
+	diff = ((sljit_w)target_addr - (sljit_w)(inst + 1)) >> 2;
+	if (diff <= SIMM_MAX && diff >= SIMM_MIN) {
+		jump->flags |= PATCH_B;
+
+		if (!(jump->flags & IS_COND)) {
+			inst[0] = (jump->flags & IS_JAL) ? BAL : B;
+			inst[1] = NOP;
+			return inst + 1;
+		}
+		inst[0] = inst[0] ^ invert_branch(jump->flags);
+		inst[1] = NOP;
+		jump->addr -= sizeof(sljit_i);
+		return inst + 1;
+	}
+
+	if (jump->flags & IS_COND) {
+		if ((target_addr & ~0xfffffff) == ((jump->addr + 3 * sizeof(sljit_i)) & ~0xfffffff)) {
+			jump->flags |= PATCH_J;
+			inst[0] = (inst[0] & 0xffff0000) | 3;
+			inst[1] = NOP;
+			inst[2] = J;
+			inst[3] = NOP;
+			jump->addr += sizeof(sljit_i);
+			return inst + 3;
+		}
+	}
+
+	// J instuctions
+	if (jump->flags & IS_MOVABLE) {
+		if ((target_addr & ~0xfffffff) == (jump->addr & ~0xfffffff)) {
+			jump->flags |= PATCH_J;
+			inst[0] = inst[-1];
+			inst[-1] = (jump->flags & IS_JAL) ? JAL : J;
+			jump->addr -= sizeof(sljit_i);
+			return inst;
+		}
+	}
+
+	if ((target_addr & ~0xfffffff) == ((jump->addr + sizeof(sljit_i)) & ~0xfffffff)) {
+		jump->flags |= PATCH_J;
+		inst[0] = (jump->flags & IS_JAL) ? JAL : J;
+		inst[1] = NOP;
+		return inst + 1;
+	}
+
+	return code_ptr;
+}
+
+#ifdef __GNUC__
+static __attribute__ ((noinline)) void sljit_cache_flush(void* code, void* code_ptr)
+{
+	SLJIT_CACHE_FLUSH(code, code_ptr);
+}
+#endif
+
 void* sljit_generate_code(struct sljit_compiler *compiler)
 {
 	struct sljit_memory_fragment *buf;
@@ -226,6 +328,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 #else
 				jump->addr = (sljit_uw)(code_ptr - 6);
 #endif
+				code_ptr = optimize_jump(jump, code_ptr, code);
 				jump = jump->next;
 			}
 			if (const_ && const_->addr == word_count) {
@@ -256,6 +359,19 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		do {
 			addr = (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target;
 			buf_ptr = (sljit_i*)jump->addr;
+
+			if (jump->flags & PATCH_B) {
+				addr = (sljit_w)(addr - (jump->addr + sizeof(sljit_i))) >> 2;
+				SLJIT_ASSERT((sljit_w)addr <= SIMM_MAX && (sljit_w)addr >= SIMM_MIN);
+				buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | (addr & 0xffff);
+				break;
+			}
+			if (jump->flags & PATCH_J) {
+				SLJIT_ASSERT((addr & ~0xfffffff) == ((jump->addr + sizeof(sljit_i)) & ~0xfffffff));
+				buf_ptr[0] |= (addr >> 2) & 0x0cffffff;
+				break;
+			}
+
 			// Set the fields of immediate loads
 #ifdef SLJIT_CONFIG_MIPS_32
 			buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 16) & 0xffff);
@@ -270,9 +386,13 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		jump = jump->next;
 	}
 
-	SLJIT_CACHE_FLUSH(code, code_ptr);
 	compiler->error = SLJIT_ERR_COMPILED;
-
+#ifndef __GNUC__
+	SLJIT_CACHE_FLUSH(code, code_ptr);
+#else
+	// GCC workaround for invalid code generation with -O2
+	sljit_cache_flush(code, code_ptr);
+#endif
 	return code;
 }
 
@@ -347,7 +467,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 		base = S(REAL_STACK_PTR);
 	}
 	else {
-		FAIL_IF(load_immediate(compiler, TMP_REG1, local_size));
+		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), local_size));
 		FAIL_IF(push_inst(compiler, ADDU_W | S(REAL_STACK_PTR) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
 		FAIL_IF(push_inst(compiler, SUBU_W | S(REAL_STACK_PTR) | T(TMP_REG1) | D(REAL_STACK_PTR), DR(REAL_STACK_PTR)));
 		base = S(TMP_REG2);
@@ -420,7 +540,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	if (local_size <= SIMM_MAX)
 		base = S(REAL_STACK_PTR);
 	else {
-		FAIL_IF(load_immediate(compiler, TMP_REG1, local_size));
+		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), local_size));
 		FAIL_IF(push_inst(compiler, ADDU_W | S(REAL_STACK_PTR) | T(TMP_REG1) | D(TMP_REG1), DR(TMP_REG1)));
 		base = S(TMP_REG1);
 		local_size = 0;
@@ -484,11 +604,11 @@ static SLJIT_CONST sljit_i data_transfer_insts[16] = {
 // dsta is an absoulute dst!
 static int emit_op_mem(struct sljit_compiler *compiler, int inp_flags, int dst_ar, int base, sljit_w offset)
 {
-	int tmp_reg;
+	int tmp_ar;
 	int hi_reg;
 
 	SLJIT_ASSERT(base & SLJIT_MEM);
-	tmp_reg = (inp_flags & LOAD_DATA) ? dst_ar : DR(TMP_REG3);
+	tmp_ar = (inp_flags & LOAD_DATA) ? dst_ar : DR(TMP_REG3);
 	hi_reg = (base >> 4) & 0xf;
 	base &= 0xf;
 
@@ -498,8 +618,8 @@ static int emit_op_mem(struct sljit_compiler *compiler, int inp_flags, int dst_a
 			FAIL_IF(push_inst(compiler, SLL_W | T(hi_reg) | DA(TMP_EREG1) | SH_IMM(offset), TMP_EREG1));
 
 		if (!(inp_flags & WRITE_BACK)) {
-			FAIL_IF(push_inst(compiler, ADDU_W | S(base) | (!offset ? T(hi_reg) : TA(TMP_EREG1)) | D(tmp_reg), DR(tmp_reg)));
-			return push_inst(compiler, data_transfer_insts[inp_flags & MEM_MASK] | S(tmp_reg) | TA(dst_ar), (inp_flags & LOAD_DATA) ? dst_ar : MOVABLE_INS);
+			FAIL_IF(push_inst(compiler, ADDU_W | S(base) | (!offset ? T(hi_reg) : TA(TMP_EREG1)) | DA(tmp_ar), tmp_ar));
+			return push_inst(compiler, data_transfer_insts[inp_flags & MEM_MASK] | SA(tmp_ar) | TA(dst_ar), (inp_flags & LOAD_DATA) ? dst_ar : MOVABLE_INS);
 		}
 
 		if (dst_ar == DR(base)) {
@@ -517,14 +637,14 @@ static int emit_op_mem(struct sljit_compiler *compiler, int inp_flags, int dst_a
 			return push_inst(compiler, data_transfer_insts[inp_flags & MEM_MASK] | S(base) | TA(dst_ar) | IMM(offset), (inp_flags & LOAD_DATA) ? dst_ar : MOVABLE_INS);
 
 		if (!(offset & 0x8000))
-			FAIL_IF(load_immediate(compiler, tmp_reg, offset & ~0xffff));
+			FAIL_IF(load_immediate(compiler, tmp_ar, offset & ~0xffff));
 		else
-			FAIL_IF(load_immediate(compiler, tmp_reg, (offset + 0x10000) & ~0xffff));
+			FAIL_IF(load_immediate(compiler, tmp_ar, (offset + 0x10000) & ~0xffff));
 
 		if (base)
-			FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(tmp_reg) | D(tmp_reg), DR(tmp_reg)));
+			FAIL_IF(push_inst(compiler, ADDU_W | S(base) | TA(tmp_ar) | DA(tmp_ar), tmp_ar));
 
-		return push_inst(compiler, data_transfer_insts[inp_flags & MEM_MASK] | S(tmp_reg) | TA(dst_ar) | IMM(offset), (inp_flags & LOAD_DATA) ? dst_ar : MOVABLE_INS);
+		return push_inst(compiler, data_transfer_insts[inp_flags & MEM_MASK] | SA(tmp_ar) | TA(dst_ar) | IMM(offset), (inp_flags & LOAD_DATA) ? dst_ar : MOVABLE_INS);
 	}
 
 	if (dst_ar == DR(base)) {
@@ -536,8 +656,8 @@ static int emit_op_mem(struct sljit_compiler *compiler, int inp_flags, int dst_a
 	if (offset <= SIMM_MAX && offset >= SIMM_MIN)
 		FAIL_IF(push_inst(compiler, ADDIU_W | S(base) | T(base) | IMM(offset), DR(base)));
 	else {
-		FAIL_IF(load_immediate(compiler, tmp_reg, offset));
-		FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(tmp_reg) | D(base), DR(base)));
+		FAIL_IF(load_immediate(compiler, tmp_ar, offset));
+		FAIL_IF(push_inst(compiler, ADDU_W | S(base) | TA(tmp_ar) | D(base), DR(base)));
 	}
 	return push_inst(compiler, data_transfer_insts[inp_flags & MEM_MASK] | S(base) | TA(dst_ar), (inp_flags & LOAD_DATA) ? dst_ar : MOVABLE_INS);
 }
@@ -553,7 +673,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int flags,
 	// result goes to TMP_REG2, so put result can use TMP_REG1 and TMP_REG3
 	int dst_r;
 	int src1_r;
-	sljit_w src2_r;
+	sljit_w src2_r = 0;
 	int sugg_src2_r = TMP_REG2;
 
 	compiler->cache_arg = 0;
@@ -605,7 +725,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int flags,
 	}
 	else if (src1 & SLJIT_IMM) {
 		if (src1w) {
-			FAIL_IF(load_immediate(compiler, TMP_REG1, src1w));
+			FAIL_IF(load_immediate(compiler, DR(TMP_REG1), src1w));
 			src1_r = TMP_REG1;
 		}
 		else
@@ -626,7 +746,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int flags,
 	else if (src2 & SLJIT_IMM) {
 		if (!(flags & SRC2_IMM)) {
 			if (src2w || (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SI)) {
-				FAIL_IF(load_immediate(compiler, sugg_src2_r, src2w));
+				FAIL_IF(load_immediate(compiler, DR(sugg_src2_r), src2w));
 				src2_r = sugg_src2_r;
 			}
 			else
@@ -844,7 +964,7 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 	compiler->cache_arg = arg;
 	compiler->cache_argw = argw;
 
-	FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
+	FAIL_IF(load_immediate(compiler, DR(TMP_REG3), argw));
 	if (arg & 0xf)
 		FAIL_IF(push_inst(compiler, ADDU_W | S(TMP_REG3) | T(arg & 0xf) | D(TMP_REG3), DR(TMP_REG3)));
 	return push_inst(compiler, (load ? LDC1 : SDC1) | S(TMP_REG3) | FT(fpu_reg) | IMM(0), MOVABLE_INS);
@@ -1046,7 +1166,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	PTR_FAIL_IF(!jump);
 
 	jump->next = NULL;
-	jump->flags = flags | (type & SLJIT_REWRITABLE_JUMP);
+	jump->flags = (type & SLJIT_REWRITABLE_JUMP);
 	type &= 0xff;
 	if (compiler->last_jump)
 		compiler->last_jump->next = jump;
@@ -1123,6 +1243,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 		break;
 	}
 
+	jump->flags |= flags;
 	if (compiler->delay_slot == MOVABLE_INS || (compiler->delay_slot != UNMOVABLE_INS && compiler->delay_slot != delay_check))
 		jump->flags |= IS_MOVABLE;
 
