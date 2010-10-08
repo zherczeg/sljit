@@ -26,16 +26,16 @@
 
 // mips 32-bit arch dependent functions
 
-static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
+static int load_immediate(struct sljit_compiler *compiler, int dst_ar, sljit_w imm)
 {
 	if (!(imm & ~0xffff))
-		return push_inst(compiler, ORI | SA(0) | T(reg) | IMM(imm), DR(reg));
+		return push_inst(compiler, ORI | SA(0) | TA(dst_ar) | IMM(imm), dst_ar);
 
 	if (imm < 0 && imm >= SIMM_MIN)
-		return push_inst(compiler, ADDIU | SA(0) | T(reg) | IMM(imm), DR(reg));
+		return push_inst(compiler, ADDIU | SA(0) | TA(dst_ar) | IMM(imm), dst_ar);
 
-	FAIL_IF(push_inst(compiler, LUI | T(reg) | IMM(imm >> 16), DR(reg)));
-	return (imm & 0xffff) ? push_inst(compiler, ORI | S(reg) | T(reg) | IMM(imm), DR(reg)) : SLJIT_SUCCESS;
+	FAIL_IF(push_inst(compiler, LUI | TA(dst_ar) | IMM(imm >> 16), dst_ar));
+	return (imm & 0xffff) ? push_inst(compiler, ORI | SA(dst_ar) | TA(dst_ar) | IMM(imm), dst_ar) : SLJIT_SUCCESS;
 }
 
 #define EMIT_LOGICAL(op_imm, op_norm) \
@@ -213,7 +213,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 				FAIL_IF(push_inst(compiler, SLT | S(src2) | T(src1) | DA(GREATER_FLAG), GREATER_FLAG));
 			}
 			// dst may be the same as src1 or src2
-			if (CHECK_FLAGS(SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_C))
+			if (CHECK_FLAGS(SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_C))
 				FAIL_IF(push_inst(compiler, SUBU | S(src1) | T(src2) | D(dst), DR(dst)));
 		}
 

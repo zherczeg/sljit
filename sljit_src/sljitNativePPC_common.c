@@ -166,25 +166,25 @@ static int push_inst(struct sljit_compiler *compiler, sljit_i ins)
 static SLJIT_INLINE int optimize_jump(struct sljit_jump *jump, sljit_i *code_ptr, sljit_i *code)
 {
 	sljit_w diff;
-	sljit_uw absolute_addr;
+	sljit_uw target_addr;
 
 	if (jump->flags & SLJIT_REWRITABLE_JUMP)
 		return 0;
 
 	if (jump->flags & JUMP_ADDR)
-		absolute_addr = jump->target;
+		target_addr = jump->target;
 	else {
 		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
-		absolute_addr = (sljit_uw)(code + jump->label->size);
+		target_addr = (sljit_uw)(code + jump->label->size);
 	}
-	diff = ((sljit_w)absolute_addr - (sljit_w)(code_ptr)) & ~0x3l;
+	diff = ((sljit_w)target_addr - (sljit_w)(code_ptr)) & ~0x3l;
 
-	if (jump->flags & UNCOND_ADDR) {
+	if (jump->flags & UNCOND_B) {
 		if (diff <= 0x01ffffff && diff >= -0x02000000) {
 			jump->flags |= PATCH_B;
 			return 1;
 		}
-		if (absolute_addr <= 0x03ffffff) {
+		if (target_addr <= 0x03ffffff) {
 			jump->flags |= PATCH_B | ABSOLUTE_B;
 			return 1;
 		}
@@ -194,7 +194,7 @@ static SLJIT_INLINE int optimize_jump(struct sljit_jump *jump, sljit_i *code_ptr
 			jump->flags |= PATCH_B;
 			return 1;
 		}
-		if (absolute_addr <= 0xffff) {
+		if (target_addr <= 0xffff) {
 			jump->flags |= PATCH_B | ABSOLUTE_B;
 			return 1;
 		}
@@ -298,8 +298,8 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		do {
 			addr = (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target;
 			buf_ptr = (sljit_i*)jump->addr;
-			if (!(jump->flags & SLJIT_REWRITABLE_JUMP) && (jump->flags & PATCH_B)) {
-				if (jump->flags & UNCOND_ADDR) {
+			if (jump->flags & PATCH_B) {
+				if (jump->flags & UNCOND_B) {
 					if (!(jump->flags & ABSOLUTE_B)) {
 						addr = addr - jump->addr;
 						SLJIT_ASSERT((sljit_w)addr <= 0x01ffffff && (sljit_w)addr >= -0x02000000);
@@ -1600,7 +1600,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 
 	// In PPC, we don't need to touch the arguments
 	if (type >= SLJIT_JUMP)
-		jump->flags |= UNCOND_ADDR;
+		jump->flags |= UNCOND_B;
 
 	PTR_FAIL_IF(emit_const(compiler, TMP_REG1, 0));
 	PTR_FAIL_IF(push_inst(compiler, MTCTR | S(TMP_REG1)));
@@ -1632,7 +1632,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		FAIL_IF(!jump);
 
 		jump->next = NULL;
-		jump->flags = JUMP_ADDR | UNCOND_ADDR;
+		jump->flags = JUMP_ADDR | UNCOND_B;
 		jump->target = srcw;
 		if (compiler->last_jump)
 			compiler->last_jump->next = jump;
