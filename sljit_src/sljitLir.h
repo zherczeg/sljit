@@ -110,7 +110,6 @@
 // Return with machine word or double machine word
 
 #define SLJIT_PREF_RET_REG	SLJIT_TEMPORARY_REG1
-#define SLJIT_PREF_RET_HIREG	SLJIT_TEMPORARY_REG2
 
 // x86 prefers temporary registers for special purposes. If not
 // these registers are used, it costs a little performance drawback.

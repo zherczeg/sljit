@@ -28,10 +28,10 @@
 
 union executable_code {
 	void* code;
-	SLJIT_CALL sljit_w (*func0)(void);
-	SLJIT_CALL sljit_w (*func1)(sljit_w a);
-	SLJIT_CALL sljit_w (*func2)(sljit_w a, sljit_w b);
-	SLJIT_CALL sljit_w (*func3)(sljit_w a, sljit_w b, sljit_w c);
+	sljit_w (SLJIT_CALL *func0)(void);
+	sljit_w (SLJIT_CALL *func1)(sljit_w a);
+	sljit_w (SLJIT_CALL *func2)(sljit_w a, sljit_w b);
+	sljit_w (SLJIT_CALL *func3)(sljit_w a, sljit_w b, sljit_w c);
 };
 typedef union executable_code executable_code;
 
@@ -925,7 +925,7 @@ static void test14(void)
 	successful_tests++;
 }
 
-static SLJIT_CALL sljit_w func(sljit_w a, sljit_w b, sljit_w c)
+static sljit_w SLJIT_CALL func(sljit_w a, sljit_w b, sljit_w c)
 {
 	return a + b + c + 5;
 }

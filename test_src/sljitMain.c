@@ -38,7 +38,7 @@ void error(char* str)
 
 union executable_code {
 	void* code;
-	SLJIT_CALL sljit_w (*func)(sljit_w* a);
+	sljit_w (SLJIT_CALL *func)(sljit_w* a);
 };
 typedef union executable_code executable_code;
 

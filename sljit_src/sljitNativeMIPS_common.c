@@ -248,6 +248,7 @@ static SLJIT_INLINE sljit_i* optimize_jump(struct sljit_jump *jump, sljit_i *cod
 			jump->addr += sizeof(sljit_i);
 			return inst + 3;
 		}
+		return code_ptr;
 	}
 
 	// J instuctions

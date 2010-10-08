@@ -95,8 +95,15 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	compiler->flags_saved = 0;
 
 	size = generals;
+#ifndef _WIN64
 	if (generals >= 2)
 		size += generals - 1;
+#else
+	if (generals >= 4)
+		size += generals - 3;
+	if (temporaries >= 5)
+		size += 2;
+#endif
 	size += args * 3;
 	if (size > 0) {
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
@@ -114,20 +121,36 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 			PUSH_REG(reg_lmap[SLJIT_GENERAL_EREG1]);
 		}
 		if (generals > 2) {
+#ifndef _WIN64
 			SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG3] >= 8);
 			*buf++ = REX_B;
+#else
+			SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG3] < 8);
+#endif
 			PUSH_REG(reg_lmap[SLJIT_GENERAL_REG3]);
 		}
 		if (generals > 1) {
+#ifndef _WIN64
 			SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG2] >= 8);
 			*buf++ = REX_B;
+#else
+			SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG2] < 8);
+#endif
 			PUSH_REG(reg_lmap[SLJIT_GENERAL_REG2]);
 		}
 		if (generals > 0) {
 			SLJIT_ASSERT(reg_map[SLJIT_GENERAL_REG1] < 8);
-			PUSH_REG(reg_map[SLJIT_GENERAL_REG1]);
+			PUSH_REG(reg_lmap[SLJIT_GENERAL_REG1]);
 		}
+#ifdef _WIN64
+		if (temporaries >= 5) {
+			SLJIT_ASSERT(reg_map[SLJIT_TEMPORARY_EREG2] >= 8);
+			*buf++ = REX_B;
+			PUSH_REG(reg_lmap[SLJIT_TEMPORARY_EREG2]);
+		}
+#endif
 
+#ifndef _WIN64
 		if (args > 0) {
 			*buf++ = REX_W;
 			*buf++ = 0x8b;
@@ -143,6 +166,23 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 			*buf++ = 0x8b;
 			*buf++ = 0xc0 | (reg_lmap[SLJIT_GENERAL_REG3] << 3) | 0x2;
 		}
+#else
+		if (args > 0) {
+			*buf++ = REX_W;
+			*buf++ = 0x8b;
+			*buf++ = 0xc0 | (reg_map[SLJIT_GENERAL_REG1] << 3) | 0x1;
+		}
+		if (args > 1) {
+			*buf++ = REX_W;
+			*buf++ = 0x8b;
+			*buf++ = 0xc0 | (reg_map[SLJIT_GENERAL_REG2] << 3) | 0x2;
+		}
+		if (args > 2) {
+			*buf++ = REX_W | REX_B;
+			*buf++ = 0x8b;
+			*buf++ = 0xc0 | (reg_map[SLJIT_GENERAL_REG3] << 3) | 0x0;
+		}
+#endif
 	}
 
 	local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
@@ -200,21 +240,38 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	}
 
 	size = 1 + compiler->generals;
+#ifndef _WIN64
 	if (compiler->generals >= 2)
 		size += compiler->generals - 1;
+#else
+	if (compiler->generals >= 4)
+		size += compiler->generals - 3;
+	if (compiler->temporaries >= 5)
+		size += 2;
+#endif
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	FAIL_IF(!buf);
 
 	INC_SIZE(size);
 
+#ifdef _WIN64
+	if (compiler->temporaries >= 5) {
+		*buf++ = REX_B;
+		POP_REG(reg_lmap[SLJIT_TEMPORARY_EREG2]);
+	}
+#endif
 	if (compiler->generals > 0)
 		POP_REG(reg_map[SLJIT_GENERAL_REG1]);
 	if (compiler->generals > 1) {
+#ifndef _WIN64
 		*buf++ = REX_B;
+#endif
 		POP_REG(reg_lmap[SLJIT_GENERAL_REG2]);
 	}
 	if (compiler->generals > 2) {
+#ifndef _WIN64
 		*buf++ = REX_B;
+#endif
 		POP_REG(reg_lmap[SLJIT_GENERAL_REG3]);
 	}
 	if (compiler->generals > 3) {
@@ -495,6 +552,7 @@ static SLJIT_INLINE int call_with_args(struct sljit_compiler *compiler, int type
 {
 	sljit_ub *buf;
 
+#ifndef _WIN64
 	SLJIT_ASSERT(reg_map[SLJIT_TEMPORARY_REG2] == 6 && reg_map[SLJIT_TEMPORARY_REG1] < 8 && reg_map[SLJIT_TEMPORARY_REG3] < 8);
 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
@@ -508,6 +566,21 @@ static SLJIT_INLINE int call_with_args(struct sljit_compiler *compiler, int type
 	*buf++ = REX_W;
 	*buf++ = 0x8b;
 	*buf++ = 0xc0 | (0x7 << 3) | reg_lmap[SLJIT_TEMPORARY_REG1];
+#else
+	SLJIT_ASSERT(reg_map[SLJIT_TEMPORARY_REG2] == 2 && reg_map[SLJIT_TEMPORARY_REG1] < 8 && reg_map[SLJIT_TEMPORARY_REG3] < 8);
+
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
+	FAIL_IF(!buf);
+	INC_SIZE((type < SLJIT_CALL3) ? 3 : 6);
+	if (type >= SLJIT_CALL3) {
+		*buf++ = REX_W | REX_R;
+		*buf++ = 0x8b;
+		*buf++ = 0xc0 | (0x0 << 3) | reg_lmap[SLJIT_TEMPORARY_REG3];
+	}
+	*buf++ = REX_W;
+	*buf++ = 0x8b;
+	*buf++ = 0xc0 | (0x1 << 3) | reg_lmap[SLJIT_TEMPORARY_REG1];
+#endif
 	return SLJIT_SUCCESS;
 }
 

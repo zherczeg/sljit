@@ -77,6 +77,43 @@
 //   * only the allocator requires this lock, sljit is fully thread safe
 //     as it only uses local variables
 
+#ifdef _WIN32
+
+#include "windows.h"
+
+static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
+{
+	DWORD oldProtect;
+	void* chunk = VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+	PTR_FAIL_IF(!chunk);
+	VirtualProtect(chunk, size, PAGE_EXECUTE_READWRITE, &oldProtect);
+	return chunk;
+}
+
+static SLJIT_INLINE void free_chunk(void* chunk, sljit_uw size)
+{
+	(void)size;
+	VirtualFree(chunk, 0, MEM_RELEASE);
+}
+
+static HANDLE sljit_mutex = 0;
+
+static SLJIT_INLINE void grab_lock()
+{
+	// No idea what to do if an error occures. Static mutexes should never fail...
+	if (!sljit_mutex)
+		sljit_mutex = CreateMutex(NULL, TRUE, NULL);
+	else
+		WaitForSingleObject(sljit_mutex, INFINITE);
+}
+
+static SLJIT_INLINE void release_lock()
+{
+	ReleaseMutex(sljit_mutex);
+}
+
+#else
+
 #include <sys/mman.h>
 
 static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
@@ -102,6 +139,8 @@ static SLJIT_INLINE void release_lock()
 {
 	pthread_mutex_unlock(&sljit_mutex);
 }
+
+#endif
 
 // ---------------------------------------------------------------------
 //  Common functions
