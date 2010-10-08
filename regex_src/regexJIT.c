@@ -56,13 +56,13 @@ struct regex_machine
 #ifndef SLJIT_INDIRECT_CALL
 	union {
 		void *init_match;
-		SLJIT_CALL sljit_w (*call_init)(void *next, void* match);
+		sljit_w (SLJIT_CALL *call_init)(void *next, void* match);
 	};
 #else
 	void *init_match;
 	union {
 		void **init_match_ptr;
-		SLJIT_CALL sljit_w (*call_init)(void *next, void* match);
+		sljit_w (SLJIT_CALL *call_init)(void *next, void* match);
 	};
 #endif
 
@@ -93,7 +93,7 @@ struct regex_match
 
 	union {
 		void *continue_match;
-		SLJIT_CALL void (*call_continue)(struct regex_match *match, regex_char_t *input_string, int length);
+		void (SLJIT_CALL *call_continue)(struct regex_match *match, regex_char_t *input_string, int length);
 	};
 
 	// Variable sized array to contain the state arrays
@@ -1064,9 +1064,10 @@ static void verbose_transitions(struct compiler_common *compiler_common)
 	struct stack_item *transitions_ptr = compiler_common->dfa_transitions;
 	struct stack_item *transitions_end = transitions_ptr + compiler_common->dfa_size;
 	struct stack_item *search_states_ptr = compiler_common->search_states;
+	int pos;
 
 	printf("-----------------\nTransitions\n-----------------\n");
-	int pos = 0;
+	pos = 0;
 	while (transitions_ptr < transitions_end) {
 		printf("[%3d] ", pos++);
 		if (search_states_ptr->type >= 0)

@@ -91,15 +91,25 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
 
 // Note: r12 & 0x7 == 0b100, which decoded as SIB byte present
 // therefore r12 is better for GENERAL_EREG than GENERAL_REG
-// 2nd argument passed in rsi, 3rd in rdx
+#ifndef _WIN64
+// 1st passed in rdi, 2nd argument passed in rsi, 3rd in rdx
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
   0, 0, 6, 1, 8, 11, 3, 15, 14, 13, 12, 4, 2, 7, 9
 };
-
-// re low-map. reg_map & 0x7
+// low-map. reg_map & 0x7
 static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
   0, 0, 6, 1, 0, 3,  3, 7,  6,  5,  4,  4, 2, 7, 1
 };
+#else
+// 1st passed in rcx, 2nd argument passed in rdx, 3rd in r8
+static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
+  0, 0, 2, 1, 11, 13, 3, 6, 7, 15, 14, 4, 10, 8, 9
+};
+// low-map. reg_map & 0x7
+static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
+  0, 0, 2, 1, 3,  5,  3, 6, 7,  7,  6, 4, 2,  0, 1
+};
+#endif
 
 #define REX_W		0x48
 #define REX_R		0x44
@@ -110,8 +120,8 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
 typedef unsigned int sljit_uhw;
 typedef int sljit_hw;
 
-#define IS_HALFWORD(x)		((x) <= 0x7fffffffl && (x) >= -0x80000000l)
-#define NOT_HALFWORD(x)		((x) > 0x7fffffffl || (x) < -0x80000000l)
+#define IS_HALFWORD(x)		((x) <= 0x7fffffffll && (x) >= -0x80000000ll)
+#define NOT_HALFWORD(x)		((x) > 0x7fffffffll || (x) < -0x80000000ll)
 
 #define CHECK_EXTRA_REGS(p, w, do)
 
@@ -1336,7 +1346,7 @@ static int emit_lea_binary(struct sljit_compiler *compiler,
 		}
 #ifdef SLJIT_CONFIG_X86_64
 		if ((src2 & SLJIT_IMM) && (compiler->mode32 || IS_HALFWORD(src2w))) {
-			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src1), (src2w << 32) >> 32);
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src1), (int)src2w);
 #else
 		if (src2 & SLJIT_IMM) {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src1), src2w);
@@ -1349,7 +1359,7 @@ static int emit_lea_binary(struct sljit_compiler *compiler,
 	else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_NO_REGISTERS) {
 #ifdef SLJIT_CONFIG_X86_64
 		if ((src1 & SLJIT_IMM) && (compiler->mode32 || IS_HALFWORD(src1w))) {
-			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src2), (src1w << 32) >> 32);
+			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src2), (int)src1w);
 #else
 		if (src1 & SLJIT_IMM) {
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, SLJIT_MEM1(src2), src1w);
@@ -2276,12 +2286,23 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	compiler->size += (type >= SLJIT_JUMP) ? (10 + 3) : (2 + 10 + 3);
 #endif
 
+#if defined(SLJIT_CONFIG_X86_64) && defined(_WIN64)
+	if (type >= SLJIT_CALL0)
+		PTR_FAIL_IF(emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
+			SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, 4 * sizeof(sljit_w)));
+#endif
+
 	buf = (sljit_ub*)ensure_buf(compiler, 2);
 	PTR_FAIL_IF(!buf);
 
 	*buf++ = 0;
 	*buf++ = type + 4;
 
+#if defined(SLJIT_CONFIG_X86_64) && defined(_WIN64)
+	if (type >= SLJIT_CALL0)
+		PTR_FAIL_IF(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
+				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, 4 * sizeof(sljit_w)));
+#endif
 	return jump;
 }
 
@@ -2318,8 +2339,20 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 			srcw += sizeof(sljit_w) * (type - SLJIT_CALL0);
 #endif
 #endif
+#if defined(SLJIT_CONFIG_X86_64) && defined(_WIN64)
+		if (src == SLJIT_TEMPORARY_REG3) {
+			EMIT_MOV(compiler, TMP_REGISTER, 0, src, 0);
+			src = TMP_REGISTER;
+		}
+#endif
 		FAIL_IF(call_with_args(compiler, type));
 	}
+
+#if defined(SLJIT_CONFIG_X86_64) && defined(_WIN64)
+	if (type >= SLJIT_CALL0)
+		FAIL_IF(emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
+			SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, 4 * sizeof(sljit_w)));
+#endif
 
 	if (src == SLJIT_IMM) {
 		buf = (sljit_ub*)ensure_buf(compiler, 2 + sizeof(sljit_w));
@@ -2346,6 +2379,11 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		*code |= (type >= SLJIT_CALL0) ? (2 << 3) : (4 << 3);
 	}
 
+#if defined(SLJIT_CONFIG_X86_64) && defined(_WIN64)
+	if (type >= SLJIT_CALL0)
+		return emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
+				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, 4 * sizeof(sljit_w));
+#endif
 	return SLJIT_SUCCESS;
 }
 

@@ -44,7 +44,7 @@
 
 // Auto select option (requires compiler support)
 #ifdef SLJIT_CONFIG_AUTO
-#ifndef WIN32
+#ifndef _WIN32
 
 #if defined(__i386__) || defined(__i386)
 #define SLJIT_CONFIG_X86_32
@@ -63,7 +63,7 @@
 #define SLJIT_CONFIG_UNSUPPORTED
 #endif
 
-#else // ifndef WIN32
+#else // ifndef _WIN32
 
 #if defined(_M_X64)
 #define SLJIT_CONFIG_X86_64
@@ -131,8 +131,13 @@ typedef int sljit_w;
 #else
 #define SLJIT_64BIT_ARCHITECTURE	1
 #define SLJIT_WORD_SHIFT		3
+#ifdef _WIN32
+typedef unsigned __int64 sljit_uw;
+typedef __int64 sljit_w;
+#else
 typedef unsigned long int sljit_uw;
 typedef long int sljit_w;
+#endif
 #endif
 
 // Double precision
@@ -149,6 +154,9 @@ typedef long int sljit_w;
 
 #ifdef __GNUC__
 #define SLJIT_CALL __attribute__ ((fastcall))
+#define SLJIT_X86_32_FASTCALL
+#elif defined(_WIN32)
+#define SLJIT_CALL __fastcall
 #define SLJIT_X86_32_FASTCALL
 #else
 #define SLJIT_CALL __stdcall
