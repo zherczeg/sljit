@@ -99,7 +99,8 @@
 #define SLJIT_GENERAL_EREG2	10
 
 // Read-only register (cannot be the destination of an operation)
-// SLJIT_MEM2( ... , SLJIT_LOCALS_REG) is not supported (x86 limitation)
+// Note: SLJIT_MEM2( ... , SLJIT_LOCALS_REG) is not supported (x86 limitation)
+// Note: SLJIT_LOCALS_REG is not necessary the real stack pointer. See sljit_emit_enter
 #define SLJIT_LOCALS_REG	11
 
 // Number of registers
@@ -265,7 +266,10 @@ void sljit_free_code(void* code);
 // Thus, "args" must be less or equal than "general". A local_size extra
 // stack space is allocated for the jit code (must be less or equal than
 // SLJIT_MAX_LOCAL_SIZE), which can accessed through SLJIT_LOCALS_REG (see
-// the notes there)
+// the notes there). SLJIT_LOCALS_REG is not necessary the real stack pointer!
+// It just points somewhere in the stack if local_size > 0 (!). Thus, the only
+// thing which is known that the memory area between SLJIT_LOCALS_REG and
+// SLJIT_LOCALS_REG + local_size is a valid stack area if local_size > 0
 
 // Note: multiple calls of this function overwrites the previous call
 
@@ -569,7 +573,7 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 // ---------------------------------------------------------------------
 
 #define SLJIT_MAJOR_VERSION	0
-#define SLJIT_MINOR_VERSION	70
+#define SLJIT_MINOR_VERSION	75
 
 // Get the human readable name of the platfrom
 // Can be useful for debugging on platforms like ARM, where ARM and

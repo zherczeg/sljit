@@ -90,6 +90,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
 #define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
 
 // Note: r12 & 0x7 == 0b100, which decoded as SIB byte present
+// Note: avoid to use r12 and r13 for memory addessing
 // therefore r12 is better for GENERAL_EREG than GENERAL_REG
 #ifndef _WIN64
 // 1st passed in rdi, 2nd argument passed in rsi, 3rd in rdx
@@ -103,11 +104,11 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
 #else
 // 1st passed in rcx, 2nd argument passed in rdx, 3rd in r8
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
-  0, 0, 2, 1, 11, 13, 3, 6, 7, 15, 14, 4, 10, 8, 9
+  0, 0, 2, 1, 12, 13, 3, 6, 7, 15, 14, 11, 10, 8, 9
 };
 // low-map. reg_map & 0x7
 static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
-  0, 0, 2, 1, 3,  5,  3, 6, 7,  7,  6, 4, 2,  0, 1
+  0, 0, 2, 1, 4,  5,  3, 6, 7,  7,  6,  3, 2,  0, 1
 };
 #endif
 
@@ -440,6 +441,16 @@ static SLJIT_INLINE int emit_restore_flags(struct sljit_compiler *compiler, int 
 	compiler->flags_saved = keep_flags;
 	return SLJIT_SUCCESS;
 }
+
+#ifdef _WIN32
+#include <malloc.h>
+
+static void SLJIT_CALL sljit_touch_stack(sljit_w local_size)
+{
+	// Workaround for calling _chkstk
+	alloca(local_size);
+}
+#endif
 
 #ifdef SLJIT_CONFIG_X86_32
 #include "sljitNativeX86_32.c"
@@ -2286,23 +2297,11 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	compiler->size += (type >= SLJIT_JUMP) ? (10 + 3) : (2 + 10 + 3);
 #endif
 
-#if defined(SLJIT_CONFIG_X86_64) && defined(_WIN64)
-	if (type >= SLJIT_CALL0)
-		PTR_FAIL_IF(emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
-			SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, 4 * sizeof(sljit_w)));
-#endif
-
 	buf = (sljit_ub*)ensure_buf(compiler, 2);
 	PTR_FAIL_IF(!buf);
 
 	*buf++ = 0;
 	*buf++ = type + 4;
-
-#if defined(SLJIT_CONFIG_X86_64) && defined(_WIN64)
-	if (type >= SLJIT_CALL0)
-		PTR_FAIL_IF(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
-				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, 4 * sizeof(sljit_w)));
-#endif
 	return jump;
 }
 
@@ -2348,12 +2347,6 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		FAIL_IF(call_with_args(compiler, type));
 	}
 
-#if defined(SLJIT_CONFIG_X86_64) && defined(_WIN64)
-	if (type >= SLJIT_CALL0)
-		FAIL_IF(emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
-			SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, 4 * sizeof(sljit_w)));
-#endif
-
 	if (src == SLJIT_IMM) {
 		buf = (sljit_ub*)ensure_buf(compiler, 2 + sizeof(sljit_w));
 		FAIL_IF(!buf);
@@ -2378,12 +2371,6 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		*code++ = 0xff;
 		*code |= (type >= SLJIT_CALL0) ? (2 << 3) : (4 << 3);
 	}
-
-#if defined(SLJIT_CONFIG_X86_64) && defined(_WIN64)
-	if (type >= SLJIT_CALL0)
-		return emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
-				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, 4 * sizeof(sljit_w));
-#endif
 	return SLJIT_SUCCESS;
 }
 
