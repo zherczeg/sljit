@@ -137,6 +137,13 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	if (generals > 3)
 		local_size += (generals - 3) * sizeof(sljit_uw);
 
+#ifdef _WIN32
+	if (local_size > 1024) {
+		FAIL_IF(emit_do_imm(compiler, 0xb8 + reg_map[SLJIT_TEMPORARY_REG1], local_size));
+		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(sljit_touch_stack)));
+	}
+#endif
+
 	compiler->local_size = local_size;
 	if (local_size > 0)
 		return emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,

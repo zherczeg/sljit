@@ -26,6 +26,19 @@
 
 // x86 64-bit arch dependent functions
 
+static int emit_load_imm64(struct sljit_compiler *compiler, int reg, sljit_w imm)
+{
+	sljit_ub *buf;
+
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + 2 + sizeof(sljit_w));
+	FAIL_IF(!buf);
+	INC_SIZE(2 + sizeof(sljit_w));
+	*buf++ = REX_W | ((reg_map[reg] <= 7) ? 0 : REX_B);
+	*buf++ = 0xb8 + (reg_map[reg] & 0x7);
+	*(sljit_w*)buf = imm;
+	return SLJIT_SUCCESS;
+}
+
 static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_ptr, int type)
 {
 	SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
@@ -99,6 +112,8 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	if (generals >= 2)
 		size += generals - 1;
 #else
+	if (local_size > 0)
+		size += 2;
 	if (generals >= 4)
 		size += generals - 3;
 	if (temporaries >= 5)
@@ -148,6 +163,11 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 			*buf++ = REX_B;
 			PUSH_REG(reg_lmap[SLJIT_TEMPORARY_EREG2]);
 		}
+		if (local_size > 0) {
+			SLJIT_ASSERT(reg_map[SLJIT_LOCALS_REG] >= 8);
+			*buf++ = REX_B;
+			PUSH_REG(reg_lmap[SLJIT_LOCALS_REG]);
+		}
 #endif
 
 #ifndef _WIN64
@@ -186,12 +206,61 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	}
 
 	local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
+#ifdef _WIN64
+	local_size += 4 * sizeof(sljit_w);
+	compiler->local_size = local_size;
+	if (local_size > 1024) {
+		// Allocate the stack for the function itself
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);
+		FAIL_IF(!buf);
+		INC_SIZE(4);
+		*buf++ = REX_W;
+		*buf++ = 0x83;
+		*buf++ = 0xc0 | (5 << 3) | 4;
+		*buf++ = 4 * sizeof(sljit_w);
+		local_size -= 4 * sizeof(sljit_w);
+		FAIL_IF(emit_load_imm64(compiler, SLJIT_TEMPORARY_REG1, local_size));
+		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(sljit_touch_stack)));
+	}
+#else
 	compiler->local_size = local_size;
 	if (local_size > 0) {
-		compiler->mode32 = 0;
-		return emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
-			SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, local_size);
+#endif
+		if (local_size <= 127) {
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);
+			FAIL_IF(!buf);
+			INC_SIZE(4);
+			*buf++ = REX_W;
+			*buf++ = 0x83;
+			*buf++ = 0xc0 | (5 << 3) | 4;
+			*buf++ = local_size;
+		}
+		else {
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 7);
+			FAIL_IF(!buf);
+			INC_SIZE(7);
+			*buf++ = REX_W;
+			*buf++ = 0x81;
+			*buf++ = 0xc0 | (5 << 3) | 4;
+			*(sljit_hw*)buf = local_size;
+			buf += sizeof(sljit_hw);
+		}
+#ifndef _WIN64
 	}
+#endif
+
+#ifdef _WIN64
+	if (local_size > 4 * sizeof(sljit_w)) {
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 5);
+		FAIL_IF(!buf);
+		INC_SIZE(5);
+		*buf++ = REX_W | REX_R;
+		*buf++ = 0x8d;
+		*buf++ = 0x40 | (reg_lmap[SLJIT_LOCALS_REG] << 3) | 0x4;
+		*buf++ = 0x24;
+		*buf = 4 * sizeof(sljit_w);
+	}
+#endif
 
 	// Mov arguments to general registers
 	return SLJIT_SUCCESS;
@@ -210,6 +279,9 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries
 	compiler->temporaries = temporaries;
 	compiler->generals = generals;
 	compiler->local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
+#ifdef _WIN64
+	compiler->local_size += 4 * sizeof(sljit_w);
+#endif
 }
 
 int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
@@ -234,9 +306,24 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 		FAIL_IF(emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw));
 
 	if (compiler->local_size > 0) {
-		compiler->mode32 = 0;
-		FAIL_IF(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
-				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
+		if (compiler->local_size <= 127) {
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);
+			FAIL_IF(!buf);
+			INC_SIZE(4);
+			*buf++ = REX_W;
+			*buf++ = 0x83;
+			*buf++ = 0xc0 | (0 << 3) | 4;
+			*buf = compiler->local_size;
+		}
+		else {
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 7);
+			FAIL_IF(!buf);
+			INC_SIZE(7);
+			*buf++ = REX_W;
+			*buf++ = 0x81;
+			*buf++ = 0xc0 | (0 << 3) | 4;
+			*(sljit_hw*)buf = compiler->local_size;
+		}
 	}
 
 	size = 1 + compiler->generals;
@@ -244,6 +331,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	if (compiler->generals >= 2)
 		size += compiler->generals - 1;
 #else
+	if (compiler->local_size > 4 * sizeof(sljit_w))
+		size += 2;
 	if (compiler->generals >= 4)
 		size += compiler->generals - 3;
 	if (compiler->temporaries >= 5)
@@ -255,6 +344,10 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	INC_SIZE(size);
 
 #ifdef _WIN64
+	if (compiler->local_size > 4 * sizeof(sljit_w)) {
+		*buf++ = REX_B;
+		POP_REG(reg_lmap[SLJIT_LOCALS_REG]);
+	}
 	if (compiler->temporaries >= 5) {
 		*buf++ = REX_B;
 		POP_REG(reg_lmap[SLJIT_TEMPORARY_EREG2]);
@@ -310,19 +403,6 @@ static int emit_do_imm32(struct sljit_compiler *compiler, sljit_ub rex, sljit_ub
 		*buf++ = opcode;
 		*(sljit_hw*)buf = imm;
 	}
-	return SLJIT_SUCCESS;
-}
-
-static int emit_load_imm64(struct sljit_compiler *compiler, int reg, sljit_w imm)
-{
-	sljit_ub *buf;
-
-	buf = (sljit_ub*)ensure_buf(compiler, 1 + 2 + sizeof(sljit_w));
-	FAIL_IF(!buf);
-	INC_SIZE(2 + sizeof(sljit_w));
-	*buf++ = REX_W | ((reg_map[reg] <= 7) ? 0 : REX_B);
-	*buf++ = 0xb8 + (reg_map[reg] & 0x7);
-	*(sljit_w*)buf = imm;
 	return SLJIT_SUCCESS;
 }
 
@@ -393,8 +473,10 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 			}
 		}
 
+#ifndef _WIN64
 		if ((b & 0xf) == SLJIT_LOCALS_REG && (b & 0xf0) == 0)
 			b |= SLJIT_LOCALS_REG << 4;
+#endif
 
 		if ((b & 0xf0) != SLJIT_UNUSED) {
 			total_size += 1; // SIB byte
@@ -496,6 +578,9 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 		*buf_ptr++ |= 0xc0 + reg_lmap[b];
 #endif
 	else if ((b & 0x0f) != SLJIT_UNUSED) {
+#ifdef _WIN64
+		SLJIT_ASSERT((b & 0xf0) != (SLJIT_LOCALS_REG << 4));
+#endif
 		if ((b & 0xf0) == SLJIT_UNUSED || (b & 0xf0) == (SLJIT_LOCALS_REG << 4)) {
 			if (immb != 0) {
 				if (immb <= 127 && immb >= -128)
