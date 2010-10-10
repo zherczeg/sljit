@@ -333,10 +333,10 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	return SLJIT_SUCCESS;
 }
 
-static int emit_const(struct sljit_compiler *compiler, int reg, sljit_w initval)
+static SLJIT_INLINE int emit_const(struct sljit_compiler *compiler, int reg, sljit_w init_value)
 {
-	FAIL_IF(push_inst(compiler, LUI | T(reg) | IMM(initval >> 16), DR(reg)));
-	return push_inst(compiler, ORI | S(reg) | T(reg) | IMM(initval), DR(reg));
+	FAIL_IF(push_inst(compiler, LUI | T(reg) | IMM(init_value >> 16), DR(reg)));
+	return push_inst(compiler, ORI | S(reg) | T(reg) | IMM(init_value), DR(reg));
 }
 
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)

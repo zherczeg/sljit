@@ -46,11 +46,11 @@
 //      temporary and max 3+2 general, and 4 floating point registers)
 //  In practice:
 //    - This approach is very effective for interpreters
-//      - One of the general registers tipically points to a stack interface
+//      - One of the general registers typically points to a stack interface
 //      - It can jump to any exception handler anytime (even for another
 //        function. It is safe for SLJIT.)
-//      - Fast paths can be modified runtime reflecting the changes of the
-//        fastest execution path of the dynamic language
+//      - Fast paths can be modified during runtime reflecting the changes
+//        of the fastest execution path of the dynamic language
 //      - SLJIT supports complex memory addressing modes
 //      - mainly position independent code
 //    - Optimizations (perhaps later)
@@ -555,7 +555,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 
 // The constant can be changed runtime (see: sljit_set_const)
 // Flags: - (never set any flags)
-struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval);
+struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w init_value);
 
 // After the code generation the address for label, jump and const instructions
 // are computed. Since these structures are freed sljit_free_compiler, the
