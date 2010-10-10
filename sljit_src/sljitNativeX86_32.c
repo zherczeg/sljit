@@ -26,6 +26,18 @@
 
 // x86 32-bit arch dependent functions
 
+static int emit_do_imm(struct sljit_compiler *compiler, sljit_ub opcode, sljit_w imm)
+{
+	sljit_ub *buf;
+
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + 1 + sizeof(sljit_w));
+	FAIL_IF(!buf);
+	INC_SIZE(1 + sizeof(sljit_w));
+	*buf++ = opcode;
+	*(sljit_w*)buf = imm;
+	return SLJIT_SUCCESS;
+}
+
 static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_ptr, int type)
 {
 	SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
@@ -58,15 +70,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	int size;
 	sljit_ub *buf;
 
-	FUNCTION_ENTRY();
-	// TODO: support the others
-	SLJIT_ASSERT(args >= 0 && args <= 3);
-	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
-	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= generals);
-	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
-
-	sljit_emit_enter_verbose();
+	check_sljit_emit_enter(compiler, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
 	compiler->generals = generals;
@@ -155,13 +159,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 
 void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
-	SLJIT_ASSERT(args >= 0 && args <= 3);
-	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
-	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= generals);
-	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
-
-	sljit_fake_enter_verbose();
+	check_sljit_fake_enter(compiler, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
 	compiler->generals = generals;
@@ -180,17 +178,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	int size;
 	sljit_ub *buf;
 
-	FUNCTION_ENTRY();
-#ifdef SLJIT_DEBUG
-	if (src != SLJIT_UNUSED) {
-		FUNCTION_CHECK_SRC(src, srcw);
-	}
-	else
-		SLJIT_ASSERT(srcw == 0);
-#endif
+	check_sljit_emit_return(compiler, src, srcw);
 	SLJIT_ASSERT(compiler->args >= 0);
-
-	sljit_emit_return_verbose();
 
 	compiler->flags_saved = 0;
 	CHECK_EXTRA_REGS(src, srcw, (void)0);
@@ -235,18 +224,6 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 // ---------------------------------------------------------------------
 //  Operators
 // ---------------------------------------------------------------------
-
-static int emit_do_imm(struct sljit_compiler *compiler, sljit_ub opcode, sljit_w imm)
-{
-	sljit_ub *buf;
-
-	buf = (sljit_ub*)ensure_buf(compiler, 1 + 1 + sizeof(sljit_w));
-	FAIL_IF(!buf);
-	INC_SIZE(1 + sizeof(sljit_w));
-	*buf++ = opcode;
-	*(sljit_w*)buf = imm;
-	return SLJIT_SUCCESS;
-}
 
 // Size contains the flags as well
 static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,

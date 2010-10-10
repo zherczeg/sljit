@@ -93,15 +93,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	int size;
 	sljit_ub *buf;
 
-	FUNCTION_ENTRY();
-	// TODO: support the others
-	SLJIT_ASSERT(args >= 0 && args <= 3);
-	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
-	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= generals);
-	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
-
-	sljit_emit_enter_verbose();
+	check_sljit_emit_enter(compiler, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
 	compiler->generals = generals;
@@ -268,13 +260,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 
 void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
-	SLJIT_ASSERT(args >= 0 && args <= 3);
-	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
-	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= generals);
-	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
-
-	sljit_fake_enter_verbose();
+	check_sljit_fake_enter(compiler, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
 	compiler->generals = generals;
@@ -289,16 +275,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	int size;
 	sljit_ub *buf;
 
-	FUNCTION_ENTRY();
-#ifdef SLJIT_DEBUG
-	if (src != SLJIT_UNUSED) {
-		FUNCTION_CHECK_SRC(src, srcw);
-	}
-	else
-		SLJIT_ASSERT(srcw == 0);
-#endif
-
-	sljit_emit_return_verbose();
+	check_sljit_emit_return(compiler, src, srcw);
 
 	compiler->flags_saved = 0;
 

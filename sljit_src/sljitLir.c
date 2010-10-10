@@ -626,7 +626,7 @@ static char* jump_names[] = {
 		sljit_verbose_param(src, srcw); \
 		fprintf(compiler->verbose, "\n"); \
 	}
-#define sljit_emit_set_cond_verbose() \
+#define sljit_emit_cond_set_verbose() \
 	if (compiler->verbose) { \
 		fprintf(compiler->verbose, "  cond_set "); \
 		sljit_verbose_param(dst, dstw); \
@@ -636,7 +636,7 @@ static char* jump_names[] = {
 	if (compiler->verbose) { \
 		fprintf(compiler->verbose, "  const "); \
 		sljit_verbose_param(dst, dstw); \
-		fprintf(compiler->verbose, ", #%"SLJIT_PRINT_D"d\n", initval); \
+		fprintf(compiler->verbose, ", #%"SLJIT_PRINT_D"d\n", init_value); \
 	}
 
 #else
@@ -652,7 +652,7 @@ static char* jump_names[] = {
 #define sljit_emit_label_verbose()
 #define sljit_emit_jump_verbose()
 #define sljit_emit_ijump_verbose()
-#define sljit_emit_set_cond_verbose()
+#define sljit_emit_cond_set_verbose()
 #define sljit_emit_const_verbose()
 
 #endif
@@ -660,6 +660,247 @@ static char* jump_names[] = {
 // ---------------------------------------------------------------------
 //  Arch dependent
 // ---------------------------------------------------------------------
+
+static SLJIT_INLINE void check_sljit_generate_code(struct sljit_compiler *compiler)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(compiler->size > 0);
+}
+
+static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)args;
+	(void)temporaries;
+	(void)generals;
+	(void)local_size;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(args >= 0 && args <= 3);
+	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
+	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(args <= generals);
+	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
+	sljit_emit_enter_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)args;
+	(void)temporaries;
+	(void)generals;
+	(void)local_size;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(args >= 0 && args <= 3);
+	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
+	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(args <= generals);
+	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
+	sljit_fake_enter_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)src;
+	(void)srcw;
+
+	FUNCTION_ENTRY();
+#ifdef SLJIT_DEBUG
+	if (src != SLJIT_UNUSED) {
+		FUNCTION_CHECK_SRC(src, srcw);
+	}
+	else
+		SLJIT_ASSERT(srcw == 0);
+#endif
+	sljit_emit_return_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_op0(struct sljit_compiler *compiler, int op)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)op;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_NOP);
+	sljit_emit_op0_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_op1(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)op;
+	(void)dst;
+	(void)dstw;
+	(void)src;
+	(void)srcw;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_NEG);
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
+	FUNCTION_CHECK_SRC(src, srcw);
+	FUNCTION_CHECK_DST(dst, dstw);
+	FUNCTION_CHECK_OP1();
+#endif
+	sljit_emit_op1_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_op2(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)op;
+	(void)dst;
+	(void)dstw;
+	(void)src1;
+	(void)src1w;
+	(void)src2;
+	(void)src2w;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_ADD && GET_OPCODE(op) <= SLJIT_ASHR);
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
+	FUNCTION_CHECK_SRC(src1, src1w);
+	FUNCTION_CHECK_SRC(src2, src2w);
+	FUNCTION_CHECK_DST(dst, dstw);
+#endif
+	sljit_emit_op2_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)op;
+	(void)dst;
+	(void)dstw;
+	(void)src;
+	(void)srcw;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FCMP && GET_OPCODE(op) <= SLJIT_FABS);
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
+	FUNCTION_FCHECK(src, srcw);
+	FUNCTION_FCHECK(dst, dstw);
+#endif
+	sljit_emit_fop1_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_fop2(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)op;
+	(void)dst;
+	(void)dstw;
+	(void)src1;
+	(void)src1w;
+	(void)src2;
+	(void)src2w;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FADD && GET_OPCODE(op) <= SLJIT_FDIV);
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_OP();
+	FUNCTION_FCHECK(src1, src1w);
+	FUNCTION_FCHECK(src2, src2w);
+	FUNCTION_FCHECK(dst, dstw);
+#endif
+	sljit_emit_fop2_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_label(struct sljit_compiler *compiler)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+
+	FUNCTION_ENTRY();
+	sljit_emit_label_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_jump(struct sljit_compiler *compiler, int type)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)type;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT((type & ~0x1ff) == 0);
+	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_EQUAL && (type & 0xff) <= SLJIT_CALL3);
+	sljit_emit_jump_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)type;
+	(void)src;
+	(void)srcw;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL3);
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_SRC(src, srcw);
+#endif
+	sljit_emit_ijump_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)dst;
+	(void)dstw;
+	(void)type;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type < SLJIT_JUMP);
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_DST(dst, dstw);
+#endif
+	sljit_emit_cond_set_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w init_value)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)dst;
+	(void)dstw;
+	(void)init_value;
+
+	FUNCTION_ENTRY();
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_DST(dst, dstw);
+#endif
+	sljit_emit_const_verbose();
+}
 
 #if defined(SLJIT_CONFIG_X86_32)
 	#include "sljitNativeX86_common.c"
