@@ -400,7 +400,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 }
 
 // ---------------------------------------------------------------------
-//  Conditional instructions
+//  Call / return instructions
 // ---------------------------------------------------------------------
 
 static SLJIT_INLINE int call_with_args(struct sljit_compiler *compiler, int type)
@@ -426,5 +426,88 @@ static SLJIT_INLINE int call_with_args(struct sljit_compiler *compiler, int type
 		PUSH_REG(reg_map[SLJIT_TEMPORARY_REG2]);
 	PUSH_REG(reg_map[SLJIT_TEMPORARY_REG1]);
 #endif
+	return SLJIT_SUCCESS;
+}
+
+int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
+{
+	sljit_ub *buf;
+
+	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, generals, local_size);
+
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
+	compiler->args = args;
+	compiler->local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
+	compiler->temporaries_start = compiler->local_size;
+	if (temporaries > 3)
+		compiler->local_size += (temporaries - 3) * sizeof(sljit_uw);
+	compiler->generals_start = compiler->local_size;
+	if (generals > 3)
+		compiler->local_size += (generals - 3) * sizeof(sljit_uw);
+
+	CHECK_EXTRA_REGS(dst, dstw, (void)0);
+
+	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+		FAIL_IF(!buf);
+
+		INC_SIZE(1);
+		POP_REG(reg_map[dst]);
+		return SLJIT_SUCCESS;
+	}
+	else if (dst & SLJIT_MEM) {
+		buf = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
+		FAIL_IF(!buf);
+		*buf++ = 0x8f;
+		return SLJIT_SUCCESS;
+	}
+
+	// For UNUSED dst. Uncommon, but possible
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + 1 + 1);
+	FAIL_IF(!buf);
+
+	INC_SIZE(1 + 1);
+	POP_REG(reg_map[TMP_REGISTER]);
+	return SLJIT_SUCCESS;
+}
+
+int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+{
+	sljit_ub *buf;
+
+	check_sljit_emit_fast_return(compiler, src, srcw);
+
+	CHECK_EXTRA_REGS(src, srcw, (void)0);
+
+	if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS) {
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1 + 1);
+		FAIL_IF(!buf);
+
+		INC_SIZE(1 + 1);
+		PUSH_REG(reg_map[src]);
+	}
+	else if (src & SLJIT_MEM) {
+		buf = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
+		FAIL_IF(!buf);
+		*buf++ = 0xff;
+		*buf |= 6 << 3;
+
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+		FAIL_IF(!buf);
+		INC_SIZE(1);
+	}
+	else {
+		// SLJIT_IMM
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 5 + 1);
+		FAIL_IF(!buf);
+
+		INC_SIZE(5 + 1);
+		*buf++ = 0x68;
+		*(sljit_w*)buf = srcw;
+		buf += sizeof(sljit_w);
+	}
+
+	RET();
 	return SLJIT_SUCCESS;
 }

@@ -291,6 +291,24 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries
 // Return from jit. See below the possible values for src and srcw
 int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 
+// Really fast calling method for utility functions inside sljit (see SLJIT_FAST_CALL).
+// All registers and even the stack frame is passed to the callee. The return address is
+// preserved in dst/dstw by sljit_emit_fast_enter, and sljit_emit_fast_return can
+// use this as a return value later.
+
+// Note: only for sljit specific, non ABI compilant calls. Fast, since only a few machine instructions
+// are needed. Excellent for small uility functions, where saving general registers and setting up
+// a new stack frame would cost too much performance. However, it is still possible to return
+// to the address of the caller (or anywhere else).
+
+// Note: flags are not changed (unlike sljit_emit_enter / sljit_emit_return)
+
+// Note: although sljit_emit_fast_return could be replaced by an ijump, it is not suggested,
+// since many architectures do clever branch prediction on call / return instruction pairs
+
+int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size);
+int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
+
 // Source and destination values for arithmetical instructions
 //  imm              - a simple immediate value (cannot be used as a destination)
 //  reg              - any of the registers (immediate argument must be 0)
@@ -527,6 +545,9 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_CALL1			24
 #define SLJIT_CALL2			25
 #define SLJIT_CALL3			26
+
+// Fast calling method. See sljit_emit_fast_enter / sljit_emit_fast_return
+#define SLJIT_FAST_CALL			SLJIT_CALL0
 
 // The target can be changed during runtime (see: sljit_set_jump_addr)
 #define SLJIT_REWRITABLE_JUMP		0x100

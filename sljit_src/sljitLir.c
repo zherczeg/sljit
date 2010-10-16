@@ -546,6 +546,18 @@ static char* freg_names[] = {
 		sljit_verbose_param(src, srcw); \
 		fprintf(compiler->verbose, "\n"); \
 	}
+#define sljit_emit_fast_enter_verbose() \
+	if (compiler->verbose) { \
+		fprintf(compiler->verbose, "  fast_enter "); \
+		sljit_verbose_param(dst, dstw); \
+		fprintf(compiler->verbose, " args=%d temporaries=%d generals=%d local_size=%d\n", args, temporaries, generals, local_size); \
+	}
+#define sljit_emit_fast_return_verbose() \
+	if (compiler->verbose) { \
+		fprintf(compiler->verbose, "  fast_return "); \
+		sljit_verbose_param(src, srcw); \
+		fprintf(compiler->verbose, "\n"); \
+	}
 
 static SLJIT_CONST char* op_names[] = {
 	// op0
@@ -614,9 +626,12 @@ static char* jump_names[] = {
 	(char*)"c_greater", (char*)"c_not_greater",
 	(char*)"c_sig_less", (char*)"c_sig_not_less",
 	(char*)"c_sig_greater", (char*)"c_sig_not_greater",
-	(char*)"c_carry", (char*)"c_not_carry",
-	(char*)"c_zero", (char*)"c_not_zero",
 	(char*)"c_overflow", (char*)"c_not_overflow",
+	(char*)"c_mul_overflow", (char*)"c_mul_not_overflow",
+	(char*)"c_float_equal", (char*)"c_float_not_equal",
+	(char*)"c_float_less", (char*)"c_float_not_less",
+	(char*)"c_float_greater", (char*)"c_float_not_greater",
+	(char*)"c_float_nan", (char*)"c_float_not_nan",
 	(char*)"jump",
 	(char*)"call0", (char*)"call1", (char*)"call2", (char*)"call3"
 };
@@ -646,6 +661,8 @@ static char* jump_names[] = {
 #define sljit_emit_enter_verbose()
 #define sljit_fake_enter_verbose()
 #define sljit_emit_return_verbose()
+#define sljit_emit_fast_enter_verbose()
+#define sljit_emit_fast_return_verbose()
 #define sljit_emit_op0_verbose()
 #define sljit_emit_op1_verbose()
 #define sljit_emit_op2_verbose()
@@ -724,6 +741,47 @@ static SLJIT_INLINE void check_sljit_emit_return(struct sljit_compiler *compiler
 		SLJIT_ASSERT(srcw == 0);
 #endif
 	sljit_emit_return_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)dst;
+	(void)dstw;
+	(void)args;
+	(void)temporaries;
+	(void)generals;
+	(void)local_size;
+
+	FUNCTION_ENTRY();
+	SLJIT_ASSERT(args >= 0 && args <= 3);
+	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
+	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
+	SLJIT_ASSERT(args <= generals);
+	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
+#ifdef SLJIT_DEBUG
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
+	FUNCTION_CHECK_DST(dst, dstw);
+	compiler->temporaries = -1;
+	compiler->generals = -1;
+#endif
+	sljit_emit_fast_enter_verbose();
+}
+
+static SLJIT_INLINE void check_sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+{
+	// If debug and verbose are disabled, all arguments are unused
+	(void)compiler;
+	(void)src;
+	(void)srcw;
+
+	FUNCTION_ENTRY();
+#ifdef SLJIT_DEBUG
+	FUNCTION_CHECK_SRC(src, srcw);
+#endif
+	sljit_emit_fast_return_verbose();
 }
 
 static SLJIT_INLINE void check_sljit_emit_op0(struct sljit_compiler *compiler, int op)
