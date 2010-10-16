@@ -96,6 +96,7 @@ static void test_exec_allocator(void)
 	SLJIT_FREE_EXEC(ptr1);
 	MALLOC_EXEC(ptr1, 262104);
 	SLJIT_FREE_EXEC(ptr1);
+	SLJIT_FREE_EXEC(ptr2);
 	MALLOC_EXEC(ptr1, 512);
 	MALLOC_EXEC(ptr2, 512);
 	MALLOC_EXEC(ptr3, 512);
@@ -1994,6 +1995,7 @@ static void test28(void)
 	buf[3] = 10;
 	buf[4] = 0;
 
+	FAILED(!compiler, "cannot create compiler\n");
 	T(sljit_emit_enter(compiler, 1, 5, 5, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_EREG1, 0, SLJIT_IMM, -234));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_EREG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w)));
@@ -2061,6 +2063,7 @@ static void test29(void)
 	buf[22] = 0;
 	buf[23] = 0;
 
+	FAILED(!compiler, "cannot create compiler\n");
 	T(sljit_emit_enter(compiler, 1, 5, 5, 0));
 
 	T(sljit_emit_op1(compiler, SLJIT_MOV_SB, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, -187));
@@ -2188,6 +2191,7 @@ static void test30(void)
 	sljit_w buf[1];
 	buf[0] = 0;
 
+	FAILED(!compiler, "cannot create compiler\n");
 	T(sljit_emit_enter(compiler, 1, 5, 5, 0));
 
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 1));
@@ -2263,6 +2267,8 @@ static void test31(void)
 	buf[10] = 3;
 	buf[11] = 3;
 
+	FAILED(!compiler, "cannot create compiler\n");
+
 	T(sljit_emit_enter(compiler, 1, 3, 5, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 0));
 	T(sljit_emit_op2(compiler, SLJIT_MUL | SLJIT_SET_O, SLJIT_UNUSED, 0, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, -45));
@@ -2328,7 +2334,7 @@ static void test32(void)
 {
 	// Integer mul and set flags
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler();
+	struct sljit_compiler* compiler;
 
 	sljit_w buf[16];
 	union {
@@ -2369,6 +2375,8 @@ static void test32(void)
 		return;
 	}
 
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
 	SLJIT_ASSERT(sizeof(double) == 8 && sizeof(int) == 4 && sizeof(dbuf[0]) == 8);
 
 	T(sljit_emit_enter(compiler, 2, 1, 2, 0));
@@ -2456,6 +2464,8 @@ static void test33(void)
 	buf[10] = 3;
 	buf[11] = 3;
 
+	FAILED(!compiler, "cannot create compiler\n");
+
 	T(sljit_emit_enter(compiler, 1, 3, 3, 0));
 	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, big_word));
 	T(sljit_emit_op2(compiler, SLJIT_ADD | SLJIT_SET_E | SLJIT_SET_C, SLJIT_TEMPORARY_REG2, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, big_word));
@@ -2490,6 +2500,122 @@ static void test33(void)
 	printf("test33 ok\n");
 	successful_tests++;
 }
+
+static void test34(void)
+{
+	// Test fast calls
+	executable_code codeA;
+	executable_code codeB;
+	executable_code codeC;
+	executable_code codeD;
+	executable_code codeE;
+	executable_code codeF;
+	struct sljit_compiler* compiler;
+	struct sljit_jump *jump;
+	struct sljit_label* label;
+	sljit_uw addr;
+
+	sljit_w buf[2];
+	buf[0] = 0;
+	buf[1] = 0;
+
+	// A
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
+
+	T(sljit_emit_fast_enter(compiler, SLJIT_TEMPORARY_REG2, 0, 1, 5, 5, 2 * sizeof(sljit_w)));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 4));
+	T(sljit_emit_fast_return(compiler, SLJIT_TEMPORARY_REG2, 0));
+
+	codeA.code = sljit_generate_code(compiler);
+	FAILED(!codeA.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	// B
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
+
+	T(sljit_emit_fast_enter(compiler, SLJIT_TEMPORARY_EREG2, 0, 1, 5, 5, 2 * sizeof(sljit_w)));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 6));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, SLJIT_FUNC_OFFSET(codeA.code)));
+	T(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_TEMPORARY_REG2, 0));
+	T(sljit_emit_fast_return(compiler, SLJIT_TEMPORARY_EREG2, 0));
+
+	codeB.code = sljit_generate_code(compiler);
+	FAILED(!codeB.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	// C
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
+
+	T(sljit_emit_fast_enter(compiler, SLJIT_MEM2(SLJIT_LOCALS_REG, SLJIT_TEMPORARY_REG2), SLJIT_WORD_SHIFT, 1, 5, 5, 2 * sizeof(sljit_w)));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 8));
+	jump = sljit_emit_jump(compiler, SLJIT_REWRITABLE_JUMP | SLJIT_FAST_CALL); TP(jump);
+	sljit_set_target(jump, SLJIT_FUNC_OFFSET(codeB.code));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 1));
+	T(sljit_emit_fast_return(compiler, SLJIT_MEM2(SLJIT_LOCALS_REG, SLJIT_TEMPORARY_REG2), SLJIT_WORD_SHIFT));
+
+	codeC.code = sljit_generate_code(compiler);
+	FAILED(!codeC.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	// D
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
+
+	T(sljit_emit_fast_enter(compiler, SLJIT_MEM1(SLJIT_LOCALS_REG), 0, 1, 5, 5, 2 * sizeof(sljit_w)));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 10));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 1));
+	T(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM, SLJIT_FUNC_OFFSET(codeC.code)));
+	T(sljit_emit_fast_return(compiler, SLJIT_MEM1(SLJIT_LOCALS_REG), 0));
+
+	codeD.code = sljit_generate_code(compiler);
+	FAILED(!codeD.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	// E
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
+
+	T(sljit_emit_fast_enter(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, 1, 5, 5, 2 * sizeof(sljit_w)));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 12));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_IMM, SLJIT_FUNC_OFFSET(codeD.code)));
+	T(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w)));
+	T(sljit_emit_fast_return(compiler, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0));
+
+	codeE.code = sljit_generate_code(compiler);
+	FAILED(!codeE.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	// F
+	compiler = sljit_create_compiler();
+
+	T(sljit_emit_enter(compiler, 1, 5, 5, 2 * sizeof(sljit_w)));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0));
+	T(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM, SLJIT_FUNC_OFFSET(codeE.code)));
+	label = sljit_emit_label(compiler); TP(label);
+	T(sljit_emit_return(compiler, SLJIT_TEMPORARY_REG1, 0));
+
+	codeF.code = sljit_generate_code(compiler);
+	FAILED(!codeF.code, "code generation error\n");
+	addr = sljit_get_label_addr(label);
+	sljit_free_compiler(compiler);
+
+	FAILED(codeF.func1((sljit_w)&buf) != 40, "test34 case 1 failed\n");
+	FAILED(buf[0] != addr, "test34 case 2 failed\n");
+
+	sljit_free_code(codeA.code);
+	sljit_free_code(codeB.code);
+	sljit_free_code(codeC.code);
+	sljit_free_code(codeD.code);
+	sljit_free_code(codeE.code);
+	sljit_free_code(codeF.code);
+
+	printf("test34 ok\n");
+	successful_tests++;
+}
+
 
 void sljit_test(void)
 {
@@ -2529,8 +2655,9 @@ void sljit_test(void)
 	test31();
 	test32();
 	test33();
-	if (successful_tests == 33)
+	test34();
+	if (successful_tests == 34)
 		printf("All tests are passed.\n");
 	else
-		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 33);
+		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 34);
 }

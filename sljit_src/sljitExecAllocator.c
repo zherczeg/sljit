@@ -196,7 +196,7 @@ static SLJIT_INLINE void sljit_remove_free_block(struct free_block *free_block)
 	}
 }
 
-void* sljit_malloc_exec(sljit_w size)
+void* sljit_malloc_exec(sljit_uw size)
 {
 	struct block_header *header;
 	struct block_header *next_header;
@@ -205,6 +205,8 @@ void* sljit_malloc_exec(sljit_w size)
 
 	grab_lock();
 	size = ALIGN_SIZE(size);
+	if (size < sizeof(struct free_block))
+		size = sizeof(struct free_block);
 
 	free_block = free_blocks;
 	while (free_block) {

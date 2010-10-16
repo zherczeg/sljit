@@ -607,7 +607,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 }
 
 // ---------------------------------------------------------------------
-//  Conditional instructions
+//  Call / return instructions
 // ---------------------------------------------------------------------
 
 static SLJIT_INLINE int call_with_args(struct sljit_compiler *compiler, int type)
@@ -645,6 +645,113 @@ static SLJIT_INLINE int call_with_args(struct sljit_compiler *compiler, int type
 #endif
 	return SLJIT_SUCCESS;
 }
+
+int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
+{
+	sljit_ub *buf;
+
+	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, generals, local_size);
+
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
+	compiler->local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
+#ifdef _WIN64
+	compiler->local_size += 4 * sizeof(sljit_w);
+#endif
+
+	// For UNUSED dst. Uncommon, but possible
+	if (dst == SLJIT_UNUSED)
+		dst = TMP_REGISTER;
+
+	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REGISTER) {
+		if (reg_map[dst] < 8) {
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+			FAIL_IF(!buf);
+
+			INC_SIZE(1);
+			POP_REG(reg_lmap[dst]);
+		}
+		else {
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 2);
+			FAIL_IF(!buf);
+
+			INC_SIZE(2);
+			*buf++ = REX_B;
+			POP_REG(reg_lmap[dst]);
+		}
+	}
+	else if (dst & SLJIT_MEM) {
+#ifdef SLJIT_CONFIG_X86_64
+		// REX_W is not necessary (src is not immediate)
+		compiler->mode32 = 1;
+#endif
+		buf = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
+		FAIL_IF(!buf);
+		*buf++ = 0x8f;
+	}
+	return SLJIT_SUCCESS;
+}
+
+int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+{
+	sljit_ub *buf;
+
+	check_sljit_emit_fast_return(compiler, src, srcw);
+
+	CHECK_EXTRA_REGS(src, srcw, (void)0);
+
+	if ((src & SLJIT_IMM) && NOT_HALFWORD(srcw)) {
+		FAIL_IF(emit_load_imm64(compiler, TMP_REGISTER, srcw));
+		src = TMP_REGISTER;
+	}
+
+	if (src >= SLJIT_TEMPORARY_REG1 && src <= TMP_REGISTER) {
+		if (reg_map[src] < 8) {
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 1 + 1);
+			FAIL_IF(!buf);
+
+			INC_SIZE(1 + 1);
+			PUSH_REG(reg_lmap[src]);
+		}
+		else {
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 2 + 1);
+			FAIL_IF(!buf);
+
+			INC_SIZE(2 + 1);
+			*buf++ = REX_B;
+			PUSH_REG(reg_lmap[src]);
+		}
+	}
+	else if (src & SLJIT_MEM) {
+#ifdef SLJIT_CONFIG_X86_64
+		// REX_W is not necessary (src is not immediate)
+		compiler->mode32 = 1;
+#endif
+		buf = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
+		FAIL_IF(!buf);
+		*buf++ = 0xff;
+		*buf |= 6 << 3;
+
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+		FAIL_IF(!buf);
+		INC_SIZE(1);
+	}
+	else {
+		SLJIT_ASSERT(IS_HALFWORD(srcw));
+		// SLJIT_IMM
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 5 + 1);
+		FAIL_IF(!buf);
+
+		INC_SIZE(5 + 1);
+		*buf++ = 0x68;
+		*(sljit_w*)buf = srcw;
+		buf += sizeof(sljit_w);
+	}
+
+	RET();
+	return SLJIT_SUCCESS;
+}
+
 
 // ---------------------------------------------------------------------
 //  Extend input

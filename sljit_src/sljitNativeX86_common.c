@@ -223,13 +223,16 @@ static sljit_ub* generate_near_jump_code(struct sljit_jump *jump, sljit_ub *code
 	int short_jump;
 	sljit_uw label_addr;
 
-	SLJIT_ASSERT(jump->flags & JUMP_LABEL);
+	SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
 
-	label_addr = (sljit_uw)(code + jump->label->size);
+	if (jump->flags & JUMP_LABEL)
+		label_addr = (sljit_uw)(code + jump->label->size);
+	else
+		label_addr = jump->target;
 	short_jump = (sljit_w)(label_addr - (jump->addr + 2)) >= -128 && (sljit_w)(label_addr - (jump->addr + 2)) <= 127;
 
 #ifdef SLJIT_CONFIG_X86_64
-	if ((sljit_w)(label_addr - (jump->addr + 1)) > 0x7fffffffl || (sljit_w)(label_addr - (jump->addr + 1)) < -0x80000000l)
+	if ((sljit_w)(label_addr - (jump->addr + 1)) > 0x7fffffffll || (sljit_w)(label_addr - (jump->addr + 1)) < -0x80000000ll)
 		return generate_far_jump_code(jump, code_ptr, type);
 #endif
 
@@ -353,12 +356,22 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 			SLJIT_ASSERT((sljit_w)(jump->label->addr - (jump->addr + sizeof(sljit_b))) >= -128 && (sljit_w)(jump->label->addr - (jump->addr + sizeof(sljit_b))) <= 127);
 			*(sljit_ub*)jump->addr = jump->label->addr - (jump->addr + sizeof(sljit_b));
 		} else if (jump->flags & PATCH_MW) {
+			if (jump->flags & JUMP_LABEL) {
 #ifdef SLJIT_CONFIG_X86_32
-			*(sljit_w*)jump->addr = jump->label->addr - (jump->addr + sizeof(sljit_w));
+				*(sljit_w*)jump->addr = jump->label->addr - (jump->addr + sizeof(sljit_w));
 #else
-			SLJIT_ASSERT((sljit_w)(jump->label->addr - (jump->addr + sizeof(sljit_hw))) >= -0x80000000l && (sljit_w)(jump->label->addr - (jump->addr + sizeof(sljit_hw))) <= 0x7fffffffl);
-			*(sljit_hw*)jump->addr = jump->label->addr - (jump->addr + sizeof(sljit_hw));
+				SLJIT_ASSERT((sljit_w)(jump->label->addr - (jump->addr + sizeof(sljit_hw))) >= -0x80000000ll && (sljit_w)(jump->label->addr - (jump->addr + sizeof(sljit_hw))) <= 0x7fffffffll);
+				*(sljit_hw*)jump->addr = jump->label->addr - (jump->addr + sizeof(sljit_hw));
 #endif
+			}
+			else {
+#ifdef SLJIT_CONFIG_X86_32
+				*(sljit_w*)jump->addr = jump->target - (jump->addr + sizeof(sljit_w));
+#else
+				SLJIT_ASSERT((sljit_w)(jump->target - (jump->addr + sizeof(sljit_hw))) >= -0x80000000ll && (sljit_w)(jump->target - (jump->addr + sizeof(sljit_hw))) <= 0x7fffffffll);
+				*(sljit_hw*)jump->addr = jump->target - (jump->addr + sizeof(sljit_hw));
+#endif
+			}
 		}
 #ifdef SLJIT_CONFIG_X86_64
 		else if (jump->flags & PATCH_MD)
@@ -2210,7 +2223,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	}
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
-	PTR_FAIL_IF(!jump);
+	PTR_FAIL_IF_NULL(jump);
 
 	jump->next = NULL;
 	jump->flags = type & SLJIT_REWRITABLE_JUMP;
@@ -2232,7 +2245,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 #endif
 
 	buf = (sljit_ub*)ensure_buf(compiler, 2);
-	PTR_FAIL_IF(!buf);
+	PTR_FAIL_IF_NULL(buf);
 
 	*buf++ = 0;
 	*buf++ = type + 4;
@@ -2241,8 +2254,8 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 
 int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw)
 {
-	sljit_ub *buf;
 	sljit_ub *code;
+	struct sljit_jump *jump;
 
 	check_sljit_emit_ijump(compiler, type, src, srcw);
 
@@ -2260,11 +2273,23 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 			EMIT_MOV(compiler, TMP_REGISTER, 0, src, 0);
 			src = TMP_REGISTER;
 		}
-		if ((src & SLJIT_MEM) && (src & 0xf) == SLJIT_LOCALS_REG && type >= SLJIT_CALL3)
-			srcw += sizeof(sljit_w);
+		if ((src & SLJIT_MEM) && (src & 0xf) == SLJIT_LOCALS_REG && type >= SLJIT_CALL3) {
+			if (src & 0xf0) {
+				EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
+				src = TMP_REGISTER;
+			}
+			else
+				srcw += sizeof(sljit_w);
+		}
 #else
-		if ((src & SLJIT_MEM) && (src & 0xf) == SLJIT_LOCALS_REG)
-			srcw += sizeof(sljit_w) * (type - SLJIT_CALL0);
+		if ((src & SLJIT_MEM) && (src & 0xf) == SLJIT_LOCALS_REG) {
+			if (src & 0xf0) {
+				EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
+				src = TMP_REGISTER;
+			}
+			else
+				srcw += sizeof(sljit_w) * (type - SLJIT_CALL0);
+		}
 #endif
 #endif
 #if defined(SLJIT_CONFIG_X86_64) && defined(_WIN64)
@@ -2277,23 +2302,35 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	}
 
 	if (src == SLJIT_IMM) {
-		buf = (sljit_ub*)ensure_buf(compiler, 2 + sizeof(sljit_w));
-		FAIL_IF(!buf);
+		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+		FAIL_IF_NULL(jump);
 
+		jump->next = NULL;
+		jump->flags = JUMP_ADDR;
+		jump->target = srcw;
+		if (compiler->last_jump)
+			compiler->last_jump->next = jump;
+		else
+			compiler->jumps = jump;
+		compiler->last_jump = jump;
+
+		// Worst case size
 #ifdef SLJIT_CONFIG_X86_32
 		compiler->size += 5;
 #else
 		compiler->size += 10 + 3;
 #endif
 
-		*buf++ = 0;
-		*buf++ = (type >= SLJIT_CALL0) ? 2 : 3;
-		*(sljit_w*)buf = srcw;
+		code = (sljit_ub*)ensure_buf(compiler, 2);
+		FAIL_IF_NULL(code);
+
+		*code++ = 0;
+		*code++ = type + 4;
 	}
 	else {
 #ifdef SLJIT_CONFIG_X86_64
-		compiler->mode32 = 1; /* dirty trick: REX_W is not necessary with call,
-					 and we know that src is not immediate */
+		// REX_W is not necessary (src is not immediate)
+		compiler->mode32 = 1;
 #endif
 		code = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
 		FAIL_IF(!code);

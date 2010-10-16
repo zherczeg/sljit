@@ -203,7 +203,7 @@ typedef long int sljit_w;
 #endif
 
 #ifdef SLJIT_EXECUTABLE_ALLOCATOR
-void* sljit_malloc_exec(sljit_w size);
+void* sljit_malloc_exec(sljit_uw size);
 void sljit_free_exec(void* ptr);
 #define SLJIT_MALLOC_EXEC(size) sljit_malloc_exec(size)
 #define SLJIT_FREE_EXEC(ptr) sljit_free_exec(ptr)
