@@ -225,6 +225,7 @@ struct sljit_compiler* sljit_create_compiler(void)
 #endif
 
 #if defined(SLJIT_CONFIG_MIPS_32)
+	compiler->has_locals = 0;
 	compiler->delay_slot = UNMOVABLE_INS;
 #endif
 

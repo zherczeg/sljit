@@ -204,9 +204,9 @@ void* sljit_malloc_exec(sljit_uw size)
 	sljit_uw chunk_size;
 
 	grab_lock();
-	size = ALIGN_SIZE(size);
 	if (size < sizeof(struct free_block))
 		size = sizeof(struct free_block);
+	size = ALIGN_SIZE(size);
 
 	free_block = free_blocks;
 	while (free_block) {

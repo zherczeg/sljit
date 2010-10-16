@@ -1416,6 +1416,50 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 }
 
 // ---------------------------------------------------------------------
+//  Other instructions
+// ---------------------------------------------------------------------
+
+int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
+{
+	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, generals, local_size);
+
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
+
+#ifdef SLJIT_CONFIG_PPC_32
+	compiler->local_size = (2 + generals + 1) * sizeof(sljit_w) + local_size;
+#else
+	compiler->local_size = (2 + generals + 7) * sizeof(sljit_w) + local_size;
+#endif
+	compiler->local_size = (compiler->local_size + 15) & ~0xf;
+
+	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
+		return push_inst(compiler, MFLR | D(dst));
+	else if (dst & SLJIT_MEM) {
+		FAIL_IF(push_inst(compiler, MFLR | D(TMP_REG2)));
+		return emit_op(compiler, SLJIT_MOV, WORD_DATA, dst, dstw, TMP_REG1, 0, TMP_REG2, 0);
+	}
+
+	return SLJIT_SUCCESS;
+}
+
+int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+{
+	check_sljit_emit_fast_return(compiler, src, srcw);
+
+	if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS)
+		FAIL_IF(push_inst(compiler, MTLR | S(src)));
+	else {
+		if (src & SLJIT_MEM)
+			FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, TMP_REG2, 0, TMP_REG1, 0, src, srcw));
+		else if (src & SLJIT_IMM)
+			FAIL_IF(load_immediate(compiler, TMP_REG2, srcw));
+		FAIL_IF(push_inst(compiler, MTLR | S(TMP_REG2)));
+	}
+	return push_inst(compiler, BLR);
+}
+
+// ---------------------------------------------------------------------
 //  Conditional instructions
 // ---------------------------------------------------------------------
 
