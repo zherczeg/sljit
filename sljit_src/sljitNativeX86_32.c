@@ -464,10 +464,10 @@ int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw
 	}
 
 	// For UNUSED dst. Uncommon, but possible
-	buf = (sljit_ub*)ensure_buf(compiler, 1 + 1 + 1);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
 	FAIL_IF(!buf);
 
-	INC_SIZE(1 + 1);
+	INC_SIZE(1);
 	POP_REG(reg_map[TMP_REGISTER]);
 	return SLJIT_SUCCESS;
 }

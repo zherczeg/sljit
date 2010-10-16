@@ -448,6 +448,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	compiler->temporaries = temporaries;
 	compiler->generals = generals;
 
+	compiler->has_locals = local_size > 0;
 	local_size += (generals + 2 + 4) * sizeof(sljit_w);
 	local_size = (local_size + 15) & ~0xf;
 	compiler->local_size = local_size;
@@ -466,7 +467,8 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	}
 
 	FAIL_IF(push_inst(compiler, STACK_STORE | base | TA(31) | IMM(local_size - 1 * (int)sizeof(sljit_w)), MOVABLE_INS));
-	FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_LOCALS_REG) | IMM(local_size - 2 * (int)sizeof(sljit_w)), MOVABLE_INS));
+	if (compiler->has_locals)
+		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_LOCALS_REG) | IMM(local_size - 2 * (int)sizeof(sljit_w)), MOVABLE_INS));
 	if (generals >= 1)
 		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_GENERAL_REG1) | IMM(local_size - 3 * (int)sizeof(sljit_w)), MOVABLE_INS));
 	if (generals >= 2)
@@ -478,7 +480,8 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	if (generals >= 5)
 		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_GENERAL_EREG2) | IMM(local_size - 7 * (int)sizeof(sljit_w)), MOVABLE_INS));
 
-	FAIL_IF(push_inst(compiler, ADDIU_W | S(REAL_STACK_PTR) | T(SLJIT_LOCALS_REG) | IMM(4 * sizeof(sljit_w)), DR(SLJIT_LOCALS_REG)));
+	if (compiler->has_locals)
+		FAIL_IF(push_inst(compiler, ADDIU_W | S(REAL_STACK_PTR) | T(SLJIT_LOCALS_REG) | IMM(4 * sizeof(sljit_w)), DR(SLJIT_LOCALS_REG)));
 
 	if (args >= 1)
 		FAIL_IF(push_inst(compiler, ADDU_W | SA(4) | TA(0) | D(SLJIT_GENERAL_REG1), DR(SLJIT_GENERAL_REG1)));
@@ -497,6 +500,7 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries
 	compiler->temporaries = temporaries;
 	compiler->generals = generals;
 
+	compiler->has_locals = local_size > 0;
 	local_size += (generals + 2 + 4) * sizeof(sljit_w);
 	compiler->local_size = (local_size + 15) & ~0xf;
 }
@@ -533,7 +537,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_GENERAL_REG2) | IMM(local_size - 4 * (int)sizeof(sljit_w)), DR(SLJIT_GENERAL_REG2)));
 	if (compiler->generals >= 1)
 		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_GENERAL_REG1) | IMM(local_size - 3 * (int)sizeof(sljit_w)), DR(SLJIT_GENERAL_REG1)));
-	FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_LOCALS_REG) | IMM(local_size - 2 * (int)sizeof(sljit_w)), DR(SLJIT_LOCALS_REG)));
+	if (compiler->has_locals)
+		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_LOCALS_REG) | IMM(local_size - 2 * (int)sizeof(sljit_w)), DR(SLJIT_LOCALS_REG)));
 
 	FAIL_IF(push_inst(compiler, JR | SA(31), UNMOVABLE_INS));
 	if (compiler->local_size <= SIMM_MAX)
@@ -1028,6 +1033,43 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 		FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG1, 0, dst, dstw));
 
 	return SLJIT_SUCCESS;
+}
+
+// ---------------------------------------------------------------------
+//  Other instructions
+// ---------------------------------------------------------------------
+
+int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
+{
+	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, generals, local_size);
+
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
+
+	compiler->has_locals = local_size > 0;
+	local_size += (generals + 2 + 4) * sizeof(sljit_w);
+	compiler->local_size = (local_size + 15) & ~0xf;
+
+	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
+		return push_inst(compiler, ADDU_W | SA(31) | TA(0) | D(dst), DR(dst));
+	else if (dst & SLJIT_MEM)
+		return emit_op_mem(compiler, WORD_DATA, 31, dst, dstw);
+	return SLJIT_SUCCESS;
+}
+
+int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+{
+	check_sljit_emit_fast_return(compiler, src, srcw);
+
+	if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS)
+		FAIL_IF(push_inst(compiler, ADDU_W | S(src) | TA(0) | DA(31), 31));
+	else if (src & SLJIT_MEM)
+		FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, 31, src, srcw));
+	else if (src & SLJIT_IMM)
+		FAIL_IF(load_immediate(compiler, 31, srcw));
+
+	FAIL_IF(push_inst(compiler, JR | SA(31), UNMOVABLE_INS));
+	return push_inst(compiler, NOP, UNMOVABLE_INS);
 }
 
 // ---------------------------------------------------------------------

@@ -1540,6 +1540,60 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 }
 
 // ---------------------------------------------------------------------
+//  Other instructions
+// ---------------------------------------------------------------------
+
+int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
+{
+	int size;
+
+	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, generals, local_size);
+
+	compiler->temporaries = temporaries;
+	compiler->generals = generals;
+
+	size = (3 + generals) * sizeof(sljit_uw);
+	local_size += size;
+	local_size = (local_size + 7) & ~7;
+	local_size -= size;
+	compiler->local_size = local_size;
+
+	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
+		return push_inst16(compiler, MOV | SET_REGS44(dst, TMP_REG3));
+	else if (dst & SLJIT_MEM) {
+		if (getput_arg_fast(compiler, WORD_SIZE | STORE, TMP_REG3, dst, dstw))
+			return compiler->error;
+		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(TMP_REG2, TMP_REG3)));
+		compiler->cache_arg = 0;
+		compiler->cache_argw = 0;
+		return getput_arg(compiler, WORD_SIZE | STORE, TMP_REG2, dst, dstw, 0, 0);
+	}
+
+	return SLJIT_SUCCESS;
+}
+
+int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+{
+	check_sljit_emit_fast_return(compiler, src, srcw);
+
+	if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS)
+		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(TMP_REG3, src)));
+	else if (src & SLJIT_MEM) {
+		if (getput_arg_fast(compiler, WORD_SIZE, TMP_REG3, src, srcw))
+			FAIL_IF(compiler->error);
+		else {
+			compiler->cache_arg = 0;
+			compiler->cache_argw = 0;
+			FAIL_IF(getput_arg(compiler, WORD_SIZE, TMP_REG2, src, srcw, 0, 0));
+			FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(TMP_REG3, TMP_REG2)));
+		}
+	}
+	else if (src & SLJIT_IMM)
+		FAIL_IF(load_immediate(compiler, TMP_REG3, srcw));
+	return push_inst16(compiler, BLX | RN3(TMP_REG3));
+}
+
+// ---------------------------------------------------------------------
 //  Conditional instructions
 // ---------------------------------------------------------------------
 

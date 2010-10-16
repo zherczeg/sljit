@@ -2616,6 +2616,74 @@ static void test34(void)
 	successful_tests++;
 }
 
+static void test35(void)
+{
+	// More complicated tests for fast calls
+	executable_code codeA;
+	executable_code codeB;
+	executable_code codeC;
+	struct sljit_compiler* compiler;
+	struct sljit_jump *jump;
+	struct sljit_label* label;
+	sljit_uw return_addr, jump_addr;
+
+	sljit_w buf[1];
+	buf[0] = 0;
+
+	// A
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
+
+	T(sljit_emit_fast_enter(compiler, SLJIT_MEM0(), (sljit_w)&buf[0], 0, 2, 2, 0));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 5));
+	jump = sljit_emit_jump(compiler, SLJIT_REWRITABLE_JUMP | SLJIT_FAST_CALL); TP(jump);
+	sljit_set_target(jump, 0);
+	label = sljit_emit_label(compiler); TP(label);
+	T(sljit_emit_fast_return(compiler, SLJIT_MEM0(), (sljit_w)&buf[0]));
+
+	codeA.code = sljit_generate_code(compiler);
+	FAILED(!codeA.code, "code generation error\n");
+	return_addr = sljit_get_label_addr(label);
+	jump_addr = sljit_get_jump_addr(jump);
+	sljit_free_compiler(compiler);
+
+	// B
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
+
+	T(sljit_emit_fast_enter(compiler, SLJIT_UNUSED, 0, 0, 2, 2, 0));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 7));
+	T(sljit_emit_fast_return(compiler, SLJIT_IMM, return_addr));
+
+	codeB.code = sljit_generate_code(compiler);
+	FAILED(!codeB.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+	sljit_set_jump_addr(jump_addr, SLJIT_FUNC_OFFSET(codeB.code));
+
+	// C
+	compiler = sljit_create_compiler();
+
+	T(sljit_emit_enter(compiler, 0, 2, 2, 0));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0));
+	T(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM, SLJIT_FUNC_OFFSET(codeA.code)));
+	label = sljit_emit_label(compiler); TP(label);
+	T(sljit_emit_return(compiler, SLJIT_TEMPORARY_REG1, 0));
+
+	codeC.code = sljit_generate_code(compiler);
+	FAILED(!codeC.code, "code generation error\n");
+	return_addr = sljit_get_label_addr(label);
+	sljit_free_compiler(compiler);
+
+	FAILED(codeC.func0() != 12, "test35 case 1 failed\n");
+	FAILED(buf[0] != return_addr, "test35 case 2 failed\n");
+
+	sljit_free_code(codeA.code);
+	sljit_free_code(codeB.code);
+	sljit_free_code(codeC.code);
+
+	printf("test35 ok\n");
+	successful_tests++;
+}
 
 void sljit_test(void)
 {
@@ -2656,8 +2724,9 @@ void sljit_test(void)
 	test32();
 	test33();
 	test34();
-	if (successful_tests == 34)
+	test35();
+	if (successful_tests == 35)
 		printf("All tests are passed.\n");
 	else
-		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 34);
+		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 35);
 }
