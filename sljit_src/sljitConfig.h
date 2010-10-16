@@ -51,7 +51,13 @@
 #elif defined(__x86_64__)
 #define SLJIT_CONFIG_X86_64
 #elif defined(__arm__) || defined(__ARM__)
+#if defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__)
+#define SLJIT_CONFIG_ARM_V7
+#elif defined(__ARM_ARCH_7__)
+#define SLJIT_CONFIG_ARM_THUMB2
+#else
 #define SLJIT_CONFIG_ARM_V5
+#endif
 #elif (__ppc64__) || (__powerpc64__)
 #define SLJIT_CONFIG_PPC_64
 #elif defined(__ppc__) || defined(__powerpc__)

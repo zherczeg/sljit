@@ -201,7 +201,7 @@ struct sljit_compiler {
 	int flags_saved;
 #endif
 
-#if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
+#ifdef SLJIT_CONFIG_ARM_V5
 	// Constant pool handling
 	sljit_uw *cpool;
 	sljit_ub *cpool_unique;
@@ -210,6 +210,9 @@ struct sljit_compiler {
 	// General fields
 	// Contains pointer, "ldr pc, [...]" pairs
 	sljit_uw patches;
+#endif
+
+#if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
 	// Temporary fields
 	sljit_uw shift_imm;
 	int cache_arg;
