@@ -94,7 +94,9 @@
 #if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
 	#define IS_BL		0x4
 	#define PATCH_B		0x8
+#endif
 
+#ifdef SLJIT_CONFIG_ARM_V5
 	#define CPOOL_SIZE	512
 #endif
 
@@ -208,7 +210,7 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->flags_saved = 0;
 #endif
 
-#if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
+#ifdef SLJIT_CONFIG_ARM_V5
 	compiler->cpool = (sljit_uw*)SLJIT_MALLOC(CPOOL_SIZE * sizeof(sljit_uw) + CPOOL_SIZE * sizeof(sljit_ub));
 	if (!compiler->cpool) {
 		SLJIT_FREE(compiler->buf);
@@ -259,7 +261,7 @@ void sljit_free_compiler(struct sljit_compiler *compiler)
 		SLJIT_FREE(curr);
 	}
 
-#if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
+#ifdef SLJIT_CONFIG_ARM_V5
 	SLJIT_FREE(compiler->cpool);
 #endif
 	SLJIT_FREE(compiler);

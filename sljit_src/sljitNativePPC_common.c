@@ -760,12 +760,12 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 // see can_cache above
 static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 {
-	int tmp_reg;
+	int tmp_r;
 	sljit_i inst;
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
-	tmp_reg = (inp_flags & LOAD_DATA) ? reg : TMP_REG3;
+	tmp_r = (inp_flags & LOAD_DATA) ? reg : TMP_REG3;
 
 	if (!(arg & 0xf)) {
 		inst = data_transfer_insts[(inp_flags & ~WRITE_BACK) & MEM_MASK];
@@ -781,11 +781,11 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 
 			compiler->cache_arg = SLJIT_IMM;
 			compiler->cache_argw = argw;
-			tmp_reg = TMP_REG3;
+			tmp_r = TMP_REG3;
 		}
 
-		FAIL_IF(load_immediate(compiler, tmp_reg, argw));
-		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(tmp_reg));
+		FAIL_IF(load_immediate(compiler, tmp_r, argw));
+		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(tmp_r));
 	}
 
 	if (SLJIT_UNLIKELY(arg & 0xf0)) {
@@ -793,13 +793,13 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		// Otherwise getput_arg_fast would capture it
 		SLJIT_ASSERT(argw);
 #ifdef SLJIT_CONFIG_PPC_32
-		FAIL_IF(push_inst(compiler, RLWINM | S((arg >> 4) & 0xf) | A(tmp_reg) | (argw << 11) | ((31 - argw) << 1)));
+		FAIL_IF(push_inst(compiler, RLWINM | S((arg >> 4) & 0xf) | A(tmp_r) | (argw << 11) | ((31 - argw) << 1)));
 #else
-		FAIL_IF(push_inst(compiler, RLDI(tmp_reg, (arg >> 4) & 0xf, argw, 63 - argw, 1)));
+		FAIL_IF(push_inst(compiler, RLDI(tmp_r, (arg >> 4) & 0xf, argw, 63 - argw, 1)));
 #endif
 		inst = data_transfer_insts[(inp_flags | INDEXED) & MEM_MASK];
 		SLJIT_ASSERT(!(inst & (ADDR_MODE2 | UPDATE_REQ)));
-		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(arg & 0xf) | B(tmp_reg));
+		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(arg & 0xf) | B(tmp_r));
 	}
 
 	inst = data_transfer_insts[inp_flags & MEM_MASK];
@@ -843,8 +843,8 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 	// Get the indexed version instead of the normal one
 	inst = data_transfer_insts[(inp_flags | INDEXED) & MEM_MASK];
 	SLJIT_ASSERT(!(inst & (ADDR_MODE2 | UPDATE_REQ)));
-	FAIL_IF(load_immediate(compiler, tmp_reg, argw));
-	return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(arg & 0xf) | B(tmp_reg));
+	FAIL_IF(load_immediate(compiler, tmp_r, argw));
+	return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(arg & 0xf) | B(tmp_r));
 }
 
 static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
