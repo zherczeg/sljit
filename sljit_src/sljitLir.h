@@ -551,13 +551,26 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_FAST_CALL			SLJIT_CALL0
 
 // The target can be changed during runtime (see: sljit_set_jump_addr)
-#define SLJIT_REWRITABLE_JUMP		0x100
+#define SLJIT_REWRITABLE_JUMP		0x200
 
 // Emit a jump instruction. The destination is not set, only the type of the jump.
 //  type must be between SLJIT_C_EQUAL and SLJIT_CALL3
+//  type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
 // Flags: - (never set any flags) for both conditional and unconditional jumps
 // Flags: destroy all flags for calls
 struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type);
+
+// Basic arithmetic comparison. In most architectures it is equal to
+// an SLJIT_SUB operation (with SLJIT_UNUSED destination) followed by a
+// sljit_emit_jump. However some architectures (i.e: MIPS) may employ
+// special optimizations here. It is suggested to use this comparison
+// form when flags are unimportant.
+//  type must be between SLJIT_C_EQUAL and SLJIT_C_SIG_NOT_GREATER
+//  type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP or SLJIT_INT_OP
+// Flags: destroy flags
+struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w);
 
 // Set the destination of the jump to this label
 void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label);
@@ -598,7 +611,7 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 // ---------------------------------------------------------------------
 
 #define SLJIT_MAJOR_VERSION	0
-#define SLJIT_MINOR_VERSION	75
+#define SLJIT_MINOR_VERSION	80
 
 // Get the human readable name of the platfrom
 // Can be useful for debugging on platforms like ARM, where ARM and
