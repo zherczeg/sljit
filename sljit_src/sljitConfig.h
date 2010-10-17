@@ -109,7 +109,7 @@
 
 // Compiler specific features. Disable them if they are not supported
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && (__GNUC__ >= 3)
 #define SLJIT_LIKELY(x)		__builtin_expect((x), 1)
 #define SLJIT_UNLIKELY(x)	__builtin_expect((x), 0)
 #else

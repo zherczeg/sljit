@@ -1087,14 +1087,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 
 	label = (struct sljit_label*)ensure_abuf(compiler, sizeof(struct sljit_label));
 	PTR_FAIL_IF(!label);
-
-	label->next = NULL;
-	label->size = compiler->size;
-	if (compiler->last_label)
-		compiler->last_label->next = label;
-	else
-		compiler->labels = label;
-	compiler->last_label = label;
+	set_label(label, compiler);
 	compiler->delay_slot = UNMOVABLE_INS;
 	return label;
 }
@@ -1136,15 +1129,8 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	PTR_FAIL_IF(!jump);
-
-	jump->next = NULL;
-	jump->flags = (type & SLJIT_REWRITABLE_JUMP);
+	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 	type &= 0xff;
-	if (compiler->last_jump)
-		compiler->last_jump->next = jump;
-	else
-		compiler->jumps = jump;
-	compiler->last_jump = jump;
 
 	switch (type) {
 	case SLJIT_C_EQUAL:
@@ -1267,15 +1253,8 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	if (src & SLJIT_IMM) {
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);
-
-		jump->next = NULL;
-		jump->flags = JUMP_ADDR | ((type >= SLJIT_CALL0) ? IS_JAL : 0);
+		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_CALL0) ? IS_JAL : 0));
 		jump->target = srcw;
-		if (compiler->last_jump)
-			compiler->last_jump->next = jump;
-		else
-			compiler->jumps = jump;
-		compiler->last_jump = jump;
 
 		if (compiler->delay_slot != UNMOVABLE_INS)
 			jump->flags |= IS_MOVABLE;

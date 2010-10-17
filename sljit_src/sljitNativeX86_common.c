@@ -2191,14 +2191,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 
 	label = (struct sljit_label*)ensure_abuf(compiler, sizeof(struct sljit_label));
 	PTR_FAIL_IF(!label);
-
-	label->next = NULL;
-	label->size = compiler->size;
-	if (compiler->last_label)
-		compiler->last_label->next = label;
-	else
-		compiler->labels = label;
-	compiler->last_label = label;
+	set_label(label, compiler);
 
 	buf = (sljit_ub*)ensure_buf(compiler, 2);
 	PTR_FAIL_IF(!buf);
@@ -2224,15 +2217,8 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	PTR_FAIL_IF_NULL(jump);
-
-	jump->next = NULL;
-	jump->flags = type & SLJIT_REWRITABLE_JUMP;
+	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 	type &= 0xff;
-	if (compiler->last_jump)
-		compiler->last_jump->next = jump;
-	else
-		compiler->jumps = jump;
-	compiler->last_jump = jump;
 
 	if (type >= SLJIT_CALL1)
 		PTR_FAIL_IF(call_with_args(compiler, type));
@@ -2304,15 +2290,8 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	if (src == SLJIT_IMM) {
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF_NULL(jump);
-
-		jump->next = NULL;
-		jump->flags = JUMP_ADDR;
+		set_jump(jump, compiler, JUMP_ADDR);
 		jump->target = srcw;
-		if (compiler->last_jump)
-			compiler->last_jump->next = jump;
-		else
-			compiler->jumps = jump;
-		compiler->last_jump = jump;
 
 		// Worst case size
 #ifdef SLJIT_CONFIG_X86_32
