@@ -71,7 +71,7 @@
 
 #else // ifndef _WIN32
 
-#if defined(_M_X64)
+#if defined(_M_X64) || defined(__x86_64__)
 #define SLJIT_CONFIG_X86_64
 #elif defined(_ARM_)
 #define SLJIT_CONFIG_ARM_V5
