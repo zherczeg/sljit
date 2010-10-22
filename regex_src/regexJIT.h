@@ -91,4 +91,7 @@ int regex_is_match_finished(struct regex_match *match);
 // Do both sanity check and verbose. (The latter only if REGEX_MATCH_VERBOSE was passed to regex_compile)
 void regex_continue_match_debug(struct regex_match *match, regex_char_t *input_string, int length);
 
+// Misc
+char* regex_get_platform_name(void);
+
 #endif

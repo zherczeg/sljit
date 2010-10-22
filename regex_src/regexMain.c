@@ -279,6 +279,7 @@ static struct test_case tests[] = {
 
 int main(int argc, char* argv[])
 {
+	printf("Generating code for: %s\n", regex_get_platform_name());
 //	verbose_test("a((b)((c|d))|)c|");
 //	verbose_test("Xa{009,0010}Xb{,7}Xc{5,}Xd{,}Xe{1,}Xf{,1}X");
 //	verbose_test("{3!}({3})({0!}){,");

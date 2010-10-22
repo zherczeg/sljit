@@ -937,16 +937,16 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int flags, int reg, 
 static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 {
 	// Simple operation except for updates
-	if (arg & 0xf0)
+	if ((arg & 0xf0) || !(next_arg & SLJIT_MEM))
 		return 0;
 
 	if (!(arg & 0xf)) {
-		if ((next_arg & SLJIT_MEM) && ((sljit_uw)(argw - next_argw) <= 0xfff || (sljit_uw)(next_argw - argw) <= 0xfff))
+		if ((sljit_uw)(argw - next_argw) <= 0xfff || (sljit_uw)(next_argw - argw) <= 0xfff)
 			return 1;
 		return 0;
 	}
 
-	if (argw == next_argw && (next_arg & SLJIT_MEM))
+	if (argw == next_argw)
 		return 1;
 
 	if (arg == next_arg && ((sljit_uw)(argw - next_argw) <= 0xfff || (sljit_uw)(next_argw - argw) <= 0xfff))

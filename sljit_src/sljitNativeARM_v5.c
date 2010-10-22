@@ -489,6 +489,9 @@ static SLJIT_INLINE void inline_set_jump_addr(sljit_uw addr, sljit_uw new_addr, 
 	SLJIT_ASSERT((inst[0] & 0xfff00000) == MOVW && (inst[1] & 0xfff00000) == MOVT);
 	inst[0] = MOVW | (inst[0] & 0xf000) | ((new_addr << 4) & 0xf0000) | (new_addr & 0xfff);
 	inst[1] = MOVT | (inst[1] & 0xf000) | ((new_addr >> 12) & 0xf0000) | ((new_addr >> 16) & 0xfff);
+	if (flush) {
+		SLJIT_CACHE_FLUSH(inst, inst + 2);
+	}
 #endif
 }
 
@@ -537,6 +540,9 @@ static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_w new_constant, i
 	SLJIT_ASSERT((inst[0] & 0xfff00000) == MOVW && (inst[1] & 0xfff00000) == MOVT);
 	inst[0] = MOVW | (inst[0] & 0xf000) | ((new_constant << 4) & 0xf0000) | (new_constant & 0xfff);
 	inst[1] = MOVT | (inst[1] & 0xf000) | ((new_constant >> 12) & 0xf0000) | ((new_constant >> 16) & 0xfff);
+	if (flush) {
+		SLJIT_CACHE_FLUSH(inst, inst + 2);
+	}
 #endif
 }
 
@@ -1167,6 +1173,7 @@ static sljit_uw get_immediate(sljit_uw imm)
 		return 0;
 }
 
+#ifdef SLJIT_CONFIG_ARM_V5
 static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, int positive)
 {
 	sljit_uw mask;
@@ -1276,6 +1283,7 @@ static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, 
 	EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(positive ? ORR_DP : BIC_DP, 0, reg, reg, imm2));
 	return 1;
 }
+#endif
 
 static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_uw imm)
 {
