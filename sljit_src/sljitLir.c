@@ -128,10 +128,10 @@
 #if defined(SLJIT_CONFIG_MIPS_32)
 	#define IS_MOVABLE	0x04
 	#define IS_JAL		0x08
-	#define IS_ARIT_COND	0x10
-	#define IS_FLOAT_COND	0x20
+	#define IS_BIT26_COND	0x10
+	#define IS_BIT16_COND	0x20
 
-	#define IS_COND		(IS_ARIT_COND | IS_FLOAT_COND)
+	#define IS_COND		(IS_BIT26_COND | IS_BIT16_COND)
 
 	#define PATCH_B		0x40
 	#define PATCH_J		0x80
@@ -1017,6 +1017,7 @@ static SLJIT_INLINE void check_sljit_emit_const(struct sljit_compiler *compiler,
 	#include "sljitNativeMIPS_common.c"
 #endif
 
+#if !defined(SLJIT_CONFIG_MIPS_32)
 struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
@@ -1031,9 +1032,36 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 
 	check_sljit_emit_cmp(compiler, type, src1, src1w, src2, src2w);
 
+	condition = type & 0xff;
 	if (SLJIT_UNLIKELY((src1 & SLJIT_IMM) && !(src2 & SLJIT_IMM))) {
 		// Immediate is prefered as second argument by most architectures
-		type ^= 0x1;
+		switch (condition) {
+		case SLJIT_C_LESS:
+			condition = SLJIT_C_GREATER;
+			break;
+		case SLJIT_C_NOT_LESS:
+			condition = SLJIT_C_NOT_GREATER;
+			break;
+		case SLJIT_C_GREATER:
+			condition = SLJIT_C_LESS;
+			break;
+		case SLJIT_C_NOT_GREATER:
+			condition = SLJIT_C_NOT_LESS;
+			break;
+		case SLJIT_C_SIG_LESS:
+			condition = SLJIT_C_SIG_GREATER;
+			break;
+		case SLJIT_C_SIG_NOT_LESS:
+			condition = SLJIT_C_SIG_NOT_GREATER;
+			break;
+		case SLJIT_C_SIG_GREATER:
+			condition = SLJIT_C_SIG_LESS;
+			break;
+		case SLJIT_C_SIG_NOT_GREATER:
+			condition = SLJIT_C_SIG_NOT_LESS;
+			break;
+		}
+		type = condition | (type & (SLJIT_INT_OP | SLJIT_REWRITABLE_JUMP));
 		tmp_src = src1;
 		src1 = src2;
 		src2 = tmp_src;
@@ -1042,7 +1070,6 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 		src2w = tmp_srcw;
 	}
 
-	condition = type & 0xff;
 	if (condition <= SLJIT_C_NOT_ZERO)
 		flags = SLJIT_SET_E;
 	else if (condition <= SLJIT_C_NOT_GREATER)
@@ -1069,6 +1096,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 		SLJIT_UNUSED, 0, src1, src1w, src2, src2w));
 	return sljit_emit_jump(compiler, condition | (type & SLJIT_REWRITABLE_JUMP));
 }
+#endif
 
 #else /* SLJIT_CONFIG_UNSUPPORTED */
 

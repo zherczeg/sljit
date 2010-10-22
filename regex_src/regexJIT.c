@@ -2315,6 +2315,11 @@ void regex_free_machine(struct regex_machine *machine)
 	SLJIT_FREE(machine);
 }
 
+char* regex_get_platform_name(void)
+{
+	return sljit_get_platform_name();
+}
+
 // ---------------------------------------------------------------------
 //  Mathching utilities
 // ---------------------------------------------------------------------
