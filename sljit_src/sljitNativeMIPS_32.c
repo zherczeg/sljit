@@ -125,7 +125,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 			}
 		}
 
-		// a + b >= a | b ()
+		// a + b >= a | b (otherwise, the carry should be set to 1)
 		if (op & SLJIT_SET_C)
 			FAIL_IF(push_inst(compiler, SLTU | S(dst) | TA(ULESS_FLAG) | DA(ULESS_FLAG), ULESS_FLAG));
 		if (op & SLJIT_SET_O)

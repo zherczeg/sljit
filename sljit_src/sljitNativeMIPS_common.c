@@ -707,6 +707,12 @@ static int getput_arg(struct sljit_compiler *compiler, int flags, int reg_ar, in
 		// Update only applies if a base register exists
 		if (reg_ar == DR(base)) {
 			SLJIT_ASSERT(!(flags & LOAD_DATA) && DR(TMP_REG1) != reg_ar);
+			if (argw <= SIMM_MAX && argw >= SIMM_MIN) {
+				FAIL_IF(push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | S(base) | TA(reg_ar) | IMM(argw), MOVABLE_INS));
+				if (argw)
+					return push_inst(compiler, ADDIU_W | S(base) | T(base) | IMM(argw), DR(base));
+				return SLJIT_SUCCESS;
+			}
 			FAIL_IF(push_inst(compiler, ADDU_W | SA(reg_ar) | TA(0) | D(TMP_REG1), DR(TMP_REG1)));
 			reg_ar = DR(TMP_REG1);
 		}

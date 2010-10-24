@@ -70,7 +70,7 @@ static sljit_ub* generate_fixed_jump(sljit_ub *code_ptr, sljit_w addr, int type)
 {
 	sljit_w delta = addr - ((sljit_w)code_ptr + 1 + sizeof(sljit_hw));
 
-	if (delta <= 0x7fffffffl && delta >= -0x80000000l) {
+	if (delta <= SLJIT_W(0x7fffffff) && delta >= SLJIT_W(-0x80000000)) {
 		*code_ptr++ = (type == 2) ? 0xe8 /* call */ : 0xe9 /* jmp */;
 		*(sljit_w*)code_ptr = delta;
 	}
@@ -284,8 +284,10 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 
 	compiler->flags_saved = 0;
 
-	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
+	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED) {
+		compiler->mode32 = 0;
 		FAIL_IF(emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw));
+	}
 
 	if (compiler->local_size > 0) {
 		if (compiler->local_size <= 127) {
