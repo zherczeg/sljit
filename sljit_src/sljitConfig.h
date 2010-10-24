@@ -124,7 +124,7 @@
 
 // Byte type
 typedef unsigned char sljit_ub;
-typedef char sljit_b;
+typedef signed char sljit_b;
 
 // Machine word type. Can encapsulate a pointer.
 //   32 bit for 32 bit machines
@@ -192,6 +192,12 @@ typedef long int sljit_w;
 #endif
 
 #endif /* defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64) */
+
+#ifdef SLJIT_64BIT_ARCHITECTURE
+#define SLJIT_W(w)	(w##ll)
+#else
+#define SLJIT_W(w)	(w)
+#endif
 
 #if !defined(SLJIT_CONFIG_X86_32) && !defined(SLJIT_CONFIG_X86_64)
 	// Just call __ARM_NR_cacheflush on Linux

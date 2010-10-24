@@ -512,7 +512,11 @@ static char* freg_names[] = {
 };
 
 #if defined(SLJIT_CONFIG_X86_64) || defined(SLJIT_CONFIG_PPC_64)
+#ifdef _WIN64
+	#define SLJIT_PRINT_D	"I64"
+#else
 	#define SLJIT_PRINT_D	"l"
+#endif
 #else
 	#define SLJIT_PRINT_D	""
 #endif

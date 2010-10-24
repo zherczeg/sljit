@@ -1087,7 +1087,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 
 #ifdef SLJIT_CONFIG_PPC_64
 #define TEST_SH_IMM(src, srcw) \
-	(((src) & SLJIT_IMM) && !((srcw) & 0xffff) && (srcw) <= 0x7fffffff && (srcw) >= -0x80000000l)
+	(((src) & SLJIT_IMM) && !((srcw) & 0xffff) && (srcw) <= SLJIT_W(0x7fffffff) && (srcw) >= SLJIT_W(-0x80000000))
 #else
 #define TEST_SH_IMM(src, srcw) \
 	(((src) & SLJIT_IMM) && !((srcw) & 0xffff))
