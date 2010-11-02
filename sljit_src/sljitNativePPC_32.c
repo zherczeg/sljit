@@ -207,6 +207,10 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	case SLJIT_NEG:
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		return push_inst(compiler, NEG | OERC(flags) | D(dst) | A(src2));
+
+	case SLJIT_CLZ:
+		SLJIT_ASSERT(src1 == TMP_REG1);
+		return push_inst(compiler, CNTLZW | RC(flags) | S(src2) | A(dst));
 	}
 
 	SLJIT_ASSERT_STOP();

@@ -363,6 +363,9 @@ static SLJIT_INLINE void reverse_buf(struct sljit_compiler *compiler)
 static SLJIT_INLINE void set_label(struct sljit_label *label, struct sljit_compiler *compiler)
 {
 	label->next = NULL;
+#ifdef SLJIT_UTIL_LABEL_USER
+	label->user = NULL;
+#endif
 	label->size = compiler->size;
 	if (compiler->last_label)
 		compiler->last_label->next = label;
@@ -374,12 +377,29 @@ static SLJIT_INLINE void set_label(struct sljit_label *label, struct sljit_compi
 static SLJIT_INLINE void set_jump(struct sljit_jump *jump, struct sljit_compiler *compiler, int flags)
 {
 	jump->next = NULL;
+#ifdef SLJIT_UTIL_JUMP_USER
+	jump->user = NULL;
+#endif
 	jump->flags = flags;
 	if (compiler->last_jump)
 		compiler->last_jump->next = jump;
 	else
 		compiler->jumps = jump;
 	compiler->last_jump = jump;
+}
+
+static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_compiler *compiler)
+{
+	const_->next = NULL;
+#ifdef SLJIT_UTIL_CONST_USER
+	const_->user = NULL;
+#endif
+	const_->addr = compiler->size;
+	if (compiler->last_const)
+		compiler->last_const->next = const_;
+	else
+		compiler->consts = const_;
+	compiler->last_const = const_;
 }
 
 #define depends_on(exp, reg) \
@@ -390,6 +410,7 @@ static SLJIT_INLINE void set_jump(struct sljit_jump *jump, struct sljit_compiler
 	SLJIT_ASSERT(!GET_FLAGS(op) || !(op & SLJIT_KEEP_FLAGS)); \
 	switch (GET_OPCODE(op)) { \
 	case SLJIT_NOT: \
+	case SLJIT_CLZ: \
 	case SLJIT_AND: \
 	case SLJIT_OR: \
 	case SLJIT_XOR: \
@@ -566,12 +587,13 @@ static char* freg_names[] = {
 
 static SLJIT_CONST char* op_names[] = {
 	// op0
-	(char*)"debugger", (char*)"nop",
+	(char*)"breakpoint", (char*)"nop",
 	// op1
 	(char*)"mov", (char*)"mov.ub", (char*)"mov.sb", (char*)"mov.uh",
 	(char*)"mov.sh", (char*)"mov.ui", (char*)"mov.si", (char*)"movu",
 	(char*)"movu.ub", (char*)"movu.sb", (char*)"movu.uh", (char*)"movu.sh",
 	(char*)"movu.ui", (char*)"movu.si", (char*)"not", (char*)"neg",
+	(char*)"clz",
 	// op2
 	(char*)"add", (char*)"addc", (char*)"sub", (char*)"subc",
 	(char*)"mul", (char*)"and", (char*)"or", (char*)"xor",
@@ -739,10 +761,10 @@ static SLJIT_INLINE void check_sljit_emit_op0(struct sljit_compiler *compiler, i
 	(void)op;
 
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DEBUGGER && GET_OPCODE(op) <= SLJIT_NOP);
+	SLJIT_ASSERT(op >= SLJIT_BREAKPOINT && op <= SLJIT_NOP);
 #ifdef SLJIT_VERBOSE
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
-		fprintf(compiler->verbose, "  %s\n", op_names[GET_OPCODE(op)]);
+		fprintf(compiler->verbose, "  %s\n", op_names[op]);
 #endif
 }
 
@@ -759,7 +781,7 @@ static SLJIT_INLINE void check_sljit_emit_op1(struct sljit_compiler *compiler, i
 	(void)srcw;
 
 	FUNCTION_ENTRY();
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_NEG);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_CLZ);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_OP();
 	FUNCTION_CHECK_SRC(src, srcw);

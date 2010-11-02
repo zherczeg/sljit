@@ -27,7 +27,7 @@
 // ppc 64-bit arch dependent functions
 
 #ifdef __GNUC__
-#define SLJIT_CLZ(src, dst) \
+#define ASM_SLJIT_CLZ(src, dst) \
 	asm volatile ( "cntlzd %0, %1" : "=r"(dst) : "r"(src) )
 #else
 #error "Must implement count leading zeroes"
@@ -56,7 +56,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 
 	// Count leading zeroes
 	tmp = (imm >= 0) ? imm : ~imm;
-	SLJIT_CLZ(tmp, shift);
+	ASM_SLJIT_CLZ(tmp, shift);
 	SLJIT_ASSERT(shift > 0);
 	shift--;
 	tmp = (imm << shift);
@@ -91,7 +91,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 		return (imm & 0xffff) ? push_inst(compiler, ORI | S(reg) | A(reg) | IMM(tmp2)) : SLJIT_SUCCESS;
 	}
 
-	SLJIT_CLZ(tmp2, shift2);
+	ASM_SLJIT_CLZ(tmp2, shift2);
 	tmp2 <<= shift2;
 
 	if ((tmp2 & ~0xffff000000000000ul) == 0) {
@@ -356,6 +356,12 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		UN_EXTS();
 		return push_inst(compiler, NEG | OERC(flags) | D(dst) | A(src2));
+
+	case SLJIT_CLZ:
+		SLJIT_ASSERT(src1 == TMP_REG1);
+		if (flags & ALT_FORM1)
+			return push_inst(compiler, CNTLZW | RC(flags) | S(src2) | A(dst));
+		return push_inst(compiler, CNTLZD | RC(flags) | S(src2) | A(dst));
 	}
 
 	SLJIT_ASSERT_STOP();

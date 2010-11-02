@@ -56,7 +56,11 @@
 //    - Optimizations (perhaps later)
 //      - Only for basic blocks (when no labels inserted between LIR instructions)
 
+#ifndef SLJIT_CONFIGURED
 #include "sljitConfig.h"
+#endif
+
+#include "sljitConfigInternal.h"
 
 // ---------------------------------------------------------------------
 //  Error codes
@@ -145,6 +149,9 @@ struct sljit_memory_fragment {
 
 struct sljit_label {
 	struct sljit_label *next;
+#ifdef SLJIT_UTIL_LABEL_USER
+	void* user;
+#endif
 	sljit_uw addr;
 	// The maximum size difference
 	sljit_uw size;
@@ -152,6 +159,9 @@ struct sljit_label {
 
 struct sljit_jump {
 	struct sljit_jump *next;
+#ifdef SLJIT_UTIL_JUMP_USER
+	void* user;
+#endif
 	sljit_uw addr;
 	int flags;
 	union {
@@ -162,6 +172,9 @@ struct sljit_jump {
 
 struct sljit_const {
 	struct sljit_const *next;
+#ifdef SLJIT_UTIL_CONST_USER
+	void* user;
+#endif
 	sljit_uw addr;
 };
 
@@ -391,9 +404,9 @@ int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w src
 //   - flag combinations: '|' means 'logical or'
 
 // Flags: - (never set any flags)
-// Note: debugger instruction is not supported by all architectures (namely ppc)
+// Note: breakpoint instruction is not supported by all architectures (namely ppc)
 //       It falls back to SLJIT_NOP in those cases.
-#define SLJIT_DEBUGGER			0
+#define SLJIT_BREAKPOINT		0
 // Flags: - (never set any flags)
 // Note: may or may not cause an extra cycle wait
 //       it can even decrease the runtime in a few cases
@@ -441,34 +454,37 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op);
 #define SLJIT_NOT			16
 // Flags: I | E | O | K
 #define SLJIT_NEG			17
+// Count leading zeroes
+// Flags: I | E | K
+#define SLJIT_CLZ			18
 
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
 // Flags: I | E | O | C | K
-#define SLJIT_ADD			18
+#define SLJIT_ADD			19
 // Flags: I | C | K
-#define SLJIT_ADDC			19
+#define SLJIT_ADDC			20
 // Flags: I | E | S | U | O | C | K
-#define SLJIT_SUB			20
+#define SLJIT_SUB			21
 // Flags: I | C | K
-#define SLJIT_SUBC			21
+#define SLJIT_SUBC			22
 // Note: integer mul
 // Flags: I | O (see SLJIT_C_MUL_*) | K
-#define SLJIT_MUL			22
+#define SLJIT_MUL			23
 // Flags: I | E | K
-#define SLJIT_AND			23
+#define SLJIT_AND			24
 // Flags: I | E | K
-#define SLJIT_OR			24
+#define SLJIT_OR			25
 // Flags: I | E | K
-#define SLJIT_XOR			25
+#define SLJIT_XOR			26
 // Flags: I | E | K
-#define SLJIT_SHL			26
+#define SLJIT_SHL			27
 // Flags: I | E | K
-#define SLJIT_LSHR			27
+#define SLJIT_LSHR			28
 // Flags: I | E | K
-#define SLJIT_ASHR			28
+#define SLJIT_ASHR			29
 
 int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
@@ -481,26 +497,26 @@ int sljit_is_fpu_available(void);
 // Note: NaN check is always performed. If SLJIT_C_FLOAT_NAN is set,
 //       the comparison result is unpredictable
 // Flags: E | S (see SLJIT_C_FLOAT_*)
-#define SLJIT_FCMP			29
+#define SLJIT_FCMP			30
 // Flags: - (never set any flags)
-#define SLJIT_FMOV			30
+#define SLJIT_FMOV			31
 // Flags: - (never set any flags)
-#define SLJIT_FNEG			31
+#define SLJIT_FNEG			32
 // Flags: - (never set any flags)
-#define SLJIT_FABS			32
+#define SLJIT_FABS			33
 
 int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
 // Flags: - (never set any flags)
-#define SLJIT_FADD			33
+#define SLJIT_FADD			34
 // Flags: - (never set any flags)
-#define SLJIT_FSUB			34
+#define SLJIT_FSUB			35
 // Flags: - (never set any flags)
-#define SLJIT_FMUL			35
+#define SLJIT_FMUL			36
 // Flags: - (never set any flags)
-#define SLJIT_FDIV			36
+#define SLJIT_FDIV			37
 
 int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
@@ -620,6 +636,21 @@ char* sljit_get_platform_name();
 
 // Portble helper function to get an offset of a member
 #define SLJIT_OFFSETOF(base, member) 	((sljit_w)(&((base*)0x10)->member) - 0x10)
+
+#ifdef SLJIT_UTIL_LABEL_USER
+#define get_label_user(label)		(label->user)
+#define set_label_user(label, ptr)	(label->user = (void*)ptr)
+#endif
+
+#ifdef SLJIT_UTIL_JUMP_USER
+#define get_jump_user(jump)		(jump->user)
+#define set_jump_user(jump, ptr)	(jump->user = (void*)ptr)
+#endif
+
+#ifdef SLJIT_UTIL_CONST_USER
+#define get_const_user(const_)		(const_->user)
+#define set_const_user(const_, ptr)	(const_->user = (void*)ptr)
+#endif
 
 // Get the entry address of a given function
 #ifndef SLJIT_INDIRECT_CALL

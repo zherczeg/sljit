@@ -107,6 +107,7 @@ typedef unsigned short sljit_uh;
 #define BKPT		0xbe00
 #define BLX		0x4780
 #define BX		0x4700
+#define CLZ		0xfab0f080
 #define CMPI		0x2800
 #define CMP_W		0xebb00f00
 #define EORI		0xf0800000
@@ -532,7 +533,10 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 			if (!(flags & SET_FLAGS))
 				return load_immediate(compiler, dst, ~imm);
 			// Since the flags should be set, we just fall back to the register mode
-			// Although I can do some clever things here, "NOT IMM" does not worth the efforts
+			// Although I could do some clever things here, "NOT IMM" does not worth the efforts
+			break;
+		case SLJIT_CLZ:
+			// No form with immediate operand
 			break;
 		case SLJIT_ADD:
 			if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(reg, dst)) {
@@ -687,6 +691,15 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 		if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, MVNS | RD3(dst) | RN3(arg2));
 		return push_inst32(compiler, MVN_W | (flags & SET_FLAGS) | RD4(dst) | RM4(arg2));
+	case SLJIT_CLZ:
+		SLJIT_ASSERT(arg1 == TMP_REG1);
+		FAIL_IF(push_inst32(compiler, CLZ | RN4(arg2) | RD4(dst) | RM4(arg2)));
+		if (flags & SET_FLAGS) {
+			if (reg_map[dst] <= 7)
+				return push_inst16(compiler, CMPI | RDN3(dst));
+			return push_inst32(compiler, ADD_WI | SET_FLAGS | RN4(dst) | RD4(dst));
+		}
+		return SLJIT_SUCCESS;
 	case SLJIT_ADD:
 		if (!(flags & KEEP_FLAGS) && IS_3_LO_REGS(dst, arg1, arg2))
 			return push_inst16(compiler, ADDS | RD3(dst) | RN3(arg1) | RM3(arg2));
@@ -1179,7 +1192,7 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 
 	op = GET_OPCODE(op);
 	switch (op) {
-	case SLJIT_DEBUGGER:
+	case SLJIT_BREAKPOINT:
 		push_inst16(compiler, BKPT);
 		break;
 	case SLJIT_NOP:
@@ -1768,14 +1781,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 
 	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
 	PTR_FAIL_IF(!const_);
-
-	const_->next = NULL;
-	const_->addr = compiler->size;
-	if (compiler->last_const)
-		compiler->last_const->next = const_;
-	else
-		compiler->consts = const_;
-	compiler->last_const = const_;
+	set_const(const_, compiler);
 
 	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG1;
 	PTR_FAIL_IF(emit_imm32_const(compiler, dst_r, init_value));
