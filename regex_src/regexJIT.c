@@ -27,6 +27,10 @@
 #include "sljitLir.h"
 #include "regexJIT.h"
 
+#ifdef REGEX_MATCH_VERBOSE
+#include <stdio.h>
+#endif
+
 // Extra, hidden flags
 // {id!} where id > 0 found in the code
 #define REGEX_ID_CHECK		0x100

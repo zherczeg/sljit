@@ -105,6 +105,7 @@ typedef unsigned int sljit_i;
 #define C_UN_D		(HI(17) | FMT_D | LO(49))
 #define C_UEQ_D		(HI(17) | FMT_D | LO(51))
 #define C_ULT_D		(HI(17) | FMT_D | LO(53))
+#define CLZ		(HI(28) | LO(32))
 #define DIV_D		(HI(17) | FMT_D | LO(3))
 #define EXT		(HI(31) | LO(0))
 #define J		(HI(2))
@@ -915,7 +916,7 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 
 	op = GET_OPCODE(op);
 	switch (op) {
-	case SLJIT_DEBUGGER:
+	case SLJIT_BREAKPOINT:
 		return push_inst(compiler, BREAK, UNMOVABLE_INS);
 	case SLJIT_NOP:
 		return push_inst(compiler, NOP, UNMOVABLE_INS);
@@ -984,6 +985,9 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 
 	case SLJIT_NEG:
 		return emit_op(compiler, SLJIT_SUB | GET_ALL_FLAGS(op), inp_flags | IMM_OP, dst, dstw, SLJIT_IMM, 0, src, srcw);
+
+	case SLJIT_CLZ:
+		return emit_op(compiler, op, inp_flags, dst, dstw, TMP_REG1, 0, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;
@@ -1672,14 +1676,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 
 	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
 	PTR_FAIL_IF(!const_);
-
-	const_->next = NULL;
-	const_->addr = compiler->size;
-	if (compiler->last_const)
-		compiler->last_const->next = const_;
-	else
-		compiler->consts = const_;
-	compiler->last_const = const_;
+	set_const(const_, compiler);
 
 	reg = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
 

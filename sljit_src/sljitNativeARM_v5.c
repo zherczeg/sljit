@@ -81,6 +81,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define BL		0xeb000000
 #define BLX		0xe12fff30
 #define BX		0xe12fff10
+#define CLZ		0xe16f0f10
 #define CMP_DP		0xa
 #define DEBUGGER	0xe1200070
 #define EOR_DP		0x1
@@ -1124,7 +1125,15 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, src2);
 			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, src2);
 		}
-		EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, reg_map[src2]);
+		EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, RM(src2));
+
+	case SLJIT_CLZ:
+		SLJIT_ASSERT(!(flags & INV_IMM));
+		SLJIT_ASSERT(!(src2 & SRC2_IMM));
+		FAIL_IF(push_inst(compiler, CLZ | RD(dst) | RM(src2)));
+		if (flags & SET_FLAGS)
+			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(CMP_DP, SLJIT_UNUSED, dst, SRC2_IMM);
+		return SLJIT_SUCCESS;
 	}
 	SLJIT_ASSERT_STOP();
 	return SLJIT_SUCCESS;
@@ -1740,7 +1749,7 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 
 	op = GET_OPCODE(op);
 	switch (op) {
-	case SLJIT_DEBUGGER:
+	case SLJIT_BREAKPOINT:
 		EMIT_INSTRUCTION(DEBUGGER);
 		break;
 	case SLJIT_NOP:
@@ -1797,6 +1806,9 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 
 	case SLJIT_NEG:
 		return sljit_emit_op2(compiler, SLJIT_SUB | GET_FLAGS(op), dst, dstw, SLJIT_IMM, 0, src, srcw);
+
+	case SLJIT_CLZ:
+		return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;
@@ -1817,10 +1829,13 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	case SLJIT_OR:
 	case SLJIT_XOR:
 		return emit_op(compiler, op, ALLOW_IMM, dst, dstw, src1, src1w, src2, src2w);
+
 	case SLJIT_MUL:
 		return emit_op(compiler, op, 0, dst, dstw, src1, src1w, src2, src2w);
+
 	case SLJIT_AND:
 		return emit_op(compiler, op, ALLOW_ANY_IMM, dst, dstw, src1, src1w, src2, src2w);
+
 	case SLJIT_SHL:
 	case SLJIT_LSHR:
 	case SLJIT_ASHR:
@@ -2279,13 +2294,6 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
 	PTR_FAIL_IF(!const_);
 
-	const_->next = NULL;
-	if (compiler->last_const)
-		compiler->last_const->next = const_;
-	else
-		compiler->consts = const_;
-	compiler->last_const = const_;
-
 	reg = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
 
 #ifdef SLJIT_CONFIG_ARM_V5
@@ -2294,7 +2302,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 #else
 	PTR_FAIL_IF(emit_imm(compiler, reg, init_value));
 #endif
-	const_->addr = compiler->size;
+	set_const(const_, compiler);
 
 	if (reg == TMP_REG2 && dst != SLJIT_UNUSED)
 		if (emit_op(compiler, SLJIT_MOV, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, TMP_REG2, 0))

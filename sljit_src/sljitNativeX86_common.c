@@ -478,7 +478,7 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 
 	op = GET_OPCODE(op);
 	switch (op) {
-	case SLJIT_DEBUGGER:
+	case SLJIT_BREAKPOINT:
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
 		FAIL_IF(!buf);
 		INC_SIZE(1);
@@ -830,6 +830,88 @@ static int emit_not_with_flags(struct sljit_compiler *compiler,
 	return SLJIT_SUCCESS;
 }
 
+static int emit_clz(struct sljit_compiler *compiler, int op,
+	int dst, sljit_w dstw,
+	int src, sljit_w srcw)
+{
+	sljit_ub* code;
+	int dst_r;
+
+	if (SLJIT_UNLIKELY(dst == SLJIT_UNUSED)) {
+		// Just set the zero flag
+		EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
+		code = emit_x86_instruction(compiler, 1, 0, 0, TMP_REGISTER, 0);
+		FAIL_IF(!code);
+		*code++ = 0xf7;
+		*code |= 0x2 << 3;
+#ifdef SLJIT_CONFIG_X86_32
+		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 31, TMP_REGISTER, 0);
+#else
+		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, !(op & SLJIT_INT_OP) ? 63 : 31, TMP_REGISTER, 0);
+#endif
+		FAIL_IF(!code);
+		*code |= 0x5 << 3;
+		return SLJIT_SUCCESS;
+	}
+
+	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {
+		EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
+		src = TMP_REGISTER;
+		srcw = 0;
+	}
+
+	code = emit_x86_instruction(compiler, 2, TMP_REGISTER, 0, src, srcw);
+	FAIL_IF(!code);
+	*code++ = 0x0f;
+	*code = 0xbd;
+
+#ifdef SLJIT_CONFIG_X86_32
+	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REGISTER)
+		dst_r = dst;
+	else {
+		// Find an unused temporary register
+		if ((dst & 0xf) != SLJIT_TEMPORARY_REG1 && (dst & 0xf0) != (SLJIT_TEMPORARY_REG1 << 4))
+			dst_r = SLJIT_TEMPORARY_REG1;
+		else if ((dst & 0xf) != SLJIT_TEMPORARY_REG2 && (dst & 0xf0) != (SLJIT_TEMPORARY_REG2 << 4))
+			dst_r = SLJIT_TEMPORARY_REG2;
+		else
+			dst_r = SLJIT_TEMPORARY_REG3;
+		EMIT_MOV(compiler, dst, dstw, dst_r, 0);
+	}
+	EMIT_MOV(compiler, dst_r, 0, SLJIT_IMM, 32 + 31);
+#else
+	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REGISTER) ? dst : TMP_REG2;
+	compiler->mode32 = 0;
+	EMIT_MOV(compiler, dst_r, 0, SLJIT_IMM, !(op & SLJIT_INT_OP) ? 64 + 63 : 32 + 31);
+	compiler->mode32 = op & SLJIT_INT_OP;
+#endif
+
+	code = emit_x86_instruction(compiler, 2, dst_r, 0, TMP_REGISTER, 0);
+	FAIL_IF(!code);
+	*code++ = 0x0f;
+	*code = 0x45;
+
+#ifdef SLJIT_CONFIG_X86_32
+	code = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, 31, dst_r, 0);
+#else
+	code = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, !(op & SLJIT_INT_OP) ? 63 : 31, dst_r, 0);
+#endif
+	FAIL_IF(!code);
+	*(code + 1) |= 0x6 << 3;
+
+#ifdef SLJIT_CONFIG_X86_32
+	if (dst & SLJIT_MEM) {
+		code = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
+		FAIL_IF(!code);
+		*code = 0x87;
+	}
+#else
+	if (dst & SLJIT_MEM)
+		EMIT_MOV(compiler, dst, dstw, TMP_REG2, 0);
+#endif
+	return SLJIT_SUCCESS;
+}
+
 int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
@@ -963,6 +1045,11 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		if (SLJIT_UNLIKELY(op & SLJIT_KEEP_FLAGS) && !compiler->flags_saved)
 			FAIL_IF(emit_save_flags(compiler));
 		return emit_unary(compiler, 0x3, dst, dstw, src, srcw);
+
+	case SLJIT_CLZ:
+		if (SLJIT_UNLIKELY(op & SLJIT_KEEP_FLAGS) && !compiler->flags_saved)
+			FAIL_IF(emit_save_flags(compiler));
+		return emit_clz(compiler, op, dst, dstw, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;
@@ -2411,7 +2498,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 4 + 4);
 	FAIL_IF(!buf);
 	INC_SIZE(4 + 4);
-	// Set al to conditional flag
+	// Set low register to conditional flag
 	*buf++ = (reg_map[reg] <= 7) ? 0x40 : REX_B;
 	*buf++ = 0x0f;
 	*buf++ = cond_set;
@@ -2421,9 +2508,10 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	*buf++ = 0xb6;
 	*buf = 0xC0 | (reg_lmap[reg] << 3) | reg_lmap[reg];
 
-	if (reg == TMP_REGISTER)
+	if (reg == TMP_REGISTER) {
+		compiler->mode32 = 0;
 		EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
-
+	}
 #else
 	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_TEMPORARY_REG3) {
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3 + 3);
@@ -2478,13 +2566,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 
 	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
 	PTR_FAIL_IF(!const_);
-
-	const_->next = NULL;
-	if (compiler->last_const)
-		compiler->last_const->next = const_;
-	else
-		compiler->consts = const_;
-	compiler->last_const = const_;
+	set_const(const_, compiler);
 
 #ifdef SLJIT_CONFIG_X86_64
 	compiler->mode32 = 0;
