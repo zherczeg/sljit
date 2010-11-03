@@ -284,9 +284,9 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 
 	compiler->flags_saved = 0;
 
-	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED) {
+	if (src != SLJIT_UNUSED && src != SLJIT_RETURN_REG) {
 		compiler->mode32 = 0;
-		FAIL_IF(emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw));
+		FAIL_IF(emit_mov(compiler, SLJIT_RETURN_REG, 0, src, srcw));
 	}
 
 	if (compiler->local_size > 0) {

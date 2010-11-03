@@ -109,7 +109,7 @@
 
 #endif // SLJIT_HAVE_LIKELY
 
-#ifndef SLJIT_C_DEFINES
+#ifndef SLJIT_HAVE_C_DEFINES
 
 // Inline functions
 #define SLJIT_INLINE __inline
@@ -234,7 +234,7 @@ void sljit_free_exec(void* ptr);
 
 #define SLJIT_ASSERT(x) \
 	do { \
-		if (!(x)) { \
+		if (SLJIT_UNLIKELY(!(x))) { \
 			printf("Assertion failed at " __FILE__ ":%d\n", __LINE__); \
 			*((int*)0) = 0; \
 		} \

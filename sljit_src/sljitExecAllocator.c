@@ -71,15 +71,13 @@
 // alloc_chunk / free_chunk :
 //   * allocate executable system memory chunks
 //   * the size is always divisible by CHUNK_SIZE
-// grab_lock / release_lock :
+// allocator_grab_lock / allocator_release_lock :
 //   * make the allocator thread safe
 //   * can be empty if the OS (or the application) does not support threading
 //   * only the allocator requires this lock, sljit is fully thread safe
 //     as it only uses local variables
 
 #ifdef _WIN32
-
-#include "windows.h"
 
 static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 {
@@ -96,22 +94,6 @@ static SLJIT_INLINE void free_chunk(void* chunk, sljit_uw size)
 	VirtualFree(chunk, 0, MEM_RELEASE);
 }
 
-static HANDLE sljit_mutex = 0;
-
-static SLJIT_INLINE void grab_lock()
-{
-	// No idea what to do if an error occures. Static mutexes should never fail...
-	if (!sljit_mutex)
-		sljit_mutex = CreateMutex(NULL, TRUE, NULL);
-	else
-		WaitForSingleObject(sljit_mutex, INFINITE);
-}
-
-static SLJIT_INLINE void release_lock()
-{
-	ReleaseMutex(sljit_mutex);
-}
-
 #else
 
 #include <sys/mman.h>
@@ -124,20 +106,6 @@ static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 static SLJIT_INLINE void free_chunk(void* chunk, sljit_uw size)
 {
 	munmap(chunk, size);
-}
-
-#include "pthread.h"
-
-static pthread_mutex_t sljit_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-static SLJIT_INLINE void grab_lock()
-{
-	pthread_mutex_lock(&sljit_mutex);
-}
-
-static SLJIT_INLINE void release_lock()
-{
-	pthread_mutex_unlock(&sljit_mutex);
 }
 
 #endif
@@ -203,7 +171,7 @@ void* sljit_malloc_exec(sljit_uw size)
 	struct free_block *free_block;
 	sljit_uw chunk_size;
 
-	grab_lock();
+	allocator_grab_lock();
 	if (size < sizeof(struct free_block))
 		size = sizeof(struct free_block);
 	size = ALIGN_SIZE(size);
@@ -227,7 +195,7 @@ void* sljit_malloc_exec(sljit_uw size)
 			}
 			allocated_size += size;
 			header->size = size;
-			release_lock();
+			allocator_release_lock();
 			return MEM_START(header);
 		}
 		free_block = free_block->next;
@@ -260,7 +228,7 @@ void* sljit_malloc_exec(sljit_uw size)
 	}
 	next_header->size = 1;
 	next_header->prev_size = chunk_size;
-	release_lock();
+	allocator_release_lock();
 	return MEM_START(header);
 }
 
@@ -269,7 +237,7 @@ void sljit_free_exec(void* ptr)
 	struct block_header *header;
 	struct free_block* free_block;
 
-	grab_lock();
+	allocator_grab_lock();
 	header = AS_BLOCK_HEADER(ptr, -sizeof(struct block_header));
 	allocated_size -= header->size;
 
@@ -303,5 +271,5 @@ void sljit_free_exec(void* ptr)
 		}
 	}
 
-	release_lock();
+	allocator_release_lock();
 }

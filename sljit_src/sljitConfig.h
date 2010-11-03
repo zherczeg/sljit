@@ -55,6 +55,12 @@
 // User pointers are allowed for sljit_const
 #define SLJIT_UTIL_CONST_USER
 
+// For compiling global functions, a lock could be useful
+#define SLJIT_UTIL_GLOBAL_LOCK
+
+// Stack like structure on the heap
+#define SLJIT_UTIL_STACK
+
 // ---------------------------------------------------------------------
 //  Configuration
 // ---------------------------------------------------------------------
@@ -78,9 +84,9 @@
 // define both SLJIT_LIKELY and SLJIT_UNLIKELY
 // #define SLJIT_HAVE_LIKELY
 
-// If SLJIT_C_DEFINES is not defined, the application should
+// If SLJIT_HAVE_C_DEFINES is not defined, the application should
 // define SLJIT_INLINE and SLJIT_CONST
-// #define SLJIT_C_DEFINES
+// #define SLJIT_HAVE_C_DEFINES
 
 // If SLJIT_HAVE_CACHE_FLUSH is not defined, the application should
 // define SLJIT_CACHE_FLUSH

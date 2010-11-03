@@ -891,8 +891,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 
 	check_sljit_emit_return(compiler, src, srcw);
 
-	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
-		FAIL_IF(emit_op(compiler, SLJIT_MOV, ALLOW_ANY_IMM, SLJIT_PREF_RET_REG, 0, TMP_REG1, 0, src, srcw));
+	if (src != SLJIT_UNUSED && src != SLJIT_RETURN_REG)
+		FAIL_IF(emit_op(compiler, SLJIT_MOV, ALLOW_ANY_IMM, SLJIT_RETURN_REG, 0, TMP_REG1, 0, src, srcw));
 
 	if (compiler->local_size > 0)
 		FAIL_IF(emit_op(compiler, SLJIT_ADD, ALLOW_IMM, SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
