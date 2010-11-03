@@ -145,6 +145,8 @@
 	#define MOVABLE_INS	40
 #endif
 
+#include "sljitUtils.c"
+
 #ifdef SLJIT_EXECUTABLE_ALLOCATOR
 #include "sljitExecAllocator.c"
 #endif

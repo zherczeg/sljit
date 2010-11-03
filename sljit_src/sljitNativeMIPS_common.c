@@ -169,7 +169,7 @@ typedef unsigned int sljit_i;
 #define UIMM_MAX	(0xffff)
 
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
-  0, 2, 3, 6, 4, 5, 17, 18, 19, 20, 21, 16, 8, 9, 10, 29
+  0, 2, 5, 6, 3, 4, 17, 18, 19, 20, 21, 16, 8, 9, 10, 29
 };
 
 // dest_reg is the absolute name of the register
@@ -524,8 +524,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 
 	local_size = compiler->local_size;
 
-	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
-		FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, SLJIT_PREF_RET_REG, 0, TMP_REG1, 0, src, srcw));
+	if (src != SLJIT_UNUSED && src != SLJIT_RETURN_REG)
+		FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, SLJIT_RETURN_REG, 0, TMP_REG1, 0, src, srcw));
 
 	if (local_size <= SIMM_MAX)
 		base = S(REAL_STACK_PTR);
@@ -1376,8 +1376,6 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 
 	if (type >= SLJIT_CALL1)
 		PTR_FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), 4));
-	if (type >= SLJIT_CALL2)
-		PTR_FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG2) | TA(0) | DA(5), 5));
 
 	PTR_FAIL_IF(emit_const(compiler, TMP_REG2, 0));
 	if (type <= SLJIT_JUMP)
@@ -1557,8 +1555,6 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 
 	if (type >= SLJIT_CALL1)
 		FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), 4));
-	if (type >= SLJIT_CALL2)
-		FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG2) | TA(0) | DA(5), 5));
 
 	if (src & SLJIT_IMM) {
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));

@@ -184,8 +184,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	compiler->flags_saved = 0;
 	CHECK_EXTRA_REGS(src, srcw, (void)0);
 
-	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED)
-		FAIL_IF(emit_mov(compiler, SLJIT_PREF_RET_REG, 0, src, srcw));
+	if (src != SLJIT_UNUSED && src != SLJIT_RETURN_REG)
+		FAIL_IF(emit_mov(compiler, SLJIT_RETURN_REG, 0, src, srcw));
 
 	if (compiler->local_size > 0)
 		FAIL_IF(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,

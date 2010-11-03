@@ -112,9 +112,9 @@
 #define SLJIT_NO_GEN_REGISTERS	5
 #define SLJIT_NO_REGISTERS	11
 
-// Return with machine word or double machine word
+// Return with machine word
 
-#define SLJIT_PREF_RET_REG	SLJIT_TEMPORARY_REG1
+#define SLJIT_RETURN_REG	SLJIT_TEMPORARY_REG1
 
 // x86 prefers temporary registers for special purposes. If not
 // these registers are used, it costs a little performance drawback.
@@ -614,9 +614,9 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 // After the code generation the address for label, jump and const instructions
 // are computed. Since these structures are freed sljit_free_compiler, the
 // addresses must be preserved by the user program elsewere
-#define sljit_get_label_addr(label)	((label)->addr)
-#define sljit_get_jump_addr(jump)	((jump)->addr)
-#define sljit_get_const_addr(const_)	((const_)->addr)
+static SLJIT_INLINE sljit_uw sljit_get_label_addr(struct sljit_label *label) { return label->addr; }
+static SLJIT_INLINE sljit_uw sljit_get_jump_addr(struct sljit_jump *jump) { return jump->addr; }
+static SLJIT_INLINE sljit_uw sljit_get_const_addr(struct sljit_const *const_) { return const_->addr; }
 
 // Only the address is required to rewrite the code
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr);
@@ -638,18 +638,24 @@ char* sljit_get_platform_name();
 #define SLJIT_OFFSETOF(base, member) 	((sljit_w)(&((base*)0x10)->member) - 0x10)
 
 #ifdef SLJIT_UTIL_LABEL_USER
-#define get_label_user(label)		(label->user)
-#define set_label_user(label, ptr)	(label->user = (void*)ptr)
+static SLJIT_INLINE void* get_label_user(struct sljit_label *label) { return label->user; }
+static SLJIT_INLINE void set_label_user(struct sljit_label *label, void* user) { label->user = user; }
 #endif
 
 #ifdef SLJIT_UTIL_JUMP_USER
-#define get_jump_user(jump)		(jump->user)
-#define set_jump_user(jump, ptr)	(jump->user = (void*)ptr)
+static SLJIT_INLINE void* get_jump_user(struct sljit_jump *jump) { return jump->user; }
+static SLJIT_INLINE void set_jump_user(struct sljit_jump *jump, void* user) { jump->user = user; }
 #endif
 
 #ifdef SLJIT_UTIL_CONST_USER
-#define get_const_user(const_)		(const_->user)
-#define set_const_user(const_, ptr)	(const_->user = (void*)ptr)
+static SLJIT_INLINE void* get_const_user(struct sljit_const *const_) { return const_->user; }
+static SLJIT_INLINE void set_const_user(struct sljit_const *const_, void* user) { const_->user = user; }
+#endif
+
+#ifdef SLJIT_UTIL_GLOBAL_LOCK
+// This global lock is useful to compile common functions.
+void SLJIT_CALL sljit_grab_lock(void);
+void SLJIT_CALL sljit_release_lock(void);
 #endif
 
 // Get the entry address of a given function

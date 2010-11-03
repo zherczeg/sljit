@@ -1150,11 +1150,11 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 
 	check_sljit_emit_return(compiler, src, srcw);
 
-	if (src != SLJIT_PREF_RET_REG && src != SLJIT_UNUSED) {
+	if (src != SLJIT_UNUSED && src != SLJIT_RETURN_REG) {
 		if (src >= SLJIT_TEMPORARY_REG1 && src <= TMP_REG3)
-			FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_PREF_RET_REG, src)));
+			FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_RETURN_REG, src)));
 		else
-			FAIL_IF(emit_op_mem(compiler, WORD_SIZE, SLJIT_PREF_RET_REG, src, srcw));
+			FAIL_IF(emit_op_mem(compiler, WORD_SIZE, SLJIT_RETURN_REG, src, srcw));
 	}
 
 	if (compiler->local_size > 0) {
