@@ -591,7 +591,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 // Set the destination of the jump to this label
 void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label);
 // Only for jumps defined with SLJIT_REWRITABLE_JUMP flag
-// Note: Use sljit_emit_ijump for fixed jumps
+// Note: use sljit_emit_ijump for fixed jumps
 void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 
 // Call function or jump anywhere. Both direct and indirect form
@@ -656,6 +656,45 @@ static SLJIT_INLINE void set_const_user(struct sljit_const *const_, void* user) 
 // This global lock is useful to compile common functions.
 void SLJIT_CALL sljit_grab_lock(void);
 void SLJIT_CALL sljit_release_lock(void);
+#endif
+
+#ifdef SLJIT_UTIL_STACK
+
+// The sljit_stack is a utiliy feature of sljit, which allocates a
+// writable memory region between base (inclusive) and limit (exclusive).
+// Both base and limit is a pointer, and base is always <= than limit.
+// It is no needed to allocate the whole region with sljit_allocate_stack,
+// it can be extended later by sljit_stack_resize. (Or return memory to the
+// system). The base field is aligned to 8 bytes.
+
+// The top field should be >= base and <= limit, but this is not a strict
+// requirement. This field is not used by the stack implementation, except
+// if sljit_extend_stack changes the base: top = new_base + (top - old_base)
+
+// Note: stack growing should not happen is small steps: 4k, 16k or even
+// bigger growth is better.
+
+struct sljit_stack {
+	sljit_w top;
+	// These members are read only
+	sljit_w base;
+	sljit_w limit;
+	sljit_w max_limit;
+};
+
+// Returns NULL if unsuccessful.
+// Note: limit and max_limit contains the size for stack allocation
+// Note: the top field is initialized to base.
+struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_w limit, sljit_w max_limit);
+void SLJIT_CALL sljit_free_stack(struct sljit_stack* stack);
+
+// Returns with a non-zero value if unsuccessful. If new_limit is greater than
+// max_limit, it will fail. It is very easy to implement the stack, since the
+// growth ratio can be added to the current limit, and sljit_stack_resize will
+// do all the necessary checks. The fields of the stack are not changed if
+// sljit_stack_resize fails.
+sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_w new_limit);
+
 #endif
 
 // Get the entry address of a given function

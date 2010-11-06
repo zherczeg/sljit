@@ -58,7 +58,7 @@
 // For compiling global functions, a lock could be useful
 #define SLJIT_UTIL_GLOBAL_LOCK
 
-// Stack like structure on the heap
+// Implements a stack like data structure (by using mmap / VirtualAlloc)
 #define SLJIT_UTIL_STACK
 
 // ---------------------------------------------------------------------
