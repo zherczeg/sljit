@@ -81,11 +81,7 @@
 
 static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 {
-	DWORD oldProtect;
-	void* chunk = VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-	PTR_FAIL_IF(!chunk);
-	VirtualProtect(chunk, size, PAGE_EXECUTE_READWRITE, &oldProtect);
-	return chunk;
+	return VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 }
 
 static SLJIT_INLINE void free_chunk(void* chunk, sljit_uw size)
@@ -100,7 +96,8 @@ static SLJIT_INLINE void free_chunk(void* chunk, sljit_uw size)
 
 static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 {
-	return mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+	void* retval = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+	return (retval != MAP_FAILED) ? retval : NULL;
 }
 
 static SLJIT_INLINE void free_chunk(void* chunk, sljit_uw size)

@@ -2893,10 +2893,10 @@ static void test36(void)
 #undef TEST_CASES
 
 #ifdef SLJIT_64BIT_ARCHITECTURE
-#define BITN(n) (SLJIT_W(0x8000000000000000) >> (n))
+#define BITN(n) (SLJIT_W(1) << (63 - (n)))
 #define RESN(n) (n)
 #else
-#define BITN(n) (0x80000000 >> (n & 0x1f))
+#define BITN(n) (1 << (31 - ((n) & 0x1f)))
 #define RESN(n) ((n) & 0x1f)
 #endif
 
@@ -3000,6 +3000,86 @@ static void test37(void)
 #undef BITN
 #undef RESN
 
+static void test38(void)
+{
+#ifdef SLJIT_UTIL_STACK
+	// Test count leading zeroes
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	struct sljit_jump* alloc_fail;
+	struct sljit_jump* alloc2_fail;
+	struct sljit_jump* alloc3_fail;
+	struct sljit_jump* jump;
+	struct sljit_label* label;
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	T(sljit_emit_enter(compiler, 0, 2, 1, 0));
+
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 8192));
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 65536));
+	T(sljit_emit_ijump(compiler, SLJIT_CALL2, SLJIT_IMM, SLJIT_FUNC_OFFSET(sljit_allocate_stack)));
+	alloc_fail = sljit_emit_cmp(compiler, SLJIT_C_EQUAL, SLJIT_RETURN_REG, 0, SLJIT_IMM, 0); TP(alloc_fail);
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_GENERAL_REG1, 0, SLJIT_RETURN_REG, 0));
+
+	// Write 8k data
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG1, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), SLJIT_OFFSETOF(struct sljit_stack, base), SLJIT_IMM, sizeof(sljit_w)));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG2, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 8192));
+	label = sljit_emit_label(compiler); TP(label);
+	T(sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), sizeof(sljit_w), SLJIT_IMM, -1));
+	jump = sljit_emit_cmp(compiler, SLJIT_C_LESS, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG2, 0); TP(jump);
+	sljit_set_label(jump, label);
+
+	// Grow stack
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_GENERAL_REG1, 0));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), SLJIT_OFFSETOF(struct sljit_stack, base), SLJIT_IMM, 65536));
+	T(sljit_emit_ijump(compiler, SLJIT_CALL2, SLJIT_IMM, SLJIT_FUNC_OFFSET(sljit_stack_resize)));
+	alloc2_fail = sljit_emit_cmp(compiler, SLJIT_C_NOT_EQUAL, SLJIT_RETURN_REG, 0, SLJIT_IMM, 0); TP(alloc2_fail);
+
+	// Write 64k data
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG1, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), SLJIT_OFFSETOF(struct sljit_stack, base), SLJIT_IMM, sizeof(sljit_w)));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG2, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 65536));
+	label = sljit_emit_label(compiler); TP(label);
+	T(sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), sizeof(sljit_w), SLJIT_IMM, -1));
+	jump = sljit_emit_cmp(compiler, SLJIT_C_LESS, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG2, 0); TP(jump);
+	sljit_set_label(jump, label);
+
+	// Shrink stack
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_GENERAL_REG1, 0));
+	T(sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), SLJIT_OFFSETOF(struct sljit_stack, base), SLJIT_IMM, 32768));
+	T(sljit_emit_ijump(compiler, SLJIT_CALL2, SLJIT_IMM, SLJIT_FUNC_OFFSET(sljit_stack_resize)));
+	alloc3_fail = sljit_emit_cmp(compiler, SLJIT_C_NOT_EQUAL, SLJIT_RETURN_REG, 0, SLJIT_IMM, 0); TP(alloc3_fail);
+
+	// Write 32k data
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG1, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), SLJIT_OFFSETOF(struct sljit_stack, base), SLJIT_IMM, sizeof(sljit_w)));
+	T(sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), SLJIT_OFFSETOF(struct sljit_stack, limit), SLJIT_IMM, sizeof(sljit_w)));
+	label = sljit_emit_label(compiler); TP(label);
+	T(sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), sizeof(sljit_w), SLJIT_IMM, -1));
+	jump = sljit_emit_cmp(compiler, SLJIT_C_LESS, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG2, 0); TP(jump);
+	sljit_set_label(jump, label);
+
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_GENERAL_REG1, 0));
+	T(sljit_emit_ijump(compiler, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(sljit_free_stack)));
+
+	T(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0, SLJIT_IMM, 1));
+	label = sljit_emit_label(compiler); TP(label);
+	sljit_set_label(alloc_fail, label);
+	sljit_set_label(alloc2_fail, label);
+	sljit_set_label(alloc3_fail, label);
+	T(sljit_emit_return(compiler, SLJIT_UNUSED, 0));
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(!code.code, "code generation error\n");
+	sljit_free_compiler(compiler);
+
+	// Just survive this
+	FAILED(code.func0() != 1, "test38 case 1 failed\n");
+	sljit_free_code(code.code);
+#endif
+	printf("test38 ok\n");
+	successful_tests++;
+}
+
 void sljit_test(void)
 {
 	printf("Generating code for: %s\n", sljit_get_platform_name());
@@ -3042,8 +3122,9 @@ void sljit_test(void)
 	test35();
 	test36();
 	test37();
-	if (successful_tests == 37)
+	test38();
+	if (successful_tests == 38)
 		printf("All tests are passed.\n");
 	else
-		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 37);
+		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 38);
 }

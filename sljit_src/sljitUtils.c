@@ -116,7 +116,126 @@ void SLJIT_CALL sljit_release_lock()
 //  Stack
 // ------------------------------------------------------------------------
 
+#ifdef SLJIT_UTIL_STACK
 
+#ifdef _WIN32
+#include "windows.h"
+#else
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 
+// Planning to make it even more clever in the future
+static sljit_w sljit_page_align = 0;
+
+#ifdef _WIN32
+static SLJIT_INLINE sljit_w get_win32_page_size(void)
+{
+	SYSTEM_INFO si;
+	GetSystemInfo(&si);
+	return si.dwPageSize;
+}
+#endif
+
+struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_w limit, sljit_w max_limit)
+{
+	struct sljit_stack* stack;
+
+	if (limit > max_limit)
+		return NULL;
+
+#ifdef _WIN32
+	if (!sljit_page_align)
+		sljit_page_align = get_win32_page_size();
+#else
+	if (!sljit_page_align) {
+		sljit_page_align = sysconf(_SC_PAGESIZE) - 1;
+		// Should never happen
+		if (sljit_page_align < 0)
+			sljit_page_align = 4095;
+	}
+#endif
+
+	// Align limit and max_limit
+	max_limit = (max_limit + sljit_page_align) & ~sljit_page_align;
+
+	stack = (struct sljit_stack*)SLJIT_MALLOC(sizeof(struct sljit_stack));
+	if (!stack)
+		return NULL;
+
+#ifdef _WIN32
+	stack->base = (sljit_w)VirtualAlloc(0, max_limit, MEM_RESERVE, PAGE_READWRITE);
+	if (!stack->base) {
+		SLJIT_FREE(stack);
+		return NULL;
+	}
+	stack->limit = stack->base;
+	stack->max_limit = stack->base + max_limit;
+	if (sljit_stack_resize(stack, stack->base + limit)) {
+		sljit_free_stack(stack);
+		return NULL;
+	}
+#else
+	stack->base = (sljit_w)mmap(0, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+	if (stack->base == (sljit_w)MAP_FAILED) {
+		SLJIT_FREE(stack);
+		return NULL;
+	}
+	stack->limit = stack->base + limit;
+	stack->max_limit = stack->base + max_limit;
+#endif
+	stack->top = stack->base;
+	return stack;
+}
+
+#undef PAGE_ALIGN
+
+void SLJIT_CALL sljit_free_stack(struct sljit_stack* stack)
+{
+#ifdef _WIN32
+	VirtualFree((void*)stack->base, 0, MEM_RELEASE);
+#else
+	munmap((void*)stack->base, stack->max_limit - stack->base);
+#endif
+	SLJIT_FREE(stack);
+}
+
+sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_w new_limit)
+{
+	sljit_w aligned_old_limit;
+	sljit_w aligned_new_limit;
+
+	if ((new_limit > stack->max_limit) || (new_limit < stack->base))
+		return -1;
+#ifdef _WIN32
+	aligned_new_limit = (new_limit + sljit_page_align) & ~sljit_page_align;
+	aligned_old_limit = (stack->limit + sljit_page_align) & ~sljit_page_align;
+	if (aligned_new_limit != aligned_old_limit) {
+		if (aligned_new_limit > aligned_old_limit) {
+			if (!VirtualAlloc((void*)aligned_old_limit, aligned_new_limit - aligned_old_limit, MEM_COMMIT, PAGE_READWRITE))
+				return -1;
+		}
+		else {
+			if (!VirtualFree((void*)aligned_new_limit, aligned_old_limit - aligned_new_limit, MEM_DECOMMIT))
+				return -1;
+		}
+	}
+	stack->limit = new_limit;
+	return 0;
+#else
+	if (new_limit >= stack->limit) {
+		stack->limit = new_limit;
+		return 0;
+	}
+	aligned_new_limit = (new_limit + sljit_page_align) & ~sljit_page_align;
+	aligned_old_limit = (stack->limit + sljit_page_align) & ~sljit_page_align;
+	if (aligned_new_limit < aligned_old_limit)
+		madvise((void*)aligned_new_limit, aligned_old_limit - aligned_new_limit, MADV_DONTNEED);
+	stack->limit = new_limit;
+	return 0;
+#endif
+}
+
+#endif // SLJIT_UTIL_STACK
 
 #endif
