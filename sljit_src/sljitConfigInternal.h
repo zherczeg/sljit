@@ -208,7 +208,7 @@ typedef long int sljit_w;
 #define SLJIT_SSE2_AUTO			1
 #endif
 
-#endif /* defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64) */
+#endif // defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)
 
 #if defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64) \
 	|| defined(SLJIT_CONFIG_ARM_V7) || defined(SLJIT_CONFIG_ARM_THUMB2) \

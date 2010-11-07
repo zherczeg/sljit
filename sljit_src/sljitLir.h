@@ -265,7 +265,7 @@ struct sljit_compiler* sljit_create_compiler(void);
 // Free everything except the codes
 void sljit_free_compiler(struct sljit_compiler *compiler);
 
-#define sljit_get_compiler_error(compiler)	(compiler->error)
+static SLJIT_INLINE int sljit_get_compiler_error(struct sljit_compiler *compiler) { return compiler->error; }
 
 #ifdef SLJIT_VERBOSE
 // NULL = no verbose
