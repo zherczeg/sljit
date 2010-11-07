@@ -218,6 +218,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	struct sljit_jump *jump;
 	struct sljit_const *const_;
 
+	CHECK_ERROR_PTR();
 	check_sljit_generate_code(compiler);
 	reverse_buf(compiler);
 
@@ -414,6 +415,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 
 int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
+	CHECK_ERROR();
 	check_sljit_emit_enter(compiler, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
@@ -472,6 +474,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 
 void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
+	CHECK_ERROR_VOID();
 	check_sljit_fake_enter(compiler, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
@@ -487,6 +490,7 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries
 
 int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 {
+	CHECK_ERROR();
 	check_sljit_emit_return(compiler, src, srcw);
 
 	if (src != SLJIT_UNUSED && src != SLJIT_RETURN_REG)
@@ -994,6 +998,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 
 int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 {
+	CHECK_ERROR();
 	check_sljit_emit_op0(compiler, op);
 
 	op = GET_OPCODE(op);
@@ -1013,6 +1018,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 {
 	int inp_flags = GET_FLAGS(op) ? ALT_SET_FLAGS : 0;
 
+	CHECK_ERROR();
 	check_sljit_emit_op1(compiler, op, dst, dstw, src, srcw);
 
 	if ((src & SLJIT_IMM) && srcw == 0)
@@ -1120,6 +1126,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 {
 	int inp_flags = GET_FLAGS(op) ? ALT_SET_FLAGS : 0;
 
+	CHECK_ERROR();
 	check_sljit_emit_op2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
 
 	if ((src1 & SLJIT_IMM) && src1w == 0)
@@ -1333,6 +1340,7 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 {
 	int dst_fr;
 
+	CHECK_ERROR();
 	check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw);
 
 	compiler->cache_arg = 0;
@@ -1383,6 +1391,7 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 {
 	int dst_fr;
 
+	CHECK_ERROR();
 	check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
 
 	compiler->cache_arg = 0;
@@ -1430,6 +1439,7 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 
 int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
 {
+	CHECK_ERROR();
 	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
@@ -1454,6 +1464,7 @@ int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw
 
 int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 {
+	CHECK_ERROR();
 	check_sljit_emit_fast_return(compiler, src, srcw);
 
 	if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS)
@@ -1476,6 +1487,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 {
 	struct sljit_label *label;
 
+	CHECK_ERROR_PTR();
 	check_sljit_emit_label(compiler);
 
 	if (compiler->last_label && compiler->last_label->size == compiler->size)
@@ -1555,6 +1567,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	struct sljit_jump *jump;
 	sljit_i bo_bi_flags;
 
+	CHECK_ERROR_PTR();
 	check_sljit_emit_jump(compiler, type);
 
 	bo_bi_flags = get_bo_bi_flags(compiler, type & 0xff);
@@ -1583,6 +1596,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	struct sljit_jump *jump = NULL;
 	int src_r;
 
+	CHECK_ERROR();
 	check_sljit_emit_ijump(compiler, type, src, srcw);
 
 	bo_bi_flags = get_bo_bi_flags(compiler, type);
@@ -1622,6 +1636,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 {
 	int reg;
 
+	CHECK_ERROR();
 	check_sljit_emit_cond_set(compiler, dst, dstw, type);
 
 	if (dst == SLJIT_UNUSED)
@@ -1726,6 +1741,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 	struct sljit_const *const_;
 	int reg;
 
+	CHECK_ERROR_PTR();
 	check_sljit_emit_const(compiler, dst, dstw, init_value);
 
 	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));

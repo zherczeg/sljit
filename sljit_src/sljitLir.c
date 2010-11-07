@@ -26,10 +26,23 @@
 
 #include "sljitLir.h"
 
-#ifndef SLJIT_CONFIG_UNSUPPORTED
+#define CHECK_ERROR() \
+	do { \
+		if (SLJIT_UNLIKELY(compiler->error)) \
+			return compiler->error; \
+	} while (0)
 
-#define FUNCTION_ENTRY() \
-	SLJIT_ASSERT(compiler->error == SLJIT_SUCCESS)
+#define CHECK_ERROR_PTR() \
+	do { \
+		if (SLJIT_UNLIKELY(compiler->error)) \
+			return NULL; \
+	} while (0)
+
+#define CHECK_ERROR_VOID() \
+	do { \
+		if (SLJIT_UNLIKELY(compiler->error)) \
+			return; \
+	} while (0)
 
 #define FAIL_IF(expr) \
 	do { \
@@ -66,6 +79,8 @@
 			return NULL; \
 		} \
 	} while (0)
+
+#ifndef SLJIT_CONFIG_UNSUPPORTED
 
 #define GET_OPCODE(op) \
 	((op) & ~(SLJIT_INT_OP | SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))
@@ -145,11 +160,15 @@
 	#define MOVABLE_INS	40
 #endif
 
+#endif // SLJIT_CONFIG_UNSUPPORTED
+
 #include "sljitUtils.c"
 
 #ifdef SLJIT_EXECUTABLE_ALLOCATOR
 #include "sljitExecAllocator.c"
 #endif
+
+#ifndef SLJIT_CONFIG_UNSUPPORTED
 
 #if defined(SLJIT_SSE2_AUTO) && !defined(SLJIT_SSE2)
 #error SLJIT_SSE2_AUTO cannot be enabled without SLJIT_SSE2
@@ -292,18 +311,22 @@ void sljit_free_code(void* code)
 
 void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
 {
-	jump->flags &= ~JUMP_ADDR;
-	jump->flags |= JUMP_LABEL;
-	jump->label = label;
+	if (SLJIT_LIKELY(!!jump) && SLJIT_LIKELY(!!label)) {
+		jump->flags &= ~JUMP_ADDR;
+		jump->flags |= JUMP_LABEL;
+		jump->label = label;
+	}
 }
 
 void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
 {
-	SLJIT_ASSERT(jump->flags & SLJIT_REWRITABLE_JUMP);
+	if (SLJIT_LIKELY(!!jump)) {
+		SLJIT_ASSERT(jump->flags & SLJIT_REWRITABLE_JUMP);
 
-	jump->flags &= ~JUMP_LABEL;
-	jump->flags |= JUMP_ADDR;
-	jump->target = target;
+		jump->flags &= ~JUMP_LABEL;
+		jump->flags |= JUMP_ADDR;
+		jump->target = target;
+	}
 }
 
 // ---------------------------------------------------------------------
@@ -633,7 +656,6 @@ static SLJIT_INLINE void check_sljit_generate_code(struct sljit_compiler *compil
 	// If debug and verbose are disabled, all arguments are unused
 	(void)compiler;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(compiler->size > 0);
 }
 
@@ -646,7 +668,6 @@ static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler,
 	(void)generals;
 	(void)local_size;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(args >= 0 && args <= 3);
 	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
 	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
@@ -667,7 +688,6 @@ static SLJIT_INLINE void check_sljit_fake_enter(struct sljit_compiler *compiler,
 	(void)generals;
 	(void)local_size;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(args >= 0 && args <= 3);
 	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
 	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
@@ -686,7 +706,6 @@ static SLJIT_INLINE void check_sljit_emit_return(struct sljit_compiler *compiler
 	(void)src;
 	(void)srcw;
 
-	FUNCTION_ENTRY();
 #ifdef SLJIT_DEBUG
 	if (src != SLJIT_UNUSED) {
 		FUNCTION_CHECK_SRC(src, srcw);
@@ -714,7 +733,6 @@ static SLJIT_INLINE void check_sljit_emit_fast_enter(struct sljit_compiler *comp
 	(void)generals;
 	(void)local_size;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(args >= 0 && args <= 3);
 	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
 	SLJIT_ASSERT(generals >= 0 && generals <= SLJIT_NO_GEN_REGISTERS);
@@ -743,7 +761,6 @@ static SLJIT_INLINE void check_sljit_emit_fast_return(struct sljit_compiler *com
 	(void)src;
 	(void)srcw;
 
-	FUNCTION_ENTRY();
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_SRC(src, srcw);
 #endif
@@ -762,7 +779,6 @@ static SLJIT_INLINE void check_sljit_emit_op0(struct sljit_compiler *compiler, i
 	(void)compiler;
 	(void)op;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(op >= SLJIT_BREAKPOINT && op <= SLJIT_NOP);
 #ifdef SLJIT_VERBOSE
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
@@ -782,7 +798,6 @@ static SLJIT_INLINE void check_sljit_emit_op1(struct sljit_compiler *compiler, i
 	(void)src;
 	(void)srcw;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_CLZ);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_OP();
@@ -817,7 +832,6 @@ static SLJIT_INLINE void check_sljit_emit_op2(struct sljit_compiler *compiler, i
 	(void)src2;
 	(void)src2w;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_ADD && GET_OPCODE(op) <= SLJIT_ASHR);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_OP();
@@ -851,7 +865,6 @@ static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, 
 	(void)src;
 	(void)srcw;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(sljit_is_fpu_available());
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FCMP && GET_OPCODE(op) <= SLJIT_FABS);
 #ifdef SLJIT_DEBUG
@@ -886,7 +899,6 @@ static SLJIT_INLINE void check_sljit_emit_fop2(struct sljit_compiler *compiler, 
 	(void)src2;
 	(void)src2w;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(sljit_is_fpu_available());
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FADD && GET_OPCODE(op) <= SLJIT_FDIV);
 #ifdef SLJIT_DEBUG
@@ -913,7 +925,6 @@ static SLJIT_INLINE void check_sljit_emit_label(struct sljit_compiler *compiler)
 	// If debug and verbose are disabled, all arguments are unused
 	(void)compiler;
 
-	FUNCTION_ENTRY();
 #ifdef SLJIT_VERBOSE
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
 		fprintf(compiler->verbose, "label:\n");
@@ -926,7 +937,6 @@ static SLJIT_INLINE void check_sljit_emit_jump(struct sljit_compiler *compiler, 
 	(void)compiler;
 	(void)type;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP)));
 	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_EQUAL && (type & 0xff) <= SLJIT_CALL3);
 #ifdef SLJIT_VERBOSE
@@ -946,7 +956,6 @@ static SLJIT_INLINE void check_sljit_emit_cmp(struct sljit_compiler *compiler, i
 	(void)src2;
 	(void)src2w;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(!(type & ~(0xff | SLJIT_INT_OP | SLJIT_REWRITABLE_JUMP)));
 	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_EQUAL && (type & 0xff) <= SLJIT_C_SIG_NOT_GREATER);
 #ifdef SLJIT_DEBUG
@@ -972,7 +981,6 @@ static SLJIT_INLINE void check_sljit_emit_ijump(struct sljit_compiler *compiler,
 	(void)src;
 	(void)srcw;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL3);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_SRC(src, srcw);
@@ -994,7 +1002,6 @@ static SLJIT_INLINE void check_sljit_emit_cond_set(struct sljit_compiler *compil
 	(void)dstw;
 	(void)type;
 
-	FUNCTION_ENTRY();
 	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type < SLJIT_JUMP);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_DST(dst, dstw);
@@ -1016,7 +1023,6 @@ static SLJIT_INLINE void check_sljit_emit_const(struct sljit_compiler *compiler,
 	(void)dstw;
 	(void)init_value;
 
-	FUNCTION_ENTRY();
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
@@ -1058,6 +1064,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 	struct sljit_jump* jump;
 #endif
 
+	CHECK_ERROR_PTR();
 	check_sljit_emit_cmp(compiler, type, src1, src1w, src2, src2w);
 
 	condition = type & 0xff;
@@ -1126,9 +1133,14 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 }
 #endif
 
-#else /* SLJIT_CONFIG_UNSUPPORTED */
+#else // SLJIT_CONFIG_UNSUPPORTED
 
 // Empty function bodies for those machines, which are not (yet) supported
+
+char* sljit_get_platform_name()
+{
+	return "unsupported";
+}
 
 struct sljit_compiler* sljit_create_compiler(void)
 {
@@ -1190,6 +1202,36 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	(void)compiler;
 	(void)src;
 	(void)srcw;
+	SLJIT_ASSERT_STOP();
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
+{
+	(void)compiler;
+	(void)dst;
+	(void)dstw;
+	(void)args;
+	(void)temporaries;
+	(void)generals;
+	(void)local_size;
+	SLJIT_ASSERT_STOP();
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+{
+	(void)compiler;
+	(void)src;
+	(void)srcw;
+	SLJIT_ASSERT_STOP();
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+int sljit_emit_op0(struct sljit_compiler *compiler, int op)
+{
+	(void)compiler;
+	(void)op;
 	SLJIT_ASSERT_STOP();
 	return SLJIT_ERR_UNSUPPORTED;
 }
@@ -1273,6 +1315,20 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 {
 	(void)compiler;
 	(void)type;
+	SLJIT_ASSERT_STOP();
+	return NULL;
+}
+
+struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	(void)compiler;
+	(void)type;
+	(void)src1;
+	(void)src1w;
+	(void)src2;
+	(void)src2w;
 	SLJIT_ASSERT_STOP();
 	return NULL;
 }

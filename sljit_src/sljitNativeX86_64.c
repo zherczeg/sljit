@@ -93,6 +93,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	int size;
 	sljit_ub *buf;
 
+	CHECK_ERROR();
 	check_sljit_emit_enter(compiler, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
@@ -265,6 +266,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 
 void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
+	CHECK_ERROR_VOID();
 	check_sljit_fake_enter(compiler, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
@@ -280,6 +282,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	int size;
 	sljit_ub *buf;
 
+	CHECK_ERROR();
 	check_sljit_emit_return(compiler, src, srcw);
 
 	compiler->flags_saved = 0;
@@ -661,6 +664,7 @@ int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw
 {
 	sljit_ub *buf;
 
+	CHECK_ERROR();
 	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
@@ -707,6 +711,7 @@ int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w src
 {
 	sljit_ub *buf;
 
+	CHECK_ERROR();
 	check_sljit_emit_fast_return(compiler, src, srcw);
 
 	CHECK_EXTRA_REGS(src, srcw, (void)0);

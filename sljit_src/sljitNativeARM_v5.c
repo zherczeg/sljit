@@ -569,6 +569,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	struct sljit_jump *jump;
 	struct sljit_const *const_;
 
+	CHECK_ERROR_PTR();
 	check_sljit_generate_code(compiler);
 	reverse_buf(compiler);
 
@@ -822,6 +823,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	int size;
 	sljit_uw push;
 
+	CHECK_ERROR();
 	check_sljit_emit_enter(compiler, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
@@ -871,6 +873,7 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries
 {
 	int size;
 
+	CHECK_ERROR_VOID();
 	check_sljit_fake_enter(compiler, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
@@ -889,6 +892,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 {
 	sljit_uw pop;
 
+	CHECK_ERROR();
 	check_sljit_emit_return(compiler, src, srcw);
 
 	if (src != SLJIT_UNUSED && src != SLJIT_RETURN_REG)
@@ -1745,6 +1749,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 
 int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 {
+	CHECK_ERROR();
 	check_sljit_emit_op0(compiler, op);
 
 	op = GET_OPCODE(op);
@@ -1764,6 +1769,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
+	CHECK_ERROR();
 	check_sljit_emit_op1(compiler, op, dst, dstw, src, srcw);
 
 	switch (GET_OPCODE(op)) {
@@ -1819,6 +1825,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
 {
+	CHECK_ERROR();
 	check_sljit_emit_op2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
 
 	switch (GET_OPCODE(op)) {
@@ -1962,6 +1969,7 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 {
 	int dst_freg;
 
+	CHECK_ERROR();
 	check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw);
 
 	compiler->cache_arg = 0;
@@ -2014,6 +2022,7 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 {
 	int dst_freg;
 
+	CHECK_ERROR();
 	check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
 
 	compiler->cache_arg = 0;
@@ -2063,6 +2072,7 @@ int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw
 {
 	int size;
 
+	CHECK_ERROR();
 	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, generals, local_size);
 
 	compiler->temporaries = temporaries;
@@ -2092,6 +2102,7 @@ int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw
 
 int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 {
+	CHECK_ERROR();
 	check_sljit_emit_fast_return(compiler, src, srcw);
 
 	if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS)
@@ -2173,6 +2184,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 {
 	struct sljit_label *label;
 
+	CHECK_ERROR_PTR();
 	check_sljit_emit_label(compiler);
 
 	if (compiler->last_label && compiler->last_label->size == compiler->size)
@@ -2188,6 +2200,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 {
 	struct sljit_jump *jump;
 
+	CHECK_ERROR_PTR();
 	check_sljit_emit_jump(compiler, type);
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
@@ -2228,6 +2241,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 {
 	struct sljit_jump *jump;
 
+	CHECK_ERROR();
 	check_sljit_emit_ijump(compiler, type, src, srcw);
 
 	// In ARM, we don't need to touch the arguments
@@ -2265,6 +2279,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 {
 	int reg;
 
+	CHECK_ERROR();
 	check_sljit_emit_cond_set(compiler, dst, dstw, type);
 
 	if (dst == SLJIT_UNUSED)
@@ -2289,6 +2304,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 	struct sljit_const *const_;
 	int reg;
 
+	CHECK_ERROR_PTR();
 	check_sljit_emit_const(compiler, dst, dstw, init_value);
 
 	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
