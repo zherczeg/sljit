@@ -57,17 +57,12 @@ struct regex_machine
 	// Total size
 	sljit_w size;
 
-#ifndef SLJIT_INDIRECT_CALL
 	union {
 		void *init_match;
 		sljit_w (SLJIT_CALL *call_init)(void *next, void* match);
 	};
-#else
-	void *init_match;
-	union {
-		void **init_match_ptr;
-		sljit_w (SLJIT_CALL *call_init)(void *next, void* match);
-	};
+#ifdef SLJIT_INDIRECT_CALL
+	struct sljit_function_context context;
 #endif
 
 	void *continue_match;
@@ -2268,9 +2263,10 @@ struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int 
 		CHECK(sljit_emit_return(compiler_common.compiler, R_NEXT_HEAD, 0));
 
 		compiler_common.machine->continue_match = sljit_generate_code(compiler_common.compiler);
+#ifndef SLJIT_INDIRECT_CALL
 		compiler_common.machine->init_match = (void*)sljit_get_label_addr(label);
-#ifdef SLJIT_INDIRECT_CALL
-		compiler_common.machine->init_match_ptr = &compiler_common.machine->init_match;
+#else
+		sljit_set_function_context(&compiler_common.machine->init_match, &compiler_common.machine->context, sljit_get_label_addr(label), regex_compile);
 #endif
 #ifdef REGEX_MATCH_VERBOSE
 		if (compiler_common.flags & REGEX_MATCH_VERBOSE)

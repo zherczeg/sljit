@@ -238,6 +238,7 @@ struct sljit_compiler {
 #endif
 
 #if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
+	int has_locals;
 	sljit_w imm;
 	int cache_arg;
 	sljit_w cache_argw;
@@ -697,11 +698,29 @@ sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_w new_lim
 
 #endif
 
-// Get the entry address of a given function
 #ifndef SLJIT_INDIRECT_CALL
+
+// Get the entry address of a given function
 #define SLJIT_FUNC_OFFSET(func_name)	((sljit_w)func_name)
+
 #else
+
+// All JIT related code should be placed in the same context (library, binary, etc.)
+
 #define SLJIT_FUNC_OFFSET(func_name)	((sljit_w)*(void**)func_name)
+
+// For powerpc64, the function pointers point to a context descriptor
+struct sljit_function_context {
+	sljit_w addr;
+	sljit_w r2;
+	sljit_w r11;
+};
+
+// Fill the context arguments using the addr and the function
+// If func_ptr is NULL, it will not be set to the address of context
+// If addr is NULL, the function address also comes from the func pointer
+void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_w addr, void* func);
+
 #endif
 
 #endif
