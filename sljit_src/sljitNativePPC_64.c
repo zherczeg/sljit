@@ -398,3 +398,13 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 	inst[4] = (inst[4] & 0xffff0000) | (new_constant & 0xffff);
 	SLJIT_CACHE_FLUSH(inst, inst + 5);
 }
+
+void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_w addr, void* func)
+{
+	if (func_ptr)
+		*func_ptr = (void*)context;
+	sljit_w* ptrs = (sljit_w*)func;
+	context->addr = addr ? addr : ptrs[0];
+	context->r2 = ptrs[1];
+	context->r11 = ptrs[2];
+}

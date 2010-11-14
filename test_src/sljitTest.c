@@ -2990,7 +2990,7 @@ static void test37(void)
 static void test38(void)
 {
 #ifdef SLJIT_UTIL_STACK
-	// Test count leading zeroes
+	// Test stack utility
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	struct sljit_jump* alloc_fail;
@@ -3067,6 +3067,49 @@ static void test38(void)
 	successful_tests++;
 }
 
+static void test39(void)
+{
+	// Test error handling
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	struct sljit_jump* jump;
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	// Such assignment should never happen in a regular program
+	compiler->error = -3967;
+
+	SLJIT_ASSERT(sljit_emit_enter(compiler, 2, 5, 5, 32) == -3967);
+	SLJIT_ASSERT(sljit_emit_return(compiler, SLJIT_TEMPORARY_REG2, 0) == -3967);
+	SLJIT_ASSERT(sljit_emit_op0(compiler, SLJIT_NOP) == -3967);
+	SLJIT_ASSERT(sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_TEMPORARY_REG2), 1) == -3967);
+	SLJIT_ASSERT(sljit_emit_op2(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), 64, SLJIT_MEM1(SLJIT_GENERAL_REG1), -64) == -3967);
+	SLJIT_ASSERT(sljit_emit_fop1(compiler, SLJIT_FABS, SLJIT_FLOAT_REG1, 0, SLJIT_MEM1(SLJIT_TEMPORARY_REG2), 0) == -3967);
+	SLJIT_ASSERT(sljit_emit_fop2(compiler, SLJIT_FDIV, SLJIT_FLOAT_REG3, 0, SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_GENERAL_REG1), 0, SLJIT_FLOAT_REG3, 0) == -3967);
+	SLJIT_ASSERT(!sljit_emit_label(compiler));
+	jump = sljit_emit_jump(compiler, SLJIT_CALL3);
+	SLJIT_ASSERT(!jump);
+	sljit_set_label(jump, (struct sljit_label*)0x123450);
+	sljit_set_target(jump, 0x123450);
+	jump = sljit_emit_cmp(compiler, SLJIT_C_SIG_NOT_GREATER, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG2, 0);
+	SLJIT_ASSERT(!jump);
+	SLJIT_ASSERT(sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), 8) == -3967);
+	SLJIT_ASSERT(sljit_emit_cond_set(compiler, SLJIT_TEMPORARY_REG1, 0, SLJIT_C_MUL_OVERFLOW) == -3967);
+	SLJIT_ASSERT(!sljit_emit_const(compiler, SLJIT_TEMPORARY_REG1, 0, 99));
+
+	SLJIT_ASSERT(!compiler->labels && !compiler->jumps && !compiler->consts);
+	SLJIT_ASSERT(!compiler->last_label && !compiler->last_jump && !compiler->last_const);
+	SLJIT_ASSERT(!compiler->buf->next && !compiler->buf->used_size);
+	SLJIT_ASSERT(!compiler->abuf->next && !compiler->abuf->used_size);
+
+	code.code = sljit_generate_code(compiler);
+	SLJIT_ASSERT(!code.code && sljit_get_compiler_error(compiler) == -3967);
+	sljit_free_compiler(compiler);
+
+	printf("test39 ok\n");
+	successful_tests++;
+}
+
 void sljit_test(void)
 {
 	printf("Generating code for: %s\n", sljit_get_platform_name());
@@ -3110,8 +3153,9 @@ void sljit_test(void)
 	test36();
 	test37();
 	test38();
-	if (successful_tests == 38)
+	test39();
+	if (successful_tests == 39)
 		printf("All tests are passed.\n");
 	else
-		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 38);
+		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 39);
 }
