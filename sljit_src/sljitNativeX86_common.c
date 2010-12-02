@@ -622,23 +622,34 @@ static int emit_mov_byte(struct sljit_compiler *compiler, int sign,
 		// src, dst are registers
 		SLJIT_ASSERT(dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REGISTER);
 		if (reg_map[dst] < 4) {
-			EMIT_MOV(compiler, dst, 0, src, 0);
+			if (dst != src)
+				EMIT_MOV(compiler, dst, 0, src, 0);
 			code = emit_x86_instruction(compiler, 2, dst, 0, dst, 0);
 			FAIL_IF(!code);
 			*code++ = 0x0f;
 			*code = sign ? 0xbe : 0xb6;
 		}
 		else {
-			EMIT_MOV(compiler, dst, 0, src, 0);
-			// shl reg, 24
-			code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 24, dst, 0);
-			FAIL_IF(!code);
-			*code |= 0x4 << 3;
-			code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 24, dst, 0);
-			FAIL_IF(!code);
-			// shr/sar reg, 24
-			*code |= sign ? (0x7 << 3) : (0x5 << 3);
+			if (dst != src)
+				EMIT_MOV(compiler, dst, 0, src, 0);
+			if (sign) {
+				// shl reg, 24
+				code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 24, dst, 0);
+				FAIL_IF(!code);
+				*code |= 0x4 << 3;
+				code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 24, dst, 0);
+				FAIL_IF(!code);
+				// shr/sar reg, 24
+				*code |= 0x7 << 3;
+			}
+			else {
+				// and dst, 0xff
+				code = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, 255, dst, 0);
+				FAIL_IF(!code);
+				*(code + 1) |= 0x4 << 3;
+			}
 		}
+		return SLJIT_SUCCESS;
 	}
 #endif
 	else {
@@ -986,7 +997,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		}
 
 #ifdef SLJIT_CONFIG_X86_32
-		if (SLJIT_UNLIKELY(dst_is_ereg)) {
+		if (SLJIT_UNLIKELY(dst_is_ereg) && (!(op == SLJIT_MOV || op == SLJIT_MOV_UI || op == SLJIT_MOV_SI) || (src & SLJIT_MEM))) {
 			SLJIT_ASSERT(dst == SLJIT_MEM1(SLJIT_LOCALS_REG));
 			dst = TMP_REGISTER;
 		}
@@ -1023,7 +1034,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		}
 
 #ifdef SLJIT_CONFIG_X86_32
-		if (SLJIT_UNLIKELY(dst_is_ereg))
+		if (SLJIT_UNLIKELY(dst_is_ereg) && dst == TMP_REGISTER)
 			return emit_mov(compiler, SLJIT_MEM1(SLJIT_LOCALS_REG), dstw, TMP_REGISTER, 0);
 #endif
 
@@ -1078,7 +1089,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	}
 
 #define BINARY_EAX_IMM(_op_eax_imm_, immw) \
-	emit_do_imm32(compiler, (!compiler->mode32) ? REX_W : 0, (_op_eax_imm_), immw)
+	FAIL_IF(emit_do_imm32(compiler, (!compiler->mode32) ? REX_W : 0, (_op_eax_imm_), immw))
 
 #else
 
@@ -1088,7 +1099,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	*(code + 1) |= (_op_imm_);
 
 #define BINARY_EAX_IMM(_op_eax_imm_, immw) \
-	emit_do_imm(compiler, (_op_eax_imm_), immw)
+	FAIL_IF(emit_do_imm(compiler, (_op_eax_imm_), immw))
 
 #endif
 

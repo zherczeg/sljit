@@ -92,7 +92,7 @@
 	((op) & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))
 
 #define BUF_SIZE	2048
-#define ABUF_SIZE	512
+#define ABUF_SIZE	1024
 
 // Jump flags
 #define JUMP_LABEL	0x1
@@ -338,7 +338,7 @@ static void* ensure_buf(struct sljit_compiler *compiler, int size)
 	sljit_ub *ret;
 	struct sljit_memory_fragment *new_frag;
 
-	if (compiler->buf->used_size + size <= (int)(BUF_SIZE - sizeof(int) - sizeof(void*))) {
+	if (compiler->buf->used_size + size <= (int)(BUF_SIZE - sizeof(sljit_uw) - sizeof(void*))) {
 		ret = compiler->buf->memory + compiler->buf->used_size;
 		compiler->buf->used_size += size;
 		return ret;
@@ -356,7 +356,7 @@ static void* ensure_abuf(struct sljit_compiler *compiler, int size)
 	sljit_ub *ret;
 	struct sljit_memory_fragment *new_frag;
 
-	if (compiler->abuf->used_size + size <= (int)(ABUF_SIZE - sizeof(int) - sizeof(void*))) {
+	if (compiler->abuf->used_size + size <= (int)(ABUF_SIZE - sizeof(sljit_uw) - sizeof(void*))) {
 		ret = compiler->abuf->memory + compiler->abuf->used_size;
 		compiler->abuf->used_size += size;
 		return ret;
@@ -367,6 +367,21 @@ static void* ensure_abuf(struct sljit_compiler *compiler, int size)
 	compiler->abuf = new_frag;
 	new_frag->used_size = size;
 	return new_frag->memory;
+}
+
+void* sljit_alloc_memory(struct sljit_compiler *compiler, int size)
+{
+	CHECK_ERROR_PTR();
+
+	if (size <= 0 || size > 64)
+		return NULL;
+
+#ifdef SLJIT_64BIT_ARCHITECTURE
+	size = (size + 7) & ~7;
+#else
+	size = (size + 3) & ~3;
+#endif
+	return ensure_abuf(compiler, size);
 }
 
 static SLJIT_INLINE void reverse_buf(struct sljit_compiler *compiler)
@@ -388,9 +403,6 @@ static SLJIT_INLINE void reverse_buf(struct sljit_compiler *compiler)
 static SLJIT_INLINE void set_label(struct sljit_label *label, struct sljit_compiler *compiler)
 {
 	label->next = NULL;
-#ifdef SLJIT_UTIL_LABEL_USER
-	label->user = NULL;
-#endif
 	label->size = compiler->size;
 	if (compiler->last_label)
 		compiler->last_label->next = label;
@@ -402,9 +414,6 @@ static SLJIT_INLINE void set_label(struct sljit_label *label, struct sljit_compi
 static SLJIT_INLINE void set_jump(struct sljit_jump *jump, struct sljit_compiler *compiler, int flags)
 {
 	jump->next = NULL;
-#ifdef SLJIT_UTIL_JUMP_USER
-	jump->user = NULL;
-#endif
 	jump->flags = flags;
 	if (compiler->last_jump)
 		compiler->last_jump->next = jump;
@@ -416,9 +425,6 @@ static SLJIT_INLINE void set_jump(struct sljit_jump *jump, struct sljit_compiler
 static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_compiler *compiler)
 {
 	const_->next = NULL;
-#ifdef SLJIT_UTIL_CONST_USER
-	const_->user = NULL;
-#endif
 	const_->addr = compiler->size;
 	if (compiler->last_const)
 		compiler->last_const->next = const_;

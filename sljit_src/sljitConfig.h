@@ -47,14 +47,6 @@
 //  Utilities
 // ---------------------------------------------------------------------
 
-// All user pointers are initialized to NULL
-// User pointers are allowed for sljit_label
-#define SLJIT_UTIL_LABEL_USER
-// User pointers are allowed for sljit_jump
-#define SLJIT_UTIL_JUMP_USER
-// User pointers are allowed for sljit_const
-#define SLJIT_UTIL_CONST_USER
-
 // For compiling global functions, a lock could be useful
 #define SLJIT_UTIL_GLOBAL_LOCK
 

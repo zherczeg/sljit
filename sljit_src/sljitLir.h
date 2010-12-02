@@ -143,15 +143,12 @@
 
 struct sljit_memory_fragment {
 	struct sljit_memory_fragment *next;
-	int used_size;
+	sljit_uw used_size;
 	sljit_ub memory[1];
 };
 
 struct sljit_label {
 	struct sljit_label *next;
-#ifdef SLJIT_UTIL_LABEL_USER
-	void* user;
-#endif
 	sljit_uw addr;
 	// The maximum size difference
 	sljit_uw size;
@@ -159,11 +156,8 @@ struct sljit_label {
 
 struct sljit_jump {
 	struct sljit_jump *next;
-#ifdef SLJIT_UTIL_JUMP_USER
-	void* user;
-#endif
 	sljit_uw addr;
-	int flags;
+	sljit_w flags;
 	union {
 		sljit_uw target;
 		struct sljit_label* label;
@@ -172,9 +166,6 @@ struct sljit_jump {
 
 struct sljit_const {
 	struct sljit_const *next;
-#ifdef SLJIT_UTIL_CONST_USER
-	void* user;
-#endif
 	sljit_uw addr;
 };
 
@@ -267,6 +258,11 @@ struct sljit_compiler* sljit_create_compiler(void);
 void sljit_free_compiler(struct sljit_compiler *compiler);
 
 static SLJIT_INLINE int sljit_get_compiler_error(struct sljit_compiler *compiler) { return compiler->error; }
+
+// Allocate a small amount of memory (size must be > 0 and <= 64 bytes). The memory area
+// lives inside the compiler, and exists until the compiler is freed (by sljit_free_compiler).
+// The returned memory area is pointer (sljit_w) aligned.
+void* sljit_alloc_memory(struct sljit_compiler *compiler, int size);
 
 #ifdef SLJIT_VERBOSE
 // NULL = no verbose
@@ -637,21 +633,6 @@ char* sljit_get_platform_name();
 
 // Portble helper function to get an offset of a member
 #define SLJIT_OFFSETOF(base, member) 	((sljit_w)(&((base*)0x10)->member) - 0x10)
-
-#ifdef SLJIT_UTIL_LABEL_USER
-static SLJIT_INLINE void* get_label_user(struct sljit_label *label) { return label->user; }
-static SLJIT_INLINE void set_label_user(struct sljit_label *label, void* user) { label->user = user; }
-#endif
-
-#ifdef SLJIT_UTIL_JUMP_USER
-static SLJIT_INLINE void* get_jump_user(struct sljit_jump *jump) { return jump->user; }
-static SLJIT_INLINE void set_jump_user(struct sljit_jump *jump, void* user) { jump->user = user; }
-#endif
-
-#ifdef SLJIT_UTIL_CONST_USER
-static SLJIT_INLINE void* get_const_user(struct sljit_const *const_) { return const_->user; }
-static SLJIT_INLINE void set_const_user(struct sljit_const *const_, void* user) { const_->user = user; }
-#endif
 
 #ifdef SLJIT_UTIL_GLOBAL_LOCK
 // This global lock is useful to compile common functions.
