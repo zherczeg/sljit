@@ -250,7 +250,6 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				label = label->next;
 			}
 			if (jump && jump->addr == word_count) {
-				SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
 #ifdef SLJIT_CONFIG_PPC_32
 				jump->addr = (sljit_uw)(code_ptr - 3);
 #else

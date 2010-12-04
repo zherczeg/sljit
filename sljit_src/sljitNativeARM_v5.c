@@ -645,7 +645,6 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				SLJIT_ASSERT(!jump || jump->addr >= word_count);
 				SLJIT_ASSERT(!const_ || const_->addr >= word_count);
 				if (jump && jump->addr == word_count) {
-					SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
 #ifdef SLJIT_CONFIG_ARM_V5
 					if (detect_jump_type(jump, code_ptr, code))
 						code_ptr--;

@@ -40,8 +40,6 @@ static int emit_do_imm(struct sljit_compiler *compiler, sljit_ub opcode, sljit_w
 
 static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_ptr, int type)
 {
-	SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
-
 	if (type == SLJIT_JUMP) {
 		*code_ptr++ = 0xe9;
 		jump->addr++;

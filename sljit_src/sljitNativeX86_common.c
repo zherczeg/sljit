@@ -223,8 +223,6 @@ static sljit_ub* generate_near_jump_code(struct sljit_jump *jump, sljit_ub *code
 	int short_jump;
 	sljit_uw label_addr;
 
-	SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
-
 	if (jump->flags & JUMP_LABEL)
 		label_addr = (sljit_uw)(code + jump->label->size);
 	else
@@ -1837,7 +1835,7 @@ static int sse2_available = 0;
 
 // Alignment + 2 * 16 bytes
 static int sse2_data[3 + 4 + 4];
-static int* sse2_buffer;
+static int *sse2_buffer;
 
 static void init_compiler()
 {
@@ -1868,8 +1866,10 @@ static void init_compiler()
 	// Intel syntax
 	__asm {
 		mov eax, 1
+		push ebx
 		cpuid
-		mov sse2_available, edx
+		pop ebx
+		mov features, edx
 	}
 #else
 	#error "SLJIT_SSE2_AUTO is not implemented for this C compiler"
@@ -2121,6 +2121,7 @@ static int sljit_emit_fpu_fop1(struct sljit_compiler *compiler, int op,
 	sljit_ub *buf;
 #endif
 
+	CHECK_ERROR();
 	check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw);
 
 #ifdef SLJIT_CONFIG_X86_64
@@ -2182,6 +2183,7 @@ static int sljit_emit_fpu_fop2(struct sljit_compiler *compiler, int op,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
 {
+	CHECK_ERROR();
 	check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
 
 #ifdef SLJIT_CONFIG_X86_64
