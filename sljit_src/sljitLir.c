@@ -97,6 +97,7 @@
 // Jump flags
 #define JUMP_LABEL	0x1
 #define JUMP_ADDR	0x2
+// SLJIT_REWRITABLE_JUMP is 0x1000
 
 #if defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)
 	#define PATCH_MB	0x4
@@ -132,6 +133,7 @@
 	#define B_TYPE5		0x50
 	/* BL + imm24 */
 	#define BL_TYPE6	0x60
+	/* 0xf00 cc code for branches */
 #endif
 
 #if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
@@ -659,10 +661,21 @@ static char* jump_names[] = {
 
 static SLJIT_INLINE void check_sljit_generate_code(struct sljit_compiler *compiler)
 {
+#ifdef SLJIT_DEBUG
+	struct sljit_jump *jump;
+#endif
 	// If debug and verbose are disabled, all arguments are unused
 	(void)compiler;
 
 	SLJIT_ASSERT(compiler->size > 0);
+#ifdef SLJIT_DEBUG
+	jump = compiler->jumps;
+	while (jump) {
+		// All jumps have target
+		SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
+		jump = jump->next;
+	}
+#endif
 }
 
 static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)

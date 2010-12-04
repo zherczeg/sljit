@@ -301,17 +301,17 @@ static SLJIT_INLINE void set_jump_instruction(struct sljit_jump *jump)
 	case 1:
 		/* Encoding T1 of 'B' instruction */
 		SLJIT_ASSERT(diff <= 127 && diff >= -128 && (jump->flags & IS_CONDITIONAL));
-		jump_inst[0] = 0xd000 | ((jump->flags >> 4) & 0xf00) | (diff & 0xff);
+		jump_inst[0] = 0xd000 | (jump->flags & 0xf00) | (diff & 0xff);
 		return;
 	case 2:
 		/* Encoding T3 of 'B' instruction */
 		SLJIT_ASSERT(diff <= 524287 && diff >= -524288 && (jump->flags & IS_CONDITIONAL));
-		jump_inst[0] = 0xf000 | COPY_BITS(jump->flags, 12, 6, 4) | COPY_BITS(diff, 11, 0, 6) | COPY_BITS(diff, 19, 10, 1);
+		jump_inst[0] = 0xf000 | COPY_BITS(jump->flags, 8, 6, 4) | COPY_BITS(diff, 11, 0, 6) | COPY_BITS(diff, 19, 10, 1);
 		jump_inst[1] = 0x8000 | COPY_BITS(diff, 17, 13, 1) | COPY_BITS(diff, 18, 11, 1) | (diff & 0x7ff);
 		return;
 	case 3:
 		SLJIT_ASSERT(jump->flags & IS_CONDITIONAL);
-		*jump_inst++ = IT | ((jump->flags >> 8) & 0xf0) | 0x8;
+		*jump_inst++ = IT | ((jump->flags >> 4) & 0xf0) | 0x8;
 		diff--;
 		type = 5;
 		break;
@@ -382,8 +382,6 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				label = label->next;
 			}
 			if (jump && jump->addr == half_count) {
-					SLJIT_ASSERT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
-
 					jump->addr = (sljit_uw)code_ptr - ((jump->flags & IS_CONDITIONAL) ? 10 : 8);
 					code_ptr -= detect_jump_type(jump, code_ptr, code);
 					jump = jump->next;
@@ -1709,7 +1707,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	if (type < SLJIT_JUMP) {
 		jump->flags |= IS_CONDITIONAL;
 		cc = get_cc(type);
-		jump->flags |= cc << 12;
+		jump->flags |= cc << 8;
 		PTR_FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
 	}
 

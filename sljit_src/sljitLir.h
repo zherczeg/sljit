@@ -564,7 +564,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_FAST_CALL			SLJIT_CALL0
 
 // The target can be changed during runtime (see: sljit_set_jump_addr)
-#define SLJIT_REWRITABLE_JUMP		0x200
+#define SLJIT_REWRITABLE_JUMP		0x1000
 
 // Emit a jump instruction. The destination is not set, only the type of the jump.
 //  type must be between SLJIT_C_EQUAL and SLJIT_CALL3
@@ -624,7 +624,7 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 // ---------------------------------------------------------------------
 
 #define SLJIT_MAJOR_VERSION	0
-#define SLJIT_MINOR_VERSION	80
+#define SLJIT_MINOR_VERSION	81
 
 // Get the human readable name of the platfrom
 // Can be useful for debugging on platforms like ARM, where ARM and
