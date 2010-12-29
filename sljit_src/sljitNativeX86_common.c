@@ -1669,6 +1669,14 @@ static int emit_shift(struct sljit_compiler *compiler,
 			*code |= mode;
 			return SLJIT_SUCCESS;
 		}
+		if (dst == SLJIT_PREF_SHIFT_REG && src2 == SLJIT_PREF_SHIFT_REG) {
+			EMIT_MOV(compiler, TMP_REGISTER, 0, src1, src1w);
+			code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_PREF_SHIFT_REG, 0, TMP_REGISTER, 0);
+			FAIL_IF(!code);
+			*code |= mode;
+			EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, TMP_REGISTER, 0);
+			return SLJIT_SUCCESS;
+		}
 		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
 			EMIT_MOV(compiler, dst, 0, src1, src1w);
 			code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, src2, src2w, dst, 0);

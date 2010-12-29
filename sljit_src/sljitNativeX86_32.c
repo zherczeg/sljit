@@ -193,8 +193,13 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
 
 	size = 2 + (compiler->generals <= 3 ? compiler->generals : 3);
+#ifdef SLJIT_X86_32_FASTCALL
+	if (compiler->args > 2)
+		size += 2;
+#else
 	if (compiler->args > 0)
 		size += 2;
+#endif
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	FAIL_IF(!buf);
 

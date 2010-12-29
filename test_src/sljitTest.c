@@ -508,7 +508,7 @@ static void test9(void)
 	// Test shift
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_w buf[10];
+	sljit_w buf[11];
 
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
@@ -521,6 +521,7 @@ static void test9(void)
 	buf[7] = 0;
 	buf[8] = 0;
 	buf[9] = 3;
+	buf[10] = 0;
 
 	sljit_emit_enter(compiler, 1, 3, 2, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0xf);
@@ -558,6 +559,10 @@ static void test9(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 9);
 	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_TEMPORARY_REG2), SLJIT_WORD_SHIFT, SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_TEMPORARY_REG2), SLJIT_WORD_SHIFT, SLJIT_MEM2(SLJIT_TEMPORARY_REG1, SLJIT_TEMPORARY_REG2), SLJIT_WORD_SHIFT);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_PREF_SHIFT_REG, 0, SLJIT_IMM, 4);
+	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_PREF_SHIFT_REG, 0, SLJIT_IMM, 2, SLJIT_PREF_SHIFT_REG, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 10, SLJIT_PREF_SHIFT_REG, 0);
+
 	sljit_emit_return(compiler, SLJIT_UNUSED, 0);
 
 	code.code = sljit_generate_code(compiler);
@@ -575,6 +580,7 @@ static void test9(void)
 	FAILED(buf[7] != 0xf0, "test9 case 8 failed\n");
 	FAILED(buf[8] != 0xf0, "test9 case 9 failed\n");
 	FAILED(buf[9] != 0x18, "test9 case 10 failed\n");
+	FAILED(buf[10] != 32, "test9 case 11 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test9 ok\n");
