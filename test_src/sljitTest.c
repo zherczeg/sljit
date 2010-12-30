@@ -671,9 +671,11 @@ static void test11(void)
 	sljit_emit_enter(compiler, 1, 3, 1, 0);
 
 	const1 = sljit_emit_const(compiler, SLJIT_MEM0(), (sljit_w)&buf[0], -0x81b9);
-	value = sljit_alloc_memory(compiler, 16);
+	SLJIT_ASSERT(!sljit_alloc_memory(compiler, 0));
+	SLJIT_ASSERT(!sljit_alloc_memory(compiler, 16 * sizeof(sljit_w) + 1));
+	value = sljit_alloc_memory(compiler, 16 * sizeof(sljit_w));
 	SLJIT_ASSERT(!((sljit_w)value & (sizeof(sljit_w) - 1)));
-	memset(value, 255, 16);
+	memset(value, 255, 16 * sizeof(sljit_w));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 2);
 	const2 = sljit_emit_const(compiler, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), SLJIT_WORD_SHIFT - 1, -65535);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, (sljit_w)&buf[0] + 2 * sizeof(sljit_w) - 2);
