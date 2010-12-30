@@ -91,8 +91,13 @@
 #define GET_ALL_FLAGS(op) \
 	((op) & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))
 
-#define BUF_SIZE	2048
-#define ABUF_SIZE	1024
+#define BUF_SIZE	4096
+
+#ifdef SLJIT_32BIT_ARCHITECTURE
+#define ABUF_SIZE	2048
+#else
+#define ABUF_SIZE	4096
+#endif
 
 // Jump flags
 #define JUMP_LABEL	0x1
@@ -375,12 +380,13 @@ void* sljit_alloc_memory(struct sljit_compiler *compiler, int size)
 {
 	CHECK_ERROR_PTR();
 
-	if (size <= 0 || size > 64)
-		return NULL;
-
 #ifdef SLJIT_64BIT_ARCHITECTURE
+	if (size <= 0 || size > 128)
+		return NULL;
 	size = (size + 7) & ~7;
 #else
+	if (size <= 0 || size > 64)
+		return NULL;
 	size = (size + 3) & ~3;
 #endif
 	return ensure_abuf(compiler, size);

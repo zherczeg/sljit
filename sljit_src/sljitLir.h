@@ -259,9 +259,14 @@ void sljit_free_compiler(struct sljit_compiler *compiler);
 
 static SLJIT_INLINE int sljit_get_compiler_error(struct sljit_compiler *compiler) { return compiler->error; }
 
-// Allocate a small amount of memory (size must be > 0 and <= 64 bytes). The memory area
-// lives inside the compiler, and exists until the compiler is freed (by sljit_free_compiler).
-// The returned memory area is pointer (sljit_w) aligned.
+// Allocate a small amount of memory. The size must be <= 64 bytes on 32 bit,
+// and <= 128 bytes on 64 bit architectures. The memory area is owned by the compiler,
+// and freed by sljit_free_compiler. The returned pointer is sizeof(sljit_w) aligned.
+// Excellent for allocating small blocks during the compiling, and no need to worry
+// about freeing them. The size is enough to contain at most 16 pointers.
+// If the size is outside of the range, the function will return with NULL,
+// but this return value does not indicate that there is no more memory (does
+// not set the compiler to out-of-memory status).
 void* sljit_alloc_memory(struct sljit_compiler *compiler, int size);
 
 #ifdef SLJIT_VERBOSE
