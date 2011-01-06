@@ -171,28 +171,28 @@ static sljit_ub get_jump_code(int type)
 	case SLJIT_C_FLOAT_LESS:
 		return 0x82;
 
-	case SLJIT_C_NOT_LESS:
-	case SLJIT_C_FLOAT_NOT_LESS:
+	case SLJIT_C_GREATER_EQUAL:
+	case SLJIT_C_FLOAT_GREATER_EQUAL:
 		return 0x83;
 
 	case SLJIT_C_GREATER:
 	case SLJIT_C_FLOAT_GREATER:
 		return 0x87;
 
-	case SLJIT_C_NOT_GREATER:
-	case SLJIT_C_FLOAT_NOT_GREATER:
+	case SLJIT_C_LESS_EQUAL:
+	case SLJIT_C_FLOAT_LESS_EQUAL:
 		return 0x86;
 
 	case SLJIT_C_SIG_LESS:
 		return 0x8c;
 
-	case SLJIT_C_SIG_NOT_LESS:
+	case SLJIT_C_SIG_GREATER_EQUAL:
 		return 0x8d;
 
 	case SLJIT_C_SIG_GREATER:
 		return 0x8f;
 
-	case SLJIT_C_SIG_NOT_GREATER:
+	case SLJIT_C_SIG_LESS_EQUAL:
 		return 0x8e;
 
 	case SLJIT_C_OVERFLOW:
@@ -2470,8 +2470,8 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		cond_set = 0x92;
 		break;
 
-	case SLJIT_C_NOT_LESS:
-	case SLJIT_C_FLOAT_NOT_LESS:
+	case SLJIT_C_GREATER_EQUAL:
+	case SLJIT_C_FLOAT_GREATER_EQUAL:
 		cond_set = 0x93;
 		break;
 
@@ -2480,8 +2480,8 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		cond_set = 0x97;
 		break;
 
-	case SLJIT_C_NOT_GREATER:
-	case SLJIT_C_FLOAT_NOT_GREATER:
+	case SLJIT_C_LESS_EQUAL:
+	case SLJIT_C_FLOAT_LESS_EQUAL:
 		cond_set = 0x96;
 		break;
 
@@ -2489,7 +2489,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		cond_set = 0x9c;
 		break;
 
-	case SLJIT_C_SIG_NOT_LESS:
+	case SLJIT_C_SIG_GREATER_EQUAL:
 		cond_set = 0x9d;
 		break;
 
@@ -2497,7 +2497,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		cond_set = 0x9f;
 		break;
 
-	case SLJIT_C_SIG_NOT_GREATER:
+	case SLJIT_C_SIG_LESS_EQUAL:
 		cond_set = 0x9e;
 		break;
 

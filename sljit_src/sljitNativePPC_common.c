@@ -1518,28 +1518,28 @@ static sljit_i get_bo_bi_flags(struct sljit_compiler *compiler, int type)
 	case SLJIT_C_FLOAT_LESS:
 		return (12 << 21) | ((4 + 0) << 16);
 
-	case SLJIT_C_NOT_LESS:
-	case SLJIT_C_FLOAT_NOT_LESS:
+	case SLJIT_C_GREATER_EQUAL:
+	case SLJIT_C_FLOAT_GREATER_EQUAL:
 		return (4 << 21) | ((4 + 0) << 16);
 
 	case SLJIT_C_GREATER:
 	case SLJIT_C_FLOAT_GREATER:
 		return (12 << 21) | ((4 + 1) << 16);
 
-	case SLJIT_C_NOT_GREATER:
-	case SLJIT_C_FLOAT_NOT_GREATER:
+	case SLJIT_C_LESS_EQUAL:
+	case SLJIT_C_FLOAT_LESS_EQUAL:
 		return (4 << 21) | ((4 + 1) << 16);
 
 	case SLJIT_C_SIG_LESS:
 		return (12 << 21) | (0 << 16);
 
-	case SLJIT_C_SIG_NOT_LESS:
+	case SLJIT_C_SIG_GREATER_EQUAL:
 		return (4 << 21) | (0 << 16);
 
 	case SLJIT_C_SIG_GREATER:
 		return (12 << 21) | (1 << 16);
 
-	case SLJIT_C_SIG_NOT_GREATER:
+	case SLJIT_C_SIG_LESS_EQUAL:
 		return (4 << 21) | (1 << 16);
 
 	case SLJIT_C_OVERFLOW:
@@ -1668,8 +1668,8 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		GET_CR_BIT(4 + 0, reg);
 		break;
 
-	case SLJIT_C_NOT_LESS:
-	case SLJIT_C_FLOAT_NOT_LESS:
+	case SLJIT_C_GREATER_EQUAL:
+	case SLJIT_C_FLOAT_GREATER_EQUAL:
 		GET_CR_BIT(4 + 0, reg);
 		INVERT_BIT(reg);
 		break;
@@ -1679,8 +1679,8 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		GET_CR_BIT(4 + 1, reg);
 		break;
 
-	case SLJIT_C_NOT_GREATER:
-	case SLJIT_C_FLOAT_NOT_GREATER:
+	case SLJIT_C_LESS_EQUAL:
+	case SLJIT_C_FLOAT_LESS_EQUAL:
 		GET_CR_BIT(4 + 1, reg);
 		INVERT_BIT(reg);
 		break;
@@ -1689,7 +1689,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		GET_CR_BIT(0, reg);
 		break;
 
-	case SLJIT_C_SIG_NOT_LESS:
+	case SLJIT_C_SIG_GREATER_EQUAL:
 		GET_CR_BIT(0, reg);
 		INVERT_BIT(reg);
 		break;
@@ -1698,7 +1698,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		GET_CR_BIT(1, reg);
 		break;
 
-	case SLJIT_C_SIG_NOT_GREATER:
+	case SLJIT_C_SIG_LESS_EQUAL:
 		GET_CR_BIT(1, reg);
 		INVERT_BIT(reg);
 		break;

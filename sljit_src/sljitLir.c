@@ -645,15 +645,15 @@ static SLJIT_CONST char* op_names[] = {
 
 static char* jump_names[] = {
 	(char*)"c_equal", (char*)"c_not_equal",
-	(char*)"c_less", (char*)"c_not_less",
-	(char*)"c_greater", (char*)"c_not_greater",
-	(char*)"c_sig_less", (char*)"c_sig_not_less",
-	(char*)"c_sig_greater", (char*)"c_sig_not_greater",
+	(char*)"c_less", (char*)"c_greater_equal",
+	(char*)"c_greater", (char*)"c_less_equal",
+	(char*)"c_sig_less", (char*)"c_sig_greater_equal",
+	(char*)"c_sig_greater", (char*)"c_sig_less_equal",
 	(char*)"c_overflow", (char*)"c_not_overflow",
 	(char*)"c_mul_overflow", (char*)"c_mul_not_overflow",
 	(char*)"c_float_equal", (char*)"c_float_not_equal",
-	(char*)"c_float_less", (char*)"c_float_not_less",
-	(char*)"c_float_greater", (char*)"c_float_not_greater",
+	(char*)"c_float_less", (char*)"c_float_greater_equal",
+	(char*)"c_float_greater", (char*)"c_float_less_equal",
 	(char*)"c_float_nan", (char*)"c_float_not_nan",
 	(char*)"jump",
 	(char*)"call0", (char*)"call1", (char*)"call2", (char*)"call3"
@@ -982,7 +982,7 @@ static SLJIT_INLINE void check_sljit_emit_cmp(struct sljit_compiler *compiler, i
 	(void)src2w;
 
 	SLJIT_ASSERT(!(type & ~(0xff | SLJIT_INT_OP | SLJIT_REWRITABLE_JUMP)));
-	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_EQUAL && (type & 0xff) <= SLJIT_C_SIG_NOT_GREATER);
+	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_EQUAL && (type & 0xff) <= SLJIT_C_SIG_LESS_EQUAL);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_SRC(src1, src1w);
 	FUNCTION_CHECK_SRC(src2, src2w);
@@ -1099,26 +1099,26 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 		case SLJIT_C_LESS:
 			condition = SLJIT_C_GREATER;
 			break;
-		case SLJIT_C_NOT_LESS:
-			condition = SLJIT_C_NOT_GREATER;
+		case SLJIT_C_GREATER_EQUAL:
+			condition = SLJIT_C_LESS_EQUAL;
 			break;
 		case SLJIT_C_GREATER:
 			condition = SLJIT_C_LESS;
 			break;
-		case SLJIT_C_NOT_GREATER:
-			condition = SLJIT_C_NOT_LESS;
+		case SLJIT_C_LESS_EQUAL:
+			condition = SLJIT_C_GREATER_EQUAL;
 			break;
 		case SLJIT_C_SIG_LESS:
 			condition = SLJIT_C_SIG_GREATER;
 			break;
-		case SLJIT_C_SIG_NOT_LESS:
-			condition = SLJIT_C_SIG_NOT_GREATER;
+		case SLJIT_C_SIG_GREATER_EQUAL:
+			condition = SLJIT_C_SIG_LESS_EQUAL;
 			break;
 		case SLJIT_C_SIG_GREATER:
 			condition = SLJIT_C_SIG_LESS;
 			break;
-		case SLJIT_C_SIG_NOT_GREATER:
-			condition = SLJIT_C_SIG_NOT_LESS;
+		case SLJIT_C_SIG_LESS_EQUAL:
+			condition = SLJIT_C_SIG_GREATER_EQUAL;
 			break;
 		}
 		type = condition | (type & (SLJIT_INT_OP | SLJIT_REWRITABLE_JUMP));
@@ -1132,7 +1132,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 
 	if (condition <= SLJIT_C_NOT_ZERO)
 		flags = SLJIT_SET_E;
-	else if (condition <= SLJIT_C_NOT_GREATER)
+	else if (condition <= SLJIT_C_LESS_EQUAL)
 		flags = SLJIT_SET_U;
 	else
 		flags = SLJIT_SET_S;

@@ -2142,28 +2142,28 @@ static sljit_uw get_cc(int type)
 	case SLJIT_C_FLOAT_LESS:
 		return 0x30000000;
 
-	case SLJIT_C_NOT_LESS:
-	case SLJIT_C_FLOAT_NOT_LESS:
+	case SLJIT_C_GREATER_EQUAL:
+	case SLJIT_C_FLOAT_GREATER_EQUAL:
 		return 0x20000000;
 
 	case SLJIT_C_GREATER:
 	case SLJIT_C_FLOAT_GREATER:
 		return 0x80000000;
 
-	case SLJIT_C_NOT_GREATER:
-	case SLJIT_C_FLOAT_NOT_GREATER:
+	case SLJIT_C_LESS_EQUAL:
+	case SLJIT_C_FLOAT_LESS_EQUAL:
 		return 0x90000000;
 
 	case SLJIT_C_SIG_LESS:
 		return 0xb0000000;
 
-	case SLJIT_C_SIG_NOT_LESS:
+	case SLJIT_C_SIG_GREATER_EQUAL:
 		return 0xa0000000;
 
 	case SLJIT_C_SIG_GREATER:
 		return 0xc0000000;
 
-	case SLJIT_C_SIG_NOT_GREATER:
+	case SLJIT_C_SIG_LESS_EQUAL:
 		return 0xd0000000;
 
 	case SLJIT_C_OVERFLOW:

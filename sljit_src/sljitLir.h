@@ -536,13 +536,13 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_C_NOT_ZERO		1
 
 #define SLJIT_C_LESS			2
-#define SLJIT_C_NOT_LESS		3
+#define SLJIT_C_GREATER_EQUAL		3
 #define SLJIT_C_GREATER			4
-#define SLJIT_C_NOT_GREATER		5
+#define SLJIT_C_LESS_EQUAL		5
 #define SLJIT_C_SIG_LESS		6
-#define SLJIT_C_SIG_NOT_LESS		7
+#define SLJIT_C_SIG_GREATER_EQUAL	7
 #define SLJIT_C_SIG_GREATER		8
-#define SLJIT_C_SIG_NOT_GREATER		9
+#define SLJIT_C_SIG_LESS_EQUAL		9
 
 #define SLJIT_C_OVERFLOW		10
 #define SLJIT_C_NOT_OVERFLOW		11
@@ -553,9 +553,9 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_C_FLOAT_EQUAL		14
 #define SLJIT_C_FLOAT_NOT_EQUAL		15
 #define SLJIT_C_FLOAT_LESS		16
-#define SLJIT_C_FLOAT_NOT_LESS		17
+#define SLJIT_C_FLOAT_GREATER_EQUAL	17
 #define SLJIT_C_FLOAT_GREATER		18
-#define SLJIT_C_FLOAT_NOT_GREATER	19
+#define SLJIT_C_FLOAT_LESS_EQUAL	19
 #define SLJIT_C_FLOAT_NAN		20
 #define SLJIT_C_FLOAT_NOT_NAN		21
 
@@ -583,7 +583,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type);
 // sljit_emit_jump. However some architectures (i.e: MIPS) may employ
 // special optimizations here. It is suggested to use this comparison
 // form when flags are unimportant.
-//  type must be between SLJIT_C_EQUAL and SLJIT_C_SIG_NOT_GREATER
+//  type must be between SLJIT_C_EQUAL and SLJIT_C_SIG_LESS_EQUAL
 //  type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP or SLJIT_INT_OP
 // Flags: destroy flags
 struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
