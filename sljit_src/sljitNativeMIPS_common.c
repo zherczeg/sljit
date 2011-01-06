@@ -1320,25 +1320,25 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	case SLJIT_C_LESS:
 		BR_Z(ULESS_FLAG);
 		break;
-	case SLJIT_C_NOT_LESS:
+	case SLJIT_C_GREATER_EQUAL:
 		BR_NZ(ULESS_FLAG);
 		break;
 	case SLJIT_C_GREATER:
 		BR_Z(UGREATER_FLAG);
 		break;
-	case SLJIT_C_NOT_GREATER:
+	case SLJIT_C_LESS_EQUAL:
 		BR_NZ(UGREATER_FLAG);
 		break;
 	case SLJIT_C_SIG_LESS:
 		BR_Z(LESS_FLAG);
 		break;
-	case SLJIT_C_SIG_NOT_LESS:
+	case SLJIT_C_SIG_GREATER_EQUAL:
 		BR_NZ(LESS_FLAG);
 		break;
 	case SLJIT_C_SIG_GREATER:
 		BR_Z(GREATER_FLAG);
 		break;
-	case SLJIT_C_SIG_NOT_GREATER:
+	case SLJIT_C_SIG_LESS_EQUAL:
 		BR_NZ(GREATER_FLAG);
 		break;
 	case SLJIT_C_OVERFLOW:
@@ -1358,13 +1358,13 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	case SLJIT_C_FLOAT_LESS:
 		BR_F(LESS_BIT);
 		break;
-	case SLJIT_C_FLOAT_NOT_LESS:
+	case SLJIT_C_FLOAT_GREATER_EQUAL:
 		BR_T(LESS_BIT);
 		break;
 	case SLJIT_C_FLOAT_GREATER:
 		BR_F(GREATER_BIT);
 		break;
-	case SLJIT_C_FLOAT_NOT_GREATER:
+	case SLJIT_C_FLOAT_LESS_EQUAL:
 		BR_T(GREATER_BIT);
 		break;
 	case SLJIT_C_FLOAT_NAN:
@@ -1472,7 +1472,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 				inst = BLEZ;
 				jump->flags |= IS_BIT26_COND;
 				break;
-			case SLJIT_C_SIG_NOT_LESS:
+			case SLJIT_C_SIG_GREATER_EQUAL:
 				inst = BGTZ;
 				jump->flags |= IS_BIT26_COND;
 				break;
@@ -1480,7 +1480,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 				inst = BGEZ;
 				jump->flags |= IS_BIT16_COND;
 				break;
-			case SLJIT_C_SIG_NOT_GREATER:
+			case SLJIT_C_SIG_LESS_EQUAL:
 				inst = BLTZ;
 				jump->flags |= IS_BIT16_COND;
 				break;
@@ -1494,7 +1494,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 				inst = BGEZ;
 				jump->flags |= IS_BIT16_COND;
 				break;
-			case SLJIT_C_SIG_NOT_LESS:
+			case SLJIT_C_SIG_GREATER_EQUAL:
 				inst = BLTZ;
 				jump->flags |= IS_BIT16_COND;
 				break;
@@ -1502,7 +1502,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 				inst = BLEZ;
 				jump->flags |= IS_BIT26_COND;
 				break;
-			case SLJIT_C_SIG_NOT_GREATER:
+			case SLJIT_C_SIG_LESS_EQUAL:
 				inst = BGTZ;
 				jump->flags |= IS_BIT26_COND;
 				break;
@@ -1511,23 +1511,23 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 		PTR_FAIL_IF(push_inst(compiler, inst | S(src1) | JUMP_LENGTH, UNMOVABLE_INS));
 	}
 	else {
-		if (type == SLJIT_C_LESS || type == SLJIT_C_NOT_LESS || type == SLJIT_C_SIG_LESS || type == SLJIT_C_SIG_NOT_LESS) {
+		if (type == SLJIT_C_LESS || type == SLJIT_C_GREATER_EQUAL || type == SLJIT_C_SIG_LESS || type == SLJIT_C_SIG_GREATER_EQUAL) {
 			RESOLVE_IMM1();
 			if ((src2 & SLJIT_IMM) && src2w <= SIMM_MAX && src2w >= SIMM_MIN)
-				PTR_FAIL_IF(push_inst(compiler, (type <= SLJIT_C_NOT_GREATER ? SLTIU : SLTI) | S(src1) | T(TMP_REG1) | IMM(src2w), DR(TMP_REG1)));
+				PTR_FAIL_IF(push_inst(compiler, (type <= SLJIT_C_LESS_EQUAL ? SLTIU : SLTI) | S(src1) | T(TMP_REG1) | IMM(src2w), DR(TMP_REG1)));
 			else {
 				RESOLVE_IMM2();
-				PTR_FAIL_IF(push_inst(compiler, (type <= SLJIT_C_NOT_GREATER ? SLTU : SLT) | S(src1) | T(src2) | D(TMP_REG1), DR(TMP_REG1)));
+				PTR_FAIL_IF(push_inst(compiler, (type <= SLJIT_C_LESS_EQUAL ? SLTU : SLT) | S(src1) | T(src2) | D(TMP_REG1), DR(TMP_REG1)));
 			}
 			type = (type == SLJIT_C_LESS || type == SLJIT_C_SIG_LESS) ? SLJIT_C_NOT_EQUAL : SLJIT_C_EQUAL;
 		}
 		else {
 			RESOLVE_IMM2();
 			if ((src1 & SLJIT_IMM) && src1w <= SIMM_MAX && src1w >= SIMM_MIN)
-				PTR_FAIL_IF(push_inst(compiler, (type <= SLJIT_C_NOT_GREATER ? SLTIU : SLTI) | S(src2) | T(TMP_REG1) | IMM(src1w), DR(TMP_REG1)));
+				PTR_FAIL_IF(push_inst(compiler, (type <= SLJIT_C_LESS_EQUAL ? SLTIU : SLTI) | S(src2) | T(TMP_REG1) | IMM(src1w), DR(TMP_REG1)));
 			else {
 				RESOLVE_IMM1();
-				PTR_FAIL_IF(push_inst(compiler, (type <= SLJIT_C_NOT_GREATER ? SLTU : SLT) | S(src2) | T(src1) | D(TMP_REG1), DR(TMP_REG1)));
+				PTR_FAIL_IF(push_inst(compiler, (type <= SLJIT_C_LESS_EQUAL ? SLTU : SLT) | S(src2) | T(src1) | D(TMP_REG1), DR(TMP_REG1)));
 			}
 			type = (type == SLJIT_C_GREATER || type == SLJIT_C_SIG_GREATER) ? SLJIT_C_NOT_EQUAL : SLJIT_C_EQUAL;
 		}
@@ -1613,19 +1613,19 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		dst_ar = sugg_dst_ar;
 		break;
 	case SLJIT_C_LESS:
-	case SLJIT_C_NOT_LESS:
+	case SLJIT_C_GREATER_EQUAL:
 		dst_ar = ULESS_FLAG;
 		break;
 	case SLJIT_C_GREATER:
-	case SLJIT_C_NOT_GREATER:
+	case SLJIT_C_LESS_EQUAL:
 		dst_ar = UGREATER_FLAG;
 		break;
 	case SLJIT_C_SIG_LESS:
-	case SLJIT_C_SIG_NOT_LESS:
+	case SLJIT_C_SIG_GREATER_EQUAL:
 		dst_ar = LESS_FLAG;
 		break;
 	case SLJIT_C_SIG_GREATER:
-	case SLJIT_C_SIG_NOT_GREATER:
+	case SLJIT_C_SIG_LESS_EQUAL:
 		dst_ar = GREATER_FLAG;
 		break;
 	case SLJIT_C_OVERFLOW:
@@ -1647,11 +1647,11 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 				dst_ar = EQUAL_BIT + 24;
 				break;
 			case SLJIT_C_FLOAT_LESS:
-			case SLJIT_C_FLOAT_NOT_LESS:
+			case SLJIT_C_FLOAT_GREATER_EQUAL:
 				dst_ar = LESS_BIT + 24;
 				break;
 			case SLJIT_C_FLOAT_GREATER:
-			case SLJIT_C_FLOAT_NOT_GREATER:
+			case SLJIT_C_FLOAT_LESS_EQUAL:
 				dst_ar = GREATER_BIT + 24;
 				break;
 			case SLJIT_C_FLOAT_NAN:
