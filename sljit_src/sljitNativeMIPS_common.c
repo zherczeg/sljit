@@ -1594,17 +1594,17 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	return SLJIT_SUCCESS;
 }
 
-int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
+int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type)
 {
 	int sugg_dst_ar, dst_ar;
 
 	CHECK_ERROR();
-	check_sljit_emit_cond_set(compiler, dst, dstw, type);
+	check_sljit_emit_cond_value(compiler, op, dst, dstw, type);
 
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;
 
-	sugg_dst_ar = DR((dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2);
+	sugg_dst_ar = DR((op == SLJIT_MOV && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2);
 
 	switch (type) {
 	case SLJIT_C_EQUAL:
@@ -1668,6 +1668,12 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	if (type & 0x1) {
 		FAIL_IF(push_inst(compiler, XORI | SA(dst_ar) | TA(sugg_dst_ar) | IMM(1), sugg_dst_ar));
 		dst_ar = sugg_dst_ar;
+	}
+
+	if (GET_OPCODE(op) == SLJIT_OR) {
+		if (DR(TMP_REG2) != dst_ar)
+			FAIL_IF(push_inst(compiler, ADDU_W | SA(dst_ar) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
+		return emit_op(compiler, op, CUMULATIVE_OP | LOGICAL_OP | IMM_OP, dst, dstw, dst, dstw, TMP_REG2, 0);
 	}
 
 	if (dst & SLJIT_MEM)

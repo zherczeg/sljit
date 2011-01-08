@@ -1301,8 +1301,12 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		return SLJIT_SUCCESS;
 	}
 
-	if (op_type == SLJIT_NEG)
+	if (op_type == SLJIT_NEG) {
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+		compiler->skip_checks = 1;
+#endif
 		return sljit_emit_op2(compiler, GET_FLAGS(op) | SLJIT_SUB, dst, dstw, SLJIT_IMM, 0, src, srcw);
+	}
 
 	flags = (GET_FLAGS(op) ? SET_FLAGS : 0) | ((op & SLJIT_KEEP_FLAGS) ? KEEP_FLAGS : 0);
 	if (src & SLJIT_MEM) {
@@ -1758,28 +1762,42 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	return SLJIT_SUCCESS;
 }
 
-int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
+int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type)
 {
 	int dst_r;
 	sljit_uw cc;
 
 	CHECK_ERROR();
-	check_sljit_emit_cond_set(compiler, dst, dstw, type);
+	check_sljit_emit_cond_value(compiler, op, dst, dstw, type);
 
-	dst_r = TMP_REG1;
-	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS && reg_map[dst] <= 7)
-		dst_r = dst;
+	if (dst == SLJIT_UNUSED)
+		return SLJIT_SUCCESS;
 
 	cc = get_cc(type);
-	FAIL_IF(push_inst16(compiler, IT | (cc << 4) | ((1 - (cc & 0x1)) << 3) | 0x4));
+	if (GET_OPCODE(op) == SLJIT_OR && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
+		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
+		return push_inst32(compiler, ORRI | (!(op & SLJIT_SET_E) ? 0 : SET_FLAGS) | RN4(dst) | RD4(dst) | 0x1);
+	}
+
+	dst_r = TMP_REG2;
+	if (op == SLJIT_MOV && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS && reg_map[dst] <= 7)
+		dst_r = dst;
+
+	FAIL_IF(push_inst16(compiler, IT | (cc << 4) | (((cc & 0x1) ^ 0x1) << 3) | 0x4));
 	FAIL_IF(push_inst16(compiler, MOVSI | 0x1 | RDN3(dst_r)));
 	FAIL_IF(push_inst16(compiler, MOVSI | 0x0 | RDN3(dst_r)));
 
-	if (dst_r == TMP_REG1 && dst != SLJIT_UNUSED) {
+	if (dst_r == TMP_REG2) {
+		if (GET_OPCODE(op) == SLJIT_OR) {
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+			compiler->skip_checks = 1;
+#endif
+			return sljit_emit_op2(compiler, op, dst, dstw, dst, dstw, TMP_REG2, 0);
+		}
 		if (dst & SLJIT_MEM)
-			return emit_op_mem(compiler, WORD_SIZE | STORE, dst_r, dst, dstw);
+			return emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG2, dst, dstw);
 		else
-			return push_inst16(compiler, MOV | SET_REGS44(dst, TMP_REG1));
+			return push_inst16(compiler, MOV | SET_REGS44(dst, TMP_REG2));
 	}
 
 	return SLJIT_SUCCESS;

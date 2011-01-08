@@ -1810,6 +1810,9 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		return emit_op(compiler, op, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_NEG:
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+		compiler->skip_checks = 1;
+#endif
 		return sljit_emit_op2(compiler, SLJIT_SUB | GET_FLAGS(op), dst, dstw, SLJIT_IMM, 0, src, srcw);
 
 	case SLJIT_CLZ:
@@ -2274,28 +2277,38 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	return SLJIT_SUCCESS;
 }
 
-int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
+int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type)
 {
 	int reg;
+	sljit_uw cc;
 
 	CHECK_ERROR();
-	check_sljit_emit_cond_set(compiler, dst, dstw, type);
+	check_sljit_emit_cond_value(compiler, op, dst, dstw, type);
 
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;
 
-	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
-		reg = dst;
-	else
-		reg = TMP_REG2;
+	cc = get_cc(type);
+	if (GET_OPCODE(op) == SLJIT_OR) {
+		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
+			return push_inst(compiler, (EMIT_DATA_PROCESS_INS(ORR_DP, !(op & SLJIT_SET_E) ? 0 : SET_FLAGS, dst, dst, SRC2_IMM | 1) & ~COND_MASK) | cc);
+
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG1, SLJIT_UNUSED, SRC2_IMM | 0));
+		EMIT_INSTRUCTION((EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG1, SLJIT_UNUSED, SRC2_IMM | 1) & ~COND_MASK) | cc);
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+		compiler->skip_checks = 1;
+#endif
+		return emit_op(compiler, op, ALLOW_IMM, dst, dstw, TMP_REG1, 0, dst, dstw);
+	}
+
+	reg = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
 
 	EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, reg, SLJIT_UNUSED, SRC2_IMM | 0));
-	EMIT_INSTRUCTION((EMIT_DATA_PROCESS_INS(MOV_DP, 0, reg, SLJIT_UNUSED, SRC2_IMM | 1) & ~COND_MASK) | get_cc(type));
+	EMIT_INSTRUCTION((EMIT_DATA_PROCESS_INS(MOV_DP, 0, reg, SLJIT_UNUSED, SRC2_IMM | 1) & ~COND_MASK) | cc);
 
 	if (reg == TMP_REG2)
 		return emit_op(compiler, SLJIT_MOV, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, TMP_REG2, 0);
-	else
-		return SLJIT_SUCCESS;
+	return SLJIT_SUCCESS;
 }
 
 struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w init_value)

@@ -245,6 +245,10 @@ struct sljit_compiler {
 #ifdef SLJIT_VERBOSE
 	FILE* verbose;
 #endif
+
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+	int skip_checks;
+#endif
 };
 
 // ---------------------------------------------------------------------
@@ -606,8 +610,13 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 
 // Set dst to 1 if condition is fulfilled, 0 otherwise
 //  type must be between SLJIT_C_EQUAL and SLJIT_C_FLOAT_NOT_NAN
+// Op can be SLJIT_MOV or SLJIT_OR with the following flags:
 // Flags: - (never set any flags)
-int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type);
+// SLJIT_MOV
+// Flags: E | K
+// SLJIT_OR
+// Note: sljit_emit_cond_value does nothing, if dst is SLJIT_UNUSED (regardless of op)
+int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type);
 
 // The constant can be changed runtime (see: sljit_set_const)
 // Flags: - (never set any flags)
@@ -629,7 +638,7 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 // ---------------------------------------------------------------------
 
 #define SLJIT_MAJOR_VERSION	0
-#define SLJIT_MINOR_VERSION	81
+#define SLJIT_MINOR_VERSION	82
 
 // Get the human readable name of the platfrom
 // Can be useful for debugging on platforms like ARM, where ARM and
