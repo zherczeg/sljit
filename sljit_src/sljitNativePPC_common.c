@@ -1638,20 +1638,17 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 #define INVERT_BIT(dst) \
 	FAIL_IF(push_inst(compiler, XORI | S(dst) | A(dst) | 0x1));
 
-int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
+int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type)
 {
 	int reg;
 
 	CHECK_ERROR();
-	check_sljit_emit_cond_set(compiler, dst, dstw, type);
+	check_sljit_emit_cond_value(compiler, op, dst, dstw, type);
 
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;
 
-	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
-		reg = dst;
-	else
-		reg = TMP_REG2;
+	reg = (op == SLJIT_MOV && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
 
 	switch (type) {
 	case SLJIT_C_EQUAL:
@@ -1736,6 +1733,9 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 		SLJIT_ASSERT_STOP();
 		break;
 	}
+
+	if (GET_OPCODE(op) == SLJIT_OR)
+		return emit_op(compiler, GET_OPCODE(op), GET_FLAGS(op) ? ALT_SET_FLAGS : 0, dst, dstw, dst, dstw, TMP_REG2, 0);
 
 	if (reg == TMP_REG2)
 		return emit_op(compiler, SLJIT_MOV, WORD_DATA, dst, dstw, TMP_REG1, 0, TMP_REG2, 0);

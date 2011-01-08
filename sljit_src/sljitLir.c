@@ -261,6 +261,10 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->verbose = NULL;
 #endif
 
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+	compiler->skip_checks = 0;
+#endif
+
 #ifdef NEEDS_COMPILER_INIT
 	if (!compiler_initialized) {
 		init_compiler();
@@ -857,6 +861,13 @@ static SLJIT_INLINE void check_sljit_emit_op2(struct sljit_compiler *compiler, i
 	(void)src2;
 	(void)src2w;
 
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		return;
+	}
+#endif
+
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_ADD && GET_OPCODE(op) <= SLJIT_ASHR);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_OP();
@@ -962,6 +973,13 @@ static SLJIT_INLINE void check_sljit_emit_jump(struct sljit_compiler *compiler, 
 	(void)compiler;
 	(void)type;
 
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		return;
+	}
+#endif
+
 	SLJIT_ASSERT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP)));
 	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_EQUAL && (type & 0xff) <= SLJIT_CALL3);
 #ifdef SLJIT_VERBOSE
@@ -1019,23 +1037,27 @@ static SLJIT_INLINE void check_sljit_emit_ijump(struct sljit_compiler *compiler,
 #endif
 }
 
-static SLJIT_INLINE void check_sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
+static SLJIT_INLINE void check_sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type)
 {
 	// If debug and verbose are disabled, all arguments are unused
 	(void)compiler;
+	(void)op;
 	(void)dst;
 	(void)dstw;
 	(void)type;
 
 	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type < SLJIT_JUMP);
+	SLJIT_ASSERT(op == SLJIT_MOV || GET_OPCODE(op) == SLJIT_OR);
+	SLJIT_ASSERT(GET_ALL_FLAGS(op) == 0 || GET_ALL_FLAGS(op) == SLJIT_SET_E || GET_ALL_FLAGS(op) == SLJIT_KEEP_FLAGS);
 #ifdef SLJIT_DEBUG
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
 #ifdef SLJIT_VERBOSE
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  cond_set ");
+		fprintf(compiler->verbose, "  cond_set%s%s <%s> ", !(op & SLJIT_SET_E) ? "" : "E",
+			!(op & SLJIT_KEEP_FLAGS) ? "" : "K", op_names[GET_OPCODE(op)]);
 		sljit_verbose_param(dst, dstw);
-		fprintf(compiler->verbose, ", %s\n", jump_names[type]);
+		fprintf(compiler->verbose, ", <%s>\n", jump_names[type]);
 	}
 #endif
 }
@@ -1084,10 +1106,6 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 	// Default compare for most architectures
 	int flags, tmp_src, condition;
 	sljit_w tmp_srcw;
-#ifdef SLJIT_VERBOSE
-	FILE* verbose;
-	struct sljit_jump* jump;
-#endif
 
 	CHECK_ERROR_PTR();
 	check_sljit_emit_cmp(compiler, type, src1, src1w, src2, src2w);
@@ -1137,23 +1155,14 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 	else
 		flags = SLJIT_SET_S;
 
-#ifdef SLJIT_VERBOSE
-	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		verbose = compiler->verbose;
-		compiler->verbose = NULL;
-		if (sljit_emit_op2(compiler, SLJIT_SUB | flags | (type & SLJIT_INT_OP),
-			SLJIT_UNUSED, 0, src1, src1w, src2, src2w)) {
-			compiler->verbose = verbose;
-			return NULL;
-		}
-		jump = sljit_emit_jump(compiler, condition | (type & SLJIT_REWRITABLE_JUMP));
-		compiler->verbose = verbose;
-		return jump;
-	}
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+	compiler->skip_checks = 1;
 #endif
-
 	PTR_FAIL_IF(sljit_emit_op2(compiler, SLJIT_SUB | flags | (type & SLJIT_INT_OP),
 		SLJIT_UNUSED, 0, src1, src1w, src2, src2w));
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+	compiler->skip_checks = 1;
+#endif
 	return sljit_emit_jump(compiler, condition | (type & SLJIT_REWRITABLE_JUMP));
 }
 #endif
@@ -1177,6 +1186,14 @@ void sljit_free_compiler(struct sljit_compiler *compiler)
 {
 	(void)compiler;
 	SLJIT_ASSERT_STOP();
+}
+
+void* sljit_alloc_memory(struct sljit_compiler *compiler, int size)
+{
+	(void)compiler;
+	(void)size;
+	SLJIT_ASSERT_STOP();
+	return NULL;
 }
 
 #ifdef SLJIT_VERBOSE
@@ -1382,9 +1399,10 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
+int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type)
 {
 	(void)compiler;
+	(void)op;
 	(void)dst;
 	(void)dstw;
 	(void)type;

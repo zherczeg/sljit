@@ -1140,7 +1140,8 @@ static int emit_cum_binary(struct sljit_compiler *compiler,
 			FAIL_IF(!code);
 			*code = op_rm;
 		}
-		else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= SLJIT_NO_REGISTERS) {
+		else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= TMP_REGISTER) {
+			// Special exception for sljit_emit_cond_value
 			code = emit_x86_instruction(compiler, 1, src2, src2w, dst, dstw);
 			FAIL_IF(!code);
 			*code = op_mr;
@@ -2436,7 +2437,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	return SLJIT_SUCCESS;
 }
 
-int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int type)
+int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type)
 {
 	sljit_ub *buf;
 	sljit_ub cond_set = 0;
@@ -2445,7 +2446,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 #endif
 
 	CHECK_ERROR();
-	check_sljit_emit_cond_set(compiler, dst, dstw, type);
+	check_sljit_emit_cond_value(compiler, op, dst, dstw, type);
 
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;
@@ -2521,10 +2522,7 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	}
 
 #ifdef SLJIT_CONFIG_X86_64
-	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
-		reg = dst;
-	else
-		reg = TMP_REGISTER;
+	reg = (op == SLJIT_MOV && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REGISTER;
 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 4 + 4);
 	FAIL_IF(!buf);
@@ -2540,43 +2538,87 @@ int sljit_emit_cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, 
 	*buf = 0xC0 | (reg_lmap[reg] << 3) | reg_lmap[reg];
 
 	if (reg == TMP_REGISTER) {
-		compiler->mode32 = 0;
-		EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
+		if (op == SLJIT_MOV) {
+			compiler->mode32 = 0;
+			EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
+		}
+		else {
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+			compiler->skip_checks = 1;
+#endif
+			return sljit_emit_op2(compiler, op, dst, dstw, dst, dstw, TMP_REGISTER, 0);
+		}
 	}
 #else
-	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_TEMPORARY_REG3) {
-		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3 + 3);
-		FAIL_IF(!buf);
-		INC_SIZE(3 + 3);
-		// Set al to conditional flag
-		*buf++ = 0x0f;
-		*buf++ = cond_set;
-		*buf++ = 0xC0 | reg_map[dst];
-		*buf++ = 0x0f;
-		*buf++ = 0xb6;
-		*buf = 0xC0 | (reg_map[dst] << 3) | reg_map[dst];
+	if (op == SLJIT_MOV) {
+		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_TEMPORARY_REG3) {
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 3 + 3);
+			FAIL_IF(!buf);
+			INC_SIZE(3 + 3);
+			// Set low byte to conditional flag
+			*buf++ = 0x0f;
+			*buf++ = cond_set;
+			*buf++ = 0xC0 | reg_map[dst];
+
+			*buf++ = 0x0f;
+			*buf++ = 0xb6;
+			*buf = 0xC0 | (reg_map[dst] << 3) | reg_map[dst];
+		}
+		else {
+			EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG1, 0);
+
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 3 + 3);
+			FAIL_IF(!buf);
+			INC_SIZE(3 + 3);
+			// Set al to conditional flag
+			*buf++ = 0x0f;
+			*buf++ = cond_set;
+			*buf++ = 0xC0;
+
+			*buf++ = 0x0f;
+			*buf++ = 0xb6;
+			if (dst >= SLJIT_GENERAL_REG1 && dst <= SLJIT_NO_REGISTERS)
+				*buf = 0xC0 | (reg_map[dst] << 3);
+			else {
+				*buf = 0xC0;
+				EMIT_MOV(compiler, dst, dstw, SLJIT_TEMPORARY_REG1, 0);
+			}
+
+			EMIT_MOV(compiler, SLJIT_TEMPORARY_REG1, 0, TMP_REGISTER, 0);
+		}
 	}
 	else {
-		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG1, 0);
+		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_TEMPORARY_REG3) {
+			EMIT_MOV(compiler, TMP_REGISTER, 0, dst, 0);
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 3);
+			FAIL_IF(!buf);
+			INC_SIZE(3);
 
-		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3 + 3);
-		FAIL_IF(!buf);
-		INC_SIZE(3 + 3);
-		// Set al to conditional flag
-		*buf++ = 0x0f;
-		*buf++ = cond_set;
-		*buf++ = 0xC0;
-
-		*buf++ = 0x0f;
-		*buf++ = 0xb6;
-		if (dst >= SLJIT_GENERAL_REG1 && dst <= SLJIT_NO_REGISTERS)
-			*buf = 0xC0 | (reg_map[dst] << 3);
-		else {
-			*buf = 0xC0;
-			EMIT_MOV(compiler, dst, dstw, SLJIT_TEMPORARY_REG1, 0);
+			*buf++ = 0x0f;
+			*buf++ = cond_set;
+			*buf++ = 0xC0 | reg_map[dst];
 		}
+		else {
+			EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG1, 0);
 
-		EMIT_MOV(compiler, SLJIT_TEMPORARY_REG1, 0, TMP_REGISTER, 0);
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 3 + 3 + 1);
+			FAIL_IF(!buf);
+			INC_SIZE(3 + 3 + 1);
+			// Set al to conditional flag
+			*buf++ = 0x0f;
+			*buf++ = cond_set;
+			*buf++ = 0xC0;
+
+			*buf++ = 0x0f;
+			*buf++ = 0xb6;
+			*buf++ = 0xC0;
+
+			*buf++ = 0x90 + reg_map[TMP_REGISTER];
+		}
+#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+		compiler->skip_checks = 1;
+#endif
+		return sljit_emit_op2(compiler, op, dst, dstw, dst, dstw, TMP_REGISTER, 0);
 	}
 #endif
 
