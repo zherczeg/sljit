@@ -31,7 +31,7 @@
 
 void sljit_test(void);
 
-void error(char* str)
+void error(SLJIT_CONST char* str)
 {
 	printf("An error occured: %s\n", str);
 	exit(-1);
@@ -42,8 +42,6 @@ union executable_code {
 	sljit_w (SLJIT_CALL *func)(sljit_w* a);
 };
 typedef union executable_code executable_code;
-
-int devel_dummy(void) { return rand(); }
 
 void devel(void)
 {
@@ -69,7 +67,7 @@ void devel(void)
 	code.code = sljit_generate_code(compiler);
 	sljit_free_compiler(compiler);
 
-	printf("Code at: %p\n", code.code); devel_dummy();
+	printf("Code at: %p\n", code.code);
 
 	printf("Function returned with %ld\n", (long)code.func((sljit_w*)buf));
 	printf("buf[0] = %ld\n", (long)buf[0]);

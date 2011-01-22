@@ -67,6 +67,8 @@ static void cond_set(struct sljit_compiler *compiler, int dst, sljit_w dstw, int
 	sljit_set_label(jump, label);
 }
 
+#ifndef SLJIT_CONFIG_UNSUPPORTED
+
 #define MALLOC_EXEC(result, size) \
 	result = SLJIT_MALLOC_EXEC(size); \
 	if (!result) { \
@@ -111,6 +113,8 @@ static void test_exec_allocator(void)
 }
 
 #undef MALLOC_EXEC
+
+#endif // SLJIT_CONFIG_UNSUPPORTED
 
 static void test1(void)
 {
@@ -2415,7 +2419,7 @@ static void test32(void)
 		struct {
 			int value1;
 			int value2;
-		};
+		} u;
 	} dbuf[4];
 
 	buf[0] = 5;
@@ -2435,10 +2439,10 @@ static void test32(void)
 	buf[14] = 5;
 	buf[15] = 5;
 
-	dbuf[0].value1 = 0x7fffffff;
-	dbuf[0].value2 = 0x7fffffff;
-	dbuf[1].value1 = 0x7fffffff;
-	dbuf[1].value2 = 0x7fffffff;
+	dbuf[0].u.value1 = 0x7fffffff;
+	dbuf[0].u.value2 = 0x7fffffff;
+	dbuf[1].u.value1 = 0x7fffffff;
+	dbuf[1].u.value2 = 0x7fffffff;
 	dbuf[2].value = -13.0;
 	dbuf[3].value = 27.0;
 
@@ -3206,7 +3210,9 @@ void sljit_test(void)
 {
 	printf("Generating code for: %s\n", sljit_get_platform_name());
 
+#ifndef SLJIT_CONFIG_UNSUPPORTED
 	test_exec_allocator();
+#endif
 	test1();
 	test2();
 	test3();

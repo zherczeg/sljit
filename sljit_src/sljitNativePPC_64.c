@@ -401,9 +401,10 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 
 void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_w addr, void* func)
 {
+	sljit_w* ptrs;
 	if (func_ptr)
 		*func_ptr = (void*)context;
-	sljit_w* ptrs = (sljit_w*)func;
+	ptrs = (sljit_w*)func;
 	context->addr = addr ? addr : ptrs[0];
 	context->r2 = ptrs[1];
 	context->r11 = ptrs[2];

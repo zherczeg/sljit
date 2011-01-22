@@ -57,7 +57,7 @@ static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_
 	if (jump->flags & JUMP_LABEL)
 		jump->flags |= PATCH_MW;
 	else
-		*(sljit_w*)code_ptr = jump->target - (jump->addr + 4);
+		*(sljit_w*)code_ptr = jump->u.target - (jump->addr + 4);
 	code_ptr += 4;
 
 	return code_ptr;
@@ -241,7 +241,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	sljit_ub *buf;
 	sljit_ub *buf_ptr;
 	int flags = size & ~0xf;
-	int total_size;
+	int inst_size;
 
 	// Both cannot be switched on
 	SLJIT_ASSERT((flags & (EX86_BIN_INS | EX86_SHIFT_INS)) != (EX86_BIN_INS | EX86_SHIFT_INS));
@@ -255,65 +255,65 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 #endif
 
 	size &= 0xf;
-	total_size = size;
+	inst_size = size;
 
 #ifdef SLJIT_SSE2
 	if (flags & EX86_PREF_F2)
-		total_size++;
+		inst_size++;
 #endif
 	if (flags & EX86_PREF_66)
-		total_size++;
+		inst_size++;
 
 	// Calculate size of b
-	total_size += 1; // mod r/m byte
+	inst_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM) {
 		if ((b & 0x0f) == SLJIT_UNUSED)
-			total_size += sizeof(sljit_w);
+			inst_size += sizeof(sljit_w);
 		else if (immb != 0 && !(b & 0xf0)) {
 			// Immediate operand
 			if (immb <= 127 && immb >= -128)
-				total_size += sizeof(sljit_b);
+				inst_size += sizeof(sljit_b);
 			else
-				total_size += sizeof(sljit_w);
+				inst_size += sizeof(sljit_w);
 		}
 
 		if ((b & 0xf) == SLJIT_LOCALS_REG && !(b & 0xf0))
 			b |= SLJIT_LOCALS_REG << 4;
 
 		if ((b & 0xf0) != SLJIT_UNUSED)
-			total_size += 1; // SIB byte
+			inst_size += 1; // SIB byte
 	}
 
 	// Calculate size of a
 	if (a & SLJIT_IMM) {
 		if (flags & EX86_BIN_INS) {
 			if (imma <= 127 && imma >= -128) {
-				total_size += 1;
+				inst_size += 1;
 				flags |= EX86_BYTE_ARG;
 			} else
-				total_size += 4;
+				inst_size += 4;
 		}
 		else if (flags & EX86_SHIFT_INS) {
 			imma &= 0x1f;
 			if (imma != 1) {
-				total_size ++;
+				inst_size ++;
 				flags |= EX86_BYTE_ARG;
 			}
 		} else if (flags & EX86_BYTE_ARG)
-			total_size++;
+			inst_size++;
 		else if (flags & EX86_HALF_ARG)
-			total_size += sizeof(short);
+			inst_size += sizeof(short);
 		else
-			total_size += sizeof(sljit_w);
+			inst_size += sizeof(sljit_w);
 	}
 	else
 		SLJIT_ASSERT(!(flags & EX86_SHIFT_INS) || a == SLJIT_PREF_SHIFT_REG);
 
-	buf = (sljit_ub*)ensure_buf(compiler, 1 + total_size);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + inst_size);
 	PTR_FAIL_IF(!buf);
 
 	// Encoding the byte
-	INC_SIZE(total_size);
+	INC_SIZE(inst_size);
 #ifdef SLJIT_SSE2
 	if (flags & EX86_PREF_F2)
 		*buf++ = 0xf2;

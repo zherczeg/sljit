@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-char* sljit_get_platform_name()
+SLJIT_CONST char* sljit_get_platform_name()
 {
 #ifdef SLJIT_CONFIG_MIPS_32
 	return "mips-32";
@@ -200,10 +200,10 @@ static SLJIT_INLINE sljit_i* optimize_jump(struct sljit_jump *jump, sljit_i *cod
 		return code_ptr;
 
 	if (jump->flags & JUMP_ADDR)
-		target_addr = jump->target;
+		target_addr = jump->u.target;
 	else {
 		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
-		target_addr = (sljit_uw)(code + jump->label->size);
+		target_addr = (sljit_uw)(code + jump->u.label->size);
 	}
 	inst = (sljit_i*)jump->addr;
 	if (jump->flags & IS_COND)
@@ -362,7 +362,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	jump = compiler->jumps;
 	while (jump) {
 		do {
-			addr = (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target;
+			addr = (jump->flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target;
 			buf_ptr = (sljit_i*)jump->addr;
 
 			if (jump->flags & PATCH_B) {
@@ -1574,7 +1574,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);
 		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_CALL0) ? IS_JAL : 0));
-		jump->target = srcw;
+		jump->u.target = srcw;
 
 		if (compiler->delay_slot != UNMOVABLE_INS)
 			jump->flags |= IS_MOVABLE;

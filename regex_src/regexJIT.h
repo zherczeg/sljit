@@ -72,7 +72,7 @@ struct regex_match;
 // If error occures the function returns NULL, and the error code returned in error variable
 // You can pass NULL to error if you don't care about the error code
 // The re_flags argument contains the default REGEX_MATCH flags. See above
-struct regex_machine* regex_compile(regex_char_t *regex_string, int length, int re_flags, int *error);
+struct regex_machine* regex_compile(const regex_char_t *regex_string, int length, int re_flags, int *error);
 void regex_free_machine(struct regex_machine *machine);
 
 // Create and init match structure for a given machine
@@ -82,16 +82,16 @@ void regex_free_match(struct regex_match *match);
 
 // Pattern matching
 // regex_continue_match does not support REGEX_MATCH_VERBOSE flag
-void regex_continue_match(struct regex_match *match, regex_char_t *input_string, int length);
+void regex_continue_match(struct regex_match *match, const regex_char_t *input_string, int length);
 int regex_get_result(struct regex_match *match, int *end, int *id);
 // Returns true, if the best match has already found
 int regex_is_match_finished(struct regex_match *match);
 
 // Only exists if VERBOSE is defined in regexJIT.c
 // Do both sanity check and verbose. (The latter only if REGEX_MATCH_VERBOSE was passed to regex_compile)
-void regex_continue_match_debug(struct regex_match *match, regex_char_t *input_string, int length);
+void regex_continue_match_debug(struct regex_match *match, const regex_char_t *input_string, int length);
 
 // Misc
-char* regex_get_platform_name(void);
+const char* regex_get_platform_name(void);
 
 #endif

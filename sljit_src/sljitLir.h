@@ -161,7 +161,7 @@ struct sljit_jump {
 	union {
 		sljit_uw target;
 		struct sljit_label* label;
-	};
+	} u;
 };
 
 struct sljit_const {
@@ -643,7 +643,7 @@ void sljit_set_const(sljit_uw addr, sljit_w new_constant);
 // Get the human readable name of the platfrom
 // Can be useful for debugging on platforms like ARM, where ARM and
 // Thumb2 functions can be mixed.
-char* sljit_get_platform_name();
+SLJIT_CONST char* sljit_get_platform_name(void);
 
 // Portble helper function to get an offset of a member
 #define SLJIT_OFFSETOF(base, member) 	((sljit_w)(&((base*)0x10)->member) - 0x10)

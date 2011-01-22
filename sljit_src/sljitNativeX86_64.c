@@ -54,7 +54,7 @@ static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_
 	if (jump->flags & JUMP_LABEL)
 		jump->flags |= PATCH_MD;
 	else
-		*(sljit_w*)code_ptr = jump->target;
+		*(sljit_w*)code_ptr = jump->u.target;
 
 	code_ptr += sizeof(sljit_w);
 	*code_ptr++ = REX_B;
@@ -405,7 +405,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	sljit_ub *buf_ptr;
 	sljit_ub rex = 0;
 	int flags = size & ~0xf;
-	int total_size;
+	int inst_size;
 
 	// The immediate operand must be 32 bit
 	SLJIT_ASSERT(!(a & SLJIT_IMM) || compiler->mode32 || IS_HALFWORD(imma));
@@ -421,7 +421,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 #endif
 
 	size &= 0xf;
-	total_size = size;
+	inst_size = size;
 
 	if ((b & SLJIT_MEM) && !(b & 0xf0) && NOT_HALFWORD(immb)) {
 		if (emit_load_imm64(compiler, TMP_REG3, immb))
@@ -440,25 +440,25 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 
 #ifdef SLJIT_SSE2
 	if (flags & EX86_PREF_F2)
-		total_size++;
+		inst_size++;
 #endif
 	if (flags & EX86_PREF_66)
-		total_size++;
+		inst_size++;
 
 	// Calculate size of b
-	total_size += 1; // mod r/m byte
+	inst_size += 1; // mod r/m byte
 	if (b & SLJIT_MEM) {
 		if ((b & 0x0f) == SLJIT_UNUSED)
-			total_size += 1 + sizeof(sljit_hw); // SIB byte required to avoid RIP based addressing
+			inst_size += 1 + sizeof(sljit_hw); // SIB byte required to avoid RIP based addressing
 		else {
 			if (reg_map[b & 0x0f] >= 8)
 				rex |= REX_B;
 			if (immb != 0 && !(b & 0xf0)) {
 				// Immediate operand
 				if (immb <= 127 && immb >= -128)
-					total_size += sizeof(sljit_b);
+					inst_size += sizeof(sljit_b);
 				else
-					total_size += sizeof(sljit_hw);
+					inst_size += sizeof(sljit_hw);
 			}
 		}
 
@@ -468,7 +468,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 #endif
 
 		if ((b & 0xf0) != SLJIT_UNUSED) {
-			total_size += 1; // SIB byte
+			inst_size += 1; // SIB byte
 			if (reg_map[(b >> 4) & 0x0f] >= 8)
 				rex |= REX_X;
 		}
@@ -484,23 +484,23 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	if (a & SLJIT_IMM) {
 		if (flags & EX86_BIN_INS) {
 			if (imma <= 127 && imma >= -128) {
-				total_size += 1;
+				inst_size += 1;
 				flags |= EX86_BYTE_ARG;
 			} else
-				total_size += 4;
+				inst_size += 4;
 		}
 		else if (flags & EX86_SHIFT_INS) {
 			imma &= 0x3f;
 			if (imma != 1) {
-				total_size ++;
+				inst_size ++;
 				flags |= EX86_BYTE_ARG;
 			}
 		} else if (flags & EX86_BYTE_ARG)
-			total_size++;
+			inst_size++;
 		else if (flags & EX86_HALF_ARG)
-			total_size += sizeof(short);
+			inst_size += sizeof(short);
 		else
-			total_size += sizeof(sljit_hw);
+			inst_size += sizeof(sljit_hw);
 	}
 	else {
 		SLJIT_ASSERT(!(flags & EX86_SHIFT_INS) || a == SLJIT_PREF_SHIFT_REG);
@@ -515,13 +515,13 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	}
 
 	if (rex)
-		total_size++;
+		inst_size++;
 
-	buf = (sljit_ub*)ensure_buf(compiler, 1 + total_size);
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + inst_size);
 	PTR_FAIL_IF(!buf);
 
 	// Encoding the byte
-	INC_SIZE(total_size);
+	INC_SIZE(inst_size);
 #ifdef SLJIT_SSE2
 	if (flags & EX86_PREF_F2)
 		*buf++ = 0xf2;
