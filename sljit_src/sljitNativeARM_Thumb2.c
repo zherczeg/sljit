@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-char* sljit_get_platform_name()
+SLJIT_CONST char* sljit_get_platform_name()
 {
 	return "arm-thumb2";
 }
@@ -176,9 +176,10 @@ typedef unsigned short sljit_uh;
 
 static int push_inst16(struct sljit_compiler *compiler, sljit_i inst)
 {
+	sljit_uh *ptr;
 	SLJIT_ASSERT(!(inst & 0xffff0000));
 
-	sljit_uh *ptr = (sljit_uh*)ensure_buf(compiler, sizeof(sljit_uh));
+	ptr = (sljit_uh*)ensure_buf(compiler, sizeof(sljit_uh));
 	FAIL_IF(!ptr);
 	*ptr = inst;
 	compiler->size++;
@@ -222,13 +223,13 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uh *code
 
 	if (jump->flags & JUMP_ADDR) {
 		// Branch to ARM code is not optimized yet
-		if (!(jump->target & 0x1))
+		if (!(jump->u.target & 0x1))
 			return 0;
-		diff = ((sljit_w)jump->target - (sljit_w)(code_ptr + 2)) >> 1;
+		diff = ((sljit_w)jump->u.target - (sljit_w)(code_ptr + 2)) >> 1;
 	}
 	else {
 		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
-		diff = ((sljit_w)(code + jump->label->size) - (sljit_w)(code_ptr + 2)) >> 1;
+		diff = ((sljit_w)(code + jump->u.label->size) - (sljit_w)(code_ptr + 2)) >> 1;
 	}
 
 	if (jump->flags & IS_CONDITIONAL) {
@@ -285,16 +286,16 @@ static SLJIT_INLINE void set_jump_instruction(struct sljit_jump *jump)
 	int s, j1, j2;
 
 	if (SLJIT_UNLIKELY(type == 0)) {
-		inline_set_jump_addr(jump->addr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target, 0);
+		inline_set_jump_addr(jump->addr, (jump->flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target, 0);
 		return;
 	}
 
 	if (jump->flags & JUMP_ADDR) {
-		SLJIT_ASSERT(jump->target & 0x1);
-		diff = ((sljit_w)jump->target - (sljit_w)(jump->addr + 4)) >> 1;
+		SLJIT_ASSERT(jump->u.target & 0x1);
+		diff = ((sljit_w)jump->u.target - (sljit_w)(jump->addr + 4)) >> 1;
 	}
 	else
-		diff = ((sljit_w)(jump->label->addr) - (sljit_w)(jump->addr + 4)) >> 1;
+		diff = ((sljit_w)(jump->u.label->addr) - (sljit_w)(jump->addr + 4)) >> 1;
 	jump_inst = (sljit_uh*)jump->addr;
 
 	switch (type) {
@@ -1738,7 +1739,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);
 		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_CALL0) ? IS_BL : 0));
-		jump->target = srcw;
+		jump->u.target = srcw;
 
 		FAIL_IF(emit_imm32_const(compiler, TMP_REG1, 0));
 		jump->addr = compiler->size;

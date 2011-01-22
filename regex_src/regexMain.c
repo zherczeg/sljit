@@ -86,14 +86,14 @@ struct test_case {
 	int id;		// awaited id
 	int finished;	// -1 : don't care, 0 : false, 1 : true
 	int flags;	// REGEX_MATCH_*
-	regex_char_t *pattern;	// NULL : use the previous pattern
-	regex_char_t *string;	// NULL : end of tests
+	const regex_char_t *pattern;	// NULL : use the previous pattern
+	const regex_char_t *string;	// NULL : end of tests
 };
 
 void run_tests(struct test_case* test)
 {
 	int error;
-	regex_char_t *ptr;
+	const regex_char_t *ptr;
 	struct regex_machine* machine = NULL;
 	struct regex_match* match;
 	int begin, end, id, finished;

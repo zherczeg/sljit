@@ -38,7 +38,7 @@
 
 static HANDLE allocator_mutex = 0;
 
-static SLJIT_INLINE void allocator_grab_lock()
+static SLJIT_INLINE void allocator_grab_lock(void)
 {
 	// No idea what to do if an error occures. Static mutexes should never fail...
 	if (!allocator_mutex)
@@ -47,7 +47,7 @@ static SLJIT_INLINE void allocator_grab_lock()
 		WaitForSingleObject(allocator_mutex, INFINITE);
 }
 
-static SLJIT_INLINE void allocator_release_lock()
+static SLJIT_INLINE void allocator_release_lock(void)
 {
 	ReleaseMutex(allocator_mutex);
 }
@@ -58,7 +58,7 @@ static SLJIT_INLINE void allocator_release_lock()
 
 static HANDLE global_mutex = 0;
 
-void SLJIT_CALL sljit_grab_lock()
+void SLJIT_CALL sljit_grab_lock(void)
 {
 	// No idea what to do if an error occures. Static mutexes should never fail...
 	if (!global_mutex)
@@ -67,7 +67,7 @@ void SLJIT_CALL sljit_grab_lock()
 		WaitForSingleObject(global_mutex, INFINITE);
 }
 
-void SLJIT_CALL sljit_release_lock()
+void SLJIT_CALL sljit_release_lock(void)
 {
 	ReleaseMutex(global_mutex);
 }
@@ -82,12 +82,12 @@ void SLJIT_CALL sljit_release_lock()
 
 static pthread_mutex_t allocator_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static SLJIT_INLINE void allocator_grab_lock()
+static SLJIT_INLINE void allocator_grab_lock(void)
 {
 	pthread_mutex_lock(&allocator_mutex);
 }
 
-static SLJIT_INLINE void allocator_release_lock()
+static SLJIT_INLINE void allocator_release_lock(void)
 {
 	pthread_mutex_unlock(&allocator_mutex);
 }
@@ -98,12 +98,12 @@ static SLJIT_INLINE void allocator_release_lock()
 
 static pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void SLJIT_CALL sljit_grab_lock()
+void SLJIT_CALL sljit_grab_lock(void)
 {
 	pthread_mutex_lock(&global_mutex);
 }
 
-void SLJIT_CALL sljit_release_lock()
+void SLJIT_CALL sljit_release_lock(void)
 {
 	pthread_mutex_unlock(&global_mutex);
 }

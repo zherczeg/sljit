@@ -57,11 +57,11 @@
 #else
 #define SLJIT_CONFIG_ARM_V5
 #endif
-#elif (__ppc64__) || (__powerpc64__)
+#elif defined(__ppc64__) || defined(__powerpc64__)
 #define SLJIT_CONFIG_PPC_64
 #elif defined(__ppc__) || defined(__powerpc__)
 #define SLJIT_CONFIG_PPC_32
-#elif (__mips__)
+#elif defined(__mips__)
 #define SLJIT_CONFIG_MIPS_32
 #else
 /* Unsupported machine */
@@ -80,6 +80,10 @@
 
 #endif // ifndef WIN32
 #endif // ifdef SLJIT_CONFIG_AUTO
+
+#ifdef SLJIT_CONFIG_UNSUPPORTED
+#undef SLJIT_EXECUTABLE_ALLOCATOR
+#endif
 
 #ifndef SLJIT_STD_MACROS_DEFINED
 

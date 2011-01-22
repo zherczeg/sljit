@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-char* sljit_get_platform_name()
+SLJIT_CONST char* sljit_get_platform_name()
 {
 #ifdef SLJIT_CONFIG_ARM_V7
 	return "arm-v7";
@@ -260,7 +260,7 @@ static SLJIT_INLINE int emit_blx(struct sljit_compiler *compiler)
 static sljit_uw patch_pc_relative_loads(sljit_uw *last_pc_patch, sljit_uw *code_ptr, sljit_uw* const_pool, sljit_uw cpool_size)
 {
 	sljit_uw diff;
-	sljit_uw index;
+	sljit_uw ind;
 	sljit_uw counter = 0;
 	sljit_uw* clear_const_pool = const_pool;
 	sljit_uw* clear_const_pool_end = const_pool + cpool_size;
@@ -276,21 +276,21 @@ static sljit_uw patch_pc_relative_loads(sljit_uw *last_pc_patch, sljit_uw *code_
 		// Data transfer instruction with Rn == r15
 		if ((*last_pc_patch & 0x0c0f0000) == 0x040f0000) {
 			diff = const_pool - last_pc_patch;
-			index = (*last_pc_patch) & 0xfff;
+			ind = (*last_pc_patch) & 0xfff;
 
 			// Must be a load instruction with immediate offset
-			SLJIT_ASSERT(index < cpool_size && !(*last_pc_patch & (1 << 25)) && (*last_pc_patch & (1 << 20)));
-			if ((int)const_pool[index] < 0) {
-				const_pool[index] = counter;
-				index = counter;
+			SLJIT_ASSERT(ind < cpool_size && !(*last_pc_patch & (1 << 25)) && (*last_pc_patch & (1 << 20)));
+			if ((int)const_pool[ind] < 0) {
+				const_pool[ind] = counter;
+				ind = counter;
 				counter++;
 			}
 			else
-				index = const_pool[index];
+				ind = const_pool[ind];
 
 			SLJIT_ASSERT(diff >= 1);
-			if (diff >= 2 || index > 0) {
-				diff = (diff + index - 2) << 2;
+			if (diff >= 2 || ind > 0) {
+				diff = (diff + ind - 2) << 2;
 				SLJIT_ASSERT(diff <= 0xfff);
 				*last_pc_patch = (*last_pc_patch & ~0xfff) | diff;
 			}
@@ -393,10 +393,10 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uw *code
 		code_ptr--;
 
 	if (jump->flags & JUMP_ADDR)
-		diff = ((sljit_w)jump->target - (sljit_w)(code_ptr + 2));
+		diff = ((sljit_w)jump->u.target - (sljit_w)(code_ptr + 2));
 	else {
 		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
-		diff = ((sljit_w)(code + jump->label->size) - (sljit_w)(code_ptr + 2));
+		diff = ((sljit_w)(code + jump->u.label->size) - (sljit_w)(code_ptr + 2));
 	}
 
 	// Branch to Thumb code has not optimized yet
@@ -419,10 +419,10 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uw *code
 	}
 #else
 	if (jump->flags & JUMP_ADDR)
-		diff = ((sljit_w)jump->target - (sljit_w)code_ptr);
+		diff = ((sljit_w)jump->u.target - (sljit_w)code_ptr);
 	else {
 		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
-		diff = ((sljit_w)(code + jump->label->size) - (sljit_w)code_ptr);
+		diff = ((sljit_w)(code + jump->u.label->size) - (sljit_w)code_ptr);
 	}
 
 	// Branch to Thumb code has not optimized yet
@@ -728,12 +728,12 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		if (jump->flags & PATCH_B) {
 			if (!(jump->flags & JUMP_ADDR)) {
 				SLJIT_ASSERT(jump->flags & JUMP_LABEL);
-				SLJIT_ASSERT(((sljit_w)jump->label->addr - (sljit_w)(buf_ptr + 2)) <= 0x01ffffff && ((sljit_w)jump->label->addr - (sljit_w)(buf_ptr + 2)) >= -0x02000000);
-				*buf_ptr |= (((sljit_w)jump->label->addr - (sljit_w)(buf_ptr + 2)) >> 2) & 0x00ffffff;
+				SLJIT_ASSERT(((sljit_w)jump->u.label->addr - (sljit_w)(buf_ptr + 2)) <= 0x01ffffff && ((sljit_w)jump->u.label->addr - (sljit_w)(buf_ptr + 2)) >= -0x02000000);
+				*buf_ptr |= (((sljit_w)jump->u.label->addr - (sljit_w)(buf_ptr + 2)) >> 2) & 0x00ffffff;
 			}
 			else {
-				SLJIT_ASSERT(((sljit_w)jump->target - (sljit_w)(buf_ptr + 2)) <= 0x01ffffff && ((sljit_w)jump->target - (sljit_w)(buf_ptr + 2)) >= -0x02000000);
-				*buf_ptr |= (((sljit_w)jump->target - (sljit_w)(buf_ptr + 2)) >> 2) & 0x00ffffff;
+				SLJIT_ASSERT(((sljit_w)jump->u.target - (sljit_w)(buf_ptr + 2)) <= 0x01ffffff && ((sljit_w)jump->u.target - (sljit_w)(buf_ptr + 2)) >= -0x02000000);
+				*buf_ptr |= (((sljit_w)jump->u.target - (sljit_w)(buf_ptr + 2)) >> 2) & 0x00ffffff;
 			}
 		}
 		else if (jump->flags & SLJIT_REWRITABLE_JUMP) {
@@ -741,10 +741,10 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 			jump->addr = (sljit_uw)code_ptr;
 			code_ptr[0] = (sljit_uw)buf_ptr;
 			code_ptr[1] = *buf_ptr;
-			inline_set_jump_addr((sljit_uw)code_ptr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target, 0);
+			inline_set_jump_addr((sljit_uw)code_ptr, (jump->flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target, 0);
 			code_ptr += 2;
 #else
-			inline_set_jump_addr((sljit_uw)buf_ptr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target, 0);
+			inline_set_jump_addr((sljit_uw)buf_ptr, (jump->flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target, 0);
 #endif
 		}
 		else {
@@ -755,9 +755,9 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				buf_ptr += ((*buf_ptr & 0xfff) >> 2) + 2;
 			else
 				buf_ptr += 1;
-			*buf_ptr = (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target;
+			*buf_ptr = (jump->flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target;
 #else
-			inline_set_jump_addr((sljit_uw)buf_ptr, (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target, 0);
+			inline_set_jump_addr((sljit_uw)buf_ptr, (jump->flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target, 0);
 #endif
 		}
 		jump = jump->next;
@@ -2251,7 +2251,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);
 		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_CALL0) ? IS_BL : 0));
-		jump->target = srcw;
+		jump->u.target = srcw;
 
 #ifdef SLJIT_CONFIG_ARM_V5
 		if (type >= SLJIT_CALL0)

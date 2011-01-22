@@ -169,13 +169,14 @@
 
 #endif // SLJIT_CONFIG_UNSUPPORTED
 
+// Utils can still be used even if SLJIT_CONFIG_UNSUPPORTED is set
 #include "sljitUtils.c"
+
+#ifndef SLJIT_CONFIG_UNSUPPORTED
 
 #ifdef SLJIT_EXECUTABLE_ALLOCATOR
 #include "sljitExecAllocator.c"
 #endif
-
-#ifndef SLJIT_CONFIG_UNSUPPORTED
 
 #if defined(SLJIT_SSE2_AUTO) && !defined(SLJIT_SSE2)
 #error SLJIT_SSE2_AUTO cannot be enabled without SLJIT_SSE2
@@ -189,7 +190,7 @@
 #define NEEDS_COMPILER_INIT
 static int compiler_initialized = 0;
 // A thread safe initialization
-static void init_compiler();
+static void init_compiler(void);
 #endif
 
 struct sljit_compiler* sljit_create_compiler(void)
@@ -325,7 +326,7 @@ void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
 	if (SLJIT_LIKELY(!!jump) && SLJIT_LIKELY(!!label)) {
 		jump->flags &= ~JUMP_ADDR;
 		jump->flags |= JUMP_LABEL;
-		jump->label = label;
+		jump->u.label = label;
 	}
 }
 
@@ -336,7 +337,7 @@ void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
 
 		jump->flags &= ~JUMP_LABEL;
 		jump->flags |= JUMP_ADDR;
-		jump->target = target;
+		jump->u.target = target;
 	}
 }
 
@@ -1171,7 +1172,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 
 // Empty function bodies for those machines, which are not (yet) supported
 
-char* sljit_get_platform_name()
+SLJIT_CONST char* sljit_get_platform_name()
 {
 	return "unsupported";
 }

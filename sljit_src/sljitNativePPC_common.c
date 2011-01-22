@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-char* sljit_get_platform_name()
+SLJIT_CONST char* sljit_get_platform_name()
 {
 #ifdef SLJIT_CONFIG_PPC_32
 	return "ppc-32";
@@ -174,10 +174,10 @@ static SLJIT_INLINE int optimize_jump(struct sljit_jump *jump, sljit_i *code_ptr
 		return 0;
 
 	if (jump->flags & JUMP_ADDR)
-		target_addr = jump->target;
+		target_addr = jump->u.target;
 	else {
 		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
-		target_addr = (sljit_uw)(code + jump->label->size);
+		target_addr = (sljit_uw)(code + jump->u.label->size);
 	}
 	diff = ((sljit_w)target_addr - (sljit_w)(code_ptr)) & ~0x3l;
 
@@ -296,7 +296,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	jump = compiler->jumps;
 	while (jump) {
 		do {
-			addr = (jump->flags & JUMP_LABEL) ? jump->label->addr : jump->target;
+			addr = (jump->flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target;
 			buf_ptr = (sljit_i*)jump->addr;
 			if (jump->flags & PATCH_B) {
 				if (jump->flags & UNCOND_B) {
@@ -1614,7 +1614,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);
 		set_jump(jump, compiler, JUMP_ADDR | UNCOND_B);
-		jump->target = srcw;
+		jump->u.target = srcw;
 
 		FAIL_IF(emit_const(compiler, TMP_REG2, 0));
 		src_r = TMP_REG2;
