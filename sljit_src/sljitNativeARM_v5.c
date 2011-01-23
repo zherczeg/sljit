@@ -1530,8 +1530,10 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 
 	if (arg & 0xf0) {
 		SLJIT_ASSERT((argw & 0x3) && !(max_delta & 0xf00));
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, tmp_r, SLJIT_UNUSED, RM((arg >> 4) & 0xf) | ((argw & 0x3) << 7)));
-		EMIT_INSTRUCTION(EMIT_DATA_TRANSFER(inp_flags, 1, inp_flags & WRITE_BACK, reg, arg & 0xf, RM(tmp_r)));
+		if (inp_flags & WRITE_BACK)
+			tmp_r = arg & 0xf;
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(ADD_DP, 0, tmp_r, arg & 0xf, RM((arg >> 4) & 0xf) | ((argw & 0x3) << 7)));
+		EMIT_INSTRUCTION(EMIT_DATA_TRANSFER(inp_flags, 1, 0, reg, tmp_r, TYPE2_TRANSFER_IMM(0)));
 		return SLJIT_SUCCESS;
 	}
 
@@ -2290,8 +2292,12 @@ int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, slji
 
 	cc = get_cc(type);
 	if (GET_OPCODE(op) == SLJIT_OR) {
-		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
-			return push_inst(compiler, (EMIT_DATA_PROCESS_INS(ORR_DP, !(op & SLJIT_SET_E) ? 0 : SET_FLAGS, dst, dst, SRC2_IMM | 1) & ~COND_MASK) | cc);
+		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
+			EMIT_INSTRUCTION((EMIT_DATA_PROCESS_INS(ORR_DP, 0, dst, dst, SRC2_IMM | 1) & ~COND_MASK) | cc);
+			if (op & SLJIT_SET_E)
+				return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, SET_FLAGS, TMP_REG1, SLJIT_UNUSED, RM(dst)));
+			return SLJIT_SUCCESS;
+		}
 
 		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG1, SLJIT_UNUSED, SRC2_IMM | 0));
 		EMIT_INSTRUCTION((EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG1, SLJIT_UNUSED, SRC2_IMM | 1) & ~COND_MASK) | cc);

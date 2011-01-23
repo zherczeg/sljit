@@ -1777,7 +1777,13 @@ int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, slji
 	cc = get_cc(type);
 	if (GET_OPCODE(op) == SLJIT_OR && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
-		return push_inst32(compiler, ORRI | (!(op & SLJIT_SET_E) ? 0 : SET_FLAGS) | RN4(dst) | RD4(dst) | 0x1);
+		FAIL_IF(push_inst32(compiler, ORRI | RN4(dst) | RD4(dst) | 0x1));
+		if (op & SLJIT_SET_E) {
+			if (reg_map[dst] <= 7)
+				return push_inst16(compiler, ORRS | RD3(dst) | RN3(dst));
+			return push_inst32(compiler, ORR_W | SET_FLAGS | RD4(TMP_REG1) | RN4(dst) | RM4(dst));
+		}
+		return SLJIT_SUCCESS;
 	}
 
 	dst_r = TMP_REG2;
