@@ -1458,7 +1458,7 @@ static void test22(void)
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[9];
-	short sbuf[6];
+	short sbuf[7];
 	signed char bbuf[5];
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -1478,6 +1478,7 @@ static void test22(void)
 	sbuf[3] = 0;
 	sbuf[4] = 0;
 	sbuf[5] = 0;
+	sbuf[6] = 0;
 
 	bbuf[0] = 0;
 	bbuf[1] = 0;
@@ -1511,6 +1512,10 @@ static void test22(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 3);
 	sljit_emit_op1(compiler, SLJIT_MOVU_SH, SLJIT_MEM2(SLJIT_GENERAL_REG2, SLJIT_TEMPORARY_REG2), 1, SLJIT_TEMPORARY_REG1, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV_SH, SLJIT_MEM1(SLJIT_GENERAL_REG2), 0, SLJIT_IMM, -9317);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG2, 0, SLJIT_GENERAL_REG2, 0, SLJIT_IMM, 5 * sizeof(short));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, -5);
+	sljit_emit_op1(compiler, SLJIT_MOV_UH, SLJIT_TEMPORARY_REG2, 0, SLJIT_MEM2(SLJIT_TEMPORARY_REG2, SLJIT_TEMPORARY_REG1), 1);
+	sljit_emit_op1(compiler, SLJIT_MOV_UH, SLJIT_MEM1(SLJIT_GENERAL_REG2), sizeof(short), SLJIT_TEMPORARY_REG2, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV_SB, SLJIT_MEM1(SLJIT_GENERAL_REG3), 0, SLJIT_IMM, -45);
 	sljit_emit_op1(compiler, SLJIT_MOVU_UB, SLJIT_MEM1(SLJIT_GENERAL_REG3), sizeof(char), SLJIT_IMM, 0x12);
@@ -1544,11 +1549,12 @@ static void test22(void)
 	FAILED(sbuf[3] != 0x1234, "test22 case 11 failed\n");
 	FAILED(sbuf[4] != 8000, "test22 case 12 failed\n");
 	FAILED(sbuf[5] != -9317, "test22 case 13 failed\n");
+	FAILED(sbuf[6] != -9317, "test22 case 14 failed\n");
 
-	FAILED(bbuf[0] != -45, "test22 case 14 failed\n");
-	FAILED(bbuf[1] != 0x12, "test22 case 15 failed\n");
-	FAILED(bbuf[3] != -56, "test22 case 16 failed\n");
-	FAILED(bbuf[4] != 2, "test22 case 17 failed\n");
+	FAILED(bbuf[0] != -45, "test22 case 15 failed\n");
+	FAILED(bbuf[1] != 0x12, "test22 case 16 failed\n");
+	FAILED(bbuf[3] != -56, "test22 case 17 failed\n");
+	FAILED(bbuf[4] != 2, "test22 case 18 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test22 ok\n");
@@ -3136,7 +3142,7 @@ static void test40(void)
 	// Test error handling
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_w buf[8];
+	sljit_w buf[9];
 
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = -100;
@@ -3147,6 +3153,7 @@ static void test40(void)
 	buf[5] = -100;
 	buf[6] = 0;
 	buf[7] = 0;
+	buf[8] = -100;
 
 	sljit_emit_enter(compiler, 1, 3, 4, 0);
 
@@ -3186,6 +3193,11 @@ static void test40(void)
 	sljit_emit_cond_value(compiler, SLJIT_OR | SLJIT_SET_E, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 6, SLJIT_C_EQUAL);
 	sljit_emit_cond_value(compiler, SLJIT_OR, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 7, SLJIT_C_EQUAL);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 1);
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 1);
+	sljit_emit_cond_value(compiler, SLJIT_OR | SLJIT_SET_E, SLJIT_TEMPORARY_REG1, 0, SLJIT_C_NOT_EQUAL);
+	sljit_emit_cond_value(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 8, SLJIT_C_NOT_EQUAL);
+
 	sljit_emit_return(compiler, SLJIT_UNUSED, 0);
 
 	code.code = sljit_generate_code(compiler);
@@ -3201,6 +3213,7 @@ static void test40(void)
 	FAILED(buf[5] != 0x89, "test40 case 6 failed\n");
 	FAILED(buf[6] != 0, "test40 case 7 failed\n");
 	FAILED(buf[7] != 1, "test40 case 8 failed\n");
+	FAILED(buf[8] != 1, "test40 case 9 failed\n");
 
 	printf("test40 ok\n");
 	successful_tests++;

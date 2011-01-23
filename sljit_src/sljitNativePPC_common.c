@@ -803,6 +803,13 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		argw &= 0x3;
 		// Otherwise getput_arg_fast would capture it
 		SLJIT_ASSERT(argw);
+		if ((arg & 0xf) == tmp_r) {
+			// Special case for "mov reg, [reg, ... ]"
+			// Caching would not happen anyway.
+			tmp_r = TMP_REG3;
+			compiler->cache_arg = 0;
+			compiler->cache_argw = 0;
+		}
 #ifdef SLJIT_CONFIG_PPC_32
 		FAIL_IF(push_inst(compiler, RLWINM | S((arg >> 4) & 0xf) | A(tmp_r) | (argw << 11) | ((31 - argw) << 1)));
 #else
