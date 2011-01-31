@@ -182,14 +182,18 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		}
 		if (flags & ALT_FORM2) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
+			return push_inst(compiler, CMPI | CRD(0 | ((flags & ALT_SIGN_EXT) ? 0 : 1)) | A(src1) | compiler->imm);
+		}
+		if (flags & ALT_FORM3) {
+			SLJIT_ASSERT(src2 == TMP_REG2);
 			return push_inst(compiler, CMPLI | CRD(4 | ((flags & ALT_SIGN_EXT) ? 0 : 1)) | A(src1) | compiler->imm);
 		}
-		if (flags & ALT_FORM3)
+		if (flags & ALT_FORM4)
 			return push_inst(compiler, CMPL | CRD(4 | ((flags & ALT_SIGN_EXT) ? 0 : 1)) | A(src1) | B(src2));
 		if (!(flags & ALT_SET_FLAGS))
 			return push_inst(compiler, SUBF | D(dst) | A(src2) | B(src1));
 		BIN_EXTS();
-		if (flags & ALT_FORM4)
+		if (flags & ALT_FORM5)
 			FAIL_IF(push_inst(compiler, CMPL | CRD(4 | ((flags & ALT_SIGN_EXT) ? 0 : 1)) | A(src1) | B(src2)));
 		return push_inst(compiler, SUBFC | OERC(ALT_SET_FLAGS) | D(dst) | A(src2) | B(src1));
 
