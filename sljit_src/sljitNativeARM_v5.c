@@ -630,8 +630,8 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 						cpool_size = 0;
 						if (label && label->size == word_count) {
 							// Points after the current instruction
-							label->addr = (sljit_uw)(code_ptr + 1);
-							label->size = (code_ptr + 1) - code;
+							label->addr = (sljit_uw)code_ptr;
+							label->size = code_ptr - code;
 							label = label->next;
 						}
 					}
