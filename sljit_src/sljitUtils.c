@@ -164,7 +164,7 @@ struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_w limit, sljit_w max_l
 		return NULL;
 
 #ifdef _WIN32
-	stack->base = (sljit_w)VirtualAlloc(0, max_limit, MEM_RESERVE, PAGE_READWRITE);
+	stack->base = (sljit_uw)VirtualAlloc(0, max_limit, MEM_RESERVE, PAGE_READWRITE);
 	if (!stack->base) {
 		SLJIT_FREE(stack);
 		return NULL;
@@ -176,8 +176,8 @@ struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_w limit, sljit_w max_l
 		return NULL;
 	}
 #else
-	stack->base = (sljit_w)mmap(0, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-	if (stack->base == (sljit_w)MAP_FAILED) {
+	stack->base = (sljit_uw)mmap(0, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+	if (stack->base == (sljit_uw)MAP_FAILED) {
 		SLJIT_FREE(stack);
 		return NULL;
 	}
