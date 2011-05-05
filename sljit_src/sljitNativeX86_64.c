@@ -107,8 +107,8 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 		size += 2;
 	if (generals >= 4)
 		size += generals - 3;
-	if (temporaries >= 4)
-		size += (temporaries - 3) * 2;
+	if (temporaries >= 5)
+		size += (5 - 4) * 2;
 #endif
 	size += args * 3;
 	if (size > 0) {
@@ -153,11 +153,6 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 			SLJIT_ASSERT(reg_map[SLJIT_TEMPORARY_EREG2] >= 8);
 			*buf++ = REX_B;
 			PUSH_REG(reg_lmap[SLJIT_TEMPORARY_EREG2]);
-		}
-		if (temporaries >= 4) {
-			SLJIT_ASSERT(reg_map[SLJIT_TEMPORARY_EREG1] >= 8);
-			*buf++ = REX_B;
-			PUSH_REG(reg_lmap[SLJIT_TEMPORARY_EREG1]);
 		}
 		if (local_size > 0) {
 			SLJIT_ASSERT(reg_map[SLJIT_LOCALS_REG] >= 8);
@@ -320,8 +315,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 		size += 2;
 	if (compiler->generals >= 4)
 		size += compiler->generals - 3;
-	if (compiler->temporaries >= 4)
-		size += (compiler->temporaries - 3) * 2;
+	if (compiler->temporaries >= 5)
+		size += (5 - 4) * 2;
 #endif
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	FAIL_IF(!buf);
@@ -332,10 +327,6 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	if (compiler->local_size > 4 * sizeof(sljit_w)) {
 		*buf++ = REX_B;
 		POP_REG(reg_lmap[SLJIT_LOCALS_REG]);
-	}
-	if (compiler->temporaries >= 4) {
-		*buf++ = REX_B;
-		POP_REG(reg_lmap[SLJIT_TEMPORARY_EREG1]);
 	}
 	if (compiler->temporaries >= 5) {
 		*buf++ = REX_B;
