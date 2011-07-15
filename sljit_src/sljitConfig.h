@@ -42,16 +42,23 @@
 // #define SLJIT_CONFIG_MIPS_32 1
 
 // #define SLJIT_CONFIG_AUTO 1
+// #define SLJIT_CONFIG_UNSUPPORTED 1
 
 // ---------------------------------------------------------------------
 //  Utilities
 // ---------------------------------------------------------------------
 
-// For compiling global functions, a lock could be useful
+// Useful for thread-safe compiling of global functions
+#ifndef SLJIT_UTIL_GLOBAL_LOCK
+// Enabled by default
 #define SLJIT_UTIL_GLOBAL_LOCK 1
+#endif
 
 // Implements a stack like data structure (by using mmap / VirtualAlloc)
+#ifndef SLJIT_UTIL_STACK
+// Enabled by default
 #define SLJIT_UTIL_STACK 1
+#endif
 
 // ---------------------------------------------------------------------
 //  Configuration
@@ -59,30 +66,51 @@
 
 // If SLJIT_STD_MACROS_DEFINED is not defined, the application should
 // define SLJIT_MALLOC, SLJIT_FREE, SLJIT_MEMMOVE, and NULL
-// #define SLJIT_STD_MACROS_DEFINED 1
+#ifndef SLJIT_STD_MACROS_DEFINED
+// Disabled by default
+#define SLJIT_STD_MACROS_DEFINED 0
+#endif
 
 // Executable code allocation
 // If SLJIT_EXECUTABLE_ALLOCATOR is not defined, the application should
 // define both SLJIT_MALLOC_EXEC and SLJIT_FREE_EXEC
+#ifndef SLJIT_EXECUTABLE_ALLOCATOR
+// Enabled by default
 #define SLJIT_EXECUTABLE_ALLOCATOR 1
+#endif
 
 // Debug checks (assertions, etc)
+#ifndef SLJIT_DEBUG
+// Enabled by default
 #define SLJIT_DEBUG 1
+#endif
 
 // Verbose operations
+#ifndef SLJIT_VERBOSE
+// Enabled by default
 #define SLJIT_VERBOSE 1
+#endif
 
 // If SLJIT_HAVE_LIKELY is not defined, the application should
 // define both SLJIT_LIKELY and SLJIT_UNLIKELY
-// #define SLJIT_HAVE_LIKELY 1
+#ifndef SLJIT_HAVE_LIKELY
+// Disabled by default
+#define SLJIT_HAVE_LIKELY 0
+#endif
 
 // If SLJIT_HAVE_C_DEFINES is not defined, the application should
 // define SLJIT_INLINE and SLJIT_CONST
-// #define SLJIT_HAVE_C_DEFINES 1
+#ifndef SLJIT_HAVE_C_DEFINES
+// Disabled by default
+#define SLJIT_HAVE_C_DEFINES 0
+#endif
 
 // If SLJIT_HAVE_CACHE_FLUSH is not defined, the application should
 // define SLJIT_CACHE_FLUSH
-// #define SLJIT_HAVE_CACHE_FLUSH 1
+#ifndef SLJIT_HAVE_CACHE_FLUSH
+// Disabled by default
+#define SLJIT_HAVE_CACHE_FLUSH 0
+#endif
 
 // See the beginning of sljitConfigInternal.h
 

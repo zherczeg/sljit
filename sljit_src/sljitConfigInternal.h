@@ -41,8 +41,13 @@
 // SLJIT_W : for defining 64 bit constants on 64 bit architectures (compiler workaround)
 // SLJIT_UNALIGNED : allows unaligned memory accesses for integer arithmetic (only!)
 
-// Checking defines
-#define SLJIT_DEFINED(name) (defined SLJIT_##name && SLJIT_##name)
+#if !(SLJIT_DEFINED(CONFIG_X86_32) || SLJIT_DEFINED(CONFIG_X86_64) \
+	|| SLJIT_DEFINED(CONFIG_ARM_V5) || SLJIT_DEFINED(CONFIG_ARM_V7) \
+	|| SLJIT_DEFINED(CONFIG_ARM_THUMB2) || SLJIT_DEFINED(CONFIG_PPC_32) \
+	|| SLJIT_DEFINED(CONFIG_PPC_64) || SLJIT_DEFINED(CONFIG_MIPS_32) \
+	|| SLJIT_DEFINED(CONFIG_AUTO) || SLJIT_DEFINED(CONFIG_UNSUPPORTED))
+#error "An architecture must be selected"
+#endif
 
 // Auto select option (requires compiler support)
 #if SLJIT_DEFINED(CONFIG_AUTO)

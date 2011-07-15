@@ -24,8 +24,8 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _SLJIT_H_
-#define _SLJIT_H_
+#ifndef _SLJIT_LIR_H_
+#define _SLJIT_LIR_H_
 
 // ------------------------------------------------------------------------
 //  Stack-Less JIT compiler for multiple architectures (x86, ARM, PowerPC)
@@ -56,10 +56,12 @@
 //    - Optimizations (perhaps later)
 //      - Only for basic blocks (when no labels inserted between LIR instructions)
 
-#ifndef SLJIT_CONFIGURED
+// Checking defines
+#define SLJIT_DEFINED(name) (defined SLJIT_##name && SLJIT_##name)
+
+#if !SLJIT_DEFINED(NO_DEFAULT_CONFIG)
 #include "sljitConfig.h"
 #endif
-
 #include "sljitConfigInternal.h"
 
 // ---------------------------------------------------------------------
@@ -697,14 +699,14 @@ void SLJIT_CALL sljit_free_stack(struct sljit_stack* stack);
 // sljit_stack_resize fails.
 sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_w new_limit);
 
-#endif
+#endif // SLJIT_DEFINED(UTIL_STACK)
 
 #if !SLJIT_DEFINED(INDIRECT_CALL)
 
 // Get the entry address of a given function
 #define SLJIT_FUNC_OFFSET(func_name)	((sljit_w)func_name)
 
-#else
+#else // !SLJIT_DEFINED(INDIRECT_CALL)
 
 // All JIT related code should be placed in the same context (library, binary, etc.)
 
@@ -722,6 +724,6 @@ struct sljit_function_context {
 // If addr is NULL, the function address also comes from the func pointer
 void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_w addr, void* func);
 
-#endif
+#endif // !SLJIT_DEFINED(INDIRECT_CALL)
 
-#endif
+#endif // _SLJIT_LIR_H_
