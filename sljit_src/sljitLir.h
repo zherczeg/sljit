@@ -191,21 +191,21 @@ struct sljit_compiler {
 	// Code size
 	sljit_uw size;
 
-#ifdef SLJIT_CONFIG_X86_32
+#if SLJIT_DEFINED(CONFIG_X86_32)
 	int args;
 	int temporaries_start;
 	int generals_start;
 #endif
 
-#ifdef SLJIT_CONFIG_X86_64
+#if SLJIT_DEFINED(CONFIG_X86_64)
 	int mode32;
 #endif
 
-#if defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)
+#if SLJIT_DEFINED(CONFIG_X86_32) || SLJIT_DEFINED(CONFIG_X86_64)
 	int flags_saved;
 #endif
 
-#ifdef SLJIT_CONFIG_ARM_V5
+#if SLJIT_DEFINED(CONFIG_ARM_V5)
 	// Constant pool handling
 	sljit_uw *cpool;
 	sljit_ub *cpool_unique;
@@ -216,37 +216,37 @@ struct sljit_compiler {
 	sljit_uw patches;
 #endif
 
-#if defined(SLJIT_CONFIG_ARM_V5) || defined(SLJIT_CONFIG_ARM_V7)
+#if SLJIT_DEFINED(CONFIG_ARM_V5) || SLJIT_DEFINED(CONFIG_ARM_V7)
 	// Temporary fields
 	sljit_uw shift_imm;
 	int cache_arg;
 	sljit_w cache_argw;
 #endif
 
-#ifdef SLJIT_CONFIG_ARM_THUMB2
+#if SLJIT_DEFINED(CONFIG_ARM_THUMB2)
 	int cache_arg;
 	sljit_w cache_argw;
 #endif
 
-#if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
+#if SLJIT_DEFINED(CONFIG_PPC_32) || SLJIT_DEFINED(CONFIG_PPC_64)
 	int has_locals;
 	sljit_w imm;
 	int cache_arg;
 	sljit_w cache_argw;
 #endif
 
-#if defined(SLJIT_CONFIG_MIPS_32)
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 	int has_locals;
 	int delay_slot;
 	int cache_arg;
 	sljit_w cache_argw;
 #endif
 
-#ifdef SLJIT_VERBOSE
+#if SLJIT_DEFINED(VERBOSE)
 	FILE* verbose;
 #endif
 
-#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+#if SLJIT_DEFINED(VERBOSE) || SLJIT_DEFINED(DEBUG)
 	int skip_checks;
 #endif
 };
@@ -273,7 +273,7 @@ static SLJIT_INLINE int sljit_get_compiler_error(struct sljit_compiler *compiler
 // not set the compiler to out-of-memory status).
 void* sljit_alloc_memory(struct sljit_compiler *compiler, int size);
 
-#ifdef SLJIT_VERBOSE
+#if SLJIT_DEFINED(VERBOSE)
 // NULL = no verbose
 void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose);
 #endif
@@ -648,13 +648,13 @@ SLJIT_CONST char* sljit_get_platform_name(void);
 // Portble helper function to get an offset of a member
 #define SLJIT_OFFSETOF(base, member) 	((sljit_w)(&((base*)0x10)->member) - 0x10)
 
-#ifdef SLJIT_UTIL_GLOBAL_LOCK
+#if SLJIT_DEFINED(UTIL_GLOBAL_LOCK)
 // This global lock is useful to compile common functions.
 void SLJIT_CALL sljit_grab_lock(void);
 void SLJIT_CALL sljit_release_lock(void);
 #endif
 
-#ifdef SLJIT_UTIL_STACK
+#if SLJIT_DEFINED(UTIL_STACK)
 
 // The sljit_stack is a utiliy feature of sljit, which allocates a
 // writable memory region between base (inclusive) and limit (exclusive).
@@ -699,7 +699,7 @@ sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_w new_lim
 
 #endif
 
-#ifndef SLJIT_INDIRECT_CALL
+#if !SLJIT_DEFINED(INDIRECT_CALL)
 
 // Get the entry address of a given function
 #define SLJIT_FUNC_OFFSET(func_name)	((sljit_w)func_name)

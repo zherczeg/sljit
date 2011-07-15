@@ -32,26 +32,26 @@
 // ---------------------------------------------------------------------
 
 // Architecture selection
-// #define SLJIT_CONFIG_X86_32
-// #define SLJIT_CONFIG_X86_64
-// #define SLJIT_CONFIG_ARM_V5
-// #define SLJIT_CONFIG_ARM_V7
-// #define SLJIT_CONFIG_ARM_THUMB2
-// #define SLJIT_CONFIG_PPC_32
-// #define SLJIT_CONFIG_PPC_64
-// #define SLJIT_CONFIG_MIPS_32
+// #define SLJIT_CONFIG_X86_32 1
+// #define SLJIT_CONFIG_X86_64 1
+// #define SLJIT_CONFIG_ARM_V5 1
+// #define SLJIT_CONFIG_ARM_V7 1
+// #define SLJIT_CONFIG_ARM_THUMB2 1
+// #define SLJIT_CONFIG_PPC_32 1
+// #define SLJIT_CONFIG_PPC_64 1
+// #define SLJIT_CONFIG_MIPS_32 1
 
-// #define SLJIT_CONFIG_AUTO
+// #define SLJIT_CONFIG_AUTO 1
 
 // ---------------------------------------------------------------------
 //  Utilities
 // ---------------------------------------------------------------------
 
 // For compiling global functions, a lock could be useful
-#define SLJIT_UTIL_GLOBAL_LOCK
+#define SLJIT_UTIL_GLOBAL_LOCK 1
 
 // Implements a stack like data structure (by using mmap / VirtualAlloc)
-#define SLJIT_UTIL_STACK
+#define SLJIT_UTIL_STACK 1
 
 // ---------------------------------------------------------------------
 //  Configuration
@@ -59,30 +59,30 @@
 
 // If SLJIT_STD_MACROS_DEFINED is not defined, the application should
 // define SLJIT_MALLOC, SLJIT_FREE, SLJIT_MEMMOVE, and NULL
-// #define SLJIT_STD_MACROS_DEFINED
+// #define SLJIT_STD_MACROS_DEFINED 1
 
 // Executable code allocation
 // If SLJIT_EXECUTABLE_ALLOCATOR is not defined, the application should
 // define both SLJIT_MALLOC_EXEC and SLJIT_FREE_EXEC
-#define SLJIT_EXECUTABLE_ALLOCATOR
+#define SLJIT_EXECUTABLE_ALLOCATOR 1
 
 // Debug checks (assertions, etc)
-#define SLJIT_DEBUG
+#define SLJIT_DEBUG 1
 
 // Verbose operations
-#define SLJIT_VERBOSE
+#define SLJIT_VERBOSE 1
 
 // If SLJIT_HAVE_LIKELY is not defined, the application should
 // define both SLJIT_LIKELY and SLJIT_UNLIKELY
-// #define SLJIT_HAVE_LIKELY
+// #define SLJIT_HAVE_LIKELY 1
 
 // If SLJIT_HAVE_C_DEFINES is not defined, the application should
 // define SLJIT_INLINE and SLJIT_CONST
-// #define SLJIT_HAVE_C_DEFINES
+// #define SLJIT_HAVE_C_DEFINES 1
 
 // If SLJIT_HAVE_CACHE_FLUSH is not defined, the application should
 // define SLJIT_CACHE_FLUSH
-// #define SLJIT_HAVE_CACHE_FLUSH
+// #define SLJIT_HAVE_CACHE_FLUSH 1
 
 // See the beginning of sljitConfigInternal.h
 

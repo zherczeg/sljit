@@ -57,7 +57,7 @@ void devel(void)
 	buf[2] = 0;
 	buf[3] = 0;
 
-#ifdef SLJIT_VERBOSE
+#if SLJIT_DEFINED(VERBOSE)
 	sljit_compiler_verbose(compiler, stdout);
 #endif
 	sljit_emit_enter(compiler, 1, 4, 5, 2 * sizeof(sljit_w));

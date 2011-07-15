@@ -26,7 +26,7 @@
 
 SLJIT_CONST char* sljit_get_platform_name()
 {
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 	return "mips-32";
 #else
 #error "mips-64 is not yet supported"
@@ -150,7 +150,7 @@ typedef unsigned int sljit_i;
 #define XOR		(HI(0) | LO(38))
 #define XORI		(HI(14))
 
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 #define ADDU_W		ADDU
 #define ADDIU_W		ADDIU
 #define EXT_W		EXT
@@ -328,7 +328,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				label = label->next;
 			}
 			if (jump && jump->addr == word_count) {
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 				jump->addr = (sljit_uw)(code_ptr - 3);
 #else
 				jump->addr = (sljit_uw)(code_ptr - 6);
@@ -378,7 +378,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 			}
 
 			// Set the fields of immediate loads
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 			buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 16) & 0xffff);
 			buf_ptr[1] = (buf_ptr[1] & 0xffff0000) | (addr & 0xffff);
 #else
@@ -430,13 +430,13 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 #define CHECK_FLAGS(list) \
 	(!(flags & UNUSED_DEST) || (op & GET_FLAGS(~(list))))
 
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 #include "sljitNativeMIPS_32.c"
 #else
 #include "sljitNativeMIPS_64.c"
 #endif
 
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 #define STACK_STORE	SW
 #define STACK_LOAD	LW
 #else
@@ -567,7 +567,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 //  Operators
 // ---------------------------------------------------------------------
 
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 #define ARCH_DEPEND(a, b)	a
 #else
 #define ARCH_DEPEND(a, b)	b
@@ -933,7 +933,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 	#define inp_flags 0
 #endif
 
@@ -996,7 +996,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	}
 
 	return SLJIT_SUCCESS;
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 	#undef inp_flags
 #endif
 }
@@ -1006,7 +1006,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
 {
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 	#define inp_flags 0
 #endif
 
@@ -1033,7 +1033,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	case SLJIT_SHL:
 	case SLJIT_LSHR:
 	case SLJIT_ASHR:
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 		if (src2 & SLJIT_IMM)
 			src2w &= 0x1f;
 #else
@@ -1044,7 +1044,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	}
 
 	return SLJIT_SUCCESS;
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 	#undef inp_flags
 #endif
 }
@@ -1269,7 +1269,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 	return label;
 }
 
-#ifdef SLJIT_CONFIG_MIPS_32
+#if SLJIT_DEFINED(CONFIG_MIPS_32)
 #define JUMP_LENGTH	4
 #else
 #define JUMP_LENGTH	7

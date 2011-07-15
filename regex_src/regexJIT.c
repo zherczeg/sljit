@@ -61,7 +61,7 @@ struct regex_machine
 		void *init_match;
 		sljit_w (SLJIT_CALL *call_init)(void *next, void* match);
 	} u;
-#ifdef SLJIT_INDIRECT_CALL
+#if SLJIT_DEFINED(INDIRECT_CALL)
 	struct sljit_function_context context;
 #endif
 
@@ -156,7 +156,7 @@ struct stack {
 	int count;
 };
 
-#ifdef SLJIT_DEBUG
+#if SLJIT_DEFINED(DEBUG)
 
 static void stack_check(struct stack *stack)
 {
@@ -209,7 +209,7 @@ static void stack_destroy(struct stack *stack)
 	struct stack_fragment *curr = stack->first;
 	struct stack_fragment *prev;
 
-#ifdef SLJIT_DEBUG
+#if SLJIT_DEFINED(DEBUG)
 	stack_check(stack);
 #endif
 
@@ -258,7 +258,7 @@ static int stack_push(struct stack *stack, int type, int value)
 	stack->last->items[stack->index].type = type;
 	stack->last->items[stack->index].value = value;
 	stack->count++;
-#ifdef SLJIT_DEBUG
+#if SLJIT_DEFINED(DEBUG)
 	stack_check(stack);
 #endif
 	return 0;
@@ -276,7 +276,7 @@ static struct stack_item* stack_pop(struct stack *stack)
 	}
 
 	stack->count--;
-#ifdef SLJIT_DEBUG
+#if SLJIT_DEFINED(DEBUG)
 	stack_check(stack);
 #endif
 	return ret;
@@ -335,7 +335,7 @@ static int stack_push_copy(struct stack *stack, int items, int length)
 		length--;
 	}
 
-#ifdef SLJIT_DEBUG
+#if SLJIT_DEFINED(DEBUG)
 	stack_check(stack);
 #endif
 	stack->count += items;
@@ -491,7 +491,7 @@ static int iterate(struct stack *stack, int min, int max)
 	if (stack_push_copy(stack, 1, count))
 		return -1;
 
-#ifdef SLJIT_DEBUG
+#if SLJIT_DEFINED(DEBUG)
 	SLJIT_ASSERT(stack_push(&it, type_open_br, 0) == 0);
 #else
 	stack_push(&it, type_open_br, 0);
@@ -2497,7 +2497,7 @@ void regex_continue_match_debug(struct regex_match *match, const regex_char_t *i
 	sljit_w *ptr;
 	sljit_w *end;
 	sljit_w count;
-#ifdef SLJIT_DEBUG
+#if SLJIT_DEFINED(DEBUG)
 	sljit_w current;
 #endif
 	sljit_w no_states = match->machine->no_states;
@@ -2546,7 +2546,7 @@ void regex_continue_match_debug(struct regex_match *match, const regex_char_t *i
 			printf("\n");
 		}
 
-#ifdef SLJIT_DEBUG
+#if SLJIT_DEFINED(DEBUG)
 		// sanity check (later)
 		ptr = match->next;
 		end = ptr + len;

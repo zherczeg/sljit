@@ -76,7 +76,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	compiler->args = args;
 	compiler->flags_saved = 0;
 
-#ifdef SLJIT_X86_32_FASTCALL
+#if SLJIT_DEFINED(X86_32_FASTCALL)
 	size = 1 + (generals <= 3 ? generals : 3) + (args > 0 ? (args * 2) : 0) + (args > 2 ? 2 : 0);
 #else
 	size = 1 + (generals <= 3 ? generals : 3) + (args > 0 ? (2 + args * 3) : 0);
@@ -86,7 +86,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 
 	INC_SIZE(size);
 	PUSH_REG(reg_map[TMP_REGISTER]);
-#ifndef SLJIT_X86_32_FASTCALL
+#if !SLJIT_DEFINED(X86_32_FASTCALL)
 	if (args > 0) {
 		*buf++ = 0x8b;
 		*buf++ = 0xc4 | (reg_map[TMP_REGISTER] << 3);
@@ -99,7 +99,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	if (generals > 0)
 		PUSH_REG(reg_map[SLJIT_GENERAL_REG1]);
 
-#ifdef SLJIT_X86_32_FASTCALL
+#if SLJIT_DEFINED(X86_32_FASTCALL)
 	if (args > 0) {
 		*buf++ = 0x8b;
 		*buf++ = 0xc0 | (reg_map[SLJIT_GENERAL_REG1] << 3) | reg_map[SLJIT_TEMPORARY_REG3];
@@ -193,7 +193,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
 
 	size = 2 + (compiler->generals <= 3 ? compiler->generals : 3);
-#ifdef SLJIT_X86_32_FASTCALL
+#if SLJIT_DEFINED(X86_32_FASTCALL)
 	if (compiler->args > 2)
 		size += 2;
 #else
@@ -212,7 +212,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	if (compiler->generals > 2)
 		POP_REG(reg_map[SLJIT_GENERAL_REG3]);
 	POP_REG(reg_map[TMP_REGISTER]);
-#ifdef SLJIT_X86_32_FASTCALL
+#if SLJIT_DEFINED(X86_32_FASTCALL)
 	if (compiler->args > 2)
 		RETN(sizeof(sljit_w));
 	else
@@ -249,7 +249,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	SLJIT_ASSERT(!(flags & (EX86_BIN_INS | EX86_SHIFT_INS)) || (flags & (EX86_BYTE_ARG | EX86_HALF_ARG)) == 0);
 	// Both size flags cannot be switched on
 	SLJIT_ASSERT((flags & (EX86_BYTE_ARG | EX86_HALF_ARG)) != (EX86_BYTE_ARG | EX86_HALF_ARG));
-#ifdef SLJIT_SSE2
+#if SLJIT_DEFINED(SSE2)
 	// SSE2 and immediate is not possible
 	SLJIT_ASSERT(!(a & SLJIT_IMM) || !(flags & EX86_SSE2));
 #endif
@@ -257,7 +257,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	size &= 0xf;
 	inst_size = size;
 
-#ifdef SLJIT_SSE2
+#if SLJIT_DEFINED(SSE2)
 	if (flags & EX86_PREF_F2)
 		inst_size++;
 #endif
@@ -314,7 +314,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 
 	// Encoding the byte
 	INC_SIZE(inst_size);
-#ifdef SLJIT_SSE2
+#if SLJIT_DEFINED(SSE2)
 	if (flags & EX86_PREF_F2)
 		*buf++ = 0xf2;
 #endif
@@ -330,7 +330,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 
 		if ((a & SLJIT_IMM) || (a == 0))
 			*buf_ptr = 0;
-#ifdef SLJIT_SSE2
+#if SLJIT_DEFINED(SSE2)
 		else if (!(flags & EX86_SSE2))
 			*buf_ptr = reg_map[a] << 3;
 		else
@@ -352,7 +352,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 	}
 
 	if (!(b & SLJIT_MEM))
-#ifdef SLJIT_SSE2
+#if SLJIT_DEFINED(SSE2)
 		*buf_ptr++ |= 0xc0 + ((!(flags & EX86_SSE2)) ? reg_map[b] : b);
 #else
 		*buf_ptr++ |= 0xc0 + reg_map[b];
@@ -413,7 +413,7 @@ static SLJIT_INLINE int call_with_args(struct sljit_compiler *compiler, int type
 {
 	sljit_ub *buf;
 
-#ifdef SLJIT_X86_32_FASTCALL
+#if SLJIT_DEFINED(X86_32_FASTCALL)
 	buf = (sljit_ub*)ensure_buf(compiler, type >= SLJIT_CALL3 ? 1 + 2 + 1 : 1 + 2);
 	FAIL_IF(!buf);
 	INC_SIZE(type >= SLJIT_CALL3 ? 2 + 1 : 2);
