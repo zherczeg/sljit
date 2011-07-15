@@ -1087,7 +1087,9 @@ static SLJIT_INLINE void check_sljit_emit_const(struct sljit_compiler *compiler,
 	#include "sljitNativeX86_common.c"
 #elif SLJIT_DEFINED(CONFIG_X86_64)
 	#include "sljitNativeX86_common.c"
-#elif SLJIT_DEFINED(CONFIG_ARM_V5) || SLJIT_DEFINED(CONFIG_ARM_V7)
+#elif SLJIT_DEFINED(CONFIG_ARM_V5)
+	#include "sljitNativeARM_v5.c"
+#elif SLJIT_DEFINED(CONFIG_ARM_V7)
 	#include "sljitNativeARM_v5.c"
 #elif SLJIT_DEFINED(CONFIG_ARM_THUMB2)
 	#include "sljitNativeARM_Thumb2.c"
