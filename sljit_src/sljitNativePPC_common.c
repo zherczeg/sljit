@@ -26,7 +26,7 @@
 
 SLJIT_CONST char* sljit_get_platform_name()
 {
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 	return "ppc-32";
 #else
 	return "ppc-64";
@@ -223,7 +223,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	check_sljit_generate_code(compiler);
 	reverse_buf(compiler);
 
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 	compiler->size += (compiler->size & 0x1) + (sizeof(struct sljit_function_context) / sizeof(sljit_i));
 #endif
 	code = (sljit_i*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_uw));
@@ -251,13 +251,13 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				label = label->next;
 			}
 			if (jump && jump->addr == word_count) {
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 				jump->addr = (sljit_uw)(code_ptr - 3);
 #else
 				jump->addr = (sljit_uw)(code_ptr - 6);
 #endif
 				if (optimize_jump(jump, code_ptr, code)) {
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 					code_ptr[-3] = code_ptr[0];
 					code_ptr -= 3;
 #else
@@ -288,7 +288,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	SLJIT_ASSERT(!label);
 	SLJIT_ASSERT(!jump);
 	SLJIT_ASSERT(!const_);
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 	SLJIT_ASSERT(code_ptr - code <= (int)compiler->size - ((compiler->size & 0x1) ? 3 : 2));
 #else
 	SLJIT_ASSERT(code_ptr - code <= (int)compiler->size);
@@ -327,7 +327,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 				break;
 			}
 			// Set the fields of immediate loads
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 			buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 16) & 0xffff);
 			buf_ptr[1] = (buf_ptr[1] & 0xffff0000) | (addr & 0xffff);
 #else
@@ -343,7 +343,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	SLJIT_CACHE_FLUSH(code, code_ptr);
 	compiler->error = SLJIT_ERR_COMPILED;
 
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 	if (((sljit_w)code_ptr) & 0x4)
 		code_ptr++;
 	sljit_set_function_context(NULL, (struct sljit_function_context*)code_ptr, (sljit_w)code, sljit_generate_code);
@@ -396,13 +396,13 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 // ALT_SIGN_EXT		0x4000
 // ALT_SET_FLAGS	0x8000
 
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 #include "sljitNativePPC_32.c"
 #else
 #include "sljitNativePPC_64.c"
 #endif
 
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 #define STACK_STORE	STW
 #define STACK_LOAD	LWZ
 #else
@@ -448,14 +448,14 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	if (args >= 3)
 		FAIL_IF(push_inst(compiler, OR | S(SLJIT_TEMPORARY_REG3) | A(SLJIT_GENERAL_REG3) | B(SLJIT_TEMPORARY_REG3)));
 
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 	compiler->local_size = (2 + generals + 2) * sizeof(sljit_w) + local_size;
 #else
 	compiler->local_size = (2 + generals + 7 + 8) * sizeof(sljit_w) + local_size;
 #endif
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 	if (compiler->local_size <= SIMM_MAX)
 		FAIL_IF(push_inst(compiler, STWU | S(REAL_STACK_PTR) | A(REAL_STACK_PTR) | IMM(-compiler->local_size)));
 	else {
@@ -487,7 +487,7 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries
 	compiler->generals = generals;
 
 	compiler->has_locals = local_size > 0;
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 	compiler->local_size = (2 + generals + 2) * sizeof(sljit_w) + local_size;
 #else
 	compiler->local_size = (2 + generals + 7 + 8) * sizeof(sljit_w) + local_size;
@@ -550,7 +550,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 // 64-bit only: there is no lwau instruction
 #define UPDATE_REQ	0x20000
 
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 #define ARCH_DEPEND(a, b)	a
 #define GET_INST_CODE(inst)	(inst)
 #else
@@ -660,13 +660,13 @@ static SLJIT_CONST sljit_i data_transfer_insts[64] = {
 static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int reg, int arg, sljit_w argw)
 {
 	sljit_i inst;
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 	int tmp_reg;
 #endif
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 	if (!(arg & 0xf)) {
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 		if (argw <= SIMM_MAX && argw >= SIMM_MIN) {
 			if (inp_flags & ARG_TEST)
 				return 1;
@@ -691,7 +691,7 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int r
 	}
 
 	if (!(arg & 0xf0)) {
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 		if (argw <= SIMM_MAX && argw >= SIMM_MIN) {
 			if (inp_flags & ARG_TEST)
 				return 1;
@@ -758,7 +758,7 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 	return 0;
 }
 
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 #define ADJUST_CACHED_IMM(imm) \
 	if ((inst & ADDR_MODE2) && (imm & 0x3)) { \
 		/* Adjust cached value. Fortunately this is really a rare case */ \
@@ -813,7 +813,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		argw &= 0x3;
 		// Otherwise getput_arg_fast would capture it
 		SLJIT_ASSERT(argw);
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 		FAIL_IF(push_inst(compiler, RLWINM | S((arg >> 4) & 0xf) | A(tmp_r) | (argw << 11) | ((31 - argw) << 1)));
 #else
 		FAIL_IF(push_inst(compiler, RLDI(tmp_r, (arg >> 4) & 0xf, argw, 63 - argw, 1)));
@@ -916,7 +916,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 		flags |= REG1_SOURCE;
 	}
 	else if (src1 & SLJIT_IMM) {
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 		if ((inp_flags & 0x3) == INT_DATA) {
 			if (inp_flags & SIGNED_DATA)
 				src1w = (signed int)src1w;
@@ -942,7 +942,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 			dst_r = src2_r;
 	}
 	else if (src2 & SLJIT_IMM) {
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 		if ((inp_flags & 0x3) == INT_DATA) {
 			if (inp_flags & SIGNED_DATA)
 				src2w = (signed int)src2w;
@@ -1039,7 +1039,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	if ((src & SLJIT_IMM) && srcw == 0)
 		src = ZERO_REG;
 
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 	if (op & SLJIT_INT_OP) {
 		inp_flags |= INT_DATA | SIGNED_DATA;
 		if (src & SLJIT_IMM)
@@ -1099,7 +1099,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		return emit_op(compiler, SLJIT_NEG, inp_flags, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_CLZ:
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 		return emit_op(compiler, SLJIT_CLZ, inp_flags | (!(op & SLJIT_INT_OP) ? 0 : ALT_FORM1), dst, dstw, TMP_REG1, 0, src, srcw);
 #else
 		return emit_op(compiler, SLJIT_CLZ, inp_flags, dst, dstw, TMP_REG1, 0, src, srcw);
@@ -1115,7 +1115,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 #define TEST_UL_IMM(src, srcw) \
 	(((src) & SLJIT_IMM) && !((srcw) & ~0xffff))
 
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 #define TEST_SH_IMM(src, srcw) \
 	(((src) & SLJIT_IMM) && !((srcw) & 0xffff) && (srcw) <= SLJIT_W(0x7fffffff) && (srcw) >= SLJIT_W(-0x80000000))
 #else
@@ -1126,7 +1126,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 #define TEST_UH_IMM(src, srcw) \
 	(((src) & SLJIT_IMM) && !((srcw) & ~0xffff0000))
 
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 #define TEST_UI_IMM(src, srcw) \
 	(((src) & SLJIT_IMM) && !((srcw) & ~0xffffffff))
 #else
@@ -1149,7 +1149,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	if ((src2 & SLJIT_IMM) && src2w == 0)
 		src2 = ZERO_REG;
 
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 	if (op & SLJIT_INT_OP) {
 		inp_flags |= INT_DATA | SIGNED_DATA;
 		if (src1 & SLJIT_IMM)
@@ -1245,7 +1245,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 		return emit_op(compiler, SLJIT_SUBC, inp_flags | (!(op & SLJIT_KEEP_FLAGS) ? 0 : ALT_FORM1), dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_MUL:
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 		if (op & SLJIT_INT_OP)
 			inp_flags |= ALT_FORM2;
 #endif
@@ -1298,7 +1298,7 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	case SLJIT_SHL:
 	case SLJIT_LSHR:
 	case SLJIT_ASHR:
-#ifdef SLJIT_CONFIG_PPC_64
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 		if (op & SLJIT_INT_OP)
 			inp_flags |= ALT_FORM2;
 #endif
@@ -1336,7 +1336,7 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 	if (arg & 0xf0) {
 		argw &= 0x3;
 		if (argw) {
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 			FAIL_IF(push_inst(compiler, RLWINM | S((arg >> 4) & 0xf) | A(TMP_REG2) | (argw << 11) | ((31 - argw) << 1)));
 #else
 			FAIL_IF(push_inst(compiler, RLDI(TMP_REG2, (arg >> 4) & 0xf, argw, 63 - argw, 1)));
@@ -1472,7 +1472,7 @@ int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw
 	compiler->generals = generals;
 
 	compiler->has_locals = local_size > 0;
-#ifdef SLJIT_CONFIG_PPC_32
+#if SLJIT_DEFINED(CONFIG_PPC_32)
 	compiler->local_size = (2 + generals + 2) * sizeof(sljit_w) + local_size;
 #else
 	compiler->local_size = (2 + generals + 7 + 8) * sizeof(sljit_w) + local_size;

@@ -1303,7 +1303,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	}
 
 	if (op_type == SLJIT_NEG) {
-#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+#if SLJIT_DEFINED(VERBOSE) || SLJIT_DEFINED(DEBUG)
 		compiler->skip_checks = 1;
 #endif
 		return sljit_emit_op2(compiler, GET_FLAGS(op) | SLJIT_SUB, dst, dstw, SLJIT_IMM, 0, src, srcw);
@@ -1796,7 +1796,7 @@ int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, slji
 
 	if (dst_r == TMP_REG2) {
 		if (GET_OPCODE(op) == SLJIT_OR) {
-#if defined(SLJIT_VERBOSE) || defined(SLJIT_DEBUG)
+#if SLJIT_DEFINED(VERBOSE) || SLJIT_DEFINED(DEBUG)
 			compiler->skip_checks = 1;
 #endif
 			return sljit_emit_op2(compiler, op, dst, dstw, dst, dstw, TMP_REG2, 0);

@@ -28,13 +28,13 @@
 //  Locks
 // ------------------------------------------------------------------------
 
-#if defined(SLJIT_EXECUTABLE_ALLOCATOR) || defined(SLJIT_UTIL_GLOBAL_LOCK)
+#if SLJIT_DEFINED(EXECUTABLE_ALLOCATOR) || SLJIT_DEFINED(UTIL_GLOBAL_LOCK)
 
 #ifdef _WIN32
 
 #include "windows.h"
 
-#ifdef SLJIT_EXECUTABLE_ALLOCATOR
+#if SLJIT_DEFINED(EXECUTABLE_ALLOCATOR)
 
 static HANDLE allocator_mutex = 0;
 
@@ -54,7 +54,7 @@ static SLJIT_INLINE void allocator_release_lock(void)
 
 #endif // SLJIT_EXECUTABLE_ALLOCATOR
 
-#ifdef SLJIT_UTIL_GLOBAL_LOCK
+#if SLJIT_DEFINED(UTIL_GLOBAL_LOCK)
 
 static HANDLE global_mutex = 0;
 
@@ -78,7 +78,7 @@ void SLJIT_CALL sljit_release_lock(void)
 
 #include "pthread.h"
 
-#ifdef SLJIT_EXECUTABLE_ALLOCATOR
+#if SLJIT_DEFINED(EXECUTABLE_ALLOCATOR)
 
 static pthread_mutex_t allocator_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -94,7 +94,7 @@ static SLJIT_INLINE void allocator_release_lock(void)
 
 #endif // SLJIT_EXECUTABLE_ALLOCATOR
 
-#ifdef SLJIT_UTIL_GLOBAL_LOCK
+#if SLJIT_DEFINED(UTIL_GLOBAL_LOCK)
 
 static pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -116,7 +116,7 @@ void SLJIT_CALL sljit_release_lock(void)
 //  Stack
 // ------------------------------------------------------------------------
 
-#ifdef SLJIT_UTIL_STACK
+#if SLJIT_DEFINED(UTIL_STACK)
 
 #ifdef _WIN32
 #include "windows.h"

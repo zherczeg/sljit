@@ -41,51 +41,54 @@
 // SLJIT_W : for defining 64 bit constants on 64 bit architectures (compiler workaround)
 // SLJIT_UNALIGNED : allows unaligned memory accesses for integer arithmetic (only!)
 
+// Checking defines
+#define SLJIT_DEFINED(name) (defined SLJIT_##name && SLJIT_##name)
+
 // Auto select option (requires compiler support)
-#ifdef SLJIT_CONFIG_AUTO
+#if SLJIT_DEFINED(CONFIG_AUTO)
 #ifndef _WIN32
 
 #if defined(__i386__) || defined(__i386)
-#define SLJIT_CONFIG_X86_32
+#define SLJIT_CONFIG_X86_32 1
 #elif defined(__x86_64__)
-#define SLJIT_CONFIG_X86_64
+#define SLJIT_CONFIG_X86_64 1
 #elif defined(__arm__) || defined(__ARM__)
 #if defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__)
-#define SLJIT_CONFIG_ARM_V7
+#define SLJIT_CONFIG_ARM_V7 1
 #elif defined(__ARM_ARCH_7__)
-#define SLJIT_CONFIG_ARM_THUMB2
+#define SLJIT_CONFIG_ARM_THUMB2 1
 #else
-#define SLJIT_CONFIG_ARM_V5
+#define SLJIT_CONFIG_ARM_V5 1
 #endif
 #elif defined(__ppc64__) || defined(__powerpc64__)
-#define SLJIT_CONFIG_PPC_64
+#define SLJIT_CONFIG_PPC_64 1
 #elif defined(__ppc__) || defined(__powerpc__)
-#define SLJIT_CONFIG_PPC_32
+#define SLJIT_CONFIG_PPC_32 1
 #elif defined(__mips__)
-#define SLJIT_CONFIG_MIPS_32
+#define SLJIT_CONFIG_MIPS_32 1
 #else
 /* Unsupported machine */
-#define SLJIT_CONFIG_UNSUPPORTED
+#define SLJIT_CONFIG_UNSUPPORTED 1
 #endif
 
-#else // ifndef _WIN32
+#else // !_WIN32
 
 #if defined(_M_X64) || defined(__x86_64__)
-#define SLJIT_CONFIG_X86_64
+#define SLJIT_CONFIG_X86_64 1
 #elif defined(_ARM_)
-#define SLJIT_CONFIG_ARM_V5
+#define SLJIT_CONFIG_ARM_V5 1
 #else
-#define SLJIT_CONFIG_X86_32
+#define SLJIT_CONFIG_X86_32 1
 #endif
 
-#endif // ifndef WIN32
-#endif // ifdef SLJIT_CONFIG_AUTO
+#endif // !WIN32
+#endif // SLJIT_CONFIG_AUTO
 
-#ifdef SLJIT_CONFIG_UNSUPPORTED
+#if SLJIT_DEFINED(CONFIG_UNSUPPORTED)
 #undef SLJIT_EXECUTABLE_ALLOCATOR
 #endif
 
-#ifndef SLJIT_STD_MACROS_DEFINED
+#if !SLJIT_DEFINED(STD_MACROS_DEFINED)
 
 // General libraries
 // SLJIT is designed to be independent from them as possible
@@ -101,7 +104,7 @@
 
 #endif // SLJIT_NEED_STDLIB
 
-#ifndef SLJIT_HAVE_LIKELY
+#if !SLJIT_DEFINED(HAVE_LIKELY)
 
 #if defined(__GNUC__) && (__GNUC__ >= 3)
 #define SLJIT_LIKELY(x)		__builtin_expect((x), 1)
@@ -113,7 +116,7 @@
 
 #endif // SLJIT_HAVE_LIKELY
 
-#ifndef SLJIT_HAVE_C_DEFINES
+#if !SLJIT_DEFINED(HAVE_C_DEFINES)
 
 // Inline functions
 #define SLJIT_INLINE __inline
@@ -123,9 +126,9 @@
 
 #endif // SLJIT_C_DEFINES
 
-#ifndef SLJIT_HAVE_CACHE_FLUSH
+#if !SLJIT_DEFINED(HAVE_CACHE_FLUSH)
 
-#if !defined(SLJIT_CONFIG_X86_32) && !defined(SLJIT_CONFIG_X86_64)
+#if !SLJIT_DEFINED(CONFIG_X86_32) && !SLJIT_DEFINED(CONFIG_X86_64)
 	// Just call __ARM_NR_cacheflush on Linux
 #define SLJIT_CACHE_FLUSH(from, to) \
 	__clear_cache((char*)(from), (char*)(to))
@@ -143,7 +146,7 @@ typedef signed char sljit_b;
 // Machine word type. Can encapsulate a pointer.
 //   32 bit for 32 bit machines
 //   64 bit for 64 bit machines
-#if !defined(SLJIT_CONFIG_X86_64) && !defined(SLJIT_CONFIG_PPC_64)
+#if !SLJIT_DEFINED(CONFIG_X86_64) && !SLJIT_DEFINED(CONFIG_PPC_64)
 #define SLJIT_32BIT_ARCHITECTURE	1
 #define SLJIT_WORD_SHIFT		2
 typedef unsigned int sljit_uw;
@@ -164,21 +167,21 @@ typedef long int sljit_w;
 #define SLJIT_FLOAT_SHIFT		3
 
 // Defining long constants
-#ifdef SLJIT_64BIT_ARCHITECTURE
+#if SLJIT_DEFINED(64BIT_ARCHITECTURE)
 #define SLJIT_W(w)	(w##ll)
 #else
 #define SLJIT_W(w)	(w)
 #endif
 
 // ABI (Application Binary Interface) types
-#ifdef SLJIT_CONFIG_X86_32
+#if SLJIT_DEFINED(CONFIG_X86_32)
 
 #ifdef __GNUC__
 #define SLJIT_CALL __attribute__ ((fastcall))
-#define SLJIT_X86_32_FASTCALL
+#define SLJIT_X86_32_FASTCALL 1
 #elif defined(_WIN32)
 #define SLJIT_CALL __fastcall
-#define SLJIT_X86_32_FASTCALL
+#define SLJIT_X86_32_FASTCALL 1
 #else
 #define SLJIT_CALL __stdcall
 #endif
@@ -189,49 +192,49 @@ typedef long int sljit_w;
 
 #endif // SLJIT_CONFIG_X86_32
 
-#if defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
-#define SLJIT_BIG_ENDIAN		1
+#if SLJIT_DEFINED(CONFIG_PPC_32) || SLJIT_DEFINED(CONFIG_PPC_64)
+#define SLJIT_BIG_ENDIAN 1
 #else
-#define SLJIT_LITTLE_ENDIAN		1
+#define SLJIT_LITTLE_ENDIAN 1
 #endif
 
-#if defined(SLJIT_CONFIG_PPC_64)
+#if SLJIT_DEFINED(CONFIG_PPC_64)
 // It seems ppc64 compilers use an indirect addressing for functions
 // I don't know why... It just makes things complicated
-#define SLJIT_INDIRECT_CALL		1
+#define SLJIT_INDIRECT_CALL 1
 #endif
 
-#if defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)
+#if SLJIT_DEFINED(CONFIG_X86_32) || SLJIT_DEFINED(CONFIG_X86_64)
 // Turn on SSE2 support on x86 (operating on doubles)
 // (If you want better performance than legacy fpu instructions)
-#define SLJIT_SSE2			1
+#define SLJIT_SSE2 1
 
-#ifdef SLJIT_CONFIG_X86_32
+#if SLJIT_DEFINED(CONFIG_X86_32)
 // Auto detect SSE2 support using CPUID.
 // On 64 bit x86 cpus, sse2 must be present
-#define SLJIT_SSE2_AUTO			1
+#define SLJIT_SSE2_AUTO 1
 #endif
 
-#endif // defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64)
+#endif // SLJIT_DEFINED(CONFIG_X86_32) || SLJIT_DEFINED(CONFIG_X86_64)
 
-#if defined(SLJIT_CONFIG_X86_32) || defined(SLJIT_CONFIG_X86_64) \
-	|| defined(SLJIT_CONFIG_ARM_V7) || defined(SLJIT_CONFIG_ARM_THUMB2) \
-	|| defined(SLJIT_CONFIG_PPC_32) || defined(SLJIT_CONFIG_PPC_64)
-#define SLJIT_UNALIGNED
+#if SLJIT_DEFINED(CONFIG_X86_32) || SLJIT_DEFINED(CONFIG_X86_64) \
+	|| SLJIT_DEFINED(CONFIG_ARM_V7) || SLJIT_DEFINED(CONFIG_ARM_THUMB2) \
+	|| SLJIT_DEFINED(CONFIG_PPC_32) || SLJIT_DEFINED(CONFIG_PPC_64)
+#define SLJIT_UNALIGNED 1
 #endif
 
-#ifdef SLJIT_EXECUTABLE_ALLOCATOR
+#if SLJIT_DEFINED(EXECUTABLE_ALLOCATOR)
 void* sljit_malloc_exec(sljit_uw size);
 void sljit_free_exec(void* ptr);
 #define SLJIT_MALLOC_EXEC(size) sljit_malloc_exec(size)
 #define SLJIT_FREE_EXEC(ptr) sljit_free_exec(ptr)
 #endif
 
-#if defined(SLJIT_DEBUG) || defined(SLJIT_VERBOSE)
+#if SLJIT_DEFINED(DEBUG) || SLJIT_DEFINED(VERBOSE)
 #include <stdio.h>
 #endif
 
-#ifdef SLJIT_DEBUG
+#if SLJIT_DEFINED(DEBUG)
 
 // Feel free to overwrite these two macros
 #ifndef SLJIT_ASSERT

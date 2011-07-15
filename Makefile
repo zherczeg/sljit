@@ -10,7 +10,7 @@ CC = gcc
 # Cross compiler for PPC-64
 #CC = powerpc64-unknown-linux-gnu-gcc
 
-CFLAGS = -O2 -Wall -DSLJIT_CONFIG_AUTO
+CFLAGS = -O2 -Wall -DSLJIT_CONFIG_AUTO=1
 LDFLAGS=
 
 TARGET = sljit_test regex_test
