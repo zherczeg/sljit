@@ -91,27 +91,6 @@
 #define SLJIT_VERBOSE 1
 #endif
 
-// If SLJIT_HAVE_LIKELY is not defined, the application should
-// define both SLJIT_LIKELY and SLJIT_UNLIKELY
-#ifndef SLJIT_HAVE_LIKELY
-// Disabled by default
-#define SLJIT_HAVE_LIKELY 0
-#endif
-
-// If SLJIT_HAVE_C_DEFINES is not defined, the application should
-// define SLJIT_INLINE and SLJIT_CONST
-#ifndef SLJIT_HAVE_C_DEFINES
-// Disabled by default
-#define SLJIT_HAVE_C_DEFINES 0
-#endif
-
-// If SLJIT_HAVE_CACHE_FLUSH is not defined, the application should
-// define SLJIT_CACHE_FLUSH
-#ifndef SLJIT_HAVE_CACHE_FLUSH
-// Disabled by default
-#define SLJIT_HAVE_CACHE_FLUSH 0
-#endif
-
 // See the beginning of sljitConfigInternal.h
 
 #endif
