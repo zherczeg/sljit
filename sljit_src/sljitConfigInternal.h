@@ -132,6 +132,11 @@
 #define SLJIT_CONST const
 #endif
 
+#ifndef SLJIT_UNUSED_ARG
+// Unused arguments
+#define SLJIT_UNUSED_ARG(arg) (void)arg
+#endif
+
 #ifndef SLJIT_CACHE_FLUSH
 
 #if !SLJIT_DEFINED(CONFIG_X86_32) && !SLJIT_DEFINED(CONFIG_X86_64)
