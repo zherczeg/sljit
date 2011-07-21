@@ -86,7 +86,7 @@ static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 
 static SLJIT_INLINE void free_chunk(void* chunk, sljit_uw size)
 {
-	(void)size;
+	SLJIT_UNUSED_ARG(size);
 	VirtualFree(chunk, 0, MEM_RELEASE);
 }
 
