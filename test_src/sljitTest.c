@@ -114,7 +114,7 @@ static void test_exec_allocator(void)
 
 #undef MALLOC_EXEC
 
-#endif // SLJIT_CONFIG_UNSUPPORTED
+#endif // !SLJIT_DEFINED(CONFIG_UNSUPPORTED)
 
 static void test1(void)
 {
@@ -1575,6 +1575,10 @@ static void test23(void)
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_w buf[9];
 	int ibuf[5];
+	union {
+		int asint;
+		sljit_ub asbytes[4];
+	} u;
 #if SLJIT_DEFINED(64BIT_ARCHITECTURE)
 	sljit_w garbage = SLJIT_W(0x1234567812345678);
 #else
@@ -1630,6 +1634,7 @@ static void test23(void)
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_GENERAL_REG1, 0, SLJIT_GENERAL_REG1, 0, SLJIT_IMM, 100000 * sizeof(sljit_w));
 	sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM1(SLJIT_GENERAL_REG1), 100001 * sizeof(sljit_w), SLJIT_GENERAL_REG1, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_IMM, sizeof(sljit_w));
+	sljit_emit_op1(compiler, SLJIT_MOVU_SI, SLJIT_MEM1(SLJIT_GENERAL_REG2), sizeof(int), SLJIT_IMM, 0x12345678);
 
 	sljit_emit_return(compiler, SLJIT_UNUSED, 0);
 
@@ -1650,6 +1655,18 @@ static void test23(void)
 
 	FAILED(ibuf[0] != 34567, "test23 case 10 failed\n");
 	FAILED(ibuf[1] != -7654, "test23 case 11 failed\n");
+	u.asint = ibuf[4];
+#if SLJIT_DEFINED(LITTLE_ENDIAN)
+	FAILED(u.asbytes[0] != 0x78, "test23 case 12 failed\n");
+	FAILED(u.asbytes[1] != 0x56, "test23 case 13 failed\n");
+	FAILED(u.asbytes[2] != 0x34, "test23 case 14 failed\n");
+	FAILED(u.asbytes[3] != 0x12, "test23 case 15 failed\n");
+#else
+	FAILED(u.asbytes[0] != 0x12, "test23 case 12 failed\n");
+	FAILED(u.asbytes[1] != 0x34, "test23 case 13 failed\n");
+	FAILED(u.asbytes[2] != 0x56, "test23 case 14 failed\n");
+	FAILED(u.asbytes[3] != 0x78, "test23 case 15 failed\n");
+#endif
 
 	sljit_free_code(code.code);
 	printf("test23 ok\n");
