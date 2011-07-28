@@ -49,8 +49,18 @@
 #error "An architecture must be selected"
 #endif
 
+// Sanity check
+#if SLJIT_DEFINED(CONFIG_X86_32) + SLJIT_DEFINED(CONFIG_X86_64) \
+	+ SLJIT_DEFINED(CONFIG_ARM_V5) + SLJIT_DEFINED(CONFIG_ARM_V7) \
+	+ SLJIT_DEFINED(CONFIG_ARM_THUMB2) + SLJIT_DEFINED(CONFIG_PPC_32) \
+	+ SLJIT_DEFINED(CONFIG_PPC_64) + SLJIT_DEFINED(CONFIG_MIPS_32) \
+	+ SLJIT_DEFINED(CONFIG_AUTO) + SLJIT_DEFINED(CONFIG_UNSUPPORTED) >= 2
+#error "Multiple architectures are selected"
+#endif
+
 // Auto select option (requires compiler support)
 #if SLJIT_DEFINED(CONFIG_AUTO)
+
 #ifndef _WIN32
 
 #if defined(__i386__) || defined(__i386)
@@ -211,16 +221,25 @@ typedef long int sljit_w;
 
 #endif // !SLJIT_CALL
 
-#if !SLJIT_DEFINED(SLJIT_BIG_ENDIAN) && !SLJIT_DEFINED(SLJIT_LITTLE_ENDIAN)
+#if !defined(SLJIT_BIG_ENDIAN) && !defined(SLJIT_LITTLE_ENDIAN)
 
 // These macros are useful for the application.
-#if SLJIT_DEFINED(CONFIG_PPC_32) || SLJIT_DEFINED(CONFIG_PPC_64)
+#if SLJIT_DEFINED(CONFIG_PPC_32) || SLJIT_DEFINED(CONFIG_PPC_64) || SLJIT_DEFINED(CONFIG_MIPS_32)
 #define SLJIT_BIG_ENDIAN 1
 #else
 #define SLJIT_LITTLE_ENDIAN 1
 #endif
 
-#endif // !SLJIT_DEFINED(SLJIT_BIG_ENDIAN) && !SLJIT_DEFINED(SLJIT_LITTLE_ENDIAN)
+#endif // !defined(SLJIT_BIG_ENDIAN) && !defined(SLJIT_LITTLE_ENDIAN)
+
+// Sanity check
+#if SLJIT_DEFINED(BIG_ENDIAN) && SLJIT_DEFINED(LITTLE_ENDIAN)
+#error "Exactly one endianness must be selected"
+#endif
+
+#if !SLJIT_DEFINED(BIG_ENDIAN) && !SLJIT_DEFINED(LITTLE_ENDIAN)
+#error "Exactly one endianness must be selected"
+#endif
 
 #if SLJIT_DEFINED(CONFIG_PPC_64)
 // It seems ppc64 compilers use an indirect addressing for functions
@@ -228,7 +247,7 @@ typedef long int sljit_w;
 #define SLJIT_INDIRECT_CALL 1
 #endif
 
-#if !SLJIT_DEFINED(SLJIT_SSE2)
+#ifndef SLJIT_SSE2
 
 #if SLJIT_DEFINED(CONFIG_X86_32) || SLJIT_DEFINED(CONFIG_X86_64)
 // Turn on SSE2 support on x86 (operating on doubles)
@@ -243,9 +262,9 @@ typedef long int sljit_w;
 
 #endif // SLJIT_DEFINED(CONFIG_X86_32) || SLJIT_DEFINED(CONFIG_X86_64)
 
-#endif // !SLJIT_DEFINED(SLJIT_SSE2)
+#endif // !SLJIT_SSE2
 
-#if !SLJIT_DEFINED(SLJIT_UNALIGNED)
+#ifndef SLJIT_UNALIGNED
 
 #if SLJIT_DEFINED(CONFIG_X86_32) || SLJIT_DEFINED(CONFIG_X86_64) \
 	|| SLJIT_DEFINED(CONFIG_ARM_V7) || SLJIT_DEFINED(CONFIG_ARM_THUMB2) \
@@ -253,7 +272,7 @@ typedef long int sljit_w;
 #define SLJIT_UNALIGNED 1
 #endif
 
-#endif // !SLJIT_DEFINED(SLJIT_UNALIGNED)
+#endif // !SLJIT_UNALIGNED
 
 #if SLJIT_DEFINED(EXECUTABLE_ALLOCATOR)
 void* sljit_malloc_exec(sljit_uw size);
@@ -301,6 +320,6 @@ void sljit_free_exec(void* ptr);
 #define SLJIT_ASSERT_STOP() \
 	do { } while (0)
 
-#endif // SLJIT_DEBUG
+#endif // SLJIT_DEFINED(DEBUG)
 
 #endif

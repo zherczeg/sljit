@@ -196,6 +196,8 @@ static void init_compiler(void);
 struct sljit_compiler* sljit_create_compiler(void)
 {
 	struct sljit_compiler *compiler = (struct sljit_compiler*)SLJIT_MALLOC(sizeof(struct sljit_compiler));
+	// Compile time assert
+	SLJIT_CONST int minus1[sizeof(int) == 4 && sizeof(sljit_b) == 1 && (sizeof(sljit_w) == 4 || sizeof(sljit_w) == 8) ? 1 : -1] = { -1 };
 
 	if (!compiler)
 		return NULL;
@@ -226,8 +228,8 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->abuf->next = NULL;
 	compiler->abuf->used_size = 0;
 
-	compiler->temporaries = -1;
-	compiler->generals = -1;
+	compiler->temporaries = minus1[0];
+	compiler->generals = minus1[0];
 	compiler->local_size = 0;
 	compiler->size = 0;
 
