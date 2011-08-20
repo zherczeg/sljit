@@ -27,70 +27,70 @@
 #ifndef _SLJIT_CONFIG_H_
 #define _SLJIT_CONFIG_H_
 
-// ---------------------------------------------------------------------
-//  Architecture
-// ---------------------------------------------------------------------
+/* --------------------------------------------------------------------- */
+/*  Architecture                                                         */
+/* --------------------------------------------------------------------- */
 
-// Architecture selection
-// #define SLJIT_CONFIG_X86_32 1
-// #define SLJIT_CONFIG_X86_64 1
-// #define SLJIT_CONFIG_ARM_V5 1
-// #define SLJIT_CONFIG_ARM_V7 1
-// #define SLJIT_CONFIG_ARM_THUMB2 1
-// #define SLJIT_CONFIG_PPC_32 1
-// #define SLJIT_CONFIG_PPC_64 1
-// #define SLJIT_CONFIG_MIPS_32 1
+/* Architecture selection */
+/* #define SLJIT_CONFIG_X86_32 1 */
+/* #define SLJIT_CONFIG_X86_64 1 */
+/* #define SLJIT_CONFIG_ARM_V5 1 */
+/* #define SLJIT_CONFIG_ARM_V7 1 */
+/* #define SLJIT_CONFIG_ARM_THUMB2 1 */
+/* #define SLJIT_CONFIG_PPC_32 1 */
+/* #define SLJIT_CONFIG_PPC_64 1 */
+/* #define SLJIT_CONFIG_MIPS_32 1 */
 
-// #define SLJIT_CONFIG_AUTO 1
-// #define SLJIT_CONFIG_UNSUPPORTED 1
+/* #define SLJIT_CONFIG_AUTO 1 */
+/* #define SLJIT_CONFIG_UNSUPPORTED 1 */
 
-// ---------------------------------------------------------------------
-//  Utilities
-// ---------------------------------------------------------------------
+/* --------------------------------------------------------------------- */
+/*  Utilities                                                            */
+/* --------------------------------------------------------------------- */
 
-// Useful for thread-safe compiling of global functions
+/* Useful for thread-safe compiling of global functions. */
 #ifndef SLJIT_UTIL_GLOBAL_LOCK
-// Enabled by default
+/* Enabled by default */
 #define SLJIT_UTIL_GLOBAL_LOCK 1
 #endif
 
-// Implements a stack like data structure (by using mmap / VirtualAlloc)
+/* Implements a stack like data structure (by using mmap / VirtualAlloc). */
 #ifndef SLJIT_UTIL_STACK
-// Enabled by default
+/* Enabled by default */
 #define SLJIT_UTIL_STACK 1
 #endif
 
-// ---------------------------------------------------------------------
-//  Configuration
-// ---------------------------------------------------------------------
+/* --------------------------------------------------------------------- */
+/*  Configuration                                                        */
+/* --------------------------------------------------------------------- */
 
-// If SLJIT_STD_MACROS_DEFINED is not defined, the application should
-// define SLJIT_MALLOC, SLJIT_FREE, SLJIT_MEMMOVE, and NULL
+/* If SLJIT_STD_MACROS_DEFINED is not defined, the application should
+   define SLJIT_MALLOC, SLJIT_FREE, SLJIT_MEMMOVE, and NULL. */
 #ifndef SLJIT_STD_MACROS_DEFINED
-// Disabled by default
+/* Disabled by default. */
 #define SLJIT_STD_MACROS_DEFINED 0
 #endif
 
-// Executable code allocation
-// If SLJIT_EXECUTABLE_ALLOCATOR is not defined, the application should
-// define both SLJIT_MALLOC_EXEC and SLJIT_FREE_EXEC
+/* Executable code allocation:
+   If SLJIT_EXECUTABLE_ALLOCATOR is not defined, the application should
+   define both SLJIT_MALLOC_EXEC and SLJIT_FREE_EXEC. */
 #ifndef SLJIT_EXECUTABLE_ALLOCATOR
-// Enabled by default
+/* Enabled by default. */
 #define SLJIT_EXECUTABLE_ALLOCATOR 1
 #endif
 
-// Debug checks (assertions, etc)
+/* Debug checks (assertions, etc.). */
 #ifndef SLJIT_DEBUG
-// Enabled by default
+/* Enabled by default */
 #define SLJIT_DEBUG 1
 #endif
 
-// Verbose operations
+/* Verbose operations */
 #ifndef SLJIT_VERBOSE
-// Enabled by default
+/* Enabled by default */
 #define SLJIT_VERBOSE 1
 #endif
 
-// See the beginning of sljitConfigInternal.h
+/* See the beginning of sljitConfigInternal.h */
 
 #endif

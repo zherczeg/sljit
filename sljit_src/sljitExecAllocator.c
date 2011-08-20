@@ -25,57 +25,59 @@
  */
 
 /*
- This file contains a simple executable memory allocator
+   This file contains a simple executable memory allocator
 
- It is assumed, that executable code blocks are usually medium (or sometimes
- large) memory blocks, and the allocator is not too frequently called (less
- optimized than other allocators). Thus, using it as a generic allocator is
- not suggested.
+   It is assumed, that executable code blocks are usually medium (or sometimes
+   large) memory blocks, and the allocator is not too frequently called (less
+   optimized than other allocators). Thus, using it as a generic allocator is
+   not suggested.
 
- How does it work:
-   Memory is allocated in continuous memory areas called chunks by alloc_chunk()
-   Chunk format:
-   [ block ][ block ] ... [ block ][ block terminator ]
+   How does it work:
+     Memory is allocated in continuous memory areas called chunks by alloc_chunk()
+     Chunk format:
+     [ block ][ block ] ... [ block ][ block terminator ]
 
- All blocks and the block terminator is started with block_header. The block
- header contains the size of the previous and the next block. These sizes
- can also contain special values.
-   Block size:
-     0 - The block is a free_block, with a different size member.
-     1 - The block is a block terminator.
-     n - The block is used at the moment, and the value contains its size.
-   Previous block size:
-     0 - This is the first block of the memory chunk.
-     n - The size of the previous block.
+   All blocks and the block terminator is started with block_header. The block
+   header contains the size of the previous and the next block. These sizes
+   can also contain special values.
+     Block size:
+       0 - The block is a free_block, with a different size member.
+       1 - The block is a block terminator.
+       n - The block is used at the moment, and the value contains its size.
+     Previous block size:
+       0 - This is the first block of the memory chunk.
+       n - The size of the previous block.
 
- Using these size values we can go forward or backward on the block chain.
- The unused blocks are stored in a chain list pointed by free_blocks. This
- list is useful if we need to find a suitable memory area when the allocator
- is called.
+   Using these size values we can go forward or backward on the block chain.
+   The unused blocks are stored in a chain list pointed by free_blocks. This
+   list is useful if we need to find a suitable memory area when the allocator
+   is called.
  
- When a block is freed, the new free block is connected to its adjacent free
- blocks if possible.
+   When a block is freed, the new free block is connected to its adjacent free
+   blocks if possible.
 
-   [ free block ][ used block ][ free block ]
- and "used block" is freed, the three blocks are connected together:
-   [           one big free block           ]
+     [ free block ][ used block ][ free block ]
+   and "used block" is freed, the three blocks are connected together:
+     [           one big free block           ]
 */
 
-// ---------------------------------------------------------------------
-//  System (OS) functions
-// ---------------------------------------------------------------------
+/* --------------------------------------------------------------------- */
+/*  System (OS) functions                                                */
+/* --------------------------------------------------------------------- */
 
-// 64 KByte
+/* 64 KByte. */
 #define CHUNK_SIZE	0x10000
 
-// alloc_chunk / free_chunk :
-//   * allocate executable system memory chunks
-//   * the size is always divisible by CHUNK_SIZE
-// allocator_grab_lock / allocator_release_lock :
-//   * make the allocator thread safe
-//   * can be empty if the OS (or the application) does not support threading
-//   * only the allocator requires this lock, sljit is fully thread safe
-//     as it only uses local variables
+/*
+   alloc_chunk / free_chunk :
+     * allocate executable system memory chunks
+     * the size is always divisible by CHUNK_SIZE
+   allocator_grab_lock / allocator_release_lock :
+     * make the allocator thread safe
+     * can be empty if the OS (or the application) does not support threading
+     * only the allocator requires this lock, sljit is fully thread safe
+       as it only uses local variables
+*/
 
 #ifdef _WIN32
 
@@ -107,9 +109,9 @@ static SLJIT_INLINE void free_chunk(void* chunk, sljit_uw size)
 
 #endif
 
-// ---------------------------------------------------------------------
-//  Common functions
-// ---------------------------------------------------------------------
+/* --------------------------------------------------------------------- */
+/*  Common functions                                                     */
+/* --------------------------------------------------------------------- */
 
 #define CHUNK_MASK	(~(CHUNK_SIZE - 1))
 
@@ -178,7 +180,7 @@ void* sljit_malloc_exec(sljit_uw size)
 		if (free_block->size >= size) {
 			chunk_size = free_block->size;
 			if (chunk_size > size + 64) {
-				// We just cut a block from the end of the free block
+				/* We just cut a block from the end of the free block. */
 				chunk_size -= size;
 				free_block->size = chunk_size;
 				header = AS_BLOCK_HEADER(free_block, chunk_size);
@@ -207,7 +209,7 @@ void* sljit_malloc_exec(sljit_uw size)
 
 	header->prev_size = 0;
 	if (chunk_size > size + 64) {
-		// Cut the allocated space into a free and a used block
+		/* Cut the allocated space into a free and a used block. */
 		allocated_size += size;
 		header->size = size;
 		chunk_size -= size;
@@ -218,7 +220,7 @@ void* sljit_malloc_exec(sljit_uw size)
 		next_header = AS_BLOCK_HEADER(free_block, chunk_size);
 	}
 	else {
-		// All space belongs to this allocation
+		/* All space belongs to this allocation. */
 		allocated_size += chunk_size;
 		header->size = chunk_size;
 		next_header = AS_BLOCK_HEADER(header, chunk_size);
@@ -238,10 +240,10 @@ void sljit_free_exec(void* ptr)
 	header = AS_BLOCK_HEADER(ptr, -sizeof(struct block_header));
 	allocated_size -= header->size;
 
-	// Connecting free blocks together if possible
+	/* Connecting free blocks together if possible. */
 
-	// If header->prev_size == 0, free_block will equal to header
-	// In this case, free_block->header.size will be > 0
+	/* If header->prev_size == 0, free_block will equal to header.
+	   In this case, free_block->header.size will be > 0. */
 	free_block = AS_FREE_BLOCK(header, -header->prev_size);
 	if (SLJIT_UNLIKELY(!free_block->header.size)) {
 		free_block->size += header->size;
