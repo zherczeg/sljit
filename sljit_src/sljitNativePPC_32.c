@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// ppc 32-bit arch dependent functions
+/* ppc 32-bit arch dependent functions. */
 
 static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 {
@@ -229,7 +229,7 @@ static SLJIT_INLINE int emit_const(struct sljit_compiler *compiler, int reg, slj
 
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 {
-	sljit_i *inst = (sljit_i*)addr;
+	sljit_ins *inst = (sljit_ins*)addr;
 
 	inst[0] = (inst[0] & 0xffff0000) | ((new_addr >> 16) & 0xffff);
 	inst[1] = (inst[1] & 0xffff0000) | (new_addr & 0xffff);
@@ -238,7 +238,7 @@ void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 
 void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 {
-	sljit_i *inst = (sljit_i*)addr;
+	sljit_ins *inst = (sljit_ins*)addr;
 
 	inst[0] = (inst[0] & 0xffff0000) | ((new_constant >> 16) & 0xffff);
 	inst[1] = (inst[1] & 0xffff0000) | (new_constant & 0xffff);

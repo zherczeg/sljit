@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// mips 32-bit arch dependent functions
+/* mips 32-bit arch dependent functions. */
 
 static int load_immediate(struct sljit_compiler *compiler, int dst_ar, sljit_w imm)
 {
@@ -89,7 +89,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 					FAIL_IF(push_inst(compiler, OR | S(src1) | TA(ULESS_FLAG) | DA(ULESS_FLAG), ULESS_FLAG));
 				}
 			}
-			// dst may be the same as src1 or src2
+			/* dst may be the same as src1 or src2. */
 			if (CHECK_FLAGS(SLJIT_SET_E))
 				FAIL_IF(push_inst(compiler, ADDIU | S(src1) | T(dst) | IMM(src2), DR(dst)));
 			if (op & SLJIT_SET_O) {
@@ -107,7 +107,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 				else if (src2 != dst)
 					overflow_ra = DR(src2);
 				else {
-					// Rare ocasion
+					/* Rare ocasion. */
 					FAIL_IF(push_inst(compiler, ADDU | S(src1) | TA(0) | DA(TMP_EREG2), TMP_EREG2));
 					overflow_ra = TMP_EREG2;
 				}
@@ -116,7 +116,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 				FAIL_IF(push_inst(compiler, ADDU | S(src1) | T(src2) | DA(EQUAL_FLAG), EQUAL_FLAG));
 			if (op & SLJIT_SET_C)
 				FAIL_IF(push_inst(compiler, OR | S(src1) | T(src2) | DA(ULESS_FLAG), ULESS_FLAG));
-			// dst may be the same as src1 or src2
+			/* dst may be the same as src1 or src2. */
 			if (CHECK_FLAGS(SLJIT_SET_E))
 				FAIL_IF(push_inst(compiler, ADDU | S(src1) | T(src2) | D(dst), DR(dst)));
 			if (op & SLJIT_SET_O) {
@@ -125,7 +125,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 			}
 		}
 
-		// a + b >= a | b (otherwise, the carry should be set to 1)
+		/* a + b >= a | b (otherwise, the carry should be set to 1). */
 		if (op & SLJIT_SET_C)
 			FAIL_IF(push_inst(compiler, SLTU | S(dst) | TA(ULESS_FLAG) | DA(ULESS_FLAG), ULESS_FLAG));
 		if (op & SLJIT_SET_O)
@@ -146,7 +146,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		} else {
 			if (op & SLJIT_SET_C)
 				FAIL_IF(push_inst(compiler, OR | S(src1) | T(src2) | DA(TMP_EREG1), TMP_EREG1));
-			// dst may be the same as src1 or src2
+			/* dst may be the same as src1 or src2. */
 			FAIL_IF(push_inst(compiler, ADDU | S(src1) | T(src2) | D(dst), DR(dst)));
 		}
 		if (op & SLJIT_SET_C)
@@ -156,10 +156,10 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		if (!(op & SLJIT_SET_C))
 			return SLJIT_SUCCESS;
 
-		// Set TMP_EREG2 (dst == 0) && (ULESS_FLAG == 1)
+		/* Set TMP_EREG2 (dst == 0) && (ULESS_FLAG == 1). */
 		FAIL_IF(push_inst(compiler, SLTIU | S(dst) | TA(TMP_EREG2) | IMM(1), TMP_EREG2));
 		FAIL_IF(push_inst(compiler, AND | SA(TMP_EREG2) | TA(ULESS_FLAG) | DA(TMP_EREG2), TMP_EREG2));
-		// Set carry flag
+		/* Set carry flag. */
 		return push_inst(compiler, OR | SA(TMP_EREG2) | TA(TMP_EREG1) | DA(ULESS_FLAG), ULESS_FLAG);
 
 	case SLJIT_SUB:
@@ -177,7 +177,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 				if (src1 != dst)
 					overflow_ra = DR(src1);
 				else {
-					// Rare ocasion
+					/* Rare ocasion. */
 					FAIL_IF(push_inst(compiler, ADDU | S(src1) | TA(0) | DA(TMP_EREG2), TMP_EREG2));
 					overflow_ra = TMP_EREG2;
 				}
@@ -186,7 +186,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 				FAIL_IF(push_inst(compiler, ADDIU | S(src1) | TA(EQUAL_FLAG) | IMM(-src2), EQUAL_FLAG));
 			if (op & SLJIT_SET_C)
 				FAIL_IF(push_inst(compiler, SLTIU | S(src1) | TA(ULESS_FLAG) | IMM(src2), ULESS_FLAG));
-			// dst may be the same as src1 or src2
+			/* dst may be the same as src1 or src2. */
 			if (CHECK_FLAGS(SLJIT_SET_E))
 				FAIL_IF(push_inst(compiler, ADDIU | S(src1) | T(dst) | IMM(-src2), DR(dst)));
 		}
@@ -197,7 +197,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 				if (src1 != dst)
 					overflow_ra = DR(src1);
 				else {
-					// Rare ocasion
+					/* Rare ocasion. */
 					FAIL_IF(push_inst(compiler, ADDU | S(src1) | TA(0) | DA(TMP_EREG2), TMP_EREG2));
 					overflow_ra = TMP_EREG2;
 				}
@@ -212,7 +212,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 				FAIL_IF(push_inst(compiler, SLT | S(src1) | T(src2) | DA(LESS_FLAG), LESS_FLAG));
 				FAIL_IF(push_inst(compiler, SLT | S(src2) | T(src1) | DA(GREATER_FLAG), GREATER_FLAG));
 			}
-			// dst may be the same as src1 or src2
+			/* dst may be the same as src1 or src2. */
 			if (CHECK_FLAGS(SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_C))
 				FAIL_IF(push_inst(compiler, SUBU | S(src1) | T(src2) | D(dst), DR(dst)));
 		}
@@ -234,13 +234,13 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		if (flags & SRC2_IMM) {
 			if (op & SLJIT_SET_C)
 				FAIL_IF(push_inst(compiler, SLTIU | S(src1) | TA(TMP_EREG1) | IMM(-src2), TMP_EREG1));
-			// dst may be the same as src1 or src2
+			/* dst may be the same as src1 or src2. */
 			FAIL_IF(push_inst(compiler, ADDIU | S(src1) | T(dst) | IMM(-src2), DR(dst)));
 		}
 		else {
 			if (op & SLJIT_SET_C)
 				FAIL_IF(push_inst(compiler, SLTU | S(src1) | T(src2) | DA(TMP_EREG1), TMP_EREG1));
-			// dst may be the same as src1 or src2
+			/* dst may be the same as src1 or src2. */
 			FAIL_IF(push_inst(compiler, SUBU | S(src1) | T(src2) | D(dst), DR(dst)));
 		}
 
@@ -349,7 +349,7 @@ static SLJIT_INLINE int emit_const(struct sljit_compiler *compiler, int reg, slj
 
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 {
-	sljit_i *inst = (sljit_i*)addr;
+	sljit_ins *inst = (sljit_ins*)addr;
 
 	inst[0] = (inst[0] & 0xffff0000) | ((new_addr >> 16) & 0xffff);
 	inst[1] = (inst[1] & 0xffff0000) | (new_addr & 0xffff);
@@ -358,7 +358,7 @@ void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 
 void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 {
-	sljit_i *inst = (sljit_i*)addr;
+	sljit_ins *inst = (sljit_ins*)addr;
 
 	inst[0] = (inst[0] & 0xffff0000) | ((new_constant >> 16) & 0xffff);
 	inst[1] = (inst[1] & 0xffff0000) | (new_constant & 0xffff);

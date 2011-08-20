@@ -81,13 +81,13 @@ void verbose_test(regex_char_t *pattern, regex_char_t *string)
 #endif
 
 struct test_case {
-	int begin;	// awaited begin
-	int end;	// awaited end
-	int id;		// awaited id
-	int finished;	// -1 : don't care, 0 : false, 1 : true
-	int flags;	// REGEX_MATCH_*
-	const regex_char_t *pattern;	// NULL : use the previous pattern
-	const regex_char_t *string;	// NULL : end of tests
+	int begin;	/* Expected begin. */
+	int end;	/* Expected end. */
+	int id;		/* Expected id. */
+	int finished;	/* -1 : don't care, 0 : false, 1 : true. */
+	int flags;	/* REGEX_MATCH_* */
+	const regex_char_t *pattern;	/* NULL : use the previous pattern. */
+	const regex_char_t *string;	/* NULL : end of tests. */
 };
 
 void run_tests(struct test_case* test)
@@ -180,7 +180,7 @@ void run_tests(struct test_case* test)
 		printf("Summary: Success: %d Fail: %d\n", success, fail);
 }
 
-// Testing
+/* Testing. */
 
 static struct test_case tests[] = {
 { 3, 7, 0, -1, 0,
@@ -280,12 +280,12 @@ static struct test_case tests[] = {
 int main(int argc, char* argv[])
 {
 	printf("Generating code for: %s\n", regex_get_platform_name());
-//	verbose_test("a((b)((c|d))|)c|");
-//	verbose_test("Xa{009,0010}Xb{,7}Xc{5,}Xd{,}Xe{1,}Xf{,1}X");
-//	verbose_test("{3!}({3})({0!}){,");
-//	verbose_test("(s(ab){2,4}t){2,}*S(a*(b)(c()|)d+){3,4}{0,0}*M");
-//	verbose_test("^a({2!})*b+(a|{1!}b)+d$");
-//	verbose_test("((a|b|c)*(xy)+)+", "asbcxyxy");
+/*	verbose_test("a((b)((c|d))|)c|"); */
+/*	verbose_test("Xa{009,0010}Xb{,7}Xc{5,}Xd{,}Xe{1,}Xf{,1}X"); */
+/*	verbose_test("{3!}({3})({0!}){,"); */
+/*	verbose_test("(s(ab){2,4}t){2,}*S(a*(b)(c()|)d+){3,4}{0,0}*M"); */
+/*	verbose_test("^a({2!})*b+(a|{1!}b)+d$"); */
+/*	verbose_test("((a|b|c)*(xy)+)+", "asbcxyxy"); */
 
 	run_tests(tests);
 	return 0;

@@ -57,7 +57,7 @@ void devel(void)
 	buf[2] = 0;
 	buf[3] = 0;
 
-#if SLJIT_DEFINED(VERBOSE)
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	sljit_compiler_verbose(compiler, stdout);
 #endif
 	sljit_emit_enter(compiler, 1, 4, 5, 2 * sizeof(sljit_w));
@@ -79,7 +79,7 @@ void devel(void)
 
 int main(int argc, char* argv[])
 {
-	//devel();
+	/* devel(); */
 	sljit_test();
 
 	return 0;

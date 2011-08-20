@@ -26,16 +26,16 @@
 
 SLJIT_CONST char* sljit_get_platform_name()
 {
-#if SLJIT_DEFINED(CONFIG_ARM_V7)
+#if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 	return "arm-v7";
-#elif SLJIT_DEFINED(CONFIG_ARM_V5)
+#elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	return "arm-v5";
 #else
 #error "Internal error: Unknown ARM architecture"
 #endif
 }
 
-// Last register + 1
+/* Last register + 1. */
 #define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
 #define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
 #define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
@@ -44,8 +44,8 @@ SLJIT_CONST char* sljit_get_platform_name()
 #define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
 #define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
 
-// In ARM instruction words
-// Cache lines are usually 32 byte aligned
+/* In ARM instruction words.
+   Cache lines are usually 32 byte aligned. */
 #define CONST_POOL_ALIGNMENT	8
 #define CONST_POOL_EMPTY	0xffffffff
 
@@ -54,7 +54,7 @@ SLJIT_CONST char* sljit_get_platform_name()
 #define MAX_DIFFERENCE(max_diff) \
 	(((max_diff) / (int)sizeof(sljit_uw)) - (CONST_POOL_ALIGNMENT - 1))
 
-// See sljit_emit_enter if you want to change them
+/* See sljit_emit_enter if you want to change them. */
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
   0, 0, 1, 2, 10, 11, 4, 5, 6, 7, 8, 13, 3, 12, 14, 15
 };
@@ -63,16 +63,17 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define RD(rd) (reg_map[rd] << 12)
 #define RN(rn) (reg_map[rn] << 16)
 
-// ---------------------------------------------------------------------
-//  Instrucion forms
-// ---------------------------------------------------------------------
-// The instruction includes the AL condition
-// INST_NAME - CONDITIONAL remove this flag
+/* --------------------------------------------------------------------- */
+/*  Instrucion forms                                                     */
+/* --------------------------------------------------------------------- */
+
+/* The instruction includes the AL condition.
+   INST_NAME - CONDITIONAL remove this flag. */
 #define COND_MASK	0xf0000000
 #define CONDITIONAL	0xe0000000
 #define PUSH_POOL	0xff000000
 
-// DP - Data Processing instruction (use with EMIT_DATA_PROCESS_INS)
+/* DP - Data Processing instruction (use with EMIT_DATA_PROCESS_INS). */
 #define ADC_DP		0x5
 #define ADD_DP		0x4
 #define AND_DP		0x0
@@ -108,8 +109,8 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define VSTR		0xed000b00
 #define VSUB_F64	0xee300b40
 
-#if SLJIT_DEFINED(CONFIG_ARM_V7)
-// Arm v7 instructions
+#if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+/* Arm v7 specific instructions. */
 #define MOVW		0xe3000000
 #define MOVT		0xe3400000
 #define SXTB		0xe6af0070
@@ -118,17 +119,17 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define UXTH		0xe6ff0070
 #endif
 
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 
 static int push_cpool(struct sljit_compiler *compiler)
 {
-	// Pushing the constant pool into the instruction stream
+	/* Pushing the constant pool into the instruction stream. */
 	sljit_uw* inst;
 	sljit_uw* cpool_ptr;
 	sljit_uw* cpool_end;
 	int i;
 
-	// The label could point the address after the constant pool
+	/* The label could point the address after the constant pool. */
 	if (compiler->last_label && compiler->last_label->size == compiler->size)
 		compiler->last_label->size += compiler->cpool_fill + (CONST_POOL_ALIGNMENT - 1) + 1;
 
@@ -197,7 +198,7 @@ static int push_inst_with_literal(struct sljit_compiler *compiler, sljit_uw inst
 	}
 
 	if (cpool_index == CPOOL_SIZE) {
-		// Must allocate a new entry in the literal pool
+		/* Must allocate a new entry in the literal pool. */
 		if (compiler->cpool_fill < CPOOL_SIZE) {
 			cpool_index = compiler->cpool_fill;
 			compiler->cpool_fill++;
@@ -244,7 +245,7 @@ static int push_inst_with_unique_literal(struct sljit_compiler *compiler, sljit_
 
 static SLJIT_INLINE int prepare_blx(struct sljit_compiler *compiler)
 {
-	// Place for at least two instruction (doesn't matter whether the first has a literal)
+	/* Place for at least two instruction (doesn't matter whether the first has a literal). */
 	if (SLJIT_UNLIKELY(compiler->cpool_diff != CONST_POOL_EMPTY && compiler->size - compiler->cpool_diff >= MAX_DIFFERENCE(4088)))
 		return push_cpool(compiler);
 	return SLJIT_SUCCESS;
@@ -252,7 +253,7 @@ static SLJIT_INLINE int prepare_blx(struct sljit_compiler *compiler)
 
 static SLJIT_INLINE int emit_blx(struct sljit_compiler *compiler)
 {
-	// Must follow tightly the previous instruction (to be able to convert it to bl instruction)
+	/* Must follow tightly the previous instruction (to be able to convert it to bl instruction). */
 	SLJIT_ASSERT(compiler->cpool_diff == CONST_POOL_EMPTY || compiler->size - compiler->cpool_diff < MAX_DIFFERENCE(4092));
 	return push_inst(compiler, BLX | RM(TMP_REG1));
 }
@@ -266,19 +267,19 @@ static sljit_uw patch_pc_relative_loads(sljit_uw *last_pc_patch, sljit_uw *code_
 	sljit_uw* clear_const_pool_end = const_pool + cpool_size;
 
 	SLJIT_ASSERT(const_pool - code_ptr <= CONST_POOL_ALIGNMENT);
-	// Set unused flag for all literals in the constant pool
-	// I.e.: unused literals can belong to branches, which can be encoded as B or BL
-	// We can "compress" the constant pool by discarding these literals
+	/* Set unused flag for all literals in the constant pool.
+	   I.e.: unused literals can belong to branches, which can be encoded as B or BL.
+	   We can "compress" the constant pool by discarding these literals. */
 	while (clear_const_pool < clear_const_pool_end)
 		*clear_const_pool++ = (sljit_uw)(-1);
 
 	while (last_pc_patch < code_ptr) {
-		// Data transfer instruction with Rn == r15
+		/* Data transfer instruction with Rn == r15. */
 		if ((*last_pc_patch & 0x0c0f0000) == 0x040f0000) {
 			diff = const_pool - last_pc_patch;
 			ind = (*last_pc_patch) & 0xfff;
 
-			// Must be a load instruction with immediate offset
+			/* Must be a load instruction with immediate offset. */
 			SLJIT_ASSERT(ind < cpool_size && !(*last_pc_patch & (1 << 25)) && (*last_pc_patch & (1 << 20)));
 			if ((int)const_pool[ind] < 0) {
 				const_pool[ind] = counter;
@@ -302,7 +303,7 @@ static sljit_uw patch_pc_relative_loads(sljit_uw *last_pc_patch, sljit_uw *code_
 	return counter;
 }
 
-// In some rare ocasions we may need future patches. The probability is close to 0 in practice
+/* In some rare ocasions we may need future patches. The probability is close to 0 in practice. */
 struct future_patch {
 	struct future_patch* next;
 	int index;
@@ -314,7 +315,7 @@ static SLJIT_INLINE int resolve_const_pool_index(struct future_patch **first_pat
 	int value;
 	struct future_patch *curr_patch, *prev_patch;
 
-	// Using the values generated by patch_pc_relative_loads
+	/* Using the values generated by patch_pc_relative_loads. */
 	if (!*first_patch)
 		value = (int)cpool_start_address[cpool_current_index];
 	else {
@@ -388,7 +389,7 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uw *code
 	if (jump->flags & SLJIT_REWRITABLE_JUMP)
 		return 0;
 
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	if (jump->flags & IS_BL)
 		code_ptr--;
 
@@ -399,7 +400,7 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uw *code
 		diff = ((sljit_w)(code + jump->u.label->size) - (sljit_w)(code_ptr + 2));
 	}
 
-	// Branch to Thumb code has not optimized yet
+	/* Branch to Thumb code has not optimized yet. */
 	if (diff & 0x3)
 		return 0;
 
@@ -425,7 +426,7 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uw *code
 		diff = ((sljit_w)(code + jump->u.label->size) - (sljit_w)code_ptr);
 	}
 
-	// Branch to Thumb code has not optimized yet
+	/* Branch to Thumb code has not optimized yet. */
 	if (diff & 0x3)
 		return 0;
 
@@ -442,7 +443,7 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uw *code
 
 static SLJIT_INLINE void inline_set_jump_addr(sljit_uw addr, sljit_uw new_addr, int flush)
 {
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	sljit_uw *ptr = (sljit_uw*)addr;
 	sljit_uw *inst = (sljit_uw*)ptr[0];
 	sljit_uw mov_pc = ptr[1];
@@ -450,7 +451,7 @@ static SLJIT_INLINE void inline_set_jump_addr(sljit_uw addr, sljit_uw new_addr, 
 	sljit_w diff = (sljit_w)(((sljit_w)new_addr - (sljit_w)(inst + 2)) >> 2);
 
 	if (diff <= 0x7fffff && diff >= -0x800000) {
-		// Turn to branch
+		/* Turn to branch. */
 		if (!bl) {
 			inst[0] = (mov_pc & COND_MASK) | (B - CONDITIONAL) | (diff & 0xffffff);
 			if (flush) {
@@ -464,7 +465,7 @@ static SLJIT_INLINE void inline_set_jump_addr(sljit_uw addr, sljit_uw new_addr, 
 			}
 		}
 	} else {
-		// Get the position of the constant
+		/* Get the position of the constant. */
 		if (mov_pc & (1 << 23))
 			ptr = inst + ((mov_pc & 0xfff) >> 2) + 2;
 		else
@@ -500,7 +501,7 @@ static sljit_uw get_immediate(sljit_uw imm);
 
 static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_w new_constant, int flush)
 {
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	sljit_uw *ptr = (sljit_uw*)addr;
 	sljit_uw *inst = (sljit_uw*)ptr[0];
 	sljit_uw ldr_literal = ptr[1];
@@ -556,7 +557,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	sljit_uw *buf_end;
 	sljit_uw size;
 	sljit_uw word_count;
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	sljit_uw cpool_size;
 	sljit_uw cpool_skip_alignment;
 	sljit_uw cpool_current_index;
@@ -573,8 +574,8 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	check_sljit_generate_code(compiler);
 	reverse_buf(compiler);
 
-	// Second code generation pass
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+	/* Second code generation pass. */
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	size = compiler->size + (compiler->patches << 1);
 	if (compiler->cpool_fill > 0)
 		size += compiler->cpool_fill + CONST_POOL_ALIGNMENT - 1;
@@ -585,7 +586,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	PTR_FAIL_WITH_EXEC_IF(code);
 	buf = compiler->buf;
 
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	cpool_size = 0;
 	cpool_skip_alignment = 0;
 	cpool_current_index = 0;
@@ -612,7 +613,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		buf_end = buf_ptr + (buf->used_size >> 2);
 		do {
 			word_count++;
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 			if (cpool_size > 0) {
 				if (cpool_skip_alignment > 0) {
 					buf_ptr++;
@@ -629,7 +630,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 						SLJIT_ASSERT(!first_patch);
 						cpool_size = 0;
 						if (label && label->size == word_count) {
-							// Points after the current instruction
+							/* Points after the current instruction. */
 							label->addr = (sljit_uw)code_ptr;
 							label->size = code_ptr - code;
 							label = label->next;
@@ -640,12 +641,12 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 			else if ((*buf_ptr & 0xff000000) != PUSH_POOL) {
 #endif
 				*code_ptr = *buf_ptr++;
-				// These structures are ordered by their address
+				/* These structures are ordered by their address. */
 				SLJIT_ASSERT(!label || label->size >= word_count);
 				SLJIT_ASSERT(!jump || jump->addr >= word_count);
 				SLJIT_ASSERT(!const_ || const_->addr >= word_count);
 				if (jump && jump->addr == word_count) {
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 					if (detect_jump_type(jump, code_ptr, code))
 						code_ptr--;
 					jump->addr = (sljit_uw)code_ptr;
@@ -657,13 +658,13 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 					jump = jump->next;
 				}
 				if (label && label->size == word_count) {
-					// code_ptr can be affected above
+					/* code_ptr can be affected above. */
 					label->addr = (sljit_uw)(code_ptr + 1);
 					label->size = (code_ptr + 1) - code;
 					label = label->next;
 				}
 				if (const_ && const_->addr == word_count) {
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 					const_->addr = (sljit_uw)code_ptr;
 #else
 					const_->addr = (sljit_uw)(code_ptr - 1);
@@ -671,16 +672,16 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 					const_ = const_->next;
 				}
 				code_ptr++;
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 			}
 			else {
-				// Fortunately, no need to shift
+				/* Fortunately, no need to shift. */
 				cpool_size = *buf_ptr++ & ~PUSH_POOL;
 				SLJIT_ASSERT(cpool_size > 0);
 				cpool_start_address = ALIGN_INSTRUCTION(code_ptr + 1);
 				cpool_current_index = patch_pc_relative_loads(last_pc_patch, code_ptr, cpool_start_address, cpool_size);
 				if (cpool_current_index > 0) {
-					// unconditional branch
+					/* Unconditional branch. */
 					*code_ptr = B | (((cpool_start_address - code_ptr) + cpool_current_index - 2) & ~PUSH_POOL);
 					code_ptr = cpool_start_address + cpool_current_index;
 				}
@@ -697,7 +698,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	SLJIT_ASSERT(!jump);
 	SLJIT_ASSERT(!const_);
 
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	SLJIT_ASSERT(cpool_size == 0);
 	if (compiler->cpool_fill > 0) {
 		cpool_start_address = ALIGN_INSTRUCTION(code_ptr);
@@ -737,7 +738,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 			}
 		}
 		else if (jump->flags & SLJIT_REWRITABLE_JUMP) {
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 			jump->addr = (sljit_uw)code_ptr;
 			code_ptr[0] = (sljit_uw)buf_ptr;
 			code_ptr[1] = *buf_ptr;
@@ -748,7 +749,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 #endif
 		}
 		else {
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 			if (jump->flags & IS_BL)
 				buf_ptr--;
 			if (*buf_ptr & (1 << 23))
@@ -763,7 +764,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 		jump = jump->next;
 	}
 
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	const_ = compiler->consts;
 	while (const_) {
 		buf_ptr = (sljit_uw*)const_->addr;
@@ -775,7 +776,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 			buf_ptr += ((*buf_ptr & 0xfff) >> 2) + 2;
 		else
 			buf_ptr += 1;
-		// Set the value again (can be a simple constant)
+		/* Set the value again (can be a simple constant). */
 		inline_set_const((sljit_uw)code_ptr, *buf_ptr, 0);
 		code_ptr += 2;
 
@@ -790,15 +791,15 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 	return code;
 }
 
-// emit_op inp_flags
-// WRITE_BACK must be the first, since it is a flag
+/* emit_op inp_flags.
+   WRITE_BACK must be the first, since it is a flag. */
 #define WRITE_BACK	0x01
 #define ALLOW_IMM	0x02
 #define ALLOW_INV_IMM	0x04
 #define ALLOW_ANY_IMM	(ALLOW_IMM | ALLOW_INV_IMM)
 #define ARG_TEST	0x08
 
-// Creates an index in data_transfer_insts array
+/* Creates an index in data_transfer_insts array. */
 #define WORD_DATA	0x00
 #define BYTE_DATA	0x10
 #define HALF_DATA	0x20
@@ -808,7 +809,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 #define EMIT_INSTRUCTION(inst) \
 	FAIL_IF(push_inst(compiler, (inst)))
 
-// Condition: AL
+/* Condition: AL. */
 #define EMIT_DATA_PROCESS_INS(opcode, set_flags, dst, src1, src2) \
 	(0xe0000000 | ((opcode) << 21) | (set_flags) | RD(dst) | RN(src1) | (src2))
 
@@ -828,8 +829,8 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	compiler->temporaries = temporaries;
 	compiler->generals = generals;
 
-	// Push general registers, temporary registers
-	// stmdb sp!, {..., lr}
+	/* Push general registers, temporary registers
+	   stmdb sp!, {..., lr} */
 	push = PUSH | (1 << 14);
 	if (temporaries >= 5)
 		push |= 1 << 11;
@@ -847,7 +848,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 		push |= 1 << 4;
 	EMIT_INSTRUCTION(push);
 
-	// Stack must be aligned to 8 bytes:
+	/* Stack must be aligned to 8 bytes: */
 	size = (1 + generals) * sizeof(sljit_uw);
 	if (temporaries >= 4)
 		size += (temporaries - 3) * sizeof(sljit_uw);
@@ -901,8 +902,8 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 		FAIL_IF(emit_op(compiler, SLJIT_ADD, ALLOW_IMM, SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
 
 	pop = POP | (1 << 15);
-	// Push general registers, temporary registers
-	// ldmia sp!, {..., pc}
+	/* Push general registers, temporary registers
+	   ldmia sp!, {..., pc} */
 	if (compiler->temporaries >= 5)
 		pop |= 1 << 11;
 	if (compiler->temporaries >= 4)
@@ -921,14 +922,14 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	return push_inst(compiler, pop);
 }
 
-// ---------------------------------------------------------------------
-//  Operators
-// ---------------------------------------------------------------------
+/* --------------------------------------------------------------------- */
+/*  Operators                                                            */
+/* --------------------------------------------------------------------- */
 
-// s/l - store/load (1 bit)
-// u/s - signed/unsigned (1 bit)
-// w/b/h/N - word/byte/half/NOT allowed (2 bit)
-// It contans 16 items, but not all are different
+/* s/l - store/load (1 bit)
+   u/s - signed/unsigned (1 bit)
+   w/b/h/N - word/byte/half/NOT allowed (2 bit)
+   It contans 16 items, but not all are different. */
 
 static sljit_w data_transfer_insts[16] = {
 /* s u w */ 0xe5000000 /* str */,
@@ -952,31 +953,31 @@ static sljit_w data_transfer_insts[16] = {
 
 #define EMIT_DATA_TRANSFER(type, add, wb, target, base1, base2) \
 	(data_transfer_insts[(type) >> 4] | ((add) << 23) | ((wb) << 21) | (reg_map[target] << 12) | (reg_map[base1] << 16) | (base2))
-// Normal ldr/str instruction.
-// Type2: ldrsb, ldrh, ldrsh
+/* Normal ldr/str instruction.
+   Type2: ldrsb, ldrh, ldrsh */
 #define IS_TYPE1_TRANSFER(type) \
 	(data_transfer_insts[(type) >> 4] & 0x04000000)
 #define TYPE2_TRANSFER_IMM(imm) \
 	(((imm) & 0xf) | (((imm) & 0xf0) << 4) | (1 << 22))
 
-// flags:
-  // Arguments are swapped
+/* flags: */
+  /* Arguments are swapped. */
 #define ARGS_SWAPPED	0x01
-  // Inverted immediate
+  /* Inverted immediate. */
 #define INV_IMM		0x02
-  // Source and destination is register
+  /* Source and destination is register. */
 #define REG_DEST	0x04
 #define REG_SOURCE	0x08
-  // One instruction is enough
+  /* One instruction is enough. */
 #define FAST_DEST	0x10
-  // Multiple instructions are required
+  /* Multiple instructions are required. */
 #define SLOW_DEST	0x20
-// SET_FLAGS must be (1 << 20) as it is also the value of S bit (can be used for optimization)
+/* SET_FLAGS must be (1 << 20) as it is also the value of S bit (can be used for optimization). */
 #define SET_FLAGS	(1 << 20)
-// dst: reg
-// src1: reg
-// src2: reg or imm (if allowed)
-// SRC2_IMM must be (1 << 25) as it is also the value of I bit (can be used for optimization)
+/* dst: reg
+   src1: reg
+   src2: reg or imm (if allowed)
+   SRC2_IMM must be (1 << 25) as it is also the value of I bit (can be used for optimization). */
 #define SRC2_IMM	(1 << 25)
 
 #define EMIT_DATA_PROCESS_INS_AND_RETURN(opcode) \
@@ -1033,7 +1034,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		else if (dst != src1)
 			FAIL_IF(push_inst(compiler, mul_inst | (reg_map[src2] << 8) | reg_map[src1]));
 		else {
-			// Rm and Rd must not be the same register
+			/* Rm and Rd must not be the same register. */
 			SLJIT_ASSERT(dst != TMP_REG1);
 			FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG1, SLJIT_UNUSED, reg_map[src2])));
 			FAIL_IF(push_inst(compiler, mul_inst | (reg_map[src2] << 8) | reg_map[TMP_REG1]));
@@ -1042,10 +1043,10 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		if (!(op & SLJIT_SET_O))
 			return SLJIT_SUCCESS;
 
-		// We need to use TMP_REG3
+		/* We need to use TMP_REG3. */
 		compiler->cache_arg = 0;
 		compiler->cache_argw = 0;
-		// cmp TMP_REG2, dst asr #31
+		/* cmp TMP_REG2, dst asr #31. */
 		return push_inst(compiler, EMIT_DATA_PROCESS_INS(CMP_DP, SET_FLAGS, SLJIT_UNUSED, TMP_REG3, RM(dst) | 0xfc0));
 
 	case SLJIT_AND:
@@ -1086,7 +1087,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	case SLJIT_MOV_SB:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
 		if ((flags & (REG_DEST | REG_SOURCE)) == (REG_DEST | REG_SOURCE)) {
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 			if (op == SLJIT_MOV_UB)
 				return push_inst(compiler, EMIT_DATA_PROCESS_INS(AND_DP, 0, dst, src2, SRC2_IMM | 0xff));
 			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (24 << 7) | reg_map[src2]));
@@ -1107,7 +1108,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	case SLJIT_MOV_SH:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
 		if ((flags & (REG_DEST | REG_SOURCE)) == (REG_DEST | REG_SOURCE)) {
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (16 << 7) | reg_map[src2]));
 			return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (16 << 7) | (op == SLJIT_MOV_UH ? 0x20 : 0x40) | reg_map[dst]));
 #else
@@ -1146,8 +1147,8 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 #undef EMIT_FULL_DATA_PROCESS_INS_AND_RETURN
 #undef EMIT_SHIFT_INS_AND_RETURN
 
-// Tests whether the immediate can be stored in the 12 bit imm field
-// returns 0 if not possible
+/* Tests whether the immediate can be stored in the 12 bit imm field.
+   Returns with 0 if not possible. */
 static sljit_uw get_immediate(sljit_uw imm)
 {
 	int rol;
@@ -1185,7 +1186,7 @@ static sljit_uw get_immediate(sljit_uw imm)
 		return 0;
 }
 
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, int positive)
 {
 	sljit_uw mask;
@@ -1193,29 +1194,29 @@ static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, 
 	sljit_uw imm2;
 	int rol;
 
-	// Step1: Search a zero byte (8 continous zero bit)
+	/* Step1: Search a zero byte (8 continous zero bit). */
 	mask = 0xff000000;
 	rol = 8;
 	while(1) {
 		if (!(imm & mask)) {
-			// rol imm by rol
+			/* Rol imm by rol. */
 			imm = (imm << rol) | (imm >> (32 - rol));
-			// calculate arm rol
+			/* Calculate arm rol. */
 			rol = 4 + (rol >> 1);
 			break;
 		}
 		rol += 2;
 		mask >>= 2;
 		if (mask & 0x3) {
-			// rol by 8
+			/* rol by 8. */
 			imm = (imm << 8) | (imm >> 24);
 			mask = 0xff00;
 			rol = 24;
 			while (1) {
 				if (!(imm & mask)) {
-					// rol imm by rol
+					/* Rol imm by rol. */
 					imm = (imm << rol) | (imm >> (32 - rol));
-					// calculate arm rol
+					/* Calculate arm rol. */
 					rol = (rol >> 1) - 8;
 					break;
 				}
@@ -1228,7 +1229,7 @@ static int generate_int(struct sljit_compiler *compiler, int reg, sljit_uw imm, 
 		}
 	}
 
-	// The low 8 bit must be zero
+	/* The low 8 bit must be zero. */
 	SLJIT_ASSERT(!(imm & 0xff));
 
 	if (!(imm & 0xff000000)) {
@@ -1301,12 +1302,12 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_uw imm
 {
 	sljit_uw tmp;
 
-#if SLJIT_DEFINED(CONFIG_ARM_V7)
+#if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 	if (!(imm & ~0xffff))
 		return push_inst(compiler, MOVW | RD(reg) | ((imm << 4) & 0xf0000) | (imm & 0xfff));
 #endif
 
-	// Create imm by 1 inst
+	/* Create imm by 1 inst. */
 	tmp = get_immediate(imm);
 	if (tmp) {
 		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, reg, SLJIT_UNUSED, tmp));
@@ -1319,19 +1320,19 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_uw imm
 		return SLJIT_SUCCESS;
 	}
 
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
-	// Create imm by 2 inst
-	FAIL_IF(generate_int(compiler, reg, imm, 1)); // Maybe SLJIT_SUCCESS, if successful
-	FAIL_IF(generate_int(compiler, reg, ~imm, 0)); // Maybe SLJIT_SUCCESS, if successful
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
+	/* Create imm by 2 inst. */
+	FAIL_IF(generate_int(compiler, reg, imm, 1));
+	FAIL_IF(generate_int(compiler, reg, ~imm, 0));
 
-	// Load integer
+	/* Load integer. */
 	return push_inst_with_literal(compiler, EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0, reg, TMP_PC, 0), imm);
 #else
 	return emit_imm(compiler, reg, imm);
 #endif
 }
 
-// Can perform an operation using at most 1 instruction
+/* Can perform an operation using at most 1 instruction. */
 static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int reg, int arg, sljit_w argw)
 {
 	sljit_uw imm;
@@ -1356,7 +1357,7 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int r
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
-	// Fast loads/stores
+	/* Fast loads/stores. */
 	if (arg & 0xf) {
 		if (!(arg & 0xf0)) {
 			if (IS_TYPE1_TRANSFER(inp_flags)) {
@@ -1401,21 +1402,21 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int r
 	return (inp_flags & ARG_TEST) ? SLJIT_SUCCESS : 0;
 }
 
-// see getput_arg below
-// Note: can_cache is called only for binary operators. Those
-// operators always uses word arguments without write back
+/* See getput_arg below.
+   Note: can_cache is called only for binary operators. Those
+   operators always uses word arguments without write back. */
 static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 {
-	// Immediate caching is not supported as it would be an operation on constant arguments
+	/* Immediate caching is not supported as it would be an operation on constant arguments. */
 	if (arg & SLJIT_IMM)
 		return 0;
 
-	// Always a simple operation
+	/* Always a simple operation. */
 	if (arg & 0xf0)
 		return 0;
 
 	if (!(arg & 0xf)) {
-		// Immediate access
+		/* Immediate access. */
 		if ((next_arg & SLJIT_MEM) && ((sljit_uw)argw - (sljit_uw)next_argw <= 0xfff || (sljit_uw)next_argw - (sljit_uw)argw <= 0xfff))
 			return 1;
 		return 0;
@@ -1451,8 +1452,7 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 		} \
 	}
 
-// emit the necessary instructions
-// see can_cache above
+/* Emit the necessary instructions. See can_cache above. */
 static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 {
 	int tmp_r;
@@ -1470,7 +1470,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 	max_delta = IS_TYPE1_TRANSFER(inp_flags) ? 0xfff : 0xff;
 
 	if ((arg & 0xf) == SLJIT_UNUSED) {
-		// Write back is not used
+		/* Write back is not used. */
 		if ((compiler->cache_arg & SLJIT_IMM) && (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= (sljit_uw)max_delta || ((sljit_uw)compiler->cache_argw - (sljit_uw)argw) <= (sljit_uw)max_delta)) {
 			if (((sljit_uw)argw - (sljit_uw)compiler->cache_argw) <= (sljit_uw)max_delta) {
 				sign = 1;
@@ -1490,8 +1490,8 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 			return SLJIT_SUCCESS;
 		}
 
-		// With write back, we can create some sophisticated loads, but
-		// it is hard to decide whether we should convert downward (0s) or upward (1s)
+		/* With write back, we can create some sophisticated loads, but
+		   it is hard to decide whether we should convert downward (0s) or upward (1s). */
 		if ((next_arg & SLJIT_MEM) && ((sljit_uw)argw - (sljit_uw)next_argw <= (sljit_uw)max_delta || (sljit_uw)next_argw - (sljit_uw)argw <= (sljit_uw)max_delta)) {
 			SLJIT_ASSERT(inp_flags & LOAD_DATA);
 
@@ -1505,7 +1505,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		return SLJIT_SUCCESS;
 	}
 
-	// Extended imm addressing for [reg+imm] format
+	/* Extended imm addressing for [reg+imm] format. */
 	sign = (max_delta << 8) | 0xff;
 	if (!(arg & 0xf0) && argw <= sign && argw >= -sign) {
 		TEST_WRITE_BACK();
@@ -1517,7 +1517,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 			argw = -argw;
 		}
 
-		// Optimization: add is 0x4, sub is 0x2. Sign is 1 for add and 0 for sub
+		/* Optimization: add is 0x4, sub is 0x2. Sign is 1 for add and 0 for sub. */
 		if (max_delta & 0xf00)
 			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(SUB_DP << sign, 0, tmp_r, arg & 0xf, SRC2_IMM | (argw >> 12) | 0xa00));
 		else
@@ -1591,12 +1591,12 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
 {
-	// arg1 goes to TMP_REG1 or src reg
-	// arg2 goes to TMP_REG2, imm or src reg
-	// TMP_REG3 can be used for caching
-	// result goes to TMP_REG2, so put result can use TMP_REG1 and TMP_REG3
+	/* arg1 goes to TMP_REG1 or src reg
+	   arg2 goes to TMP_REG2, imm or src reg
+	   TMP_REG3 can be used for caching
+	   result goes to TMP_REG2, so put result can use TMP_REG1 and TMP_REG3. */
 
-	// We prefers register and simple consts
+	/* We prefers register and simple consts. */
 	int dst_r;
 	int src1_r;
 	int src2_r = 0;
@@ -1606,7 +1606,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	// Destination check
+	/* Destination check. */
 	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REG3) {
 		dst_r = dst;
 		flags |= REG_DEST;
@@ -1630,7 +1630,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 		}
 	}
 
-	// Source 1
+	/* Source 1. */
 	if (src1 >= SLJIT_TEMPORARY_REG1 && src1 <= TMP_REG3)
 		src1_r = src1;
 	else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= TMP_REG3) {
@@ -1641,7 +1641,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	}
 	else {
 		if ((inp_flags & ALLOW_ANY_IMM) && (src1 & SLJIT_IMM)) {
-			// The second check will generate a hit
+			/* The second check will generate a hit. */
 			src2_r = get_immediate(src1w);
 			if (src2_r) {
 				flags |= ARGS_SWAPPED;
@@ -1665,7 +1665,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 		}
 	}
 
-	// Source 2
+	/* Source 2. */
 	if (src2_r == 0) {
 		if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= TMP_REG3) {
 			src2_r = src2;
@@ -1673,7 +1673,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 			if (!(flags & REG_DEST) && op >= SLJIT_MOV && op <= SLJIT_MOVU_SI)
 				dst_r = src2_r;
 		}
-		else do { // do { } while(0) is used because of breaks
+		else do { /* do { } while(0) is used because of breaks. */
 			if ((inp_flags & ALLOW_ANY_IMM) && (src2 & SLJIT_IMM)) {
 				src2_r = get_immediate(src2w);
 				if (src2_r)
@@ -1687,7 +1687,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 				}
 			}
 
-			// src2_r is 0
+			/* src2_r is 0. */
 			if (getput_arg_fast(compiler, inp_flags | LOAD_DATA, sugg_src2_r, src2, src2w)) {
 				FAIL_IF(compiler->error);
 				src2_r = sugg_src2_r;
@@ -1695,8 +1695,8 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 		} while (0);
 	}
 
-	// src1_r, src2_r and dst_r can be zero (=unprocessed) or non-zero
-	// If they are zero, they must not be registers
+	/* src1_r, src2_r and dst_r can be zero (=unprocessed) or non-zero.
+	   If they are zero, they must not be registers. */
 	if (src1_r == 0 && src2_r == 0 && dst_r == 0) {
 		if (!can_cache(src1, src1w, src2, src2w) && can_cache(src1, src1w, dst, dstw)) {
 			SLJIT_ASSERT(!(flags & ARGS_SWAPPED));
@@ -1812,7 +1812,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 		return emit_op(compiler, op, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_NEG:
-#if SLJIT_DEFINED(VERBOSE) || SLJIT_DEFINED(DEBUG)
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 		compiler->skip_checks = 1;
 #endif
 		return sljit_emit_op2(compiler, SLJIT_SUB | GET_FLAGS(op), dst, dstw, SLJIT_IMM, 0, src, srcw);
@@ -1863,14 +1863,14 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	return SLJIT_SUCCESS;
 }
 
-// ---------------------------------------------------------------------
-//  Floating point operators
-// ---------------------------------------------------------------------
+/* --------------------------------------------------------------------- */
+/*  Floating point operators                                             */
+/* --------------------------------------------------------------------- */
 
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 
-// 0 - no fpu
-// 1 - vfp
+/* 0 - no fpu
+   1 - vfp */
 static int arm_fpu_type = -1;
 
 static void init_compiler()
@@ -1878,7 +1878,7 @@ static void init_compiler()
 	if (arm_fpu_type != -1)
 		return;
 
-	// TODO: Only the OS can help to determine the correct fpu type
+	/* TODO: Only the OS can help to determine the correct fpu type. */
 	arm_fpu_type = 1;
 }
 
@@ -1895,7 +1895,7 @@ int sljit_is_fpu_available(void)
 
 int sljit_is_fpu_available(void)
 {
-	// Always available
+	/* Always available. */
 	return 1;
 }
 
@@ -1910,7 +1910,7 @@ static int emit_fpu_data_transfer(struct sljit_compiler *compiler, int fpu_reg, 
 {
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
-	// Fast loads and stores
+	/* Fast loads and stores. */
 	if ((arg & 0xf) && !(arg & 0xf0) && (argw & 0x3) == 0) {
 		if (argw >= 0 && argw <= 0x3ff) {
 			EMIT_INSTRUCTION(EMIT_FPU_DATA_TRANSFER(1, load, arg & 0xf, fpu_reg, argw >> 2));
@@ -2068,9 +2068,9 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	return SLJIT_SUCCESS;
 }
 
-// ---------------------------------------------------------------------
-//  Other instructions
-// ---------------------------------------------------------------------
+/* --------------------------------------------------------------------- */
+/*  Other instructions                                                   */
+/* --------------------------------------------------------------------- */
 
 int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
 {
@@ -2126,9 +2126,9 @@ int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w src
 	return push_inst(compiler, BLX | RM(TMP_REG3));
 }
 
-// ---------------------------------------------------------------------
-//  Conditional instructions
-// ---------------------------------------------------------------------
+/* --------------------------------------------------------------------- */
+/*  Conditional instructions                                             */
+/* --------------------------------------------------------------------- */
 
 static sljit_uw get_cc(int type)
 {
@@ -2179,7 +2179,7 @@ static sljit_uw get_cc(int type)
 	case SLJIT_C_FLOAT_NOT_NAN:
 		return 0x70000000;
 
-	default: // SLJIT_JUMP
+	default: /* SLJIT_JUMP */
 		return 0xe0000000;
 	}
 }
@@ -2212,8 +2212,8 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 	type &= 0xff;
 
-	// In ARM, we don't need to touch the arguments
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+	/* In ARM, we don't need to touch the arguments. */
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	if (type >= SLJIT_CALL0)
 		PTR_FAIL_IF(prepare_blx(compiler));
 	PTR_FAIL_IF(push_inst_with_unique_literal(compiler, ((EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0,
@@ -2248,14 +2248,14 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	CHECK_ERROR();
 	check_sljit_emit_ijump(compiler, type, src, srcw);
 
-	// In ARM, we don't need to touch the arguments
+	/* In ARM, we don't need to touch the arguments. */
 	if (src & SLJIT_IMM) {
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);
 		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_CALL0) ? IS_BL : 0));
 		jump->u.target = srcw;
 
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 		if (type >= SLJIT_CALL0)
 			FAIL_IF(prepare_blx(compiler));
 		FAIL_IF(push_inst_with_unique_literal(compiler, EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0, type <= SLJIT_JUMP ? TMP_PC : TMP_REG1, TMP_PC, 0), 0));
@@ -2301,7 +2301,7 @@ int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, slji
 
 		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG1, SLJIT_UNUSED, SRC2_IMM | 0));
 		EMIT_INSTRUCTION((EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG1, SLJIT_UNUSED, SRC2_IMM | 1) & ~COND_MASK) | cc);
-#if SLJIT_DEFINED(VERBOSE) || SLJIT_DEFINED(DEBUG)
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 		compiler->skip_checks = 1;
 #endif
 		return emit_op(compiler, op, ALLOW_IMM, dst, dstw, TMP_REG1, 0, dst, dstw);
@@ -2330,7 +2330,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 
 	reg = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
 
-#if SLJIT_DEFINED(CONFIG_ARM_V5)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	PTR_FAIL_IF(push_inst_with_unique_literal(compiler, EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0, reg, TMP_PC, 0), init_value));
 	compiler->patches++;
 #else

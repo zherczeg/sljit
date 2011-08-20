@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// ppc 64-bit arch dependent functions
+/* ppc 64-bit arch dependent functions. */
 
 #ifdef __GNUC__
 #define ASM_SLJIT_CLZ(src, dst) \
@@ -54,7 +54,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 		return (imm & 0xffff) ? push_inst(compiler, ORI | S(reg) | A(reg) | IMM(imm)) : SLJIT_SUCCESS;
 	}
 
-	// Count leading zeroes
+	/* Count leading zeroes. */
 	tmp = (imm >= 0) ? imm : ~imm;
 	ASM_SLJIT_CLZ(tmp, shift);
 	SLJIT_ASSERT(shift > 0);
@@ -74,7 +74,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 		return PUSH_RLDICR(reg, shift);
 	}
 
-	// cut out the 16 bit from immediate
+	/* Cut out the 16 bit from immediate. */
 	shift += 15;
 	tmp2 = imm & ((1ul << (63 - shift)) - 1);
 
@@ -103,7 +103,7 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 		return PUSH_RLDICR(reg, shift2);
 	}
 
-	// The general version
+	/* The general version. */
 	FAIL_IF(push_inst(compiler, ADDIS | D(reg) | A(0) | IMM(imm >> 48)));
 	FAIL_IF(push_inst(compiler, ORI | S(reg) | A(reg) | IMM(imm >> 32)));
 	FAIL_IF(PUSH_RLDICR(reg, 31));
@@ -111,11 +111,11 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 	return push_inst(compiler, ORI | S(reg) | A(reg) | IMM(imm));
 }
 
-// Simplified mnemonics: clrldi
+/* Simplified mnemonics: clrldi. */
 #define INS_CLEAR_LEFT(dst, src, from) \
 	(RLDICL | S(src) | A(dst) | ((from) << 6) | (1 << 5))
 
-// Sign extension for integer operations
+/* Sign extension for integer operations. */
 #define UN_EXTS() \
 	if ((flags & (ALT_SIGN_EXT | REG2_SOURCE)) == (ALT_SIGN_EXT | REG2_SOURCE)) { \
 		FAIL_IF(push_inst(compiler, EXTSW | S(src2) | A(TMP_REG2))); \
@@ -146,12 +146,12 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	switch (op) {
 	case SLJIT_ADD:
 		if (flags & ALT_FORM1) {
-			// Flags not set: BIN_IMM_EXTS unnecessary
+			/* Flags not set: BIN_IMM_EXTS unnecessary. */
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			return push_inst(compiler, ADDI | D(dst) | A(src1) | compiler->imm);
 		}
 		if (flags & ALT_FORM2) {
-			// Flags not set: BIN_IMM_EXTS unnecessary
+			/* Flags not set: BIN_IMM_EXTS unnecessary. */
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			return push_inst(compiler, ADDIS | D(dst) | A(src1) | compiler->imm);
 		}
@@ -176,7 +176,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 
 	case SLJIT_SUB:
 		if (flags & ALT_FORM1) {
-			// Flags not set: BIN_IMM_EXTS unnecessary
+			/* Flags not set: BIN_IMM_EXTS unnecessary. */
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			return push_inst(compiler, SUBFIC | D(dst) | A(src1) | compiler->imm);
 		}
@@ -383,7 +383,7 @@ static SLJIT_INLINE int emit_const(struct sljit_compiler *compiler, int reg, slj
 
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 {
-	sljit_i *inst = (sljit_i*)addr;
+	sljit_ins *inst = (sljit_ins*)addr;
 
 	inst[0] = (inst[0] & 0xffff0000) | ((new_addr >> 48) & 0xffff);
 	inst[1] = (inst[1] & 0xffff0000) | ((new_addr >> 32) & 0xffff);
@@ -394,7 +394,7 @@ void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 
 void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 {
-	sljit_i *inst = (sljit_i*)addr;
+	sljit_ins *inst = (sljit_ins*)addr;
 
 	inst[0] = (inst[0] & 0xffff0000) | ((new_constant >> 48) & 0xffff);
 	inst[1] = (inst[1] & 0xffff0000) | ((new_constant >> 32) & 0xffff);

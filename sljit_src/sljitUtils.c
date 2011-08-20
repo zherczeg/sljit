@@ -24,23 +24,23 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// ------------------------------------------------------------------------
-//  Locks
-// ------------------------------------------------------------------------
+/* ------------------------------------------------------------------------ */
+/*  Locks                                                                   */
+/* ------------------------------------------------------------------------ */
 
-#if SLJIT_DEFINED(EXECUTABLE_ALLOCATOR) || SLJIT_DEFINED(UTIL_GLOBAL_LOCK)
+#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR) || (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
 
 #ifdef _WIN32
 
 #include "windows.h"
 
-#if SLJIT_DEFINED(EXECUTABLE_ALLOCATOR)
+#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 
 static HANDLE allocator_mutex = 0;
 
 static SLJIT_INLINE void allocator_grab_lock(void)
 {
-	// No idea what to do if an error occures. Static mutexes should never fail...
+	/* No idea what to do if an error occures. Static mutexes should never fail... */
 	if (!allocator_mutex)
 		allocator_mutex = CreateMutex(NULL, TRUE, NULL);
 	else
@@ -52,15 +52,15 @@ static SLJIT_INLINE void allocator_release_lock(void)
 	ReleaseMutex(allocator_mutex);
 }
 
-#endif // SLJIT_EXECUTABLE_ALLOCATOR
+#endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
-#if SLJIT_DEFINED(UTIL_GLOBAL_LOCK)
+#if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
 
 static HANDLE global_mutex = 0;
 
 void SLJIT_CALL sljit_grab_lock(void)
 {
-	// No idea what to do if an error occures. Static mutexes should never fail...
+	/* No idea what to do if an error occures. Static mutexes should never fail... */
 	if (!global_mutex)
 		global_mutex = CreateMutex(NULL, TRUE, NULL);
 	else
@@ -72,13 +72,13 @@ void SLJIT_CALL sljit_release_lock(void)
 	ReleaseMutex(global_mutex);
 }
 
-#endif // SLJIT_UTIL_GLOBAL_LOCK
+#endif /* SLJIT_UTIL_GLOBAL_LOCK */
 
-#else // _WIN32
+#else /* _WIN32 */
 
 #include "pthread.h"
 
-#if SLJIT_DEFINED(EXECUTABLE_ALLOCATOR)
+#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 
 static pthread_mutex_t allocator_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -92,9 +92,9 @@ static SLJIT_INLINE void allocator_release_lock(void)
 	pthread_mutex_unlock(&allocator_mutex);
 }
 
-#endif // SLJIT_EXECUTABLE_ALLOCATOR
+#endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
-#if SLJIT_DEFINED(UTIL_GLOBAL_LOCK)
+#if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
 
 static pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -108,15 +108,15 @@ void SLJIT_CALL sljit_release_lock(void)
 	pthread_mutex_unlock(&global_mutex);
 }
 
-#endif // SLJIT_UTIL_GLOBAL_LOCK
+#endif /* SLJIT_UTIL_GLOBAL_LOCK */
 
-#endif // _WIN32
+#endif /* _WIN32 */
 
-// ------------------------------------------------------------------------
-//  Stack
-// ------------------------------------------------------------------------
+/* ------------------------------------------------------------------------ */
+/*  Stack                                                                   */
+/* ------------------------------------------------------------------------ */
 
-#if SLJIT_DEFINED(UTIL_STACK)
+#if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
 
 #ifdef _WIN32
 #include "windows.h"
@@ -125,7 +125,7 @@ void SLJIT_CALL sljit_release_lock(void)
 #include <unistd.h>
 #endif
 
-// Planning to make it even more clever in the future
+/* Planning to make it even more clever in the future. */
 static sljit_w sljit_page_align = 0;
 
 #ifdef _WIN32
@@ -150,13 +150,13 @@ struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_w limit, sljit_w max_l
 #else
 	if (!sljit_page_align) {
 		sljit_page_align = sysconf(_SC_PAGESIZE) - 1;
-		// Should never happen
+		/* Should never happen. */
 		if (sljit_page_align < 0)
 			sljit_page_align = 4095;
 	}
 #endif
 
-	// Align limit and max_limit
+	/* Align limit and max_limit. */
 	max_limit = (max_limit + sljit_page_align) & ~sljit_page_align;
 
 	stack = (struct sljit_stack*)SLJIT_MALLOC(sizeof(struct sljit_stack));
@@ -236,6 +236,6 @@ sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_w new_lim
 #endif
 }
 
-#endif // SLJIT_UTIL_STACK
+#endif /* SLJIT_UTIL_STACK */
 
 #endif
