@@ -128,31 +128,32 @@ void SLJIT_CALL sljit_release_lock(void)
 /* Planning to make it even more clever in the future. */
 static sljit_w sljit_page_align = 0;
 
-#ifdef _WIN32
-static SLJIT_INLINE sljit_w get_win32_page_size(void)
-{
-	SYSTEM_INFO si;
-	GetSystemInfo(&si);
-	return si.dwPageSize;
-}
-#endif
-
 struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_w limit, sljit_w max_limit)
 {
-	struct sljit_stack* stack;
+	struct sljit_stack *stack;
+	union {
+		void *ptr;
+		sljit_uw uw;
+	} base;
+#ifdef _WIN32
+	SYSTEM_INFO si;
+#endif
 
 	if (limit > max_limit)
 		return NULL;
 
 #ifdef _WIN32
-	if (!sljit_page_align)
-		sljit_page_align = get_win32_page_size();
+	if (!sljit_page_align) {
+		GetSystemInfo(&si);
+		sljit_page_align = si.dwPageSize - 1;
+	}
 #else
 	if (!sljit_page_align) {
-		sljit_page_align = sysconf(_SC_PAGESIZE) - 1;
+		sljit_page_align = sysconf(_SC_PAGESIZE);
 		/* Should never happen. */
 		if (sljit_page_align < 0)
-			sljit_page_align = 4095;
+			sljit_page_align = 4096;
+		sljit_page_align--;
 	}
 #endif
 
@@ -164,11 +165,12 @@ struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_w limit, sljit_w max_l
 		return NULL;
 
 #ifdef _WIN32
-	stack->base = (sljit_uw)VirtualAlloc(0, max_limit, MEM_RESERVE, PAGE_READWRITE);
-	if (!stack->base) {
+	base.ptr = VirtualAlloc(0, max_limit, MEM_RESERVE, PAGE_READWRITE);
+	if (!base.ptr) {
 		SLJIT_FREE(stack);
 		return NULL;
 	}
+	stack->base = base.uw;
 	stack->limit = stack->base;
 	stack->max_limit = stack->base + max_limit;
 	if (sljit_stack_resize(stack, stack->base + limit)) {
@@ -176,11 +178,12 @@ struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_w limit, sljit_w max_l
 		return NULL;
 	}
 #else
-	stack->base = (sljit_uw)mmap(0, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-	if (stack->base == (sljit_uw)MAP_FAILED) {
+	base.ptr = mmap(0, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+	if (base.ptr == MAP_FAILED) {
 		SLJIT_FREE(stack);
 		return NULL;
 	}
+	stack->base = base.uw;
 	stack->limit = stack->base + limit;
 	stack->max_limit = stack->base + max_limit;
 #endif
