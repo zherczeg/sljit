@@ -1581,6 +1581,12 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		return SLJIT_SUCCESS;
 	}
 
+	if ((inp_flags & LOAD_DATA) && (arg & 0xf) == tmp_r) {
+		compiler->cache_arg = SLJIT_IMM;
+		compiler->cache_argw = argw;
+		tmp_r = TMP_REG3;
+	}
+
 	FAIL_IF(load_immediate(compiler, tmp_r, argw));
 	EMIT_INSTRUCTION(EMIT_DATA_TRANSFER(inp_flags, 1, inp_flags & WRITE_BACK, reg, arg & 0xf, reg_map[tmp_r] | (max_delta & 0xf00 ? SRC2_IMM : 0)));
 	return SLJIT_SUCCESS;
