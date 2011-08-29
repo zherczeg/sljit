@@ -145,7 +145,7 @@ static void test2(void)
 	/* Test mov. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_w buf[5];
+	sljit_w buf[6];
 	static sljit_w data[2] = { 0, -9876 };
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -155,6 +155,7 @@ static void test2(void)
 	buf[2] = 0;
 	buf[3] = 0;
 	buf[4] = 0;
+	buf[5] = 0;
 	sljit_emit_enter(compiler, 1, 3, 2, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_UNUSED, 0, SLJIT_MEM0(), (sljit_w)&buf);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 9999);
@@ -169,6 +170,9 @@ static void test2(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, sizeof(sljit_w));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), (sljit_w)&data);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG2), 4 * sizeof(sljit_w), SLJIT_TEMPORARY_REG1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, (sljit_w)&buf - 0x12345678);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_MEM1(SLJIT_TEMPORARY_REG1), 0x12345678);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_GENERAL_REG2), 5 * sizeof(sljit_w), SLJIT_TEMPORARY_REG1, 0);
 	sljit_emit_return(compiler, SLJIT_TEMPORARY_REG3, 0);
 
 	code.code = sljit_generate_code(compiler);
@@ -180,6 +184,7 @@ static void test2(void)
 	FAILED(buf[2] != 9999, "test2 case 3 failed\n");
 	FAILED(buf[3] != 5678, "test2 case 4 failed\n");
 	FAILED(buf[4] != -9876, "test2 case 5 failed\n");
+	FAILED(buf[5] != 5678, "test2 case 6 failed\n");
 	sljit_free_code(code.code);
 	printf("test2 ok\n");
 	successful_tests++;
