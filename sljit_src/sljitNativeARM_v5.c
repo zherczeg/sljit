@@ -1581,7 +1581,7 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		return SLJIT_SUCCESS;
 	}
 
-	if ((inp_flags & LOAD_DATA) && (arg & 0xf) == tmp_r) {
+	if ((arg & 0xf) == tmp_r) {
 		compiler->cache_arg = SLJIT_IMM;
 		compiler->cache_argw = argw;
 		tmp_r = TMP_REG3;
