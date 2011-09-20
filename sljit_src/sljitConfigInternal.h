@@ -246,8 +246,17 @@ typedef long int sljit_w;
 #if !defined(SLJIT_BIG_ENDIAN) && !defined(SLJIT_LITTLE_ENDIAN)
 
 /* These macros are useful for the application. */
-#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) || (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define SLJIT_BIG_ENDIAN 1
+
+#elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+
+#ifdef __MIPSEL__
+#define SLJIT_LITTLE_ENDIAN 1
+#else
+#define SLJIT_BIG_ENDIAN 1
+#endif
+
 #else
 #define SLJIT_LITTLE_ENDIAN 1
 #endif

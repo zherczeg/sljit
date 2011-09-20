@@ -373,7 +373,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler)
 			}
 			if (jump->flags & PATCH_J) {
 				SLJIT_ASSERT((addr & ~0xfffffff) == ((jump->addr + sizeof(sljit_ins)) & ~0xfffffff));
-				buf_ptr[0] |= (addr >> 2) & 0x0cffffff;
+				buf_ptr[0] |= (addr >> 2) & 0x03ffffff;
 				break;
 			}
 
