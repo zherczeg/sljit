@@ -1847,8 +1847,8 @@ static int sse2_available = 0;
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
 
 /* Alignment + 2 * 16 bytes. */
-static int sse2_data[3 + 4 + 4];
-static int *sse2_buffer;
+static sljit_i sse2_data[3 + 4 + 4];
+static sljit_i *sse2_buffer;
 
 static void init_compiler()
 {
@@ -1856,7 +1856,7 @@ static void init_compiler()
 	int features = 0;
 #endif
 
-	sse2_buffer = (int*)(((sljit_uw)sse2_data + 15) & ~0xf);
+	sse2_buffer = (sljit_i*)(((sljit_uw)sse2_data + 15) & ~0xf);
 	sse2_buffer[0] = 0;
 	sse2_buffer[1] = 0x80000000;
 	sse2_buffer[4] = 0xffffffff;
@@ -1875,7 +1875,7 @@ static void init_compiler()
 		:
 		: "%eax", "%ecx", "%edx"
 	);
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || defined(__BORLANDC__)
 	/* Intel syntax. */
 	__asm {
 		mov eax, 1

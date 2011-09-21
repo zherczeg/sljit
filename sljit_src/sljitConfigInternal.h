@@ -225,13 +225,21 @@ typedef long int sljit_w;
 /* ABI (Application Binary Interface) types. */
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 
-#ifdef __GNUC__
+#if defined(__GNUC__)
+
 #define SLJIT_CALL __attribute__ ((fastcall))
 #define SLJIT_X86_32_FASTCALL 1
+
 #elif defined(_WIN32)
+
+#ifdef __BORLANDC__
+#define SLJIT_CALL __msfastcall
+#else /* __BORLANDC__ */
 #define SLJIT_CALL __fastcall
+#endif /* __BORLANDC__ */
 #define SLJIT_X86_32_FASTCALL 1
-#else
+
+#else /* defined(_WIN32) */
 #define SLJIT_CALL __stdcall
 #endif
 
