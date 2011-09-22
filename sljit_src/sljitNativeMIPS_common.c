@@ -1560,7 +1560,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	check_sljit_emit_ijump(compiler, type, src, srcw);
 
 	if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS) {
-		if (DR(src) < 4 || DR(src) > 6)
+		if (DR(src) != 4)
 			src_r = src;
 		else
 			FAIL_IF(push_inst(compiler, ADDU_W | S(src) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
@@ -1573,12 +1573,13 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 			/* We need an extra instruction in any case. */
 			return push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), UNMOVABLE_INS);
 		}
+		if (src & SLJIT_MEM)
+			FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, TMP_REG2, 0, TMP_REG1, 0, src, srcw));
 
-		FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, TMP_REG2, 0, TMP_REG1, 0, src, srcw));
 		if (type >= SLJIT_CALL1)
 			FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), 4));
-		FAIL_IF(push_inst(compiler, JALR | S(TMP_REG2) | DA(31), UNMOVABLE_INS));
-		return push_inst(compiler, ADDU_W | S(TMP_REG2) | TA(0) | DA(25), UNMOVABLE_INS);
+		FAIL_IF(push_inst(compiler, JALR | S(src_r) | DA(31), UNMOVABLE_INS));
+		return push_inst(compiler, ADDU_W | S(src_r) | TA(0) | DA(25), UNMOVABLE_INS);
 	}
 
 	if (src & SLJIT_IMM) {
