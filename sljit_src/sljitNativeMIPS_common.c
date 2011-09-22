@@ -1566,8 +1566,20 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 			FAIL_IF(push_inst(compiler, ADDU_W | S(src) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
 	}
 
-	if (type >= SLJIT_CALL1)
-		FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), 4));
+	if (type >= SLJIT_CALL0) {
+		if (src & SLJIT_IMM) {
+			FAIL_IF(load_immediate(compiler, 25, srcw));
+			FAIL_IF(push_inst(compiler, JALR | SA(25) | DA(31), UNMOVABLE_INS));
+			/* We need an extra instruction in any case. */
+			return push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), UNMOVABLE_INS);
+		}
+
+		FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, TMP_REG2, 0, TMP_REG1, 0, src, srcw));
+		if (type >= SLJIT_CALL1)
+			FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), 4));
+		FAIL_IF(push_inst(compiler, JALR | S(TMP_REG2) | DA(31), UNMOVABLE_INS));
+		return push_inst(compiler, ADDU_W | S(TMP_REG2) | TA(0) | DA(25), UNMOVABLE_INS);
+	}
 
 	if (src & SLJIT_IMM) {
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
@@ -1583,10 +1595,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	else if (src & SLJIT_MEM)
 		FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, TMP_REG2, 0, TMP_REG1, 0, src, srcw));
 
-	if (type <= SLJIT_JUMP)
-		FAIL_IF(push_inst(compiler, JR | S(src_r), UNMOVABLE_INS));
-	else
-		FAIL_IF(push_inst(compiler, JALR | S(src_r) | DA(31), UNMOVABLE_INS));
+	FAIL_IF(push_inst(compiler, JR | S(src_r), UNMOVABLE_INS));
 	if (jump)
 		jump->addr = compiler->size;
 	FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
