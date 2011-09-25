@@ -2442,7 +2442,7 @@ static void test31(void)
 
 static void test32(void)
 {
-	/* Integer mul and set flags. */
+	/* Floating point set flags. */
 	executable_code code;
 	struct sljit_compiler* compiler;
 
