@@ -161,10 +161,9 @@
 	/* instruction types */
 	#define UNMOVABLE_INS	0
 	/* 1 - 31 last destination register */
-	/* 32 - 39 FCSR FCC bits */
 	#define FCSR_FCC	32
 	/* no destination (i.e: store) */
-	#define MOVABLE_INS	40
+	#define MOVABLE_INS	33
 #endif
 
 #endif /* !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED) */

@@ -256,8 +256,14 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 
 	case SLJIT_MUL:
 		SLJIT_ASSERT(!(flags & SRC2_IMM));
-		if (!(op & SLJIT_SET_O))
+		if (!(op & SLJIT_SET_O)) {
+#if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
 			return push_inst(compiler, MUL | S(src1) | T(src2) | D(dst), DR(dst));
+#else
+			FAIL_IF(push_inst(compiler, MULT | S(src1) | T(src2), MOVABLE_INS));
+			return push_inst(compiler, MFLO | D(dst), DR(dst));
+#endif
+		}
 		FAIL_IF(push_inst(compiler, MULT | S(src1) | T(src2), MOVABLE_INS));
 		FAIL_IF(push_inst(compiler, MFHI | DA(TMP_EREG1), TMP_EREG1));
 		FAIL_IF(push_inst(compiler, MFLO | D(dst), DR(dst)));
@@ -300,8 +306,14 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	case SLJIT_MOV_SB:
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
-			if (op == SLJIT_MOV_SB)
+			if (op == SLJIT_MOV_SB) {
+#if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
 				return push_inst(compiler, SEB | T(src2) | D(dst), DR(dst));
+#else
+				FAIL_IF(push_inst(compiler, SLL | T(src2) | D(dst) | SH_IMM(24), DR(dst)));
+				return push_inst(compiler, SRA | T(dst) | D(dst) | SH_IMM(24), DR(dst));
+#endif
+			}
 			return push_inst(compiler, ANDI | S(src2) | T(dst) | IMM(0xff), DR(dst));
 		}
 		else if (dst != src2)
@@ -312,8 +324,14 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	case SLJIT_MOV_SH:
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
-			if (op == SLJIT_MOV_SH)
+			if (op == SLJIT_MOV_SH) {
+#if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
 				return push_inst(compiler, SEH | T(src2) | D(dst), DR(dst));
+#else
+				FAIL_IF(push_inst(compiler, SLL | T(src2) | D(dst) | SH_IMM(16), DR(dst)));
+				return push_inst(compiler, SRA | T(dst) | D(dst) | SH_IMM(16), DR(dst));
+#endif
+			}
 			return push_inst(compiler, ANDI | S(src2) | T(dst) | IMM(0xffff), DR(dst));
 		}
 		else if (dst != src2)
@@ -330,10 +348,31 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
+#if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
 		if (op & SLJIT_SET_E)
 			FAIL_IF(push_inst(compiler, CLZ | S(src2) | TA(EQUAL_FLAG) | DA(EQUAL_FLAG), EQUAL_FLAG));
 		if (CHECK_FLAGS(SLJIT_SET_E))
 			FAIL_IF(push_inst(compiler, CLZ | S(src2) | T(dst) | D(dst), DR(dst)));
+#else
+		if (SLJIT_UNLIKELY(flags & UNUSED_DEST)) {
+			FAIL_IF(push_inst(compiler, SRL | T(src2) | DA(EQUAL_FLAG) | SH_IMM(31), EQUAL_FLAG));
+			return push_inst(compiler, XORI | SA(EQUAL_FLAG) | TA(EQUAL_FLAG) | IMM(1), EQUAL_FLAG);
+		}
+		/* Nearly all instructions are unmovable in the following sequence. */
+		FAIL_IF(push_inst(compiler, ADDU_W | S(src2) | TA(0) | D(TMP_REG1), DR(TMP_REG1)));
+		/* Check zero. */
+		FAIL_IF(push_inst(compiler, BEQ | S(TMP_REG1) | TA(0) | IMM(6), UNMOVABLE_INS));
+		FAIL_IF(push_inst(compiler, ORI | SA(0) | T(dst) | IMM(32), UNMOVABLE_INS));
+		/* Check sign bit. */
+		FAIL_IF(push_inst(compiler, BLTZ | S(TMP_REG1) | IMM(4), UNMOVABLE_INS));
+		FAIL_IF(push_inst(compiler, ORI | SA(0) | T(dst) | IMM(0), UNMOVABLE_INS));
+		/* Loop for searching the highest bit. */
+		FAIL_IF(push_inst(compiler, SLL | T(TMP_REG1) | D(TMP_REG1) | SH_IMM(1), DR(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, BGEZ | S(TMP_REG1) | IMM(-2), UNMOVABLE_INS));
+		FAIL_IF(push_inst(compiler, ADDIU_W | S(dst) | T(dst) | IMM(1), UNMOVABLE_INS));
+		if (op & SLJIT_SET_E)
+			return push_inst(compiler, ADDU_W | S(dst) | TA(0) | DA(EQUAL_FLAG), EQUAL_FLAG);
+#endif
 		return SLJIT_SUCCESS;
 	}
 
