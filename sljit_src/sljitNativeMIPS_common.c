@@ -172,7 +172,7 @@ typedef sljit_ui sljit_ins;
 #define UIMM_MAX	(0xffff)
 
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
-  0, 2, 5, 6, 3, 4, 17, 18, 19, 20, 21, 16, 8, 25, 9, 29
+  0, 2, 5, 6, 3, 8, 17, 18, 19, 20, 21, 16, 4, 25, 9, 29
 };
 
 /* dest_reg is the absolute name of the register
@@ -1401,7 +1401,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 		jump->flags |= IS_JAL;
 		PTR_FAIL_IF(push_inst(compiler, JALR | S(TMP_REG2) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
 		jump->addr = compiler->size;
-		PTR_FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), 4));
+		PTR_FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), UNMOVABLE_INS));
 	}
 	return jump;
 }
