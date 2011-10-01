@@ -237,14 +237,14 @@ void sljit_free_exec(void* ptr)
 	struct free_block* free_block;
 
 	allocator_grab_lock();
-	header = AS_BLOCK_HEADER(ptr, -sizeof(struct block_header));
+	header = AS_BLOCK_HEADER(ptr, -(sljit_w)sizeof(struct block_header));
 	allocated_size -= header->size;
 
 	/* Connecting free blocks together if possible. */
 
 	/* If header->prev_size == 0, free_block will equal to header.
 	   In this case, free_block->header.size will be > 0. */
-	free_block = AS_FREE_BLOCK(header, -header->prev_size);
+	free_block = AS_FREE_BLOCK(header, -(sljit_w)header->prev_size);
 	if (SLJIT_UNLIKELY(!free_block->header.size)) {
 		free_block->size += header->size;
 		header = AS_BLOCK_HEADER(free_block, free_block->size);
