@@ -203,10 +203,10 @@ void SLJIT_CALL sljit_free_stack(struct sljit_stack* stack)
 	SLJIT_FREE(stack);
 }
 
-sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_w new_limit)
+sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_uw new_limit)
 {
-	sljit_w aligned_old_limit;
-	sljit_w aligned_new_limit;
+	sljit_uw aligned_old_limit;
+	sljit_uw aligned_new_limit;
 
 	if ((new_limit > stack->max_limit) || (new_limit < stack->base))
 		return -1;

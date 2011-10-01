@@ -705,7 +705,7 @@ void SLJIT_CALL sljit_free_stack(struct sljit_stack* stack);
    since the growth ratio can be added to the current limit, and sljit_stack_resize
    will do all the necessary checks. The fields of the stack are not changed if
    sljit_stack_resize fails. */
-sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_w new_limit);
+sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_uw new_limit);
 
 #endif /* (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) */
 
