@@ -44,7 +44,7 @@ static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_
 		*code_ptr++ = 0xe9;
 		jump->addr++;
 	}
-	else if (type >= SLJIT_CALL0) {
+	else if (type >= SLJIT_FAST_CALL) {
 		*code_ptr++ = 0xe8;
 		jump->addr++;
 	}

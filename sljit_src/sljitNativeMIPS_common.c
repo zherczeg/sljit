@@ -97,6 +97,7 @@ typedef sljit_ui sljit_ins;
 #define AND		(HI(0) | LO(36))
 #define ANDI		(HI(12))
 #define B		(HI(4))
+#define BAL		(HI(1) | (17 << 16))
 #define BC1F		(HI(17) | (8 << 21))
 #define BC1T		(HI(17) | (8 << 21) | (1 << 16))
 #define BEQ		(HI(4))
@@ -111,6 +112,7 @@ typedef sljit_ui sljit_ins;
 #define C_ULT_D		(HI(17) | FMT_D | LO(53))
 #define DIV_D		(HI(17) | FMT_D | LO(3))
 #define J		(HI(2))
+#define JAL		(HI(3))
 #define JALR		(HI(0) | LO(9))
 #define JR		(HI(0) | LO(8))
 #define LD		(HI(55))
@@ -199,7 +201,7 @@ static SLJIT_INLINE sljit_ins* optimize_jump(struct sljit_jump *jump, sljit_ins 
 	sljit_ins *inst;
 	sljit_ins saved_inst;
 
-	if (jump->flags & (SLJIT_REWRITABLE_JUMP | IS_JAL))
+	if (jump->flags & SLJIT_REWRITABLE_JUMP)
 		return code_ptr;
 
 	if (jump->flags & JUMP_ADDR)
@@ -220,7 +222,7 @@ static SLJIT_INLINE sljit_ins* optimize_jump(struct sljit_jump *jump, sljit_ins 
 
 			if (!(jump->flags & IS_COND)) {
 				inst[0] = inst[-1];
-				inst[-1] = B;
+				inst[-1] = (jump->flags & IS_JAL) ? BAL : B;
 				jump->addr -= sizeof(sljit_ins);
 				return inst;
 			}
@@ -237,7 +239,7 @@ static SLJIT_INLINE sljit_ins* optimize_jump(struct sljit_jump *jump, sljit_ins 
 		jump->flags |= PATCH_B;
 
 		if (!(jump->flags & IS_COND)) {
-			inst[0] = B;
+			inst[0] = (jump->flags & IS_JAL) ? BAL : B;
 			inst[1] = NOP;
 			return inst + 1;
 		}
@@ -265,7 +267,7 @@ static SLJIT_INLINE sljit_ins* optimize_jump(struct sljit_jump *jump, sljit_ins 
 		if ((target_addr & ~0xfffffff) == (jump->addr & ~0xfffffff)) {
 			jump->flags |= PATCH_J;
 			inst[0] = inst[-1];
-			inst[-1] = J;
+			inst[-1] = (jump->flags & IS_JAL) ? JAL : J;
 			jump->addr -= sizeof(sljit_ins);
 			return inst;
 		}
@@ -273,7 +275,7 @@ static SLJIT_INLINE sljit_ins* optimize_jump(struct sljit_jump *jump, sljit_ins 
 
 	if ((target_addr & ~0xfffffff) == ((jump->addr + sizeof(sljit_ins)) & ~0xfffffff)) {
 		jump->flags |= PATCH_J;
-		inst[0] = J;
+		inst[0] = (jump->flags & IS_JAL) ? JAL : J;
 		inst[1] = NOP;
 		return inst + 1;
 	}
@@ -1396,11 +1398,12 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 		jump->addr = compiler->size;
 		PTR_FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
 	} else {
-		/* Cannot be optimized out. */
 		SLJIT_ASSERT(DR(PIC_ADDR_REG) == 25 && PIC_ADDR_REG == TMP_REG2);
-		jump->flags |= IS_JAL;
+		/* Cannot be optimized out if type is >= CALL0. */
+		jump->flags |= IS_JAL | (type >= SLJIT_CALL0 ? SLJIT_REWRITABLE_JUMP : 0);
 		PTR_FAIL_IF(push_inst(compiler, JALR | S(TMP_REG2) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
 		jump->addr = compiler->size;
+		/* A NOP if type < CALL1. */
 		PTR_FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), UNMOVABLE_INS));
 	}
 	return jump;
@@ -1596,7 +1599,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	if (src & SLJIT_IMM) {
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);
-		set_jump(jump, compiler, JUMP_ADDR);
+		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_FAST_CALL) ? IS_JAL : 0));
 		jump->u.target = srcw;
 
 		if (compiler->delay_slot != UNMOVABLE_INS)

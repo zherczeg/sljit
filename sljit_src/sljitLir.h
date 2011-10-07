@@ -573,13 +573,13 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 #define SLJIT_C_FLOAT_NOT_NAN		21
 
 #define SLJIT_JUMP			22
-#define SLJIT_CALL0			23
-#define SLJIT_CALL1			24
-#define SLJIT_CALL2			25
-#define SLJIT_CALL3			26
+#define SLJIT_FAST_CALL			23
+#define SLJIT_CALL0			24
+#define SLJIT_CALL1			25
+#define SLJIT_CALL2			26
+#define SLJIT_CALL3			27
 
 /* Fast calling method. See sljit_emit_fast_enter / sljit_emit_fast_return. */
-#define SLJIT_FAST_CALL			SLJIT_CALL0
 
 /* The target can be changed during runtime (see: sljit_set_jump_addr). */
 #define SLJIT_REWRITABLE_JUMP		0x1000
