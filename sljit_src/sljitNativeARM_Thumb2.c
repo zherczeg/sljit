@@ -1736,26 +1736,19 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	if (src & SLJIT_IMM) {
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);
-		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_CALL0) ? IS_BL : 0));
+		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_FAST_CALL) ? IS_BL : 0));
 		jump->u.target = srcw;
 
 		FAIL_IF(emit_imm32_const(compiler, TMP_REG1, 0));
 		jump->addr = compiler->size;
-		if (type <= SLJIT_JUMP)
-			FAIL_IF(push_inst16(compiler, BX | RN3(TMP_REG1)));
-		else
-			FAIL_IF(push_inst16(compiler, BLX | RN3(TMP_REG1)));
+		FAIL_IF(push_inst16(compiler, (type <= SLJIT_JUMP ? BX : BLX) | RN3(TMP_REG1)));
 	}
 	else {
-		if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS) {
-			if (type <= SLJIT_JUMP)
-				return push_inst16(compiler, BX | RN3(src));
-			else
-				return push_inst16(compiler, BLX | RN3(src));
-		}
+		if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS)
+			return push_inst16(compiler, (type <= SLJIT_JUMP ? BX : BLX) | RN3(src));
 
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, type <= SLJIT_JUMP ? TMP_PC : TMP_REG1, src, srcw));
-		if (type >= SLJIT_CALL0)
+		if (type >= SLJIT_FAST_CALL)
 			return push_inst16(compiler, BLX | RN3(TMP_REG1));
 	}
 	return SLJIT_SUCCESS;

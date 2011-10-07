@@ -1612,7 +1612,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	PTR_FAIL_IF(emit_const(compiler, TMP_REG1, 0));
 	PTR_FAIL_IF(push_inst(compiler, MTCTR | S(TMP_REG1)));
 	jump->addr = compiler->size;
-	PTR_FAIL_IF(push_inst(compiler, BCCTR | bo_bi_flags | (type >= SLJIT_CALL0 ? 1 : 0)));
+	PTR_FAIL_IF(push_inst(compiler, BCCTR | bo_bi_flags | (type >= SLJIT_FAST_CALL ? 1 : 0)));
 	return jump;
 }
 
@@ -1647,7 +1647,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	FAIL_IF(push_inst(compiler, MTCTR | S(src_r)));
 	if (jump)
 		jump->addr = compiler->size;
-	return push_inst(compiler, BCCTR | bo_bi_flags | (type >= SLJIT_CALL0 ? 1 : 0));
+	return push_inst(compiler, BCCTR | bo_bi_flags | (type >= SLJIT_FAST_CALL ? 1 : 0));
 }
 
 /* Get a bit from CR, all other bits are zeroed. */

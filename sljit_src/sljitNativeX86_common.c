@@ -245,7 +245,7 @@ static sljit_ub* generate_near_jump_code(struct sljit_jump *jump, sljit_ub *code
 			*code_ptr++ = 0xe9;
 		jump->addr++;
 	}
-	else if (type >= SLJIT_CALL0) {
+	else if (type >= SLJIT_FAST_CALL) {
 		short_jump = 0;
 		*code_ptr++ = 0xe8;
 		jump->addr++;
@@ -2436,7 +2436,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 		code = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
 		FAIL_IF(!code);
 		*code++ = 0xff;
-		*code |= (type >= SLJIT_CALL0) ? (2 << 3) : (4 << 3);
+		*code |= (type >= SLJIT_FAST_CALL) ? (2 << 3) : (4 << 3);
 	}
 	return SLJIT_SUCCESS;
 }

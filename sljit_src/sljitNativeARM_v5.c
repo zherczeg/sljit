@@ -400,7 +400,7 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uw *code
 		diff = ((sljit_w)(code + jump->u.label->size) - (sljit_w)(code_ptr + 2));
 	}
 
-	/* Branch to Thumb code has not optimized yet. */
+	/* Branch to Thumb code has not been optimized yet. */
 	if (diff & 0x3)
 		return 0;
 
@@ -426,7 +426,7 @@ static SLJIT_INLINE int detect_jump_type(struct sljit_jump *jump, sljit_uw *code
 		diff = ((sljit_w)(code + jump->u.label->size) - (sljit_w)code_ptr);
 	}
 
-	/* Branch to Thumb code has not optimized yet. */
+	/* Branch to Thumb code has not been optimized yet. */
 	if (diff & 0x3)
 		return 0;
 
@@ -2220,7 +2220,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 
 	/* In ARM, we don't need to touch the arguments. */
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-	if (type >= SLJIT_CALL0)
+	if (type >= SLJIT_FAST_CALL)
 		PTR_FAIL_IF(prepare_blx(compiler));
 	PTR_FAIL_IF(push_inst_with_unique_literal(compiler, ((EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0,
 		type <= SLJIT_JUMP ? TMP_PC : TMP_REG1, TMP_PC, 0)) & ~COND_MASK) | get_cc(type), 0));
@@ -2230,7 +2230,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 		compiler->patches++;
 	}
 
-	if (type >= SLJIT_CALL0) {
+	if (type >= SLJIT_FAST_CALL) {
 		jump->flags |= IS_BL;
 		PTR_FAIL_IF(emit_blx(compiler));
 	}
@@ -2238,10 +2238,10 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	if (!(jump->flags & SLJIT_REWRITABLE_JUMP))
 		jump->addr = compiler->size;
 #else
-	if (type >= SLJIT_CALL0)
+	if (type >= SLJIT_FAST_CALL)
 		jump->flags |= IS_BL;
 	PTR_FAIL_IF(emit_imm(compiler, TMP_REG1, 0));
-	PTR_FAIL_IF(push_inst(compiler, (((type < SLJIT_CALL0 ? BX : BLX) | RM(TMP_REG1)) & ~COND_MASK) | get_cc(type)));
+	PTR_FAIL_IF(push_inst(compiler, (((type <= SLJIT_JUMP ? BX : BLX) | RM(TMP_REG1)) & ~COND_MASK) | get_cc(type)));
 	jump->addr = compiler->size;
 #endif
 	return jump;
@@ -2258,18 +2258,18 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	if (src & SLJIT_IMM) {
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);
-		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_CALL0) ? IS_BL : 0));
+		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_FAST_CALL) ? IS_BL : 0));
 		jump->u.target = srcw;
 
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-		if (type >= SLJIT_CALL0)
+		if (type >= SLJIT_FAST_CALL)
 			FAIL_IF(prepare_blx(compiler));
 		FAIL_IF(push_inst_with_unique_literal(compiler, EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0, type <= SLJIT_JUMP ? TMP_PC : TMP_REG1, TMP_PC, 0), 0));
-		if (type >= SLJIT_CALL0)
+		if (type >= SLJIT_FAST_CALL)
 			FAIL_IF(emit_blx(compiler));
 #else
 		FAIL_IF(emit_imm(compiler, TMP_REG1, 0));
-		FAIL_IF(push_inst(compiler, (type < SLJIT_CALL0 ? BX : BLX) | RM(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, (type <= SLJIT_JUMP ? BX : BLX) | RM(TMP_REG1)));
 #endif
 		jump->addr = compiler->size;
 	}

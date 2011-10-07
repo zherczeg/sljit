@@ -59,7 +59,7 @@ static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_
 	code_ptr += sizeof(sljit_w);
 	*code_ptr++ = REX_B;
 	*code_ptr++ = 0xff;
-	*code_ptr++ = (type >= SLJIT_CALL0) ? 0xd1 /* call */ : 0xe1 /* jmp */;
+	*code_ptr++ = (type >= SLJIT_FAST_CALL) ? 0xd1 /* call */ : 0xe1 /* jmp */;
 
 	return code_ptr;
 }

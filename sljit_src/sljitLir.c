@@ -662,7 +662,7 @@ static char* jump_names[] = {
 	(char*)"c_float_less", (char*)"c_float_greater_equal",
 	(char*)"c_float_greater", (char*)"c_float_less_equal",
 	(char*)"c_float_nan", (char*)"c_float_not_nan",
-	(char*)"jump",
+	(char*)"jump", (char*)"fast_call",
 	(char*)"call0", (char*)"call1", (char*)"call2", (char*)"call3"
 };
 
