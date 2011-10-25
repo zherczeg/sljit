@@ -192,7 +192,7 @@ static int compiler_initialized = 0;
 static void init_compiler(void);
 #endif
 
-struct sljit_compiler* sljit_create_compiler(void)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 {
 	struct sljit_compiler *compiler = (struct sljit_compiler*)SLJIT_MALLOC(sizeof(struct sljit_compiler));
 	/* Compile time assert. */
@@ -237,6 +237,13 @@ struct sljit_compiler* sljit_create_compiler(void)
 	compiler->args = -1;
 #endif
 
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	compiler->mode32 = 0;
+#ifdef _WIN64
+	compiler->has_locals = 0;
+#endif
+#endif
+
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	compiler->flags_saved = 0;
 #endif
@@ -278,7 +285,7 @@ struct sljit_compiler* sljit_create_compiler(void)
 	return compiler;
 }
 
-void sljit_free_compiler(struct sljit_compiler *compiler)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_free_compiler(struct sljit_compiler *compiler)
 {
 	struct sljit_memory_fragment *buf;
 	struct sljit_memory_fragment *curr;
@@ -304,26 +311,26 @@ void sljit_free_compiler(struct sljit_compiler *compiler)
 }
 
 #if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
-void sljit_free_code(void* code)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code)
 {
 	/* Remove thumb mode flag. */
 	SLJIT_FREE_EXEC((void*)((sljit_uw)code & ~0x1));
 }
 #elif (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-void sljit_free_code(void* code)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code)
 {
 	/* Resolve indirection. */
 	code = (void*)(*(sljit_uw*)code);
 	SLJIT_FREE_EXEC(code);
 }
 #else
-void sljit_free_code(void* code)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code)
 {
 	SLJIT_FREE_EXEC(code);
 }
 #endif
 
-void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
 {
 	if (SLJIT_LIKELY(!!jump) && SLJIT_LIKELY(!!label)) {
 		jump->flags &= ~JUMP_ADDR;
@@ -332,7 +339,7 @@ void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
 	}
 }
 
-void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
 {
 	if (SLJIT_LIKELY(!!jump)) {
 		SLJIT_ASSERT(jump->flags & SLJIT_REWRITABLE_JUMP);
@@ -383,7 +390,7 @@ static void* ensure_abuf(struct sljit_compiler *compiler, int size)
 	return new_frag->memory;
 }
 
-void* sljit_alloc_memory(struct sljit_compiler *compiler, int size)
+SLJIT_API_FUNC_ATTRIBUTE void* sljit_alloc_memory(struct sljit_compiler *compiler, int size)
 {
 	CHECK_ERROR_PTR();
 
@@ -563,7 +570,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 
-void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
 {
 	compiler->verbose = verbose;
 }
@@ -1104,7 +1111,7 @@ static SLJIT_INLINE void check_sljit_emit_const(struct sljit_compiler *compiler,
 #endif
 
 #if !(defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
 {
@@ -1176,24 +1183,24 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 
 /* Empty function bodies for those machines, which are not (yet) supported. */
 
-SLJIT_CONST char* sljit_get_platform_name()
+SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
 {
 	return "unsupported";
 }
 
-struct sljit_compiler* sljit_create_compiler(void)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 {
 	SLJIT_ASSERT_STOP();
 	return NULL;
 }
 
-void sljit_free_compiler(struct sljit_compiler *compiler)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_free_compiler(struct sljit_compiler *compiler)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_ASSERT_STOP();
 }
 
-void* sljit_alloc_memory(struct sljit_compiler *compiler, int size)
+SLJIT_API_FUNC_ATTRIBUTE void* sljit_alloc_memory(struct sljit_compiler *compiler, int size)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(size);
@@ -1202,7 +1209,7 @@ void* sljit_alloc_memory(struct sljit_compiler *compiler, int size)
 }
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
-void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(verbose);
@@ -1210,20 +1217,20 @@ void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose)
 }
 #endif
 
-void* sljit_generate_code(struct sljit_compiler *compiler)
+SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compiler)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_ASSERT_STOP();
 	return NULL;
 }
 
-void sljit_free_code(void* code)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code)
 {
 	SLJIT_UNUSED_ARG(code);
 	SLJIT_ASSERT_STOP();
 }
 
-int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(args);
@@ -1234,7 +1241,7 @@ int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries,
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(args);
@@ -1244,7 +1251,7 @@ void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries
 	SLJIT_ASSERT_STOP();
 }
 
-int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(src);
@@ -1253,7 +1260,7 @@ int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(dst);
@@ -1266,7 +1273,7 @@ int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(src);
@@ -1275,7 +1282,7 @@ int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w src
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-int sljit_emit_op0(struct sljit_compiler *compiler, int op)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(op);
@@ -1283,7 +1290,7 @@ int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-int sljit_emit_op1(struct sljit_compiler *compiler, int op,
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
@@ -1297,7 +1304,7 @@ int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-int sljit_emit_op2(struct sljit_compiler *compiler, int op,
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
@@ -1314,13 +1321,13 @@ int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-int sljit_is_fpu_available(void)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_is_fpu_available(void)
 {
 	SLJIT_ASSERT_STOP();
 	return 0;
 }
 
-int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
@@ -1334,7 +1341,7 @@ int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
@@ -1351,14 +1358,14 @@ int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_ASSERT_STOP();
 	return NULL;
 }
 
-struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(type);
@@ -1366,7 +1373,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type)
 	return NULL;
 }
 
-struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
 {
@@ -1380,21 +1387,21 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 	return NULL;
 }
 
-void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
 {
 	SLJIT_UNUSED_ARG(jump);
 	SLJIT_UNUSED_ARG(label);
 	SLJIT_ASSERT_STOP();
 }
 
-void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
 {
 	SLJIT_UNUSED_ARG(jump);
 	SLJIT_UNUSED_ARG(target);
 	SLJIT_ASSERT_STOP();
 }
 
-int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(type);
@@ -1404,7 +1411,7 @@ int sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(op);
@@ -1415,7 +1422,7 @@ int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, slji
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w initval)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(dst);
@@ -1425,14 +1432,14 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, s
 	return NULL;
 }
 
-void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
 {
 	SLJIT_UNUSED_ARG(addr);
 	SLJIT_UNUSED_ARG(new_addr);
 	SLJIT_ASSERT_STOP();
 }
 
-void sljit_set_const(sljit_uw addr, sljit_w new_constant)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_w new_constant)
 {
 	SLJIT_UNUSED_ARG(addr);
 	SLJIT_UNUSED_ARG(new_constant);

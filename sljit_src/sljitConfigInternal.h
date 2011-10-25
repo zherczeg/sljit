@@ -161,6 +161,20 @@
 #define SLJIT_UNUSED_ARG(arg) (void)arg
 #endif
 
+#if (defined SLJIT_CONFIG_STATIC && SLJIT_CONFIG_STATIC)
+/* Static ABI functions. For all-in-one programs. */
+
+#if defined(__GNUC__)
+/* Disable unused warnings in gcc. */
+#define SLJIT_API_FUNC_ATTRIBUTE static __attribute__((unused))
+#else
+#define SLJIT_API_FUNC_ATTRIBUTE static
+#endif
+
+#else
+#define SLJIT_API_FUNC_ATTRIBUTE
+#endif /* (defined SLJIT_CONFIG_STATIC && SLJIT_CONFIG_STATIC) */
+
 #ifndef SLJIT_CACHE_FLUSH
 
 #if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
