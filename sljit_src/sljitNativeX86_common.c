@@ -955,7 +955,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 		compiler->mode32 = 0;
 #endif
 
-		SLJIT_ASSERT(SLJIT_MOV + 7 == SLJIT_MOVU);
+		SLJIT_COMPILE_ASSERT(SLJIT_MOV + 7 == SLJIT_MOVU, movu_offset);
 		if (op >= SLJIT_MOVU) {
 			update = 1;
 			op -= 7;
@@ -1418,7 +1418,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 	}
 	else {
 		/* Neither argument is immediate. */
-		if (depends_on(src2, dst_r))
+		if (ADDRESSING_DEPENDS_ON(src2, dst_r))
 			dst_r = TMP_REGISTER;
 		EMIT_MOV(compiler, dst_r, 0, src1, src1w);
 		code = emit_x86_instruction(compiler, 2, dst_r, 0, src2, src2w);
@@ -1706,7 +1706,7 @@ static int emit_shift(struct sljit_compiler *compiler,
 		*code |= mode;
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, TMP_REGISTER, 0);
 	}
-	else if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS && dst != src2 && !depends_on(src2, dst)) {
+	else if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS && dst != src2 && !ADDRESSING_DEPENDS_ON(src2, dst)) {
 		if (src1 != dst)
 			EMIT_MOV(compiler, dst, 0, src1, src1w);
 		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_PREF_SHIFT_REG, 0);

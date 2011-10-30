@@ -192,24 +192,22 @@ static int compiler_initialized = 0;
 static void init_compiler(void);
 #endif
 
+
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 {
-	struct sljit_compiler *compiler = (struct sljit_compiler*)SLJIT_MALLOC(sizeof(struct sljit_compiler));
-	/* Compile time assert. */
-	SLJIT_CONST int minus1[sizeof(sljit_b) == 1 && sizeof(sljit_h) == 2 &&
-		sizeof(sljit_i) == 4 && (sizeof(sljit_w) == 4 || sizeof(sljit_w) == 8) ? 1 : -1] = { -1 };
-
+	struct sljit_compiler *compiler = (struct sljit_compiler*)SLJIT_MALLOC_ZEROED(sizeof(struct sljit_compiler));
 	if (!compiler)
 		return NULL;
 
-	compiler->error = SLJIT_SUCCESS;
+	SLJIT_COMPILE_ASSERT(
+		sizeof(sljit_b) == 1 && sizeof(sljit_ub) == 1
+		&& sizeof(sljit_h) == 2 && sizeof(sljit_uh) == 2
+		&& sizeof(sljit_i) == 4 && sizeof(sljit_ui) == 4
+		&& ((sizeof(sljit_w) == 4 && sizeof(sljit_uw) == 4) || (sizeof(sljit_w) == 8 && sizeof(sljit_uw) == 8)),
+		invalid_integer_types);
 
-	compiler->labels = NULL;
-	compiler->jumps = NULL;
-	compiler->consts = NULL;
-	compiler->last_label = NULL;
-	compiler->last_jump = NULL;
-	compiler->last_const = NULL;
+	/* Only the non-zero members must be set. */
+	compiler->error = SLJIT_SUCCESS;
 
 	compiler->buf = (struct sljit_memory_fragment*)SLJIT_MALLOC(BUF_SIZE);
 	compiler->abuf = (struct sljit_memory_fragment*)SLJIT_MALLOC(ABUF_SIZE);
@@ -228,24 +226,11 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 	compiler->abuf->next = NULL;
 	compiler->abuf->used_size = 0;
 
-	compiler->temporaries = minus1[0];
-	compiler->generals = minus1[0];
-	compiler->local_size = 0;
-	compiler->size = 0;
+	compiler->temporaries = -1;
+	compiler->generals = -1;
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	compiler->args = -1;
-#endif
-
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	compiler->mode32 = 0;
-#ifdef _WIN64
-	compiler->has_locals = 0;
-#endif
-#endif
-
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	compiler->flags_saved = 0;
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
@@ -258,21 +243,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 	}
 	compiler->cpool_unique = (sljit_ub*)(compiler->cpool + CPOOL_SIZE);
 	compiler->cpool_diff = 0xffffffff;
-	compiler->cpool_fill = 0;
-	compiler->patches = 0;
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	compiler->has_locals = 0;
 	compiler->delay_slot = UNMOVABLE_INS;
-#endif
-
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
-	compiler->verbose = NULL;
-#endif
-
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	compiler->skip_checks = 0;
 #endif
 
 #if (defined SLJIT_NEEDS_COMPILER_INIT && SLJIT_NEEDS_COMPILER_INIT)
@@ -455,7 +429,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	compiler->last_const = const_;
 }
 
-#define depends_on(exp, reg) \
+#define ADDRESSING_DEPENDS_ON(exp, reg) \
 	(((exp) & SLJIT_MEM) && (((exp) & 0xf) == reg || (((exp) >> 4) & 0xf) == reg))
 
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)

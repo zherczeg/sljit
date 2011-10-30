@@ -129,6 +129,7 @@
 
 /* General allocation. */
 #define SLJIT_MALLOC(size) malloc(size)
+#define SLJIT_MALLOC_ZEROED(size) calloc((size), 1)
 #define SLJIT_FREE(ptr) free(ptr)
 #define SLJIT_MEMMOVE(dest, src, len) memmove(dest, src, len)
 
@@ -346,11 +347,14 @@ void sljit_free_exec(void* ptr);
 /* Feel free to redefine these two macros. */
 #ifndef SLJIT_ASSERT
 
+#define SLJIT_HALT_PROCESS() \
+	*((int*)0) = 0
+
 #define SLJIT_ASSERT(x) \
 	do { \
 		if (SLJIT_UNLIKELY(!(x))) { \
 			printf("Assertion failed at " __FILE__ ":%d\n", __LINE__); \
-			*((int*)0) = 0; \
+			SLJIT_HALT_PROCESS(); \
 		} \
 	} while (0)
 
@@ -361,7 +365,7 @@ void sljit_free_exec(void* ptr);
 #define SLJIT_ASSERT_STOP() \
 	do { \
 		printf("Should never been reached " __FILE__ ":%d\n", __LINE__); \
-		*((int*)0) = 0; \
+		SLJIT_HALT_PROCESS(); \
 	} while (0)
 
 #endif /* !SLJIT_ASSERT_STOP */
@@ -377,5 +381,13 @@ void sljit_free_exec(void* ptr);
 	do { } while (0)
 
 #endif /* (defined SLJIT_DEBUG && SLJIT_DEBUG) */
+
+#ifndef SLJIT_COMPILE_ASSERT
+
+/* Should be improved eventually. */
+#define SLJIT_COMPILE_ASSERT(x, description) \
+	SLJIT_ASSERT(x)
+
+#endif /* !SLJIT_COMPILE_ASSERT */
 
 #endif

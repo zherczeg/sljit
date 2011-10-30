@@ -944,7 +944,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 	CHECK_ERROR();
 	check_sljit_emit_op1(compiler, op, dst, dstw, src, srcw);
 
-	SLJIT_ASSERT(SLJIT_MOV + 7 == SLJIT_MOVU);
+	SLJIT_COMPILE_ASSERT(SLJIT_MOV + 7 == SLJIT_MOVU, movu_offset);
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
