@@ -37,6 +37,18 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
    Both for ppc-32 and ppc-64. */
 typedef sljit_ui sljit_ins;
 
+static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
+{
+	while (from < to) {
+#ifdef __GNUC__
+		asm volatile ( "icbi 0, %0" : : "r"(from) );
+#else
+#error "Must implement icbi"
+#endif
+		from++;
+	}
+}
+
 #define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
 #define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
 #define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
