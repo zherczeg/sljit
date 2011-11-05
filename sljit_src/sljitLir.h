@@ -56,6 +56,9 @@
         - mainly position independent code
       - Optimizations (perhaps later)
         - Only for basic blocks (when no labels inserted between LIR instructions)
+
+    For valgrind users:
+      - pass --smc-check=all argument to valgrind, since JIT is a "self-modifying code"
 */
 
 #if !(defined SLJIT_NO_DEFAULT_CONFIG && SLJIT_NO_DEFAULT_CONFIG)
@@ -87,6 +90,7 @@
 
 #define SLJIT_UNUSED		0
 
+/* Temporary (scratch) registers may not preserve their values across function calls. */
 #define SLJIT_TEMPORARY_REG1	1
 #define SLJIT_TEMPORARY_REG2	2
 #define SLJIT_TEMPORARY_REG3	3
@@ -95,6 +99,7 @@
 #define SLJIT_TEMPORARY_EREG1	4
 #define SLJIT_TEMPORARY_EREG2	5
 
+/* General (saved) registers preserve their values across function calls. */
 #define SLJIT_GENERAL_REG1	6
 #define SLJIT_GENERAL_REG2	7
 #define SLJIT_GENERAL_REG3	8

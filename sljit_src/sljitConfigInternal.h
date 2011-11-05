@@ -178,13 +178,23 @@
 
 #ifndef SLJIT_CACHE_FLUSH
 
-#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	/* Just call __ARM_NR_cacheflush on Linux. */
+#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+
+/* The __clear_cache() implementation of GCC is a dummy function on PowerPC. */
+#define SLJIT_CACHE_FLUSH(from, to) \
+	ppc_cache_flush((from), (to))
+
+#elif (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+
+/* Not required to implement on archs with unified caches. */
+#define SLJIT_CACHE_FLUSH(from, to)
+
+#else
+
+/* Calls __ARM_NR_cacheflush on ARM-Linux. */
 #define SLJIT_CACHE_FLUSH(from, to) \
 	__clear_cache((char*)(from), (char*)(to))
-#else
-	/* Not required to implement on archs with unified caches. */
-#define SLJIT_CACHE_FLUSH(from, to)
+
 #endif
 
 #endif /* !SLJIT_CACHE_FLUSH */
