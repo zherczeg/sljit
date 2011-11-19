@@ -195,9 +195,10 @@ static void init_compiler(void);
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 {
-	struct sljit_compiler *compiler = (struct sljit_compiler*)SLJIT_MALLOC_ZEROED(sizeof(struct sljit_compiler));
+	struct sljit_compiler *compiler = (struct sljit_compiler*)SLJIT_MALLOC(sizeof(struct sljit_compiler));
 	if (!compiler)
 		return NULL;
+	SLJIT_ZEROMEM(compiler, sizeof(struct sljit_compiler));
 
 	SLJIT_COMPILE_ASSERT(
 		sizeof(sljit_b) == 1 && sizeof(sljit_ub) == 1
