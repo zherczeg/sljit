@@ -119,21 +119,33 @@
 
 #if !(defined SLJIT_STD_MACROS_DEFINED && SLJIT_STD_MACROS_DEFINED)
 
+/* These libraries are needed for the macros below. */
 #include <stdlib.h>
 #include <string.h>
 
-/* General libraries:
+#endif /* STD_MACROS_DEFINED */
+
+/* General macros:
    Note: SLJIT is designed to be independent from them as possible.
 
-   In release mode (SLJIT_DEBUG is not defined) only the following macros are needed: */
+   In release mode (SLJIT_DEBUG is not defined) only the following macros are needed:
+*/
 
-/* General allocation. */
+#ifndef SLJIT_MALLOC
 #define SLJIT_MALLOC(size) malloc(size)
-#define SLJIT_MALLOC_ZEROED(size) calloc((size), 1)
-#define SLJIT_FREE(ptr) free(ptr)
-#define SLJIT_MEMMOVE(dest, src, len) memmove(dest, src, len)
+#endif
 
-#endif /* STD_MACROS_DEFINED */
+#ifndef SLJIT_FREE
+#define SLJIT_FREE(ptr) free(ptr)
+#endif
+
+#ifndef SLJIT_MEMMOVE
+#define SLJIT_MEMMOVE(dest, src, len) memmove(dest, src, len)
+#endif
+
+#ifndef SLJIT_ZEROMEM
+#define SLJIT_ZEROMEM(dest, len) memset(dest, 0, len)
+#endif
 
 #if !defined(SLJIT_LIKELY) && !defined(SLJIT_UNLIKELY)
 
