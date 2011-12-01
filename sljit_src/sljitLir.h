@@ -195,6 +195,8 @@ struct sljit_compiler {
 	int local_size;
 	/* Code size. */
 	sljit_uw size;
+	/* For statistical purposes. */
+	sljit_uw executable_size;
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	int args;
@@ -290,6 +292,15 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *comp
 
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compiler);
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code);
+
+/*
+   After the code generation we can retrieve the allocated executable memory size,
+   although this area may not be fully filled with instructions depending on some
+   optimizations. This function is useful only for statistical purposes.
+
+   Before a successful code generation, this function returns with 0.
+*/
+static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler *compiler) { return compiler->executable_size; }
 
 /* Instruction generation. Returns with error code. */
 

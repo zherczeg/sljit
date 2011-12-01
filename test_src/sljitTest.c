@@ -128,9 +128,11 @@ static void test1(void)
 	sljit_emit_enter(compiler, 3, 3, 3, 0);
 	sljit_emit_return(compiler, SLJIT_GENERAL_REG2, 0);
 
+	SLJIT_ASSERT(sljit_get_generated_code_size(compiler) == 0);
 	code.code = sljit_generate_code(compiler);
 	CHECK(compiler);
 	SLJIT_ASSERT(compiler->error == SLJIT_ERR_COMPILED);
+	SLJIT_ASSERT(sljit_get_generated_code_size(compiler) > 0);
 	sljit_free_compiler(compiler);
 
 	FAILED(code.func3(3, -21, 86) != -21, "test1 case 1 failed\n");

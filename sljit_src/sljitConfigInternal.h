@@ -354,8 +354,8 @@ typedef long int sljit_w;
 #endif /* !SLJIT_UNALIGNED */
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
-void* sljit_malloc_exec(sljit_uw size);
-void sljit_free_exec(void* ptr);
+SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size);
+SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr);
 #define SLJIT_MALLOC_EXEC(size) sljit_malloc_exec(size)
 #define SLJIT_FREE_EXEC(ptr) sljit_free_exec(ptr)
 #endif

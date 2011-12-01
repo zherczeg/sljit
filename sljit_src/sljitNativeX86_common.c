@@ -357,22 +357,22 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	while (jump) {
 		if (jump->flags & PATCH_MB) {
 			SLJIT_ASSERT((sljit_w)(jump->u.label->addr - (jump->addr + sizeof(sljit_b))) >= -128 && (sljit_w)(jump->u.label->addr - (jump->addr + sizeof(sljit_b))) <= 127);
-			*(sljit_ub*)jump->addr = jump->u.label->addr - (jump->addr + sizeof(sljit_b));
+			*(sljit_ub*)jump->addr = (sljit_ub)(jump->u.label->addr - (jump->addr + sizeof(sljit_b)));
 		} else if (jump->flags & PATCH_MW) {
 			if (jump->flags & JUMP_LABEL) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-				*(sljit_w*)jump->addr = jump->u.label->addr - (jump->addr + sizeof(sljit_w));
+				*(sljit_w*)jump->addr = (sljit_w)(jump->u.label->addr - (jump->addr + sizeof(sljit_w)));
 #else
 				SLJIT_ASSERT((sljit_w)(jump->u.label->addr - (jump->addr + sizeof(sljit_hw))) >= -0x80000000ll && (sljit_w)(jump->u.label->addr - (jump->addr + sizeof(sljit_hw))) <= 0x7fffffffll);
-				*(sljit_hw*)jump->addr = jump->u.label->addr - (jump->addr + sizeof(sljit_hw));
+				*(sljit_hw*)jump->addr = (sljit_hw)(jump->u.label->addr - (jump->addr + sizeof(sljit_hw)));
 #endif
 			}
 			else {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-				*(sljit_w*)jump->addr = jump->u.target - (jump->addr + sizeof(sljit_w));
+				*(sljit_w*)jump->addr = (sljit_w)(jump->u.target - (jump->addr + sizeof(sljit_w)));
 #else
 				SLJIT_ASSERT((sljit_w)(jump->u.target - (jump->addr + sizeof(sljit_hw))) >= -0x80000000ll && (sljit_w)(jump->u.target - (jump->addr + sizeof(sljit_hw))) <= 0x7fffffffll);
-				*(sljit_hw*)jump->addr = jump->u.target - (jump->addr + sizeof(sljit_hw));
+				*(sljit_hw*)jump->addr = (sljit_hw)(jump->u.target - (jump->addr + sizeof(sljit_hw)));
 #endif
 			}
 		}
@@ -387,6 +387,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	/* Maybe we waste some space because of short jumps. */
 	SLJIT_ASSERT(code_ptr <= code + compiler->size);
 	compiler->error = SLJIT_ERR_COMPILED;
+	compiler->executable_size = compiler->size;
 	return (void*)code;
 }
 
@@ -1360,7 +1361,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 			code = (sljit_ub*)ensure_buf(compiler, 1 + 4);
 			FAIL_IF(!code);
 			INC_CSIZE(4);
-			*(sljit_hw*)code = src1w;
+			*(sljit_hw*)code = (sljit_hw)src1w;
 		}
 		else {
 			EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_IMM, src1w);
@@ -1403,7 +1404,7 @@ static int emit_mul(struct sljit_compiler *compiler,
 			code = (sljit_ub*)ensure_buf(compiler, 1 + 4);
 			FAIL_IF(!code);
 			INC_CSIZE(4);
-			*(sljit_hw*)code = src2w;
+			*(sljit_hw*)code = (sljit_hw)src2w;
 		}
 		else {
 			EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_IMM, src1w);
