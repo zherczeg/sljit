@@ -788,6 +788,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 	SLJIT_CACHE_FLUSH(code, code_ptr);
 	compiler->error = SLJIT_ERR_COMPILED;
+	compiler->executable_size = size * sizeof(sljit_uw);
 	return code;
 }
 

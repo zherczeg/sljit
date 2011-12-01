@@ -354,6 +354,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 	SLJIT_CACHE_FLUSH(code, code_ptr);
 	compiler->error = SLJIT_ERR_COMPILED;
+	compiler->executable_size = compiler->size * sizeof(sljit_ins);
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (((sljit_w)code_ptr) & 0x4)
