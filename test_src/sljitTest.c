@@ -3248,6 +3248,104 @@ static void test40(void)
 	successful_tests++;
 }
 
+static void test41(void)
+{
+	/* Test inline assembly. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	int i;
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+	sljit_ub inst[16];
+#elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	sljit_ub inst[16];
+	int reg;
+#else
+	sljit_ui inst;
+#endif
+
+	for (i = 1; i <= SLJIT_NO_REGISTERS; i++) {
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		if (i == SLJIT_TEMPORARY_EREG1 || i == SLJIT_TEMPORARY_EREG2
+				|| i == SLJIT_GENERAL_EREG1 || i == SLJIT_GENERAL_EREG2) {
+			SLJIT_ASSERT(sljit_get_register_index(i) == -1);
+			continue;
+		}
+#endif
+		SLJIT_ASSERT(sljit_get_register_index(i) >= 0 && sljit_get_register_index(i) < 32);
+	}
+
+	FAILED(!compiler, "cannot create compiler\n");
+	sljit_emit_enter(compiler, 2, 3, 3, 0);
+
+	/* Returns with the sum of SLJIT_GENERAL_REG1 and SLJIT_GENERAL_REG2. */
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+	/* lea SLJIT_RETURN_REG, [SLJIT_GENERAL_REG1, SLJIT_GENERAL_REG2] */
+	inst[0] = 0x48;
+	inst[1] = 0x8d;
+	inst[2] = 0x04 | ((sljit_get_register_index(SLJIT_RETURN_REG) & 0x7) << 3);
+	inst[3] = (sljit_get_register_index(SLJIT_GENERAL_REG1) & 0x7)
+		| ((sljit_get_register_index(SLJIT_GENERAL_REG2) & 0x7) << 3);
+	sljit_emit_op_custom(compiler, inst, 4);
+#elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	/* lea SLJIT_RETURN_REG, [SLJIT_GENERAL_REG1, SLJIT_GENERAL_REG2] */
+	inst[0] = 0x48; /* REX_W */
+	inst[1] = 0x8d;
+	inst[2] = 0x04;
+	reg = sljit_get_register_index(SLJIT_RETURN_REG);
+	inst[2] |= ((reg & 0x7) << 3);
+	if (reg > 7)
+		inst[0] |= 0x04; /* REX_R */
+	reg = sljit_get_register_index(SLJIT_GENERAL_REG1);
+	inst[3] = reg & 0x7;
+	if (reg > 7)
+		inst[0] |= 0x01; /* REX_B */
+	reg = sljit_get_register_index(SLJIT_GENERAL_REG2);
+	inst[3] |= (reg & 0x7) << 3;
+	if (reg > 7)
+		inst[0] |= 0x02; /* REX_X */
+	sljit_emit_op_custom(compiler, inst, 4);
+#elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+	/* add rd, rn, rm */
+	inst = 0xe0800000 | (sljit_get_register_index(SLJIT_RETURN_REG) << 12)
+		| (sljit_get_register_index(SLJIT_GENERAL_REG1) << 16)
+		| sljit_get_register_index(SLJIT_GENERAL_REG2);
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#elif (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
+	/* add rd, rn, rm */
+	inst = 0xeb000000 | (sljit_get_register_index(SLJIT_RETURN_REG) << 8)
+		| (sljit_get_register_index(SLJIT_GENERAL_REG1) << 16)
+		| sljit_get_register_index(SLJIT_GENERAL_REG2);
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#elif (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+	/* add rD, rA, rB */
+	inst = (31 << 26) | (266 << 1) | (sljit_get_register_index(SLJIT_RETURN_REG) << 21)
+		| (sljit_get_register_index(SLJIT_GENERAL_REG1) << 16)
+		| (sljit_get_register_index(SLJIT_GENERAL_REG2) << 11);
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	/* addu rd, rs, rt */
+	inst = 33 | (sljit_get_register_index(SLJIT_RETURN_REG) << 11)
+		| (sljit_get_register_index(SLJIT_GENERAL_REG1) << 21)
+		| (sljit_get_register_index(SLJIT_GENERAL_REG2) << 16);
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#endif
+
+	sljit_emit_return(compiler, SLJIT_RETURN_REG, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	FAILED(code.func2(32, -11) != 21, "test41 case 1 failed\n");
+	FAILED(code.func2(1000, 234) != 1234, "test41 case 2 failed\n");
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	FAILED(code.func2(SLJIT_W(0x20f0a04090c06070), SLJIT_W(0x020f0a04090c0607)) != SLJIT_W(0x22ffaa4499cc6677), "test41 case 3 failed\n");
+#endif
+
+	printf("test41 ok\n");
+	successful_tests++;
+}
+
 void sljit_test(void)
 {
 	printf("Generating code for: %s\n", sljit_get_platform_name());
@@ -3295,8 +3393,9 @@ void sljit_test(void)
 	test38();
 	test39();
 	test40();
-	if (successful_tests == 40)
+	test41();
+	if (successful_tests == 41)
 		printf("All tests are passed.\n");
 	else
-		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 40);
+		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 41);
 }

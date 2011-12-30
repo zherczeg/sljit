@@ -1412,6 +1412,24 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int
 	return SLJIT_SUCCESS;
 }
 
+SLJIT_API_FUNC_ATTRIBUTE int sljit_get_register_index(int reg)
+{
+	check_sljit_get_register_index(reg);
+	return reg_map[reg];
+}
+
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op_custom(struct sljit_compiler *compiler,
+	void *instruction, int size)
+{
+	CHECK_ERROR();
+	check_sljit_emit_op_custom(compiler, instruction, size);
+	SLJIT_ASSERT(size == 2 || size == 4);
+
+	if (size == 2)
+		return push_inst16(compiler, *(sljit_uh*)instruction);
+	return push_inst32(compiler, *(sljit_ins*)instruction);
+}
+
 /* --------------------------------------------------------------------- */
 /*  Floating point operators                                             */
 /* --------------------------------------------------------------------- */
