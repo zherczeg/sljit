@@ -874,6 +874,21 @@ static SLJIT_INLINE void check_sljit_emit_op2(struct sljit_compiler *compiler, i
 #endif
 }
 
+static SLJIT_INLINE void check_sljit_get_register_index(int reg)
+{
+	SLJIT_UNUSED_ARG(reg);
+	SLJIT_ASSERT(reg > 0 && reg <= SLJIT_NO_REGISTERS);
+}
+
+static SLJIT_INLINE void check_sljit_emit_op_custom(struct sljit_compiler *compiler,
+	void *instruction, int size)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(instruction);
+	SLJIT_UNUSED_ARG(size);
+	SLJIT_ASSERT(instruction);
+}
+
 static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)

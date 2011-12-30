@@ -525,6 +525,30 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w);
 
+/* The following function is a helper function for sljit_emit_op_custom.
+   It returns with the real machine register index of any SLJIT_TEMPORARY
+   SLJIT_GENERAL or SLJIT_LOCALS register.
+   Note: it returns with -1 for virtual registers (all EREGs on x86-32).
+   Note: register returned by SLJIT_LOCALS_REG is not necessary the real
+         stack pointer register of the target architecture. */
+
+SLJIT_API_FUNC_ATTRIBUTE int sljit_get_register_index(int reg);
+
+/* Any instruction can be inserted into the instruction stream by
+   sljit_emit_op_custom. It has a similar purpose as inline assembly.
+   The size parameter must match to the instruction size of the target
+   architecture:
+
+         x86: 0 < size <= 15. The instruction argument can be byte aligned.
+      Thumb2: if size == 2, the instruction argument must be 2 byte aligned.
+              if size == 4, the instruction argument must be 4 byte aligned.
+   Otherwise: size must be 4 and instruction argument must be 4 byte aligned. */
+
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op_custom(struct sljit_compiler *compiler,
+	void *instruction, int size);
+
+/* Returns with non-zero if fpu is available. */
+
 SLJIT_API_FUNC_ATTRIBUTE int sljit_is_fpu_available(void);
 
 /* Note: dst is the left and src is the right operand for SLJIT_FCMP.
