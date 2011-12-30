@@ -64,6 +64,11 @@
 #if !(defined SLJIT_NO_DEFAULT_CONFIG && SLJIT_NO_DEFAULT_CONFIG)
 #include "sljitConfig.h"
 #endif
+
+/* The following header file defines useful macros for fine tuning
+sljit based code generators. They are listed in the begining
+of sljitConfigInternal.h */
+
 #include "sljitConfigInternal.h"
 
 /* --------------------------------------------------------------------- */
