@@ -616,6 +616,7 @@ static char* freg_names[] = {
 static SLJIT_CONST char* op_names[] = {
 	/* op0 */
 	(char*)"breakpoint", (char*)"nop",
+	(char*)"umul", (char*)"smul", (char*)"udiv", (char*)"sdiv",
 	/* op1 */
 	(char*)"mov", (char*)"mov.ub", (char*)"mov.sb", (char*)"mov.uh",
 	(char*)"mov.sh", (char*)"mov.ui", (char*)"mov.si", (char*)"movu",
@@ -793,7 +794,7 @@ static SLJIT_INLINE void check_sljit_emit_op0(struct sljit_compiler *compiler, i
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(op);
 
-	SLJIT_ASSERT(op >= SLJIT_BREAKPOINT && op <= SLJIT_NOP);
+	SLJIT_ASSERT(op >= SLJIT_BREAKPOINT && op <= SLJIT_SDIV);
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
 		fprintf(compiler->verbose, "  %s\n", op_names[op]);

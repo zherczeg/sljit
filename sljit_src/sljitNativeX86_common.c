@@ -474,32 +474,6 @@ static void SLJIT_CALL sljit_touch_stack(sljit_w local_size)
 #include "sljitNativeX86_64.c"
 #endif
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int op)
-{
-	sljit_ub *buf;
-
-	CHECK_ERROR();
-	check_sljit_emit_op0(compiler, op);
-
-	op = GET_OPCODE(op);
-	switch (op) {
-	case SLJIT_BREAKPOINT:
-		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
-		FAIL_IF(!buf);
-		INC_SIZE(1);
-		*buf = 0xcc;
-		break;
-	case SLJIT_NOP:
-		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
-		FAIL_IF(!buf);
-		INC_SIZE(1);
-		*buf = 0x90;
-		break;
-	}
-
-	return SLJIT_SUCCESS;
-}
-
 static int emit_mov(struct sljit_compiler *compiler,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
@@ -567,6 +541,129 @@ static int emit_mov(struct sljit_compiler *compiler,
 
 #define EMIT_MOV(compiler, dst, dstw, src, srcw) \
 	FAIL_IF(emit_mov(compiler, dst, dstw, src, srcw));
+
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int op)
+{
+	sljit_ub *buf;
+
+	CHECK_ERROR();
+	check_sljit_emit_op0(compiler, op);
+
+	op = GET_OPCODE(op);
+	switch (op) {
+	case SLJIT_BREAKPOINT:
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+		FAIL_IF(!buf);
+		INC_SIZE(1);
+		*buf = 0xcc;
+		break;
+	case SLJIT_NOP:
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+		FAIL_IF(!buf);
+		INC_SIZE(1);
+		*buf = 0x90;
+		break;
+	case SLJIT_UMUL:
+	case SLJIT_SMUL:
+	case SLJIT_UDIV:
+	case SLJIT_SDIV:
+		compiler->flags_saved = 0;
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#ifdef _WIN64
+		SLJIT_COMPILE_ASSERT(
+			reg_map[SLJIT_TEMPORARY_REG1] == 0
+			&& reg_map[SLJIT_TEMPORARY_REG2] == 2
+			&& reg_map[TMP_REGISTER] > 7,
+			invalid_register_assignment_for_div_mul);
+#else
+		SLJIT_COMPILE_ASSERT(
+			reg_map[SLJIT_TEMPORARY_REG1] == 0
+			&& reg_map[SLJIT_TEMPORARY_REG2] < 7
+			&& reg_map[TMP_REGISTER] == 2,
+			invalid_register_assignment_for_div_mul);
+#endif
+		compiler->mode32 = 0;
+#endif
+
+		if (op == SLJIT_UDIV) {
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || defined(_WIN64)
+			EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG2, 0);
+			buf = emit_x86_instruction(compiler, 1, SLJIT_TEMPORARY_REG2, 0, SLJIT_TEMPORARY_REG2, 0);
+#else
+			buf = emit_x86_instruction(compiler, 1, TMP_REGISTER, 0, TMP_REGISTER, 0);
+#endif
+			FAIL_IF(!buf);
+			*buf = 0x33;
+		}
+
+		if (op == SLJIT_SDIV) {
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || defined(_WIN64)
+			EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG2, 0);
+			EMIT_MOV(compiler, SLJIT_TEMPORARY_REG2, 0, SLJIT_TEMPORARY_REG1, 0);
+#else
+			EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG1, 0);
+#endif
+
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 3);
+			FAIL_IF(!buf);
+			INC_SIZE(3);
+			*buf++ = 0xc1;
+			*buf++ = 0xfa;
+			*buf = 0x1f;
+#else
+			buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);
+			FAIL_IF(!buf);
+			INC_SIZE(4);
+			*buf++ = REX_W;
+			*buf++ = 0xc1;
+			*buf++ = 0xfa;
+			*buf = 0x3f;
+#endif
+		}
+
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 2);
+		FAIL_IF(!buf);
+		INC_SIZE(2);
+		*buf++ = 0xf7;
+		*buf = 0xc0 | ((op >= SLJIT_UDIV) ? reg_map[TMP_REGISTER] : reg_map[SLJIT_TEMPORARY_REG2]);
+#else
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3);
+		FAIL_IF(!buf);
+		INC_SIZE(3);
+#ifdef _WIN64
+		*buf++ = REX_W | ((op >= SLJIT_UDIV) ? REX_B : 0);
+		*buf++ = 0xf7;
+		*buf = 0xc0 | ((op >= SLJIT_UDIV) ? reg_lmap[TMP_REGISTER] : reg_lmap[SLJIT_TEMPORARY_REG2]);
+#else
+		*buf++ = REX_W;
+		*buf++ = 0xf7;
+		*buf = 0xc0 | reg_map[SLJIT_TEMPORARY_REG2];
+#endif
+#endif
+		switch (op) {
+		case SLJIT_UMUL:
+			*buf |= 4 << 3;
+			break;
+		case SLJIT_SMUL:
+			*buf |= 5 << 3;
+			break;
+		case SLJIT_UDIV:
+			*buf |= 6 << 3;
+			break;
+		case SLJIT_SDIV:
+			*buf |= 7 << 3;
+			break;
+		}
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) && !defined(_WIN64)
+		EMIT_MOV(compiler, SLJIT_TEMPORARY_REG2, 0, TMP_REGISTER, 0);
+#endif
+		break;
+	}
+
+	return SLJIT_SUCCESS;
+}
 
 #define ENCODE_PREFIX(prefix) \
 	do { \
