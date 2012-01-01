@@ -127,9 +127,11 @@ of sljitConfigInternal.h */
 
 #define SLJIT_RETURN_REG	SLJIT_TEMPORARY_REG1
 
-/* x86 prefers temporary registers for special purposes. If other
-   registers are used such purpose, it costs a little performance
-   drawback. It doesn't matter for other archs. */
+/* x86 prefers specific registers for special purposes. In case of shift
+   by register it supports only SLJIT_TEMPORARY_REG3 for shift argument
+   (which is the src2 argument of sljit_emit_op2). If another register is
+   used, sljit must exchange data between registers which cause a minor
+   slowdown. Other architectures has no such limitation. */
 
 #define SLJIT_PREF_SHIFT_REG	SLJIT_TEMPORARY_REG3
 
@@ -370,15 +372,16 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_return(struct sljit_compiler *compi
 */
 
 /*
-   IMPORATNT NOTE: memory access MUST be naturally aligned.
+   IMPORATNT NOTE: memory access MUST be naturally aligned except
+                   SLJIT_UNALIGNED macro is defined and its value is 1.
+
      length | alignment
    ---------+-----------
      byte   | 1 byte (not aligned)
      half   | 2 byte (real_address & 0x1 == 0)
      int    | 4 byte (real_address & 0x3 == 0)
-    sljit_w | 4 byte if SLJIT_32BIT_ARCHITECTURE defined
-            | 8 byte if SLJIT_64BIT_ARCHITECTURE defined
-   (This is a strict requirement for embedded systems.)
+    sljit_w | 4 byte if SLJIT_32BIT_ARCHITECTURE is defined and its value is 1
+            | 8 byte if SLJIT_64BIT_ARCHITECTURE is defined and its value is 1
 
    Note: different architectures have different addressing limitations
          Thus sljit may generate several instructions for other addressing modes
@@ -450,6 +453,24 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_return(struct sljit_compiler *compi
    Note: may or may not cause an extra cycle wait
          it can even decrease the runtime in a few cases. */
 #define SLJIT_NOP			1
+/* Flags: may destroy flags
+   Unsigned multiplication of SLJIT_TEMPORARY_REG1 and SLJIT_TEMPORARY_REG2.
+   Result goes to SLJIT_TEMPORARY_REG2:SLJIT_TEMPORARY_REG1 (high:low) word */
+#define SLJIT_UMUL			2
+/* Flags: may destroy flags
+   Signed multiplication of SLJIT_TEMPORARY_REG1 and SLJIT_TEMPORARY_REG2.
+   Result goes to SLJIT_TEMPORARY_REG2:SLJIT_TEMPORARY_REG1 (high:low) word */
+#define SLJIT_SMUL			3
+/* Flags: may destroy flags
+   Unsigned divide the value in SLJIT_TEMPORARY_REG1 by SLJIT_TEMPORARY_REG2.
+   Result goes to SLJIT_TEMPORARY_REG1 and remainder goes to SLJIT_TEMPORARY_REG2.
+   Note: if SLJIT_TEMPORARY_REG2 is equal to 0, the behaviour is undefined. */
+#define SLJIT_UDIV			4
+/* Flags: may destroy flags
+   Signed divide the value in SLJIT_TEMPORARY_REG1 by SLJIT_TEMPORARY_REG2.
+   Result goes to SLJIT_TEMPORARY_REG1 and remainder goes to SLJIT_TEMPORARY_REG2.
+   Note: if SLJIT_TEMPORARY_REG2 is equal to 0, the behaviour is undefined. */
+#define SLJIT_SDIV			5
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int op);
 
@@ -462,68 +483,68 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
    SH = unsgined half (16 bit) */
 
 /* Flags: - (never set any flags) */
-#define SLJIT_MOV			2
+#define SLJIT_MOV			6
 /* Flags: - (never set any flags) */
-#define SLJIT_MOV_UB			3
+#define SLJIT_MOV_UB			7
 /* Flags: - (never set any flags) */
-#define SLJIT_MOV_SB			4
+#define SLJIT_MOV_SB			8
 /* Flags: - (never set any flags) */
-#define SLJIT_MOV_UH			5
+#define SLJIT_MOV_UH			9
 /* Flags: - (never set any flags) */
-#define SLJIT_MOV_SH			6
+#define SLJIT_MOV_SH			10
 /* Flags: - (never set any flags) */
-#define SLJIT_MOV_UI			7
+#define SLJIT_MOV_UI			11
 /* Flags: - (never set any flags) */
-#define SLJIT_MOV_SI			8
+#define SLJIT_MOV_SI			12
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU			9
+#define SLJIT_MOVU			13
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_UB			10
+#define SLJIT_MOVU_UB			14
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_SB			11
+#define SLJIT_MOVU_SB			15
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_UH			12
+#define SLJIT_MOVU_UH			16
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_SH			13
+#define SLJIT_MOVU_SH			17
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_UI			14
+#define SLJIT_MOVU_UI			18
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_SI			15
+#define SLJIT_MOVU_SI			19
 /* Flags: I | E | K */
-#define SLJIT_NOT			16
+#define SLJIT_NOT			20
 /* Flags: I | E | O | K */
-#define SLJIT_NEG			17
+#define SLJIT_NEG			21
 /* Count leading zeroes
    Flags: I | E | K */
-#define SLJIT_CLZ			18
+#define SLJIT_CLZ			22
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
 /* Flags: I | E | O | C | K */
-#define SLJIT_ADD			19
+#define SLJIT_ADD			23
 /* Flags: I | C | K */
-#define SLJIT_ADDC			20
+#define SLJIT_ADDC			24
 /* Flags: I | E | S | U | O | C | K */
-#define SLJIT_SUB			21
+#define SLJIT_SUB			25
 /* Flags: I | C | K */
-#define SLJIT_SUBC			22
+#define SLJIT_SUBC			26
 /* Note: integer mul */
 /* Flags: I | O (see SLJIT_C_MUL_*) | K */
-#define SLJIT_MUL			23
+#define SLJIT_MUL			27
 /* Flags: I | E | K */
-#define SLJIT_AND			24
+#define SLJIT_AND			28
 /* Flags: I | E | K */
-#define SLJIT_OR			25
+#define SLJIT_OR			29
 /* Flags: I | E | K */
-#define SLJIT_XOR			26
+#define SLJIT_XOR			30
 /* Flags: I | E | K */
-#define SLJIT_SHL			27
+#define SLJIT_SHL			31
 /* Flags: I | E | K */
-#define SLJIT_LSHR			28
+#define SLJIT_LSHR			32
 /* Flags: I | E | K */
-#define SLJIT_ASHR			29
+#define SLJIT_ASHR			33
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
@@ -560,26 +581,26 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_is_fpu_available(void);
    Note: NaN check is always performed. If SLJIT_C_FLOAT_NAN is set,
          the comparison result is unpredictable.
    Flags: E | S (see SLJIT_C_FLOAT_*) */
-#define SLJIT_FCMP			30
+#define SLJIT_FCMP			34
 /* Flags: - (never set any flags) */
-#define SLJIT_FMOV			31
+#define SLJIT_FMOV			35
 /* Flags: - (never set any flags) */
-#define SLJIT_FNEG			32
+#define SLJIT_FNEG			36
 /* Flags: - (never set any flags) */
-#define SLJIT_FABS			33
+#define SLJIT_FABS			37
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
 /* Flags: - (never set any flags) */
-#define SLJIT_FADD			34
+#define SLJIT_FADD			38
 /* Flags: - (never set any flags) */
-#define SLJIT_FSUB			35
+#define SLJIT_FSUB			39
 /* Flags: - (never set any flags) */
-#define SLJIT_FMUL			36
+#define SLJIT_FMUL			40
 /* Flags: - (never set any flags) */
-#define SLJIT_FDIV			37
+#define SLJIT_FDIV			41
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,

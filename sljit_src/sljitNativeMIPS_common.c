@@ -110,6 +110,8 @@ typedef sljit_ui sljit_ins;
 #define C_UN_D		(HI(17) | FMT_D | LO(49))
 #define C_UEQ_D		(HI(17) | FMT_D | LO(51))
 #define C_ULT_D		(HI(17) | FMT_D | LO(53))
+#define DIV		(HI(0) | LO(26))
+#define DIVU		(HI(0) | LO(27))
 #define DIV_D		(HI(17) | FMT_D | LO(3))
 #define J		(HI(2))
 #define JAL		(HI(3))
@@ -128,6 +130,7 @@ typedef sljit_ui sljit_ins;
 #define MOVZ		(HI(0) | LO(10))
 #define MUL_D		(HI(17) | FMT_D | LO(2))
 #define MULT		(HI(0) | LO(24))
+#define MULTU		(HI(0) | LO(25))
 #define NOP		(HI(0) | LO(0))
 #define NOR		(HI(0) | LO(39))
 #define OR		(HI(0) | LO(37))
@@ -929,6 +932,20 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 		return push_inst(compiler, BREAK, UNMOVABLE_INS);
 	case SLJIT_NOP:
 		return push_inst(compiler, NOP, UNMOVABLE_INS);
+	case SLJIT_UMUL:
+	case SLJIT_SMUL:
+		FAIL_IF(push_inst(compiler, (op == SLJIT_UMUL ? MULTU : MULT) | S(SLJIT_TEMPORARY_REG1) | T(SLJIT_TEMPORARY_REG2), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, MFLO | D(SLJIT_TEMPORARY_REG1), DR(SLJIT_TEMPORARY_REG1)));
+		return push_inst(compiler, MFHI | D(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG2));
+	case SLJIT_UDIV:
+	case SLJIT_SDIV:
+#if !(defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
+		FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
+		FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
+#endif
+		FAIL_IF(push_inst(compiler, (op == SLJIT_UDIV ? DIVU : DIV) | S(SLJIT_TEMPORARY_REG1) | T(SLJIT_TEMPORARY_REG2), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, MFLO | D(SLJIT_TEMPORARY_REG1), DR(SLJIT_TEMPORARY_REG1)));
+		return push_inst(compiler, MFHI | D(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG2));
 	}
 
 	return SLJIT_SUCCESS;
