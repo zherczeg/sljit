@@ -461,12 +461,12 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_return(struct sljit_compiler *compi
    Signed multiplication of SLJIT_TEMPORARY_REG1 and SLJIT_TEMPORARY_REG2.
    Result goes to SLJIT_TEMPORARY_REG2:SLJIT_TEMPORARY_REG1 (high:low) word */
 #define SLJIT_SMUL			3
-/* Flags: may destroy flags
+/* Flags: I | may destroy flags
    Unsigned divide the value in SLJIT_TEMPORARY_REG1 by SLJIT_TEMPORARY_REG2.
    Result goes to SLJIT_TEMPORARY_REG1 and remainder goes to SLJIT_TEMPORARY_REG2.
    Note: if SLJIT_TEMPORARY_REG2 is equal to 0, the behaviour is undefined. */
 #define SLJIT_UDIV			4
-/* Flags: may destroy flags
+/* Flags: I | may destroy flags
    Signed divide the value in SLJIT_TEMPORARY_REG1 by SLJIT_TEMPORARY_REG2.
    Result goes to SLJIT_TEMPORARY_REG1 and remainder goes to SLJIT_TEMPORARY_REG2.
    Note: if SLJIT_TEMPORARY_REG2 is equal to 0, the behaviour is undefined. */

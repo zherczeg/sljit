@@ -794,10 +794,11 @@ static SLJIT_INLINE void check_sljit_emit_op0(struct sljit_compiler *compiler, i
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(op);
 
-	SLJIT_ASSERT(op >= SLJIT_BREAKPOINT && op <= SLJIT_SDIV);
+	SLJIT_ASSERT((op >= SLJIT_BREAKPOINT && op <= SLJIT_SMUL)
+		|| ((op & ~SLJIT_INT_OP) >= SLJIT_UDIV && (op & ~SLJIT_INT_OP) <= SLJIT_SDIV));
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
-		fprintf(compiler->verbose, "  %s\n", op_names[op]);
+		fprintf(compiler->verbose, "  %s%s\n", op_names[GET_OPCODE(op)], !(op & SLJIT_INT_OP) ? "" : "i");
 #endif
 }
 
