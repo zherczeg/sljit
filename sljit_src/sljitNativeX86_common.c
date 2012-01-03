@@ -545,12 +545,14 @@ static int emit_mov(struct sljit_compiler *compiler,
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 {
 	sljit_ub *buf;
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	int size;
+#endif
 
 	CHECK_ERROR();
 	check_sljit_emit_op0(compiler, op);
 
-	op = GET_OPCODE(op);
-	switch (op) {
+	switch (GET_OPCODE(op)) {
 	case SLJIT_BREAKPOINT:
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 1);
 		FAIL_IF(!buf);
@@ -582,9 +584,10 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 			&& reg_map[TMP_REGISTER] == 2,
 			invalid_register_assignment_for_div_mul);
 #endif
-		compiler->mode32 = 0;
+		compiler->mode32 = op & SLJIT_INT_OP;
 #endif
 
+		op = GET_OPCODE(op);
 		if (op == SLJIT_UDIV) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || defined(_WIN64)
 			EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_TEMPORARY_REG2, 0);
@@ -612,13 +615,22 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 			*buf++ = 0xfa;
 			*buf = 0x1f;
 #else
-			buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);
-			FAIL_IF(!buf);
-			INC_SIZE(4);
-			*buf++ = REX_W;
-			*buf++ = 0xc1;
-			*buf++ = 0xfa;
-			*buf = 0x3f;
+			if (compiler->mode32) {
+				buf = (sljit_ub*)ensure_buf(compiler, 1 + 3);
+				FAIL_IF(!buf);
+				INC_SIZE(3);
+				*buf++ = 0xc1;
+				*buf++ = 0xfa;
+				*buf = 0x1f;
+			} else {
+				buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);
+				FAIL_IF(!buf);
+				INC_SIZE(4);
+				*buf++ = REX_W;
+				*buf++ = 0xc1;
+				*buf++ = 0xfa;
+				*buf = 0x3f;
+			}
 #endif
 		}
 
@@ -629,15 +641,24 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 		*buf++ = 0xf7;
 		*buf = 0xc0 | ((op >= SLJIT_UDIV) ? reg_map[TMP_REGISTER] : reg_map[SLJIT_TEMPORARY_REG2]);
 #else
-		buf = (sljit_ub*)ensure_buf(compiler, 1 + 3);
-		FAIL_IF(!buf);
-		INC_SIZE(3);
 #ifdef _WIN64
-		*buf++ = REX_W | ((op >= SLJIT_UDIV) ? REX_B : 0);
+		size = (!compiler->mode32 || op >= SLJIT_UDIV) ? 3 : 2;
+#else
+		size = (!compiler->mode32) ? 3 : 2;
+#endif
+		buf = (sljit_ub*)ensure_buf(compiler, 1 + size);
+		FAIL_IF(!buf);
+		INC_SIZE(size);
+#ifdef _WIN64
+		if (!compiler->mode32)
+			*buf++ = REX_W | ((op >= SLJIT_UDIV) ? REX_B : 0);
+		else if (op >= SLJIT_UDIV)
+			*buf++ = REX_B;
 		*buf++ = 0xf7;
 		*buf = 0xc0 | ((op >= SLJIT_UDIV) ? reg_lmap[TMP_REGISTER] : reg_lmap[SLJIT_TEMPORARY_REG2]);
 #else
-		*buf++ = REX_W;
+		if (!compiler->mode32)
+			*buf++ = REX_W;
 		*buf++ = 0xf7;
 		*buf = 0xc0 | reg_map[SLJIT_TEMPORARY_REG2];
 #endif

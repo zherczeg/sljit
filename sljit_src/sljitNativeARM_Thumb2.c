@@ -38,7 +38,7 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
 #define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
 #define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
 
-/* See sljit_emit_enter if you want to change them. */
+/* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
   0, 0, 1, 2, 12, 5, 6, 7, 8, 10, 11, 13, 3, 4, 14, 15
 };
@@ -158,6 +158,7 @@ typedef sljit_ui sljit_ins;
 #define SXTH		0xb200
 #define SXTH_W		0xfa0ff080
 #define TST		0x4200
+#define UMULL		0xfba00000
 #define UXTB		0xb2c0
 #define UXTB_W		0xfa5ff080
 #define UXTH		0xb280
@@ -1188,6 +1189,21 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 /*  Operators                                                            */
 /* --------------------------------------------------------------------- */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if defined(__GNUC__)
+extern unsigned int __aeabi_uidivmod(unsigned numerator, unsigned denominator);
+extern unsigned int __aeabi_idivmod(unsigned numerator, unsigned denominator);
+#else
+#error "Software divmod functions are needed"
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 {
 	CHECK_ERROR();
@@ -1201,6 +1217,25 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 	case SLJIT_NOP:
 		push_inst16(compiler, NOP);
 		break;
+	case SLJIT_UMUL:
+	case SLJIT_SMUL:
+		return push_inst32(compiler, (op == SLJIT_UMUL ? UMULL : SMULL)
+			| (reg_map[SLJIT_TEMPORARY_REG2] << 8)
+			| (reg_map[SLJIT_TEMPORARY_REG1] << 12)
+			| (reg_map[SLJIT_TEMPORARY_REG1] << 16)
+			| reg_map[SLJIT_TEMPORARY_REG2]);
+	case SLJIT_UDIV:
+	case SLJIT_SDIV:
+		FAIL_IF(push_inst32(compiler, 0xf84d2d04 /* str r2, [sp, #-4]! */));
+		FAIL_IF(push_inst32(compiler, 0xf84dcd04 /* str ip, [sp, #-4]! */));
+#if defined(__GNUC__)
+		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM,
+			(op == SLJIT_UDIV ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
+#else
+#error "Software divmod functions are needed"
+#endif
+		FAIL_IF(push_inst32(compiler, 0xf85dcb04 /* ldr ip, [sp], #4 */));
+		return push_inst32(compiler, 0xf85d2b04 /* ldr r2, [sp], #4 */);
 	}
 
 	return SLJIT_SUCCESS;

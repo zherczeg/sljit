@@ -54,7 +54,7 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
 #define MAX_DIFFERENCE(max_diff) \
 	(((max_diff) / (int)sizeof(sljit_uw)) - (CONST_POOL_ALIGNMENT - 1))
 
-/* See sljit_emit_enter if you want to change them. */
+/* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
   0, 0, 1, 2, 10, 11, 4, 5, 6, 7, 8, 13, 3, 12, 14, 15
 };
@@ -84,7 +84,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define BX		0xe12fff10
 #define CLZ		0xe16f0f10
 #define CMP_DP		0xa
-#define DEBUGGER	0xe1200070
+#define BKPT		0xe1200070
 #define EOR_DP		0x1
 #define MOV_DP		0xd
 #define MUL		0xe0000090
@@ -98,6 +98,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define SBC_DP		0x6
 #define SMULL		0xe0c00090
 #define SUB_DP		0x2
+#define UMULL		0xe0800090
 #define VABS_F64	0xeeb00bc0
 #define VADD_F64	0xee300b00
 #define VCMP_F64	0xeeb40b40
@@ -1755,6 +1756,21 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	return SLJIT_SUCCESS;
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if defined(__GNUC__)
+extern unsigned int __aeabi_uidivmod(unsigned numerator, unsigned denominator);
+extern unsigned int __aeabi_idivmod(unsigned numerator, unsigned denominator);
+#else
+#error "Software divmod functions are needed"
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int op)
 {
 	CHECK_ERROR();
@@ -1763,11 +1779,37 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 	op = GET_OPCODE(op);
 	switch (op) {
 	case SLJIT_BREAKPOINT:
-		EMIT_INSTRUCTION(DEBUGGER);
+		EMIT_INSTRUCTION(BKPT);
 		break;
 	case SLJIT_NOP:
 		EMIT_INSTRUCTION(NOP);
 		break;
+	case SLJIT_UMUL:
+	case SLJIT_SMUL:
+#if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+		return push_inst(compiler, (op == SLJIT_UMUL ? UMULL : SMULL)
+			| (reg_map[SLJIT_TEMPORARY_REG2] << 16)
+			| (reg_map[SLJIT_TEMPORARY_REG1] << 12)
+			| (reg_map[SLJIT_TEMPORARY_REG1] << 8)
+			| reg_map[SLJIT_TEMPORARY_REG2]);
+#else
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG1, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG2)));
+		return push_inst(compiler, (op == SLJIT_UMUL ? UMULL : SMULL)
+			| (reg_map[SLJIT_TEMPORARY_REG2] << 16)
+			| (reg_map[SLJIT_TEMPORARY_REG1] << 12)
+			| (reg_map[SLJIT_TEMPORARY_REG1] << 8)
+			| reg_map[TMP_REG1]);
+#endif
+	case SLJIT_UDIV:
+	case SLJIT_SDIV:
+		EMIT_INSTRUCTION(0xe52d2008 /* str r2, [sp, #-8]! */);
+#if defined(__GNUC__)
+		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM,
+			(op == SLJIT_UDIV ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
+#else
+#error "Software divmod functions are needed"
+#endif
+		return push_inst(compiler, 0xe49d2008 /* ldr r2, [sp], #8 */);
 	}
 
 	return SLJIT_SUCCESS;
