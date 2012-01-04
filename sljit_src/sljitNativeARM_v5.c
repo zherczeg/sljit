@@ -1802,14 +1802,17 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 #endif
 	case SLJIT_UDIV:
 	case SLJIT_SDIV:
-		EMIT_INSTRUCTION(0xe52d2008 /* str r2, [sp, #-8]! */);
+		if (compiler->temporaries >= 3)
+			EMIT_INSTRUCTION(0xe52d2008 /* str r2, [sp, #-8]! */);
 #if defined(__GNUC__)
 		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM,
 			(op == SLJIT_UDIV ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
 #else
 #error "Software divmod functions are needed"
 #endif
-		return push_inst(compiler, 0xe49d2008 /* ldr r2, [sp], #8 */);
+		if (compiler->temporaries >= 3)
+			return push_inst(compiler, 0xe49d2008 /* ldr r2, [sp], #8 */);
+		return SLJIT_SUCCESS;
 	}
 
 	return SLJIT_SUCCESS;

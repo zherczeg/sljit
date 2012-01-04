@@ -1226,16 +1226,23 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 			| reg_map[SLJIT_TEMPORARY_REG2]);
 	case SLJIT_UDIV:
 	case SLJIT_SDIV:
-		FAIL_IF(push_inst32(compiler, 0xf84d2d04 /* str r2, [sp, #-4]! */));
-		FAIL_IF(push_inst32(compiler, 0xf84dcd04 /* str ip, [sp, #-4]! */));
+		if (compiler->temporaries >= 4) {
+			FAIL_IF(push_inst32(compiler, 0xf84d2d04 /* str r2, [sp, #-4]! */));
+			FAIL_IF(push_inst32(compiler, 0xf84dcd04 /* str ip, [sp, #-4]! */));
+		} else if (compiler->temporaries >= 3)
+			FAIL_IF(push_inst32(compiler, 0xf84d2d08 /* str r2, [sp, #-8]! */));
 #if defined(__GNUC__)
 		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM,
 			(op == SLJIT_UDIV ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
 #else
 #error "Software divmod functions are needed"
 #endif
-		FAIL_IF(push_inst32(compiler, 0xf85dcb04 /* ldr ip, [sp], #4 */));
-		return push_inst32(compiler, 0xf85d2b04 /* ldr r2, [sp], #4 */);
+		if (compiler->temporaries >= 4) {
+			FAIL_IF(push_inst32(compiler, 0xf85dcb04 /* ldr ip, [sp], #4 */));
+			return push_inst32(compiler, 0xf85d2b04 /* ldr r2, [sp], #4 */);
+		} else if (compiler->temporaries >= 3)
+			return push_inst32(compiler, 0xf85d2b08 /* ldr r2, [sp], #8 */);
+		return SLJIT_SUCCESS;
 	}
 
 	return SLJIT_SUCCESS;

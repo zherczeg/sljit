@@ -462,14 +462,14 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_return(struct sljit_compiler *compi
    Result goes to SLJIT_TEMPORARY_REG2:SLJIT_TEMPORARY_REG1 (high:low) word */
 #define SLJIT_SMUL			3
 /* Flags: I | may destroy flags
-   Unsigned divide the value in SLJIT_TEMPORARY_REG1 by SLJIT_TEMPORARY_REG2.
-   Result goes to SLJIT_TEMPORARY_REG1 and remainder goes to SLJIT_TEMPORARY_REG2.
-   Note: if SLJIT_TEMPORARY_REG2 is equal to 0, the behaviour is undefined. */
+   Unsigned divide of the value in SLJIT_TEMPORARY_REG1 by the value in SLJIT_TEMPORARY_REG2.
+   The result is placed in SLJIT_TEMPORARY_REG1 and the remainder goes to SLJIT_TEMPORARY_REG2.
+   Note: if SLJIT_TEMPORARY_REG2 contains 0, the behaviour is undefined. */
 #define SLJIT_UDIV			4
 /* Flags: I | may destroy flags
-   Signed divide the value in SLJIT_TEMPORARY_REG1 by SLJIT_TEMPORARY_REG2.
-   Result goes to SLJIT_TEMPORARY_REG1 and remainder goes to SLJIT_TEMPORARY_REG2.
-   Note: if SLJIT_TEMPORARY_REG2 is equal to 0, the behaviour is undefined. */
+   Signed divide of the value in SLJIT_TEMPORARY_REG1 by the value in SLJIT_TEMPORARY_REG2.
+   The result is placed in SLJIT_TEMPORARY_REG1 and the remainder goes to SLJIT_TEMPORARY_REG2.
+   Note: if SLJIT_TEMPORARY_REG2 contains 0, the behaviour is undefined. */
 #define SLJIT_SDIV			5
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int op);
