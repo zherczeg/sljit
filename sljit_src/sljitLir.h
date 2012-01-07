@@ -530,8 +530,8 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 #define SLJIT_SUB			25
 /* Flags: I | C | K */
 #define SLJIT_SUBC			26
-/* Note: integer mul */
-/* Flags: I | O (see SLJIT_C_MUL_*) | K */
+/* Note: integer mul
+   Flags: I | O (see SLJIT_C_MUL_*) | K */
 #define SLJIT_MUL			27
 /* Flags: I | E | K */
 #define SLJIT_AND			28
@@ -539,11 +539,23 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 #define SLJIT_OR			29
 /* Flags: I | E | K */
 #define SLJIT_XOR			30
-/* Flags: I | E | K */
+/* Flags: I | E | K
+   Let bit_length be the length of the shift operation: 32 or 64.
+   If src2 is immediate, src2w is masked by (bit_length - 1).
+   Otherwise, if the content of src2 is outside the range from 0
+   to bit_length - 1, the operation is undefined. */
 #define SLJIT_SHL			31
-/* Flags: I | E | K */
+/* Flags: I | E | K
+   Let bit_length be the length of the shift operation: 32 or 64.
+   If src2 is immediate, src2w is masked by (bit_length - 1).
+   Otherwise, if the content of src2 is outside the range from 0
+   to bit_length - 1, the operation is undefined. */
 #define SLJIT_LSHR			32
-/* Flags: I | E | K */
+/* Flags: I | E | K
+   Let bit_length be the length of the shift operation: 32 or 64.
+   If src2 is immediate, src2w is masked by (bit_length - 1).
+   Otherwise, if the content of src2 is outside the range from 0
+   to bit_length - 1, the operation is undefined. */
 #define SLJIT_ASHR			33
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int op,

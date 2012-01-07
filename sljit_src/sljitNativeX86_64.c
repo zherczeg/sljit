@@ -508,7 +508,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 				inst_size += 4;
 		}
 		else if (flags & EX86_SHIFT_INS) {
-			imma &= 0x3f;
+			imma &= compiler->mode32 ? 0x1f : 0x3f;
 			if (imma != 1) {
 				inst_size ++;
 				flags |= EX86_BYTE_ARG;

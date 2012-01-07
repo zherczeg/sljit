@@ -122,9 +122,11 @@ typedef sljit_ui sljit_ins;
 #define LSR_W		0xfa20f000
 #define LSR_WI		0xea4f0010
 #define MOV		0x4600
+#define MOVS		0x0000
 #define MOVSI		0x2000
 #define MOVT		0xf2c00000
 #define MOVW		0xf2400000
+#define MOV_W		0xea4f0000
 #define MOV_WI		0xf04f0000
 #define MUL		0xfb00f000
 #define MVNS		0x43c0
@@ -617,6 +619,13 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 		case SLJIT_SHL:
 			if (flags & ARG2_IMM) {
 				imm &= 0x1f;
+				if (imm == 0) {
+					if (!(flags & SET_FLAGS))
+						return push_inst16(compiler, MOV | SET_REGS44(dst, reg));
+					if (IS_2_LO_REGS(dst, reg))
+						return push_inst16(compiler, MOVS | RD3(dst) | RN3(reg));
+					return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(dst) | RM4(reg));
+				}
 				if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, reg))
 					return push_inst16(compiler, LSLSI | RD3(dst) | RN3(reg) | (imm << 6));
 				return push_inst32(compiler, LSL_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
@@ -625,6 +634,13 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 		case SLJIT_LSHR:
 			if (flags & ARG2_IMM) {
 				imm &= 0x1f;
+				if (imm == 0) {
+					if (!(flags & SET_FLAGS))
+						return push_inst16(compiler, MOV | SET_REGS44(dst, reg));
+					if (IS_2_LO_REGS(dst, reg))
+						return push_inst16(compiler, MOVS | RD3(dst) | RN3(reg));
+					return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(dst) | RM4(reg));
+				}
 				if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, reg))
 					return push_inst16(compiler, LSRSI | RD3(dst) | RN3(reg) | (imm << 6));
 				return push_inst32(compiler, LSR_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
@@ -633,6 +649,13 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 		case SLJIT_ASHR:
 			if (flags & ARG2_IMM) {
 				imm &= 0x1f;
+				if (imm == 0) {
+					if (!(flags & SET_FLAGS))
+						return push_inst16(compiler, MOV | SET_REGS44(dst, reg));
+					if (IS_2_LO_REGS(dst, reg))
+						return push_inst16(compiler, MOVS | RD3(dst) | RN3(reg));
+					return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(dst) | RM4(reg));
+				}
 				if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(dst, reg))
 					return push_inst16(compiler, ASRSI | RD3(dst) | RN3(reg) | (imm << 6));
 				return push_inst32(compiler, ASR_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
