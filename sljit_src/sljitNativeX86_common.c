@@ -1836,21 +1836,19 @@ static int emit_shift(struct sljit_compiler *compiler,
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, TMP_REGISTER, 0);
 	}
 	else {
-		/* This case is really difficult, since ecx can be used for
-		   addressing as well, and we must ensure to work even in that case. */
+		/* This case is really difficult, since ecx itself may used for
+		   addressing, and we must ensure to work even in that case. */
+		EMIT_MOV(compiler, TMP_REGISTER, 0, src1, src1w);
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_PREF_SHIFT_REG, 0);
 #else
 		/* [esp - 4] is reserved for eflags. */
 		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_LOCALS_REG), -(int)(2 * sizeof(sljit_w)), SLJIT_PREF_SHIFT_REG, 0);
 #endif
-
-		EMIT_MOV(compiler, TMP_REGISTER, 0, src1, src1w);
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, src2, src2w);
 		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_PREF_SHIFT_REG, 0, TMP_REGISTER, 0);
 		FAIL_IF(!code);
 		*code |= mode;
-
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, TMP_REG2, 0);
 #else
@@ -1860,6 +1858,41 @@ static int emit_shift(struct sljit_compiler *compiler,
 		EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
 	}
 
+	return SLJIT_SUCCESS;
+}
+
+static int emit_shift_with_flags(struct sljit_compiler *compiler,
+	sljit_ub mode, int set_flags,
+	int dst, sljit_w dstw,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	/* The CPU does not set flags if the shift count is 0. */
+	if (src2 & SLJIT_IMM) {
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		if ((src2w & 0x3f) != 0 || (compiler->mode32 && (src2w & 0x1f) != 0))
+			return emit_shift(compiler, mode, dst, dstw, src1, src1w, src2, src2w);
+#else
+		if ((src2w & 0x1f) != 0)
+			return emit_shift(compiler, mode, dst, dstw, src1, src1w, src2, src2w);
+#endif
+		if (!set_flags)
+			return emit_mov(compiler, dst, dstw, src1, src1w);
+		/* OR dst, src, 0 */
+		return emit_cum_binary(compiler, 0x0b, 0x09, 0x1 << 3, 0x0d,
+			dst, dstw, src1, src1w, SLJIT_IMM, 0);
+	}
+
+	if (!set_flags)
+		return emit_shift(compiler, mode, dst, dstw, src1, src1w, src2, src2w);
+
+	if (!(dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS))
+		FAIL_IF(emit_cmp_binary(compiler, src1, src1w, SLJIT_IMM, 0));
+
+	FAIL_IF(emit_shift(compiler,mode, dst, dstw, src1, src1w, src2, src2w));
+
+	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
+		return emit_cmp_binary(compiler, dst, dstw, SLJIT_IMM, 0);
 	return SLJIT_SUCCESS;
 }
 
@@ -1942,13 +1975,13 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int
 		return emit_cum_binary(compiler, 0x33, 0x31, 0x6 << 3, 0x35,
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_SHL:
-		return emit_shift(compiler, 0x4 << 3,
+		return emit_shift_with_flags(compiler, 0x4 << 3, GET_FLAGS(op),
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_LSHR:
-		return emit_shift(compiler, 0x5 << 3,
+		return emit_shift_with_flags(compiler, 0x5 << 3, GET_FLAGS(op),
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_ASHR:
-		return emit_shift(compiler, 0x7 << 3,
+		return emit_shift_with_flags(compiler, 0x7 << 3, GET_FLAGS(op),
 			dst, dstw, src1, src1w, src2, src2w);
 	}
 
