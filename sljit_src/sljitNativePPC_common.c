@@ -1175,7 +1175,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define TEST_ADD_IMM(src, srcw) \
-	(((src) & SLJIT_IMM) && (srcw) <= 0x7ffeffff && (srcw) >= SLJIT_W(-0x80000000))
+	(((src) & SLJIT_IMM) && (srcw) <= SLJIT_W(0x7fff7fff) && (srcw) >= SLJIT_W(-0x80000000))
 #else
 #define TEST_ADD_IMM(src, srcw) \
 	((src) & SLJIT_IMM)
