@@ -75,9 +75,9 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 
 /* Instruction bit sections.
    OE and Rc flag (see ALT_SET_FLAGS). */
-#define OERC(flags)	(((flags & ALT_SET_FLAGS) >> 15) | ((flags & ALT_SET_FLAGS) >> 5))
+#define OERC(flags)	(((flags & ALT_SET_FLAGS) >> 10) | (flags & ALT_SET_FLAGS))
 /* Rc flag (see ALT_SET_FLAGS). */
-#define RC(flags)	((flags & ALT_SET_FLAGS) >> 15)
+#define RC(flags)	((flags & ALT_SET_FLAGS) >> 10)
 #define HI(opcode)	((opcode) << 26)
 #define LO(opcode)	((opcode) << 1)
 
@@ -97,6 +97,7 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 #define BLR		(HI(19) | LO(16) | (0x14 << 21))
 #define CNTLZD		(HI(31) | LO(58))
 #define CNTLZW		(HI(31) | LO(26))
+#define CMP		(HI(31) | LO(0))
 #define CMPI		(HI(11))
 #define CMPL		(HI(31) | LO(32))
 #define CMPLI		(HI(10))
@@ -390,32 +391,32 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 /* Other inp_flags. */
 
-#define ARG_TEST	0x0100
-#define ALT_FORM1	0x0200
-#define ALT_FORM2	0x0400
-#define ALT_FORM3	0x0800
-#define ALT_FORM4	0x1000
-#define ALT_FORM5	0x2000
+#define ARG_TEST	0x000100
 /* Integer opertion and set flags -> requires exts on 64 bit systems. */
-#define ALT_SIGN_EXT	0x4000
+#define ALT_SIGN_EXT	0x000200
 /* This flag affects the RC() and OERC() macros. */
-#define ALT_SET_FLAGS	0x8000
+#define ALT_SET_FLAGS	0x000400
+#define ALT_FORM1	0x010000
+#define ALT_FORM2	0x020000
+#define ALT_FORM3	0x040000
+#define ALT_FORM4	0x080000
+#define ALT_FORM5	0x100000
+#define ALT_FORM6	0x200000
 
-  /* Source and destination is register. */
-#define REG_DEST	0x0001
-#define REG1_SOURCE	0x0002
-#define REG2_SOURCE	0x0004
-  /* getput_arg_fast returned true. */
-#define FAST_DEST	0x0008
-  /* Multiple instructions are required. */
-#define SLOW_DEST	0x0010
-/* ALT_FORM1		0x0200
-   ALT_FORM2		0x0400
-   ALT_FORM3		0x0800
-   ALT_FORM4		0x1000
-   ALT_FORM5		0x2000
-   ALT_SIGN_EXT		0x4000
-   ALT_SET_FLAGS	0x8000 */
+/* Source and destination is register. */
+#define REG_DEST	0x000001
+#define REG1_SOURCE	0x000002
+#define REG2_SOURCE	0x000004
+/* getput_arg_fast returned true. */
+#define FAST_DEST	0x000008
+/* Multiple instructions are required. */
+#define SLOW_DEST	0x000010
+/*
+ALT_SIGN_EXT		0x000200
+ALT_SET_FLAGS		0x000400
+ALT_FORM1		0x010000
+...
+ALT_FORM6		0x200000 */
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
 #include "sljitNativePPC_32.c"
@@ -901,7 +902,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	int src1_r;
 	int src2_r;
 	int sugg_src2_r = TMP_REG2;
-	int flags = inp_flags & (ALT_FORM1 | ALT_FORM2 | ALT_FORM3 | ALT_FORM4 | ALT_FORM5 | ALT_SIGN_EXT | ALT_SET_FLAGS);
+	int flags = inp_flags & (ALT_FORM1 | ALT_FORM2 | ALT_FORM3 | ALT_FORM4 | ALT_FORM5 | ALT_FORM6 | ALT_SIGN_EXT | ALT_SET_FLAGS);
 
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
@@ -1173,6 +1174,14 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 	(((src) & SLJIT_IMM) && !((srcw) & ~0xffff0000))
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#define TEST_ADD_IMM(src, srcw) \
+	(((src) & SLJIT_IMM) && (srcw) <= 0x7ffeffff && (srcw) >= SLJIT_W(-0x80000000))
+#else
+#define TEST_ADD_IMM(src, srcw) \
+	((src) & SLJIT_IMM)
+#endif
+
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define TEST_UI_IMM(src, srcw) \
 	(((src) & SLJIT_IMM) && !((srcw) & ~0xffffffff))
 #else
@@ -1211,7 +1220,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
-		if (!GET_FLAGS(op)) {
+		if (!GET_FLAGS(op) && ((src1 | src2) & SLJIT_IMM)) {
 			if (TEST_SL_IMM(src2, src2w)) {
 				compiler->imm = src2w & 0xffff;
 				return emit_op(compiler, SLJIT_ADD, inp_flags | ALT_FORM1, dst, dstw, src1, src1w, TMP_REG2, 0);
@@ -1227,6 +1236,15 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int
 			if (TEST_SH_IMM(src1, src1w)) {
 				compiler->imm = (src1w >> 16) & 0xffff;
 				return emit_op(compiler, SLJIT_ADD, inp_flags | ALT_FORM2, dst, dstw, src2, src2w, TMP_REG2, 0);
+			}
+			/* Range between -1 and -32768 is covered above. */
+			if (TEST_ADD_IMM(src2, src2w)) {
+				compiler->imm = src2w & 0xffffffff;
+				return emit_op(compiler, SLJIT_ADD, inp_flags | ALT_FORM4, dst, dstw, src1, src1w, TMP_REG2, 0);
+			}
+			if (TEST_ADD_IMM(src1, src1w)) {
+				compiler->imm = src1w & 0xffffffff;
+				return emit_op(compiler, SLJIT_ADD, inp_flags | ALT_FORM4, dst, dstw, src2, src2w, TMP_REG2, 0);
 			}
 		}
 		if (!(GET_FLAGS(op) & (SLJIT_SET_E | SLJIT_SET_O))) {
@@ -1245,7 +1263,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int
 		return emit_op(compiler, SLJIT_ADDC, inp_flags | (!(op & SLJIT_KEEP_FLAGS) ? 0 : ALT_FORM1), dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_SUB:
-		if (!GET_FLAGS(op)) {
+		if (!GET_FLAGS(op) && ((src1 | src2) & SLJIT_IMM)) {
 			if (TEST_SL_IMM(src2, -src2w)) {
 				compiler->imm = (-src2w) & 0xffff;
 				return emit_op(compiler, SLJIT_ADD, inp_flags | ALT_FORM1, dst, dstw, src1, src1w, TMP_REG2, 0);
@@ -1258,25 +1276,37 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int
 				compiler->imm = ((-src2w) >> 16) & 0xffff;
 				return emit_op(compiler, SLJIT_ADD, inp_flags | ALT_FORM2, dst, dstw, src1, src1w, TMP_REG2, 0);
 			}
-		}
-		if (dst == SLJIT_UNUSED && !(GET_FLAGS(op) & ~(SLJIT_SET_E | SLJIT_SET_S))) {
-			/* We know ALT_SIGN_EXT is set if it is an SLJIT_INT_OP on 64 bit systems. */
-			if (TEST_SL_IMM(src2, src2w)) {
-				compiler->imm = src2w & 0xffff;
-				return emit_op(compiler, SLJIT_SUB, inp_flags | ALT_FORM2, dst, dstw, src1, src1w, TMP_REG2, 0);
-			}
-			if (GET_FLAGS(op) == SLJIT_SET_E && TEST_SL_IMM(src1, src1w)) {
-				compiler->imm = src1w & 0xffff;
-				return emit_op(compiler, SLJIT_SUB, inp_flags | ALT_FORM2, dst, dstw, src2, src2w, TMP_REG2, 0);
+			/* Range between -1 and -32768 is covered above. */
+			if (TEST_ADD_IMM(src2, -src2w)) {
+				compiler->imm = -src2w & 0xffffffff;
+				return emit_op(compiler, SLJIT_ADD, inp_flags | ALT_FORM4, dst, dstw, src1, src1w, TMP_REG2, 0);
 			}
 		}
-		if (dst == SLJIT_UNUSED && GET_FLAGS(op) == SLJIT_SET_U) {
-			/* We know ALT_SIGN_EXT is set if it is an SLJIT_INT_OP on 64 bit systems. */
-			if (TEST_UL_IMM(src2, src2w)) {
-				compiler->imm = src2w & 0xffff;
-				return emit_op(compiler, SLJIT_SUB, inp_flags | ALT_FORM3, dst, dstw, src1, src1w, TMP_REG2, 0);
+		if (dst == SLJIT_UNUSED && (op & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U)) && !(op & (SLJIT_SET_O | SLJIT_SET_C))) {
+			if (!(op & SLJIT_SET_U)) {
+				/* We know ALT_SIGN_EXT is set if it is an SLJIT_INT_OP on 64 bit systems. */
+				if (TEST_SL_IMM(src2, src2w)) {
+					compiler->imm = src2w & 0xffff;
+					return emit_op(compiler, SLJIT_SUB, inp_flags | ALT_FORM2, dst, dstw, src1, src1w, TMP_REG2, 0);
+				}
+				if (GET_FLAGS(op) == SLJIT_SET_E && TEST_SL_IMM(src1, src1w)) {
+					compiler->imm = src1w & 0xffff;
+					return emit_op(compiler, SLJIT_SUB, inp_flags | ALT_FORM2, dst, dstw, src2, src2w, TMP_REG2, 0);
+				}
 			}
-			return emit_op(compiler, SLJIT_SUB, inp_flags | ALT_FORM4, dst, dstw, src1, src1w, src2, src2w);
+			if (!(op & (SLJIT_SET_E | SLJIT_SET_S))) {
+				/* We know ALT_SIGN_EXT is set if it is an SLJIT_INT_OP on 64 bit systems. */
+				if (TEST_UL_IMM(src2, src2w)) {
+					compiler->imm = src2w & 0xffff;
+					return emit_op(compiler, SLJIT_SUB, inp_flags | ALT_FORM3, dst, dstw, src1, src1w, TMP_REG2, 0);
+				}
+				return emit_op(compiler, SLJIT_SUB, inp_flags | ALT_FORM4, dst, dstw, src1, src1w, src2, src2w);
+			}
+			if ((src2 & SLJIT_IMM) && src2w >= 0 && src2w <= 0x7fff) {
+				compiler->imm = src2w;
+				return emit_op(compiler, SLJIT_SUB, inp_flags | ALT_FORM2 | ALT_FORM3, dst, dstw, src1, src1w, TMP_REG2, 0);
+			}
+			return emit_op(compiler, SLJIT_SUB, inp_flags | ((op & SLJIT_SET_U) ? ALT_FORM4 : 0) | ((op & (SLJIT_SET_E | SLJIT_SET_S)) ? ALT_FORM5 : 0), dst, dstw, src1, src1w, src2, src2w);
 		}
 		if (!(op & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O))) {
 			if (TEST_SL_IMM(src2, -src2w)) {
@@ -1285,7 +1315,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int
 			}
 		}
 		/* We know ALT_SIGN_EXT is set if it is an SLJIT_INT_OP on 64 bit systems. */
-		return emit_op(compiler, SLJIT_SUB, inp_flags | (!(op & SLJIT_SET_U) ? 0 : ALT_FORM5), dst, dstw, src1, src1w, src2, src2w);
+		return emit_op(compiler, SLJIT_SUB, inp_flags | (!(op & SLJIT_SET_U) ? 0 : ALT_FORM6), dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_SUBC:
 		return emit_op(compiler, SLJIT_SUBC, inp_flags | (!(op & SLJIT_KEEP_FLAGS) ? 0 : ALT_FORM1), dst, dstw, src1, src1w, src2, src2w);
