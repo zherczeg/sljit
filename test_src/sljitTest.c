@@ -1492,7 +1492,7 @@ static void test21(void)
 	FAILED(!compiler, "cannot create compiler\n");
 
 	/* Other part of the jit code. */
-	sljit_fake_enter(compiler, 1, 3, 2, 2 * sizeof(sljit_w));
+	sljit_set_context(compiler, 1, 3, 2, 2 * sizeof(sljit_w));
 
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 2, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w), SLJIT_MEM1(SLJIT_LOCALS_REG), 0);
 	sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_MEM1(SLJIT_GENERAL_REG1), sizeof(sljit_w) * 3, SLJIT_MEM1(SLJIT_LOCALS_REG), 0, SLJIT_MEM1(SLJIT_LOCALS_REG), 0);

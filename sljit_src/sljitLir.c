@@ -694,7 +694,7 @@ static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler,
 #endif
 }
 
-static SLJIT_INLINE void check_sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
+static SLJIT_INLINE void check_sljit_set_context(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
 	/* If debug and verbose are disabled, all arguments are unused. */
 	SLJIT_UNUSED_ARG(compiler);
@@ -1233,7 +1233,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(args);

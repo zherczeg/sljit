@@ -312,32 +312,46 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 /* Instruction generation. Returns with error code. */
 
 /*
-   Entry instruction. The instruction has "args" number of arguments
-   and will use the first "general" number of general registers.
-   The arguments are passed into the general registers (arg1 to general_reg1, and so on).
-   Thus, "args" must be less or equal than "general". A local_size extra
-   stack space is allocated for the jit code (must be less or equal than
-   SLJIT_MAX_LOCAL_SIZE), which can accessed through SLJIT_LOCALS_REG (see
-   the notes there). SLJIT_LOCALS_REG is not necessary the real stack pointer!
-   It just points somewhere in the stack if local_size > 0 (!). Thus, the only
-   thing which is known that the memory area between SLJIT_LOCALS_REG and
-   SLJIT_LOCALS_REG + local_size is a valid stack area if local_size > 0
-*/
+   The executable code is basically a function call from the viewpoint of
+   the C language. The function calls must obey to the ABI (Application
+   Binary Interface) of the platform, which specify the purpose of machine
+   registers and stack handling among other things. The sljit_emit_enter
+   function emits the necessary instructions for setting up a new context
+   for the executable code and moves function arguments to the general
+   registers. The number of arguments are specified in the "args"
+   parameter and the first argument goes to SLJIT_GENERAL_REG1, the second
+   goes to SLJIT_GENERAL_REG2 and so on. The number of temporary and
+   general registers are passed in "temporaries" and "generals" arguments
+   respectively. Since the general registers contains the arguments,
+   "args" must be less or equal than "generals". The sljit_emit_enter
+   is also capable of allocating a stack space for local variables. The
+   "local_size" argument contains the size in bytes of this local area
+   and its staring address is stored in SLJIT_LOCALS_REG. However
+   the SLJIT_LOCALS_REG is not necessary the machine stack pointer.
+   The memory bytes between SLJIT_LOCALS_REG (inclusive) and
+   SLJIT_LOCALS_REG + local_size (exclusive) can be modified freely
+   until the function returns. The stack space is uninitialized.
 
-/* Note: multiple calls of this function overwrites the previous call. */
+   Note: every call of sljit_emit_enter and sljit_set_context overwrites
+         the previous context. */
 
 #define SLJIT_MAX_LOCAL_SIZE	65536
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size);
 
-/* Since sljit_emit_return (and many asserts) uses variables which are initialized
-   by sljit_emit_enter, a simple return is not possible if these variables are not
-   initialized. sljit_fake_enter does not emit any instruction, just initialize
-   those variables. */
+/* The machine code has a context (which contains the local stack space size,
+   number of used registers, etc.) which initialized by sljit_emit_enter. Several
+   functions (like sljit_emit_return) requres this context to be able to generate
+   the appropriate code. However, some code fragments (like inline cache) may have
+   no normal entry point so their context is unknown for the compiler. Using the
+   function below we can specify thir context.
+
+   Note: every call of sljit_emit_enter and sljit_set_context overwrites
+         the previous context. */
 
 /* Note: multiple calls of this function overwrites the previous call. */
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_fake_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size);
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size);
 
 /* Return from jit. See below the possible values for src and srcw. */
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
