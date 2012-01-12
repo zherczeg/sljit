@@ -802,10 +802,17 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 		return SLJIT_SUCCESS; /* Empty instruction. */
 
 	if (src & SLJIT_IMM) {
-		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS)
+		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
+			if (sign || ((sljit_uw)srcw <= 0x7fffffff)) {
+				code = emit_x86_instruction(compiler, 1, SLJIT_IMM, (sljit_w)(sljit_i)srcw, dst, dstw);
+				FAIL_IF(!code);
+				*code = 0xc7;
+				return SLJIT_SUCCESS;
+			}
 			return emit_load_imm64(compiler, dst, srcw);
+		}
 		compiler->mode32 = 1;
-		code = emit_x86_instruction(compiler, 1, SLJIT_IMM, (sljit_w)(int)srcw, dst, dstw);
+		code = emit_x86_instruction(compiler, 1, SLJIT_IMM, (sljit_w)(sljit_i)srcw, dst, dstw);
 		FAIL_IF(!code);
 		*code = 0xc7;
 		compiler->mode32 = 0;
@@ -821,23 +828,9 @@ static int emit_mov_int(struct sljit_compiler *compiler, int sign,
 			code = emit_x86_instruction(compiler, 1, dst_r, 0, src, srcw);
 			FAIL_IF(!code);
 			*code++ = 0x63;
-		} else if (dst_r == src) {
-			compiler->mode32 = 0;
-			code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 32, dst, 0);
-			FAIL_IF(!code);
-			*code |= 0x4 << 3;
-			code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 32, dst, 0);
-			FAIL_IF(!code);
-			*code |= 0x7 << 3;
 		} else {
-			/* xor reg, reg. */
-			code = emit_x86_instruction(compiler, 1, dst_r, 0, dst_r, 0);
-			FAIL_IF(!code);
-			*code++ = 0x33;
 			compiler->mode32 = 1;
-			code = emit_x86_instruction(compiler, 1, dst_r, 0, src, srcw);
-			FAIL_IF(!code);
-			*code++ = 0x8b;
+			FAIL_IF(emit_mov(compiler, dst_r, 0, src, srcw));
 			compiler->mode32 = 0;
 		}
 	}

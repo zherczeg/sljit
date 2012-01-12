@@ -174,10 +174,11 @@ void run_tests(struct test_case* test)
 	if (machine)
 		regex_free_machine(machine);
 
+	printf("On %s: ", regex_get_platform_name());
 	if (fail == 0)
-		printf("Summary: Success: %d (all)\n", success);
+		printf("All tests are passed!\n");
 	else
-		printf("Summary: Success: %d Fail: %d\n", success, fail);
+		printf("Successful test ratio: %d%%.\n", success * 100 / (success + fail));
 }
 
 /* Testing. */
@@ -279,7 +280,6 @@ static struct test_case tests[] = {
 
 int main(int argc, char* argv[])
 {
-	printf("Generating code for: %s\n", regex_get_platform_name());
 /*	verbose_test("a((b)((c|d))|)c|"); */
 /*	verbose_test("Xa{009,0010}Xb{,7}Xc{5,}Xd{,}Xe{1,}Xf{,1}X"); */
 /*	verbose_test("{3!}({3})({0!}){,"); */
