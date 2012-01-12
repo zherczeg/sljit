@@ -3610,7 +3610,6 @@ static void test42(void)
 
 void sljit_test(void)
 {
-	printf("Generating code for: %s\n", sljit_get_platform_name());
 
 #if !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 	test_exec_allocator();
@@ -3657,8 +3656,9 @@ void sljit_test(void)
 	test40();
 	test41();
 	test42();
+	printf("On %s%s: ", sljit_get_platform_name(), sljit_is_fpu_available() ? " (+fpu)" : "");
 	if (successful_tests == 42)
-		printf("All tests are passed.\n");
+		printf("All tests are passed!\n");
 	else
 		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 42);
 }
