@@ -1179,6 +1179,8 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 	if (src != SLJIT_UNUSED && src != SLJIT_RETURN_REG) {
 		if (src >= SLJIT_TEMPORARY_REG1 && src <= TMP_REG3)
 			FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_RETURN_REG, src)));
+		else if (src & SLJIT_IMM)
+			FAIL_IF(load_immediate(compiler, SLJIT_RETURN_REG, srcw));
 		else
 			FAIL_IF(emit_op_mem(compiler, WORD_SIZE, SLJIT_RETURN_REG, src, srcw));
 	}

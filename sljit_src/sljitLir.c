@@ -895,6 +895,13 @@ static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, 
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		return;
+	}
+#endif
+
 	/* If debug and verbose are disabled, all arguments are unused. */
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(op);
@@ -1018,6 +1025,35 @@ static SLJIT_INLINE void check_sljit_emit_cmp(struct sljit_compiler *compiler, i
 #endif
 }
 
+static SLJIT_INLINE void check_sljit_emit_fcmp(struct sljit_compiler *compiler, int type,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(src1);
+	SLJIT_UNUSED_ARG(src1w);
+	SLJIT_UNUSED_ARG(src2);
+	SLJIT_UNUSED_ARG(src2w);
+
+	SLJIT_ASSERT(sljit_is_fpu_available());
+	SLJIT_ASSERT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP)));
+	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_FLOAT_EQUAL && (type & 0xff) <= SLJIT_C_FLOAT_NOT_NAN);
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	FUNCTION_FCHECK(src1, src1w);
+	FUNCTION_FCHECK(src2, src2w);
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  fcmp%s <%s> ", !(type & SLJIT_REWRITABLE_JUMP) ? "" : "R", jump_names[type & 0xff]);
+		sljit_verbose_fparam(src1, src1w);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_fparam(src2, src2w);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+}
+
 static SLJIT_INLINE void check_sljit_emit_ijump(struct sljit_compiler *compiler, int type, int src, sljit_w srcw)
 {
 	/* If debug and verbose are disabled, all arguments are unused. */
@@ -1103,6 +1139,7 @@ static SLJIT_INLINE void check_sljit_emit_const(struct sljit_compiler *compiler,
 #endif
 
 #if !(defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
@@ -1169,6 +1206,32 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 #endif
 	return sljit_emit_jump(compiler, condition | (type & SLJIT_REWRITABLE_JUMP));
 }
+
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compiler *compiler, int type,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	int flags, condition;
+
+	check_sljit_emit_fcmp(compiler, type, src1, src1w, src2, src2w);
+
+	condition = type & 0xff;
+	if (condition <= SLJIT_C_FLOAT_NOT_EQUAL)
+		flags = SLJIT_SET_E;
+	else
+		flags = SLJIT_SET_S;
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->skip_checks = 1;
+#endif
+	sljit_emit_fop1(compiler, SLJIT_FCMP | flags, src1, src1w, src2, src2w);
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->skip_checks = 1;
+#endif
+	return sljit_emit_jump(compiler, condition | (type & SLJIT_REWRITABLE_JUMP));
+}
+
 #endif
 
 #else /* SLJIT_CONFIG_UNSUPPORTED */
@@ -1366,6 +1429,20 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(src1);
+	SLJIT_UNUSED_ARG(src1w);
+	SLJIT_UNUSED_ARG(src2);
+	SLJIT_UNUSED_ARG(src2w);
+	SLJIT_ASSERT_STOP();
+	return NULL;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compiler *compiler, int type,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
 {
