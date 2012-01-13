@@ -109,6 +109,7 @@ typedef sljit_ui sljit_ins;
 #define BREAK		(HI(0) | LO(13))
 #define C_UN_D		(HI(17) | FMT_D | LO(49))
 #define C_UEQ_D		(HI(17) | FMT_D | LO(51))
+#define C_ULE_D		(HI(17) | FMT_D | LO(55))
 #define C_ULT_D		(HI(17) | FMT_D | LO(53))
 #define DIV		(HI(0) | LO(26))
 #define DIVU		(HI(0) | LO(27))
@@ -1587,6 +1588,81 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 
 #undef RESOLVE_IMM1
 #undef RESOLVE_IMM2
+
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compiler *compiler, int type,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w)
+{
+	struct sljit_jump *jump;
+	sljit_ins inst;
+	int if_true;
+
+	CHECK_ERROR_PTR();
+	check_sljit_emit_fcmp(compiler, type, src1, src1w, src2, src2w);
+
+	compiler->cache_arg = 0;
+	compiler->cache_argw = 0;
+
+	if (src1 > SLJIT_FLOAT_REG4) {
+		PTR_FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG1, 1, src1, src1w));
+		src1 = TMP_FREG1;
+	}
+	if (src2 > SLJIT_FLOAT_REG4) {
+		PTR_FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src2, src2w));
+		src2 = TMP_FREG2;
+	}
+
+	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+	PTR_FAIL_IF(!jump);
+	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
+	jump->flags |= IS_BIT16_COND;
+	type &= 0xff;
+
+	switch (type) {
+	case SLJIT_C_FLOAT_EQUAL:
+		inst = C_UEQ_D;
+		if_true = 1;
+		break;
+	case SLJIT_C_FLOAT_NOT_EQUAL:
+		inst = C_UEQ_D;
+		if_true = 0;
+		break;
+	case SLJIT_C_FLOAT_LESS:
+		inst = C_ULT_D;
+		if_true = 1;
+		break;
+	case SLJIT_C_FLOAT_GREATER_EQUAL:
+		inst = C_ULT_D;
+		if_true = 0;
+		break;
+	case SLJIT_C_FLOAT_GREATER:
+		inst = C_ULE_D;
+		if_true = 0;
+		break;
+	case SLJIT_C_FLOAT_LESS_EQUAL:
+		inst = C_ULE_D;
+		if_true = 1;
+		break;
+	case SLJIT_C_FLOAT_NAN:
+		inst = C_UN_D;
+		if_true = 1;
+		break;
+	case SLJIT_C_FLOAT_NOT_NAN:
+	default: /* Make compilers happy. */
+		inst = C_UN_D;
+		if_true = 0;
+		break;
+	}
+
+	PTR_FAIL_IF(push_inst(compiler, inst | FT(src2) | FS(src1), UNMOVABLE_INS));
+	/* Intentionally the other opcode. */
+	PTR_FAIL_IF(push_inst(compiler, (if_true ? BC1F : BC1T) | JUMP_LENGTH, UNMOVABLE_INS));
+	PTR_FAIL_IF(emit_const(compiler, TMP_REG2, 0));
+	PTR_FAIL_IF(push_inst(compiler, JR | S(TMP_REG2), UNMOVABLE_INS));
+	jump->addr = compiler->size;
+	PTR_FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
+	return jump;
+}
 
 #undef JUMP_LENGTH
 #undef BR_Z

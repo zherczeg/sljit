@@ -686,15 +686,29 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
    Flags: destroy all flags for calls. */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, int type);
 
-/* Basic arithmetic comparison. In most architectures it is equal to
-   an SLJIT_SUB operation (with SLJIT_UNUSED destination) followed by a
-   sljit_emit_jump. However some architectures (i.e: MIPS) may employ
-   special optimizations here. It is suggested to use this comparison
-   form when flags are unimportant.
+/* Basic arithmetic comparison. In most architectures it is implemented as
+   an SLJIT_SUB operation (with SLJIT_UNUSED destination and setting
+   appropriate flags) followed by a sljit_emit_jump. However some
+   architectures (i.e: MIPS) may employ special optimizations here. It is
+   suggested to use this comparison form when appropriate.
     type must be between SLJIT_C_EQUAL and SLJIT_C_SIG_LESS_EQUAL
     type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP or SLJIT_INT_OP
    Flags: destroy flags. */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, int type,
+	int src1, sljit_w src1w,
+	int src2, sljit_w src2w);
+
+/* Basic floating point comparison. In most architectures it is implemented as
+   an SLJIT_FCMP operation (setting appropriate flags) followed by a
+   sljit_emit_jump. However some architectures (i.e: MIPS) may employ
+   special optimizations here. It is suggested to use this comparison form
+   when appropriate.
+    type must be between SLJIT_C_FLOAT_EQUAL and SLJIT_C_FLOAT_NOT_NAN
+    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
+   Flags: destroy flags.
+   Note: if either operand is NaN, the behaviour is undefined for
+         type <= SLJIT_C_FLOAT_LESS_EQUAL. */
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compiler *compiler, int type,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w);
 

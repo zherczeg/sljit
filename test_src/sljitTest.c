@@ -869,6 +869,8 @@ static void test13(void)
 	if (!sljit_is_fpu_available()) {
 		printf("no fpu available, test13 skipped\n");
 		successful_tests++;
+		if (compiler)
+			sljit_free_compiler(compiler);
 		return;
 	}
 
@@ -945,6 +947,8 @@ static void test14(void)
 	if (!sljit_is_fpu_available()) {
 		printf("no fpu available, test14 skipped\n");
 		successful_tests++;
+		if (compiler)
+			sljit_free_compiler(compiler);
 		return;
 	}
 	buf[0] = 7.25;
@@ -2548,7 +2552,7 @@ static void test32(void)
 {
 	/* Floating point set flags. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler();
 
 	sljit_w buf[16];
 	union {
@@ -2576,6 +2580,7 @@ static void test32(void)
 	buf[14] = 5;
 	buf[15] = 5;
 
+	/* Two NaNs */
 	dbuf[0].u.value1 = 0x7fffffff;
 	dbuf[0].u.value2 = 0x7fffffff;
 	dbuf[1].u.value1 = 0x7fffffff;
@@ -2586,10 +2591,11 @@ static void test32(void)
 	if (!sljit_is_fpu_available()) {
 		printf("no fpu available, test32 skipped\n");
 		successful_tests++;
+		if (compiler)
+			sljit_free_compiler(compiler);
 		return;
 	}
 
-	compiler = sljit_create_compiler();
 	FAILED(!compiler, "cannot create compiler\n");
 	SLJIT_ASSERT(sizeof(double) == 8 && sizeof(int) == 4 && sizeof(dbuf[0]) == 8);
 
@@ -3457,7 +3463,7 @@ static void test41(void)
 
 static void test42(void)
 {
-	/* Test long multiply and diviosn. */
+	/* Test long multiply and division. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	int i;
@@ -3608,9 +3614,79 @@ static void test42(void)
 	successful_tests++;
 }
 
+static void test43(void)
+{
+	/* Test floating point compare. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	struct sljit_jump* jump;
+
+	union {
+		double value;
+		struct {
+			int value1;
+			int value2;
+		} u;
+	} dbuf[4];
+
+	if (!sljit_is_fpu_available()) {
+		printf("no fpu available, test43 skipped\n");
+		successful_tests++;
+		if (compiler)
+			sljit_free_compiler(compiler);
+		return;
+	}
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	dbuf[0].value = 12.125;
+	/* a NaN */
+	dbuf[1].u.value1 = 0x7fffffff;
+	dbuf[1].u.value2 = 0x7fffffff;
+	dbuf[2].value = -13.5;
+	dbuf[3].value = 12.125;
+
+	sljit_emit_enter(compiler, 1, 1, 1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 2);
+	/* dbuf[0] < dbuf[2] -> -2 */
+	jump = sljit_emit_fcmp(compiler, SLJIT_C_FLOAT_GREATER_EQUAL, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_MEM2(SLJIT_GENERAL_REG1, SLJIT_TEMPORARY_REG1), SLJIT_FLOAT_SHIFT);
+	sljit_emit_return(compiler, SLJIT_IMM, -2);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG2, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0);
+	/* dbuf[0] and dbuf[1] is not NaN -> 5 */
+	jump = sljit_emit_fcmp(compiler, SLJIT_C_FLOAT_NAN, SLJIT_MEM0(), (sljit_w)&dbuf[1], SLJIT_FLOAT_REG2, 0);
+	sljit_emit_return(compiler, SLJIT_IMM, 5);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG3, 0, SLJIT_MEM1(SLJIT_GENERAL_REG1), 3 * sizeof(double));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0, SLJIT_IMM, 11);
+	/* dbuf[0] == dbuf[3] -> 11 */
+	jump = sljit_emit_fcmp(compiler, SLJIT_C_FLOAT_EQUAL, SLJIT_MEM1(SLJIT_GENERAL_REG1), 0, SLJIT_FLOAT_REG3, 0);
+
+	/* else -> -17 */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0, SLJIT_IMM, -17);
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_return(compiler, SLJIT_RETURN_REG, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	FAILED(code.func1((sljit_w)&dbuf) != 11, "test43 case 1 failed\n");
+	dbuf[3].value = 12;
+	FAILED(code.func1((sljit_w)&dbuf) != -17, "test43 case 2 failed\n");
+	dbuf[1].value = 0;
+	FAILED(code.func1((sljit_w)&dbuf) != 5, "test43 case 3 failed\n");
+	dbuf[2].value = 20;
+	FAILED(code.func1((sljit_w)&dbuf) != -2, "test43 case 4 failed\n");
+
+	printf("test43 ok\n");
+	successful_tests++;
+}
+
 void sljit_test(void)
 {
-
 #if !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 	test_exec_allocator();
 #endif
@@ -3656,9 +3732,10 @@ void sljit_test(void)
 	test40();
 	test41();
 	test42();
+	test43();
 	printf("On %s%s: ", sljit_get_platform_name(), sljit_is_fpu_available() ? " (+fpu)" : "");
-	if (successful_tests == 42)
+	if (successful_tests == 43)
 		printf("All tests are passed!\n");
 	else
-		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 42);
+		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 43);
 }
