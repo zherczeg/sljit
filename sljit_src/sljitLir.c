@@ -1410,6 +1410,22 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
+SLJIT_API_FUNC_ATTRIBUTE int sljit_get_register_index(int reg)
+{
+	SLJIT_ASSERT_STOP();
+	return reg;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op_custom(struct sljit_compiler *compiler,
+	void *instruction, int size)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(instruction);
+	SLJIT_UNUSED_ARG(size);
+	SLJIT_ASSERT_STOP();
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE int sljit_is_fpu_available(void)
 {
 	SLJIT_ASSERT_STOP();
