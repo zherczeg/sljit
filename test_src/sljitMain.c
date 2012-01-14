@@ -62,7 +62,7 @@ void devel(void)
 #endif
 	sljit_emit_enter(compiler, 1, 4, 5, 2 * sizeof(sljit_w));
 
-	sljit_emit_return(compiler, SLJIT_RETURN_REG, 0);
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
 	code.code = sljit_generate_code(compiler);
 	sljit_free_compiler(compiler);

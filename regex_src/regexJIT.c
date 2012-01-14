@@ -2183,7 +2183,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 	sljit_set_label(best_match_found_jump, label);
 	if (fast_forward_jump)
 		sljit_set_label(fast_forward_jump, label);
-	CHECK(sljit_emit_return(compiler_common.compiler, SLJIT_UNUSED, 0));
+	CHECK(sljit_emit_return(compiler_common.compiler, SLJIT_UNUSED, 0, 0));
 
 	ind = 1;
 	while (ind < compiler_common.dfa_size - 1) {
@@ -2259,7 +2259,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 		else {
 			EMIT_OP1(SLJIT_MOV, R_NEXT_HEAD, 0, SLJIT_IMM, 0);
 		}
-		CHECK(sljit_emit_return(compiler_common.compiler, R_NEXT_HEAD, 0));
+		CHECK(sljit_emit_return(compiler_common.compiler, SLJIT_MOV, R_NEXT_HEAD, 0));
 
 		compiler_common.machine->continue_match = sljit_generate_code(compiler_common.compiler);
 #ifndef SLJIT_INDIRECT_CALL
