@@ -230,7 +230,12 @@ typedef signed int sljit_i;
 /* Machine word type. Can encapsulate a pointer.
      32 bit for 32 bit machines.
      64 bit for 64 bit machines. */
-#if !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) && !(defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
+/* Just to have something. */
+#define SLJIT_WORD_SHIFT 0
+typedef unsigned long int sljit_uw;
+typedef long int sljit_w;
+#elif !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) && !(defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define SLJIT_32BIT_ARCHITECTURE 1
 #define SLJIT_WORD_SHIFT 2
 typedef unsigned int sljit_uw;

@@ -3444,6 +3444,9 @@ static void test41(void)
 		| (sljit_get_register_index(SLJIT_GENERAL_REG1) << 21)
 		| (sljit_get_register_index(SLJIT_GENERAL_REG2) << 16);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#else
+	inst = 0;
+	sljit_emit_op_custom(compiler, &inst, 0);
 #endif
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
