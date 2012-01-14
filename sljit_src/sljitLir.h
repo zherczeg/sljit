@@ -337,7 +337,8 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 
 #define SLJIT_MAX_LOCAL_SIZE	65536
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size);
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler,
+	int args, int temporaries, int generals, int local_size);
 
 /* The machine code has a context (which contains the local stack space size,
    number of used registers, etc.) which initialized by sljit_emit_enter. Several
@@ -351,10 +352,16 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 
 /* Note: multiple calls of this function overwrites the previous call. */
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size);
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
+	int args, int temporaries, int generals, int local_size);
 
-/* Return from jit. See below the possible values for src and srcw. */
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
+/* Return from machine code.  The op argument can be SLJIT_UNUSED which means the
+   function does not return with anything or any opcode between SLJIT_MOV and
+   SLJIT_MOV_SI (see sljit_emit_op1). As for src and srcw they must be 0 if op
+   is SLJIT_UNUSED, otherwise see below the description about source and
+   destination arguments. */
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int op,
+	int src, sljit_w srcw);
 
 /* Really fast calling method for utility functions inside sljit (see SLJIT_FAST_CALL).
    All registers and even the stack frame is passed to the callee. The return address is

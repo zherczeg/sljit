@@ -517,13 +517,12 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int op, int src, sljit_w srcw)
 {
 	CHECK_ERROR();
-	check_sljit_emit_return(compiler, src, srcw);
+	check_sljit_emit_return(compiler, op, src, srcw);
 
-	if (src != SLJIT_UNUSED && src != SLJIT_RETURN_REG)
-		FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, SLJIT_RETURN_REG, 0, TMP_REG1, 0, src, srcw));
+	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
 
 	if (compiler->local_size <= SIMM_MAX)
 		FAIL_IF(push_inst(compiler, ADDI | D(REAL_STACK_PTR) | A(REAL_STACK_PTR) | IMM(compiler->local_size)));

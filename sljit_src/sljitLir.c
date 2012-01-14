@@ -714,25 +714,31 @@ static SLJIT_INLINE void check_sljit_set_context(struct sljit_compiler *compiler
 #endif
 }
 
-static SLJIT_INLINE void check_sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+static SLJIT_INLINE void check_sljit_emit_return(struct sljit_compiler *compiler, int op, int src, sljit_w srcw)
 {
 	/* If debug and verbose are disabled, all arguments are unused. */
 	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(op);
 	SLJIT_UNUSED_ARG(src);
 	SLJIT_UNUSED_ARG(srcw);
 
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	if (src != SLJIT_UNUSED) {
+	if (op != SLJIT_UNUSED) {
+		SLJIT_ASSERT(op >= SLJIT_MOV && op <= SLJIT_MOV_SI);
 		FUNCTION_CHECK_SRC(src, srcw);
 	}
 	else
-		SLJIT_ASSERT(srcw == 0);
+		SLJIT_ASSERT(src == 0 && srcw == 0);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  return ");
-		sljit_verbose_param(src, srcw);
-		fprintf(compiler->verbose, "\n");
+		if (op == SLJIT_UNUSED)
+			fprintf(compiler->verbose, "  return\n");
+		else {
+			fprintf(compiler->verbose, "  return %s ", op_names[op]);
+			sljit_verbose_param(src, srcw);
+			fprintf(compiler->verbose, "\n");
+		}
 	}
 #endif
 }
@@ -813,6 +819,13 @@ static SLJIT_INLINE void check_sljit_emit_op1(struct sljit_compiler *compiler, i
 	SLJIT_UNUSED_ARG(dstw);
 	SLJIT_UNUSED_ARG(src);
 	SLJIT_UNUSED_ARG(srcw);
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		return;
+	}
+#endif
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_CLZ);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
@@ -895,13 +908,6 @@ static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, 
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
-		compiler->skip_checks = 0;
-		return;
-	}
-#endif
-
 	/* If debug and verbose are disabled, all arguments are unused. */
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(op);
@@ -909,6 +915,13 @@ static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, 
 	SLJIT_UNUSED_ARG(dstw);
 	SLJIT_UNUSED_ARG(src);
 	SLJIT_UNUSED_ARG(srcw);
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		return;
+	}
+#endif
 
 	SLJIT_ASSERT(sljit_is_fpu_available());
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_FCMP && GET_OPCODE(op) <= SLJIT_FABS);
@@ -1120,6 +1133,26 @@ static SLJIT_INLINE void check_sljit_emit_const(struct sljit_compiler *compiler,
 #endif
 }
 
+static SLJIT_INLINE int emit_mov_before_return(struct sljit_compiler *compiler, int op, int src, sljit_w srcw)
+{
+	/* Return if don't need to do anything. */
+	if (op == SLJIT_UNUSED)
+		return SLJIT_SUCCESS;
+
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	if (src == SLJIT_RETURN_REG && op == SLJIT_MOV)
+		return SLJIT_SUCCESS;
+#else
+	if (src == SLJIT_RETURN_REG && (op == SLJIT_MOV || op == SLJIT_MOV_UI || op == SLJIT_MOV_SI))
+		return SLJIT_SUCCESS;
+#endif
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->skip_checks = 1;
+#endif
+	return sljit_emit_op1(compiler, op, SLJIT_RETURN_REG, 0, src, srcw);
+}
+
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	#include "sljitNativeX86_common.c"
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -1306,9 +1339,10 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	SLJIT_ASSERT_STOP();
 }
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int op, int src, sljit_w srcw)
 {
 	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(op);
 	SLJIT_UNUSED_ARG(src);
 	SLJIT_UNUSED_ARG(srcw);
 	SLJIT_ASSERT_STOP();
