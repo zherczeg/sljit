@@ -820,38 +820,38 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w);
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int saveds, int local_size)
 {
 	int size;
 	sljit_uw push;
 
 	CHECK_ERROR();
-	check_sljit_emit_enter(compiler, args, temporaries, generals, local_size);
+	check_sljit_emit_enter(compiler, args, temporaries, saveds, local_size);
 
 	compiler->temporaries = temporaries;
-	compiler->generals = generals;
+	compiler->saveds = saveds;
 
-	/* Push general registers, temporary registers
+	/* Push saved registers, temporary registers
 	   stmdb sp!, {..., lr} */
 	push = PUSH | (1 << 14);
 	if (temporaries >= 5)
 		push |= 1 << 11;
 	if (temporaries >= 4)
 		push |= 1 << 10;
-	if (generals >= 5)
+	if (saveds >= 5)
 		push |= 1 << 8;
-	if (generals >= 4)
+	if (saveds >= 4)
 		push |= 1 << 7;
-	if (generals >= 3)
+	if (saveds >= 3)
 		push |= 1 << 6;
-	if (generals >= 2)
+	if (saveds >= 2)
 		push |= 1 << 5;
-	if (generals >= 1)
+	if (saveds >= 1)
 		push |= 1 << 4;
 	EMIT_INSTRUCTION(push);
 
 	/* Stack must be aligned to 8 bytes: */
-	size = (1 + generals) * sizeof(sljit_uw);
+	size = (1 + saveds) * sizeof(sljit_uw);
 	if (temporaries >= 4)
 		size += (temporaries - 3) * sizeof(sljit_uw);
 	local_size += size;
@@ -862,26 +862,26 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 		FAIL_IF(emit_op(compiler, SLJIT_SUB, ALLOW_IMM, SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, local_size));
 
 	if (args >= 1)
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, SLJIT_GENERAL_REG1, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG1)));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, SLJIT_SAVED_REG1, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG1)));
 	if (args >= 2)
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, SLJIT_GENERAL_REG2, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG2)));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, SLJIT_SAVED_REG2, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG2)));
 	if (args >= 3)
-		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, SLJIT_GENERAL_REG3, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG3)));
+		EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, SLJIT_SAVED_REG3, SLJIT_UNUSED, RM(SLJIT_TEMPORARY_REG3)));
 
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, int args, int temporaries, int saveds, int local_size)
 {
 	int size;
 
 	CHECK_ERROR_VOID();
-	check_sljit_set_context(compiler, args, temporaries, generals, local_size);
+	check_sljit_set_context(compiler, args, temporaries, saveds, local_size);
 
 	compiler->temporaries = temporaries;
-	compiler->generals = generals;
+	compiler->saveds = saveds;
 
-	size = (1 + generals) * sizeof(sljit_uw);
+	size = (1 + saveds) * sizeof(sljit_uw);
 	if (temporaries >= 4)
 		size += (temporaries - 3) * sizeof(sljit_uw);
 	local_size += size;
@@ -903,21 +903,21 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 		FAIL_IF(emit_op(compiler, SLJIT_ADD, ALLOW_IMM, SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
 
 	pop = POP | (1 << 15);
-	/* Push general registers, temporary registers
+	/* Push saved registers, temporary registers
 	   ldmia sp!, {..., pc} */
 	if (compiler->temporaries >= 5)
 		pop |= 1 << 11;
 	if (compiler->temporaries >= 4)
 		pop |= 1 << 10;
-	if (compiler->generals >= 5)
+	if (compiler->saveds >= 5)
 		pop |= 1 << 8;
-	if (compiler->generals >= 4)
+	if (compiler->saveds >= 4)
 		pop |= 1 << 7;
-	if (compiler->generals >= 3)
+	if (compiler->saveds >= 3)
 		pop |= 1 << 6;
-	if (compiler->generals >= 2)
+	if (compiler->saveds >= 2)
 		pop |= 1 << 5;
-	if (compiler->generals >= 1)
+	if (compiler->saveds >= 1)
 		pop |= 1 << 4;
 
 	return push_inst(compiler, pop);
@@ -2141,17 +2141,17 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop2(struct sljit_compiler *compiler, in
 /*  Other instructions                                                   */
 /* --------------------------------------------------------------------- */
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int saveds, int local_size)
 {
 	int size;
 
 	CHECK_ERROR();
-	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, generals, local_size);
+	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, saveds, local_size);
 
 	compiler->temporaries = temporaries;
-	compiler->generals = generals;
+	compiler->saveds = saveds;
 
-	size = (1 + generals) * sizeof(sljit_uw);
+	size = (1 + saveds) * sizeof(sljit_uw);
 	if (temporaries >= 4)
 		size += (temporaries - 3) * sizeof(sljit_uw);
 	local_size += size;

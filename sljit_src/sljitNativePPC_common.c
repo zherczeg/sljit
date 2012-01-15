@@ -437,43 +437,43 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w);
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int saveds, int local_size)
 {
 	CHECK_ERROR();
-	check_sljit_emit_enter(compiler, args, temporaries, generals, local_size);
+	check_sljit_emit_enter(compiler, args, temporaries, saveds, local_size);
 
 	compiler->temporaries = temporaries;
-	compiler->generals = generals;
+	compiler->saveds = saveds;
 	compiler->has_locals = local_size > 0;
 
 	FAIL_IF(push_inst(compiler, MFLR | D(0)));
 	if (compiler->has_locals)
 		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(-(int)(sizeof(sljit_w))) ));
 	FAIL_IF(push_inst(compiler, STACK_STORE | S(ZERO_REG) | A(REAL_STACK_PTR) | IMM(-2 * (int)(sizeof(sljit_w))) ));
-	if (generals >= 1)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_GENERAL_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
-	if (generals >= 2)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_GENERAL_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
-	if (generals >= 3)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_GENERAL_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
-	if (generals >= 4)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_GENERAL_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
-	if (generals >= 5)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_GENERAL_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
+	if (saveds >= 1)
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
+	if (saveds >= 2)
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
+	if (saveds >= 3)
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
+	if (saveds >= 4)
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
+	if (saveds >= 5)
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
 	FAIL_IF(push_inst(compiler, STACK_STORE | S(0) | A(REAL_STACK_PTR) | IMM(sizeof(sljit_w)) ));
 
 	FAIL_IF(push_inst(compiler, ADDI | D(ZERO_REG) | A(0) | 0));
 	if (args >= 1)
-		FAIL_IF(push_inst(compiler, OR | S(SLJIT_TEMPORARY_REG1) | A(SLJIT_GENERAL_REG1) | B(SLJIT_TEMPORARY_REG1)));
+		FAIL_IF(push_inst(compiler, OR | S(SLJIT_TEMPORARY_REG1) | A(SLJIT_SAVED_REG1) | B(SLJIT_TEMPORARY_REG1)));
 	if (args >= 2)
-		FAIL_IF(push_inst(compiler, OR | S(SLJIT_TEMPORARY_REG2) | A(SLJIT_GENERAL_REG2) | B(SLJIT_TEMPORARY_REG2)));
+		FAIL_IF(push_inst(compiler, OR | S(SLJIT_TEMPORARY_REG2) | A(SLJIT_SAVED_REG2) | B(SLJIT_TEMPORARY_REG2)));
 	if (args >= 3)
-		FAIL_IF(push_inst(compiler, OR | S(SLJIT_TEMPORARY_REG3) | A(SLJIT_GENERAL_REG3) | B(SLJIT_TEMPORARY_REG3)));
+		FAIL_IF(push_inst(compiler, OR | S(SLJIT_TEMPORARY_REG3) | A(SLJIT_SAVED_REG3) | B(SLJIT_TEMPORARY_REG3)));
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	compiler->local_size = (2 + generals + 2) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (2 + saveds + 2) * sizeof(sljit_w) + local_size;
 #else
-	compiler->local_size = (2 + generals + 7 + 8) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (2 + saveds + 7 + 8) * sizeof(sljit_w) + local_size;
 #endif
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 
@@ -500,19 +500,19 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, int args, int temporaries, int generals, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, int args, int temporaries, int saveds, int local_size)
 {
 	CHECK_ERROR_VOID();
-	check_sljit_set_context(compiler, args, temporaries, generals, local_size);
+	check_sljit_set_context(compiler, args, temporaries, saveds, local_size);
 
 	compiler->temporaries = temporaries;
-	compiler->generals = generals;
+	compiler->saveds = saveds;
 
 	compiler->has_locals = local_size > 0;
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	compiler->local_size = (2 + generals + 2) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (2 + saveds + 2) * sizeof(sljit_w) + local_size;
 #else
-	compiler->local_size = (2 + generals + 7 + 8) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (2 + saveds + 7 + 8) * sizeof(sljit_w) + local_size;
 #endif
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 }
@@ -532,16 +532,16 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 	}
 
 	FAIL_IF(push_inst(compiler, STACK_LOAD | D(0) | A(REAL_STACK_PTR) | IMM(sizeof(sljit_w))));
-	if (compiler->generals >= 5)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_GENERAL_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
-	if (compiler->generals >= 4)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_GENERAL_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
-	if (compiler->generals >= 3)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_GENERAL_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
-	if (compiler->generals >= 2)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_GENERAL_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
-	if (compiler->generals >= 1)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_GENERAL_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
+	if (compiler->saveds >= 5)
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
+	if (compiler->saveds >= 4)
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
+	if (compiler->saveds >= 3)
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
+	if (compiler->saveds >= 2)
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
+	if (compiler->saveds >= 1)
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
 	FAIL_IF(push_inst(compiler, STACK_LOAD | D(ZERO_REG) | A(REAL_STACK_PTR) | IMM(-2 * (int)(sizeof(sljit_w))) ));
 	if (compiler->has_locals)
 		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(-(int)(sizeof(sljit_w))) ));
@@ -1554,19 +1554,19 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop2(struct sljit_compiler *compiler, in
 /*  Other instructions                                                   */
 /* --------------------------------------------------------------------- */
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int saveds, int local_size)
 {
 	CHECK_ERROR();
-	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, generals, local_size);
+	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, saveds, local_size);
 
 	compiler->temporaries = temporaries;
-	compiler->generals = generals;
+	compiler->saveds = saveds;
 
 	compiler->has_locals = local_size > 0;
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	compiler->local_size = (2 + generals + 2) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (2 + saveds + 2) * sizeof(sljit_w) + local_size;
 #else
-	compiler->local_size = (2 + generals + 7 + 8) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (2 + saveds + 7 + 8) * sizeof(sljit_w) + local_size;
 #endif
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 

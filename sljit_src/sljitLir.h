@@ -44,10 +44,10 @@
       - The compiler is thread-safe
     Disadvantages:
       - Limited number of registers (only 6+4 integer registers, max 3+2
-        temporary and max 3+2 general, and 4 floating point registers)
+        temporary, max 3+2 saved and 4 floating point registers)
     In practice:
       - This approach is very effective for interpreters
-        - One of the general registers typically points to a stack interface
+        - One of the saved registers typically points to a stack interface
         - It can jump to any exception handler anytime (even for another
           function. It is safe for SLJIT.)
         - Fast paths can be modified during runtime reflecting the changes
@@ -104,14 +104,14 @@ of sljitConfigInternal.h */
 #define SLJIT_TEMPORARY_EREG1	4
 #define SLJIT_TEMPORARY_EREG2	5
 
-/* General (saved) registers preserve their values across function calls. */
-#define SLJIT_GENERAL_REG1	6
-#define SLJIT_GENERAL_REG2	7
-#define SLJIT_GENERAL_REG3	8
+/* Saved registers whose preserve their values across function calls. */
+#define SLJIT_SAVED_REG1	6
+#define SLJIT_SAVED_REG2	7
+#define SLJIT_SAVED_REG3	8
 /* Note: Extra Registers cannot be used for memory addressing. */
 /* Note: on x86-32, these registers are emulated (using stack loads & stores). */
-#define SLJIT_GENERAL_EREG1	9
-#define SLJIT_GENERAL_EREG2	10
+#define SLJIT_SAVED_EREG1	9
+#define SLJIT_SAVED_EREG2	10
 
 /* Read-only register (cannot be the destination of an operation). */
 /* Note: SLJIT_MEM2( ... , SLJIT_LOCALS_REG) is not supported (x86 limitation). */
@@ -196,8 +196,8 @@ struct sljit_compiler {
 
 	/* Used local registers. */
 	int temporaries;
-	/* Used general registers. */
-	int generals;
+	/* Used saved registers. */
+	int saveds;
 	/* Local stack size. */
 	int local_size;
 	/* Code size. */
@@ -208,7 +208,7 @@ struct sljit_compiler {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	int args;
 	int temporaries_start;
-	int generals_start;
+	int saveds_start;
 #endif
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -228,7 +228,7 @@ struct sljit_compiler {
 	sljit_ub *cpool_unique;
 	sljit_uw cpool_diff;
 	sljit_uw cpool_fill;
-	/* General fields. */
+	/* Other members. */
 	/* Contains pointer, "ldr pc, [...]" pairs. */
 	sljit_uw patches;
 #endif
@@ -317,13 +317,13 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    Binary Interface) of the platform, which specify the purpose of machine
    registers and stack handling among other things. The sljit_emit_enter
    function emits the necessary instructions for setting up a new context
-   for the executable code and moves function arguments to the general
+   for the executable code and moves function arguments to the saved
    registers. The number of arguments are specified in the "args"
-   parameter and the first argument goes to SLJIT_GENERAL_REG1, the second
-   goes to SLJIT_GENERAL_REG2 and so on. The number of temporary and
-   general registers are passed in "temporaries" and "generals" arguments
-   respectively. Since the general registers contains the arguments,
-   "args" must be less or equal than "generals". The sljit_emit_enter
+   parameter and the first argument goes to SLJIT_SAVED_REG1, the second
+   goes to SLJIT_SAVED_REG2 and so on. The number of temporary and
+   saved registers are passed in "temporaries" and "saveds" arguments
+   respectively. Since the saved registers contains the arguments,
+   "args" must be less or equal than "saveds". The sljit_emit_enter
    is also capable of allocating a stack space for local variables. The
    "local_size" argument contains the size in bytes of this local area
    and its staring address is stored in SLJIT_LOCALS_REG. However
@@ -338,7 +338,7 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_MAX_LOCAL_SIZE	65536
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler,
-	int args, int temporaries, int generals, int local_size);
+	int args, int temporaries, int saveds, int local_size);
 
 /* The machine code has a context (which contains the local stack space size,
    number of used registers, etc.) which initialized by sljit_emit_enter. Several
@@ -353,7 +353,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler,
 /* Note: multiple calls of this function overwrites the previous call. */
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
-	int args, int temporaries, int generals, int local_size);
+	int args, int temporaries, int saveds, int local_size);
 
 /* Return from machine code.  The op argument can be SLJIT_UNUSED which means the
    function does not return with anything or any opcode between SLJIT_MOV and
@@ -369,7 +369,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
    use this as a return value later. */
 
 /* Note: only for sljit specific, non ABI compilant calls. Fast, since only a few machine instructions
-   are needed. Excellent for small uility functions, where saving general registers and setting up
+   are needed. Excellent for small uility functions, where saving registers and setting up
    a new stack frame would cost too much performance. However, it is still possible to return
    to the address of the caller (or anywhere else). */
 
@@ -378,7 +378,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 /* Note: although sljit_emit_fast_return could be replaced by an ijump, it is not suggested,
    since many architectures do clever branch prediction on call / return instruction pairs. */
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int generals, int local_size);
+SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int saveds, int local_size);
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw);
 
 /*
@@ -586,7 +586,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int
 
 /* The following function is a helper function for sljit_emit_op_custom.
    It returns with the real machine register index of any SLJIT_TEMPORARY
-   SLJIT_GENERAL or SLJIT_LOCALS register.
+   SLJIT_SAVED or SLJIT_LOCALS register.
    Note: it returns with -1 for virtual registers (all EREGs on x86-32).
    Note: register returned by SLJIT_LOCALS_REG is not necessary the real
          stack pointer register of the target architecture. */
