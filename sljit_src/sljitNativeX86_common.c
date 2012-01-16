@@ -26,11 +26,7 @@
 
 SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
 {
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	return "x86-32";
-#else
-	return "x86-64";
-#endif
+	return "x86" SLJIT_CPUINFO;
 }
 
 /*

@@ -27,9 +27,9 @@
 SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
 {
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
-	return "arm-v7";
+	return "ARMv7" SLJIT_CPUINFO;
 #elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-	return "arm-v5";
+	return "ARMv5" SLJIT_CPUINFO;
 #else
 #error "Internal error: Unknown ARM architecture"
 #endif

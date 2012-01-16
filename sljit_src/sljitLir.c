@@ -1153,6 +1153,32 @@ static SLJIT_INLINE int emit_mov_before_return(struct sljit_compiler *compiler, 
 	return sljit_emit_op1(compiler, op, SLJIT_RETURN_REG, 0, src, srcw);
 }
 
+/* CPU description section */
+
+#if (defined SLJIT_32BIT_ARCHITECTURE && SLJIT_32BIT_ARCHITECTURE)
+#define SLJIT_CPUINFO_PART1 " 32bit ("
+#elif (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#define SLJIT_CPUINFO_PART1 " 64bit ("
+#else
+#error "Internal error: CPU type info missing"
+#endif
+
+#if (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
+#define SLJIT_CPUINFO_PART2 "little endian + "
+#elif (defined SLJIT_BIG_ENDIAN && SLJIT_BIG_ENDIAN)
+#define SLJIT_CPUINFO_PART2 "big endian + "
+#else
+#error "Internal error: CPU type info missing"
+#endif
+
+#if (defined SLJIT_UNALIGNED && SLJIT_UNALIGNED)
+#define SLJIT_CPUINFO_PART3 "unaligned)"
+#else
+#define SLJIT_CPUINFO_PART3 "aligned)"
+#endif
+
+#define SLJIT_CPUINFO SLJIT_CPUINFO_PART1 SLJIT_CPUINFO_PART2 SLJIT_CPUINFO_PART3
+
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	#include "sljitNativeX86_common.c"
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)

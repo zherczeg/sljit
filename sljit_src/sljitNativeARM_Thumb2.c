@@ -26,7 +26,7 @@
 
 SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
 {
-	return "arm-thumb2";
+	return "ARM-Thumb2" SLJIT_CPUINFO;
 }
 
 /* Last register + 1. */

@@ -26,11 +26,7 @@
 
 SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
 {
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	return "mips-32";
-#else
-#error "mips-64 is not yet supported"
-#endif
+	return "MIPS" SLJIT_CPUINFO;
 }
 
 /* Latest MIPS architecture. */

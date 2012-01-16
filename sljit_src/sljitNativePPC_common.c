@@ -26,11 +26,7 @@
 
 SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
 {
-#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	return "ppc-32";
-#else
-	return "ppc-64";
-#endif
+	return "PowerPC" SLJIT_CPUINFO;
 }
 
 /* Length of an instruction word.
