@@ -959,6 +959,7 @@ static int emit_clz(struct sljit_compiler *compiler, int op,
 	sljit_ub* code;
 	int dst_r;
 
+	SLJIT_UNUSED_ARG(op);
 	if (SLJIT_UNLIKELY(dst == SLJIT_UNUSED)) {
 		/* Just set the zero flag. */
 		EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
