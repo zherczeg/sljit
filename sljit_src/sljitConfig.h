@@ -60,6 +60,12 @@
 #define SLJIT_UTIL_STACK 1
 #endif
 
+/* Single threaded application. Does not require any locks. */
+#ifndef SLJIT_SINGLE_THREADED
+/* Disabled by default. */
+#define SLJIT_SINGLE_THREADED 0
+#endif
+
 /* --------------------------------------------------------------------- */
 /*  Configuration                                                        */
 /* --------------------------------------------------------------------- */
