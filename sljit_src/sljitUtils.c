@@ -30,7 +30,37 @@
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR) || (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
 
-#ifdef _WIN32
+#if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
+
+#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
+
+static SLJIT_INLINE void allocator_grab_lock(void)
+{
+	// Always successful.
+}
+
+static SLJIT_INLINE void allocator_release_lock(void)
+{
+	// Always successful.
+}
+
+#endif /* SLJIT_EXECUTABLE_ALLOCATOR */
+
+#if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
+
+SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_grab_lock(void)
+{
+	// Always successful.
+}
+
+SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_release_lock(void)
+{
+	// Always successful.
+}
+
+#endif /* SLJIT_UTIL_GLOBAL_LOCK */
+
+#elif defined(_WIN32) /* SLJIT_SINGLE_THREADED */
 
 #include "windows.h"
 

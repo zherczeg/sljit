@@ -42,6 +42,10 @@
         - very effective to cache an important value once
       - A fixed stack space can be allocated for local variables
       - The compiler is thread-safe
+      - The compiler is highly configurable through preprocessor macros.
+        You can disable unneeded features (multithreading in single
+        threaded applications), and you can use your own system functions
+        (including memory allocators). See sljitConfig.h
     Disadvantages:
       - Limited number of registers (only 6+4 integer registers, max 3+2
         temporary, max 3+2 saved and 4 floating point registers)
