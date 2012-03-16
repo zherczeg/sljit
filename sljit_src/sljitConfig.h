@@ -28,10 +28,17 @@
 #define _SLJIT_CONFIG_H_
 
 /* --------------------------------------------------------------------- */
+/*  Custom defines                                                       */
+/* --------------------------------------------------------------------- */
+
+/* Put your custom defines here. This empty section will never change
+   which helps maintaining patches (with diff / patch utilities). */
+
+/* --------------------------------------------------------------------- */
 /*  Architecture                                                         */
 /* --------------------------------------------------------------------- */
 
-/* Architecture selection */
+/* Architecture selection. */
 /* #define SLJIT_CONFIG_X86_32 1 */
 /* #define SLJIT_CONFIG_X86_64 1 */
 /* #define SLJIT_CONFIG_ARM_V5 1 */
