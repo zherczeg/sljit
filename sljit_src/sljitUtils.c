@@ -36,12 +36,12 @@
 
 static SLJIT_INLINE void allocator_grab_lock(void)
 {
-	// Always successful.
+	/* Always successful. */
 }
 
 static SLJIT_INLINE void allocator_release_lock(void)
 {
-	// Always successful.
+	/* Always successful. */
 }
 
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR */
@@ -50,12 +50,12 @@ static SLJIT_INLINE void allocator_release_lock(void)
 
 SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_grab_lock(void)
 {
-	// Always successful.
+	/* Always successful. */
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_release_lock(void)
 {
-	// Always successful.
+	/* Always successful. */
 }
 
 #endif /* SLJIT_UTIL_GLOBAL_LOCK */
