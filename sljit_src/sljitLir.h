@@ -768,7 +768,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_w new_constan
 /* --------------------------------------------------------------------- */
 
 #define SLJIT_MAJOR_VERSION	0
-#define SLJIT_MINOR_VERSION	87
+#define SLJIT_MINOR_VERSION	88
 
 /* Get the human readable name of the platfrom.
    Can be useful for debugging on platforms like ARM, where ARM and
