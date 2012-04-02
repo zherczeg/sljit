@@ -252,14 +252,12 @@ struct sljit_compiler {
 #endif
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	int has_locals;
 	sljit_w imm;
 	int cache_arg;
 	sljit_w cache_argw;
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	int has_locals;
 	int delay_slot;
 	int cache_arg;
 	sljit_w cache_argw;
