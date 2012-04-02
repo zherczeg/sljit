@@ -66,6 +66,7 @@ static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int saveds, int local_size)
 {
 	int size;
+	int locals_offset;
 	sljit_ub *buf;
 
 	CHECK_ERROR();
@@ -75,6 +76,9 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 	compiler->saveds = saveds;
 	compiler->args = args;
 	compiler->flags_saved = 0;
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->logical_local_size = local_size;
+#endif
 
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 	size = 1 + (saveds <= 3 ? saveds : 3) + (args > 0 ? (args * 2) : 0) + (args > 2 ? 2 : 0);
@@ -132,13 +136,15 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 	}
 #endif
 
-	local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
-	compiler->temporaries_start = local_size;
+	locals_offset = sizeof(sljit_uw);
+	compiler->temporaries_start = locals_offset;
 	if (temporaries > 3)
-		local_size += (temporaries - 3) * sizeof(sljit_uw);
-	compiler->saveds_start = local_size;
+		locals_offset += (temporaries - 3) * sizeof(sljit_uw);
+	compiler->saveds_start = locals_offset;
 	if (saveds > 3)
-		local_size += (saveds - 3) * sizeof(sljit_uw);
+		locals_offset += (saveds - 3) * sizeof(sljit_uw);
+	compiler->locals_offset = locals_offset;
+	local_size = locals_offset + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
 
 #ifdef _WIN32
 	if (local_size > 1024) {
@@ -157,19 +163,27 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, int args, int temporaries, int saveds, int local_size)
 {
+	int locals_offset;
+
 	CHECK_ERROR_VOID();
 	check_sljit_set_context(compiler, args, temporaries, saveds, local_size);
 
 	compiler->temporaries = temporaries;
 	compiler->saveds = saveds;
 	compiler->args = args;
-	compiler->local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
-	compiler->temporaries_start = compiler->local_size;
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->logical_local_size = local_size;
+#endif
+
+	locals_offset = sizeof(sljit_uw);
+	compiler->temporaries_start = locals_offset;
 	if (temporaries > 3)
-		compiler->local_size += (temporaries - 3) * sizeof(sljit_uw);
-	compiler->saveds_start = compiler->local_size;
+		locals_offset += (temporaries - 3) * sizeof(sljit_uw);
+	compiler->saveds_start = locals_offset;
 	if (saveds > 3)
-		compiler->local_size += (saveds - 3) * sizeof(sljit_uw);
+		locals_offset += (saveds - 3) * sizeof(sljit_uw);
+	compiler->locals_offset = locals_offset;
+	compiler->local_size = locals_offset + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int op, int src, sljit_w srcw)
@@ -180,6 +194,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 	CHECK_ERROR();
 	check_sljit_emit_return(compiler, op, src, srcw);
 	SLJIT_ASSERT(compiler->args >= 0);
+	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	compiler->flags_saved = 0;
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
@@ -436,18 +451,17 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compil
 	sljit_ub *buf;
 
 	CHECK_ERROR();
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->logical_local_size = local_size;
+#endif
 	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, saveds, local_size);
 
-	compiler->temporaries = temporaries;
-	compiler->saveds = saveds;
-	compiler->args = args;
-	compiler->local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
-	compiler->temporaries_start = compiler->local_size;
-	if (temporaries > 3)
-		compiler->local_size += (temporaries - 3) * sizeof(sljit_uw);
-	compiler->saveds_start = compiler->local_size;
-	if (saveds > 3)
-		compiler->local_size += (saveds - 3) * sizeof(sljit_uw);
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->skip_checks = 1;
+#endif
+	sljit_set_context(compiler, args, temporaries, saveds, local_size);
+
+	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	CHECK_EXTRA_REGS(dst, dstw, (void)0);
 
@@ -481,6 +495,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_return(struct sljit_compiler *compi
 
 	CHECK_ERROR();
 	check_sljit_emit_fast_return(compiler, src, srcw);
+	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	CHECK_EXTRA_REGS(src, srcw, (void)0);
 
