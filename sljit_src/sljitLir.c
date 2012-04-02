@@ -170,6 +170,11 @@
 #define SLJIT_HAS_VARIABLE_LOCALS_OFFSET 1
 #endif
 
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) && defined(_WIN64)
+#define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
+#define FIXED_LOCALS_OFFSET (4 * sizeof(sljit_w))
+#endif
+
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 #define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
 #define FIXED_LOCALS_OFFSET (4 * sizeof(sljit_w))
@@ -784,35 +789,21 @@ static SLJIT_INLINE void check_sljit_emit_return(struct sljit_compiler *compiler
 #endif
 }
 
-static SLJIT_INLINE void check_sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw, int args, int temporaries, int saveds, int local_size)
+static SLJIT_INLINE void check_sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw)
 {
 	/* If debug and verbose are disabled, all arguments are unused. */
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(dst);
 	SLJIT_UNUSED_ARG(dstw);
-	SLJIT_UNUSED_ARG(args);
-	SLJIT_UNUSED_ARG(temporaries);
-	SLJIT_UNUSED_ARG(saveds);
-	SLJIT_UNUSED_ARG(local_size);
-
-	SLJIT_ASSERT(args >= 0 && args <= 3);
-	SLJIT_ASSERT(temporaries >= 0 && temporaries <= SLJIT_NO_TMP_REGISTERS);
-	SLJIT_ASSERT(saveds >= 0 && saveds <= SLJIT_NO_GEN_REGISTERS);
-	SLJIT_ASSERT(args <= saveds);
-	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	compiler->temporaries = temporaries;
-	compiler->saveds = saveds;
 	FUNCTION_CHECK_DST(dst, dstw);
-	compiler->temporaries = -1;
-	compiler->saveds = -1;
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  fast_enter ");
 		sljit_verbose_param(dst, dstw);
-		fprintf(compiler->verbose, " args=%d temporaries=%d saveds=%d local_size=%d\n", args, temporaries, saveds, local_size);
+		fprintf(compiler->verbose, "\n");
 	}
 #endif
 }

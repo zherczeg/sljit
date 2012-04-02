@@ -104,11 +104,11 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
 #else
 /* 1st passed in rcx, 2nd argument passed in rdx, 3rd in r8. */
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
-  0, 0, 2, 1, 11, 13, 3, 6, 7, 14, 12, 15, 10, 8, 9
+  0, 0, 2, 1, 11, 13, 3, 6, 7, 14, 15, 4, 10, 8, 9
 };
 /* low-map. reg_map & 0x7. */
 static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
-  0, 0, 2, 1, 3,  5,  3, 6, 7,  6,  4,  7, 2,  0, 1
+  0, 0, 2, 1, 3,  5,  3, 6, 7,  6,  7, 4, 2,  0, 1
 };
 #endif
 
