@@ -97,6 +97,9 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 	compiler->temporaries = temporaries;
 	compiler->saveds = saveds;
 	compiler->flags_saved = 0;
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->logical_local_size = local_size;
+#endif
 
 	size = saveds;
 	/* Including the return address saved by the call instruction. */
@@ -281,6 +284,10 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 
 	compiler->temporaries = temporaries;
 	compiler->saveds = saveds;
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->logical_local_size = local_size;
+#endif
+
 	/* Including the return address saved by the call instruction. */
 	pushed_size = (saveds + 1) * sizeof(sljit_w);
 #ifdef _WIN64
@@ -303,6 +310,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 
 	CHECK_ERROR();
 	check_sljit_emit_return(compiler, op, src, srcw);
+	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	compiler->flags_saved = 0;
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
@@ -676,14 +684,17 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compil
 	sljit_ub *buf;
 
 	CHECK_ERROR();
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->logical_local_size = local_size;
+#endif
 	check_sljit_emit_fast_enter(compiler, dst, dstw, args, temporaries, saveds, local_size);
 
-	compiler->temporaries = temporaries;
-	compiler->saveds = saveds;
-	compiler->local_size = (local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1);
-#ifdef _WIN64
-	compiler->local_size += 4 * sizeof(sljit_w);
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->skip_checks = 1;
 #endif
+	sljit_set_context(compiler, args, temporaries, saveds, local_size);
+
+	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	/* For UNUSED dst. Uncommon, but possible. */
 	if (dst == SLJIT_UNUSED)
@@ -707,10 +718,8 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compil
 		}
 	}
 	else if (dst & SLJIT_MEM) {
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		/* REX_W is not necessary (src is not immediate). */
 		compiler->mode32 = 1;
-#endif
 		buf = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
 		FAIL_IF(!buf);
 		*buf++ = 0x8f;
@@ -724,8 +733,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_return(struct sljit_compiler *compi
 
 	CHECK_ERROR();
 	check_sljit_emit_fast_return(compiler, src, srcw);
-
-	CHECK_EXTRA_REGS(src, srcw, (void)0);
+	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	if ((src & SLJIT_IMM) && NOT_HALFWORD(srcw)) {
 		FAIL_IF(emit_load_imm64(compiler, TMP_REGISTER, srcw));
@@ -750,10 +758,8 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_return(struct sljit_compiler *compi
 		}
 	}
 	else if (src & SLJIT_MEM) {
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		/* REX_W is not necessary (src is not immediate). */
 		compiler->mode32 = 1;
-#endif
 		buf = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
 		FAIL_IF(!buf);
 		*buf++ = 0xff;

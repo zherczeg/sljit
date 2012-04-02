@@ -117,9 +117,10 @@ of sljitConfigInternal.h */
 #define SLJIT_SAVED_EREG1	9
 #define SLJIT_SAVED_EREG2	10
 
-/* Read-only register (cannot be the destination of an operation). */
-/* Note: SLJIT_MEM2( ... , SLJIT_LOCALS_REG) is not supported (x86 limitation). */
-/* Note: SLJIT_LOCALS_REG is not necessary the real stack pointer. See sljit_emit_enter. */
+/* Read-only register (cannot be the destination of an operation).
+   Only SLJIT_MEM1(SLJIT_LOCALS_REG) addressing mode is allowed since
+   several ABIs has certain limitations about the stack layout. However
+   sljit_get_local_base() can be used to obtain the offset of a value. */
 #define SLJIT_LOCALS_REG	11
 
 /* Number of registers. */
@@ -211,6 +212,7 @@ struct sljit_compiler {
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	int args;
+	int locals_offset;
 	int temporaries_start;
 	int saveds_start;
 #endif
@@ -265,6 +267,11 @@ struct sljit_compiler {
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	FILE* verbose;
+#endif
+
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	/* Local size passed to the functions. */
+	int logical_local_size;
 #endif
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
@@ -747,6 +754,10 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_ijump(struct sljit_compiler *compiler, i
      Flags: E | K
    Note: sljit_emit_cond_value does nothing, if dst is SLJIT_UNUSED (regardless of op). */
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_cond_value(struct sljit_compiler *compiler, int op, int dst, sljit_w dstw, int type);
+
+/* Copies the base address of SLJIT_MEM1(SLJIT_LOCALS_REG)+offset to dst.
+   Flags: - (never set any flags) */
+SLJIT_API_FUNC_ATTRIBUTE int sljit_get_local_base(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w offset);
 
 /* The constant can be changed runtime (see: sljit_set_const)
    Flags: - (never set any flags) */
