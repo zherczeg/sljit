@@ -39,7 +39,6 @@ typedef sljit_ui sljit_ins;
 #define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
 #define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
 #define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
-#define REAL_STACK_PTR	(SLJIT_NO_REGISTERS + 4)
 
 /* For position independent code, t9 must contain the function address. */
 #define PIC_ADDR_REG		TMP_REG2
@@ -174,7 +173,7 @@ typedef sljit_ui sljit_ins;
 #define UIMM_MAX	(0xffff)
 
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
-  0, 2, 5, 6, 3, 8, 17, 18, 19, 20, 21, 16, 4, 25, 9, 29
+  0, 2, 5, 6, 3, 8, 16, 17, 18, 19, 20, 29, 4, 25, 9
 };
 
 /* dest_reg is the absolute name of the register
@@ -468,40 +467,34 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 	compiler->logical_local_size = local_size;
 #endif
 
-	compiler->has_locals = local_size > 0;
-	local_size += (saveds + 2 + 4) * sizeof(sljit_w);
+	local_size += (saveds + 1 + 4) * sizeof(sljit_w);
 	local_size = (local_size + 15) & ~0xf;
 	compiler->local_size = local_size;
 
 	if (local_size <= SIMM_MAX) {
 		/* Frequent case. */
-		FAIL_IF(push_inst(compiler, ADDIU_W | S(REAL_STACK_PTR) | T(REAL_STACK_PTR) | IMM(-local_size), DR(REAL_STACK_PTR)));
-		base = S(REAL_STACK_PTR);
+		FAIL_IF(push_inst(compiler, ADDIU_W | S(SLJIT_LOCALS_REG) | T(SLJIT_LOCALS_REG) | IMM(-local_size), DR(SLJIT_LOCALS_REG)));
+		base = S(SLJIT_LOCALS_REG);
 	}
 	else {
 		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), local_size));
-		FAIL_IF(push_inst(compiler, ADDU_W | S(REAL_STACK_PTR) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
-		FAIL_IF(push_inst(compiler, SUBU_W | S(REAL_STACK_PTR) | T(TMP_REG1) | D(REAL_STACK_PTR), DR(REAL_STACK_PTR)));
+		FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_LOCALS_REG) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, SUBU_W | S(SLJIT_LOCALS_REG) | T(TMP_REG1) | D(SLJIT_LOCALS_REG), DR(SLJIT_LOCALS_REG)));
 		base = S(TMP_REG2);
 		local_size = 0;
 	}
 
 	FAIL_IF(push_inst(compiler, STACK_STORE | base | TA(RETURN_ADDR_REG) | IMM(local_size - 1 * (int)sizeof(sljit_w)), MOVABLE_INS));
-	if (compiler->has_locals)
-		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_LOCALS_REG) | IMM(local_size - 2 * (int)sizeof(sljit_w)), MOVABLE_INS));
 	if (saveds >= 1)
-		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_SAVED_REG1) | IMM(local_size - 3 * (int)sizeof(sljit_w)), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_SAVED_REG1) | IMM(local_size - 2 * (int)sizeof(sljit_w)), MOVABLE_INS));
 	if (saveds >= 2)
-		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_SAVED_REG2) | IMM(local_size - 4 * (int)sizeof(sljit_w)), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_SAVED_REG2) | IMM(local_size - 3 * (int)sizeof(sljit_w)), MOVABLE_INS));
 	if (saveds >= 3)
-		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_SAVED_REG3) | IMM(local_size - 5 * (int)sizeof(sljit_w)), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_SAVED_REG3) | IMM(local_size - 4 * (int)sizeof(sljit_w)), MOVABLE_INS));
 	if (saveds >= 4)
-		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_SAVED_EREG1) | IMM(local_size - 6 * (int)sizeof(sljit_w)), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_SAVED_EREG1) | IMM(local_size - 5 * (int)sizeof(sljit_w)), MOVABLE_INS));
 	if (saveds >= 5)
-		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_SAVED_EREG2) | IMM(local_size - 7 * (int)sizeof(sljit_w)), MOVABLE_INS));
-
-	if (compiler->has_locals)
-		FAIL_IF(push_inst(compiler, ADDIU_W | S(REAL_STACK_PTR) | T(SLJIT_LOCALS_REG) | IMM(4 * sizeof(sljit_w)), DR(SLJIT_LOCALS_REG)));
+		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(SLJIT_SAVED_EREG2) | IMM(local_size - 6 * (int)sizeof(sljit_w)), MOVABLE_INS));
 
 	if (args >= 1)
 		FAIL_IF(push_inst(compiler, ADDU_W | SA(4) | TA(0) | D(SLJIT_SAVED_REG1), DR(SLJIT_SAVED_REG1)));
@@ -524,8 +517,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->logical_local_size = local_size;
 #endif
 
-	compiler->has_locals = local_size > 0;
-	local_size += (saveds + 2 + 4) * sizeof(sljit_w);
+	local_size += (saveds + 1 + 4) * sizeof(sljit_w);
 	compiler->local_size = (local_size + 15) & ~0xf;
 }
 
@@ -542,33 +534,31 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 
 	local_size = compiler->local_size;
 	if (local_size <= SIMM_MAX)
-		base = S(REAL_STACK_PTR);
+		base = S(SLJIT_LOCALS_REG);
 	else {
 		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), local_size));
-		FAIL_IF(push_inst(compiler, ADDU_W | S(REAL_STACK_PTR) | T(TMP_REG1) | D(TMP_REG1), DR(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_LOCALS_REG) | T(TMP_REG1) | D(TMP_REG1), DR(TMP_REG1)));
 		base = S(TMP_REG1);
 		local_size = 0;
 	}
 
 	FAIL_IF(push_inst(compiler, STACK_LOAD | base | TA(RETURN_ADDR_REG) | IMM(local_size - 1 * (int)sizeof(sljit_w)), RETURN_ADDR_REG));
 	if (compiler->saveds >= 5)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_SAVED_EREG2) | IMM(local_size - 7 * (int)sizeof(sljit_w)), DR(SLJIT_SAVED_EREG2)));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_SAVED_EREG2) | IMM(local_size - 6 * (int)sizeof(sljit_w)), DR(SLJIT_SAVED_EREG2)));
 	if (compiler->saveds >= 4)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_SAVED_EREG1) | IMM(local_size - 6 * (int)sizeof(sljit_w)), DR(SLJIT_SAVED_EREG1)));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_SAVED_EREG1) | IMM(local_size - 5 * (int)sizeof(sljit_w)), DR(SLJIT_SAVED_EREG1)));
 	if (compiler->saveds >= 3)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_SAVED_REG3) | IMM(local_size - 5 * (int)sizeof(sljit_w)), DR(SLJIT_SAVED_REG3)));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_SAVED_REG3) | IMM(local_size - 4 * (int)sizeof(sljit_w)), DR(SLJIT_SAVED_REG3)));
 	if (compiler->saveds >= 2)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_SAVED_REG2) | IMM(local_size - 4 * (int)sizeof(sljit_w)), DR(SLJIT_SAVED_REG2)));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_SAVED_REG2) | IMM(local_size - 3 * (int)sizeof(sljit_w)), DR(SLJIT_SAVED_REG2)));
 	if (compiler->saveds >= 1)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_SAVED_REG1) | IMM(local_size - 3 * (int)sizeof(sljit_w)), DR(SLJIT_SAVED_REG1)));
-	if (compiler->has_locals)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_LOCALS_REG) | IMM(local_size - 2 * (int)sizeof(sljit_w)), DR(SLJIT_LOCALS_REG)));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | base | T(SLJIT_SAVED_REG1) | IMM(local_size - 2 * (int)sizeof(sljit_w)), DR(SLJIT_SAVED_REG1)));
 
 	FAIL_IF(push_inst(compiler, JR | SA(RETURN_ADDR_REG), UNMOVABLE_INS));
 	if (compiler->local_size <= SIMM_MAX)
-		return push_inst(compiler, ADDIU_W | S(REAL_STACK_PTR) | T(REAL_STACK_PTR) | IMM(compiler->local_size), UNMOVABLE_INS);
+		return push_inst(compiler, ADDIU_W | S(SLJIT_LOCALS_REG) | T(SLJIT_LOCALS_REG) | IMM(compiler->local_size), UNMOVABLE_INS);
 	else
-		return push_inst(compiler, ADDU_W | S(TMP_REG1) | TA(0) | D(REAL_STACK_PTR), UNMOVABLE_INS);
+		return push_inst(compiler, ADDU_W | S(TMP_REG1) | TA(0) | D(SLJIT_LOCALS_REG), UNMOVABLE_INS);
 }
 
 #undef STACK_STORE

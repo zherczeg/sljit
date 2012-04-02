@@ -49,7 +49,6 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 #define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
 #define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
 #define ZERO_REG	(SLJIT_NO_REGISTERS + 4)
-#define REAL_STACK_PTR	(SLJIT_NO_REGISTERS + 5)
 
 #define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
 #define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
@@ -171,7 +170,7 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 /* SLJIT_LOCALS_REG is not the real stack register, since it must
    point to the head of the stack chain. */
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
-  0, 3, 4, 5, 6, 7, 29, 28, 27, 26, 25, 31, 8, 9, 10, 30, 1
+  0, 3, 4, 5, 6, 7, 30, 29, 28, 27, 26, 1, 8, 9, 10, 31
 };
 
 static int push_inst(struct sljit_compiler *compiler, sljit_ins ins)
@@ -440,26 +439,23 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 
 	compiler->temporaries = temporaries;
 	compiler->saveds = saveds;
-	compiler->has_locals = local_size > 0;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->logical_local_size = local_size;
 #endif
 
 	FAIL_IF(push_inst(compiler, MFLR | D(0)));
-	if (compiler->has_locals)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(-(int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, STACK_STORE | S(ZERO_REG) | A(REAL_STACK_PTR) | IMM(-2 * (int)(sizeof(sljit_w))) ));
+	FAIL_IF(push_inst(compiler, STACK_STORE | S(ZERO_REG) | A(SLJIT_LOCALS_REG) | IMM(-(int)(sizeof(sljit_w))) ));
 	if (saveds >= 1)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_REG1) | A(SLJIT_LOCALS_REG) | IMM(-2 * (int)(sizeof(sljit_w))) ));
 	if (saveds >= 2)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_REG2) | A(SLJIT_LOCALS_REG) | IMM(-3 * (int)(sizeof(sljit_w))) ));
 	if (saveds >= 3)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_REG3) | A(SLJIT_LOCALS_REG) | IMM(-4 * (int)(sizeof(sljit_w))) ));
 	if (saveds >= 4)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_EREG1) | A(SLJIT_LOCALS_REG) | IMM(-5 * (int)(sizeof(sljit_w))) ));
 	if (saveds >= 5)
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, STACK_STORE | S(0) | A(REAL_STACK_PTR) | IMM(sizeof(sljit_w)) ));
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_EREG2) | A(SLJIT_LOCALS_REG) | IMM(-6 * (int)(sizeof(sljit_w))) ));
+	FAIL_IF(push_inst(compiler, STACK_STORE | S(0) | A(SLJIT_LOCALS_REG) | IMM(sizeof(sljit_w)) ));
 
 	FAIL_IF(push_inst(compiler, ADDI | D(ZERO_REG) | A(0) | 0));
 	if (args >= 1)
@@ -470,30 +466,26 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 		FAIL_IF(push_inst(compiler, OR | S(SLJIT_TEMPORARY_REG3) | A(SLJIT_SAVED_REG3) | B(SLJIT_TEMPORARY_REG3)));
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	compiler->local_size = (2 + saveds + 2) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (1 + saveds + 2) * sizeof(sljit_w) + local_size;
 #else
-	compiler->local_size = (2 + saveds + 7 + 8) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (1 + saveds + 7 + 8) * sizeof(sljit_w) + local_size;
 #endif
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
 	if (compiler->local_size <= SIMM_MAX)
-		FAIL_IF(push_inst(compiler, STWU | S(REAL_STACK_PTR) | A(REAL_STACK_PTR) | IMM(-compiler->local_size)));
+		FAIL_IF(push_inst(compiler, STWU | S(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | IMM(-compiler->local_size)));
 	else {
 		FAIL_IF(load_immediate(compiler, 0, -compiler->local_size));
-		FAIL_IF(push_inst(compiler, STWUX | S(REAL_STACK_PTR) | A(REAL_STACK_PTR) | B(0)));
+		FAIL_IF(push_inst(compiler, STWUX | S(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | B(0)));
 	}
-	if (compiler->has_locals)
-		FAIL_IF(push_inst(compiler, ADDI | D(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(2 * sizeof(sljit_w))));
 #else
 	if (compiler->local_size <= SIMM_MAX)
-		FAIL_IF(push_inst(compiler, STDU | S(REAL_STACK_PTR) | A(REAL_STACK_PTR) | IMM(-compiler->local_size)));
+		FAIL_IF(push_inst(compiler, STDU | S(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | IMM(-compiler->local_size)));
 	else {
 		FAIL_IF(load_immediate(compiler, 0, -compiler->local_size));
-		FAIL_IF(push_inst(compiler, STDUX | S(REAL_STACK_PTR) | A(REAL_STACK_PTR) | B(0)));
+		FAIL_IF(push_inst(compiler, STDUX | S(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | B(0)));
 	}
-	if (compiler->has_locals)
-		FAIL_IF(push_inst(compiler, ADDI | D(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM((7 + 8) * sizeof(sljit_w))));
 #endif
 
 	return SLJIT_SUCCESS;
@@ -510,11 +502,10 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->logical_local_size = local_size;
 #endif
 
-	compiler->has_locals = local_size > 0;
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	compiler->local_size = (2 + saveds + 2) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (1 + saveds + 2) * sizeof(sljit_w) + local_size;
 #else
-	compiler->local_size = (2 + saveds + 7 + 8) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (1 + saveds + 7 + 8) * sizeof(sljit_w) + local_size;
 #endif
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 }
@@ -528,26 +519,24 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
 
 	if (compiler->local_size <= SIMM_MAX)
-		FAIL_IF(push_inst(compiler, ADDI | D(REAL_STACK_PTR) | A(REAL_STACK_PTR) | IMM(compiler->local_size)));
+		FAIL_IF(push_inst(compiler, ADDI | D(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | IMM(compiler->local_size)));
 	else {
 		FAIL_IF(load_immediate(compiler, 0, compiler->local_size));
-		FAIL_IF(push_inst(compiler, ADD | D(REAL_STACK_PTR) | A(REAL_STACK_PTR) | B(0)));
+		FAIL_IF(push_inst(compiler, ADD | D(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | B(0)));
 	}
 
-	FAIL_IF(push_inst(compiler, STACK_LOAD | D(0) | A(REAL_STACK_PTR) | IMM(sizeof(sljit_w))));
+	FAIL_IF(push_inst(compiler, STACK_LOAD | D(0) | A(SLJIT_LOCALS_REG) | IMM(sizeof(sljit_w))));
 	if (compiler->saveds >= 5)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_EREG2) | A(REAL_STACK_PTR) | IMM(-7 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_EREG2) | A(SLJIT_LOCALS_REG) | IMM(-6 * (int)(sizeof(sljit_w))) ));
 	if (compiler->saveds >= 4)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_EREG1) | A(REAL_STACK_PTR) | IMM(-6 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_EREG1) | A(SLJIT_LOCALS_REG) | IMM(-5 * (int)(sizeof(sljit_w))) ));
 	if (compiler->saveds >= 3)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_REG3) | A(REAL_STACK_PTR) | IMM(-5 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_REG3) | A(SLJIT_LOCALS_REG) | IMM(-4 * (int)(sizeof(sljit_w))) ));
 	if (compiler->saveds >= 2)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_REG2) | A(REAL_STACK_PTR) | IMM(-4 * (int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_REG2) | A(SLJIT_LOCALS_REG) | IMM(-3 * (int)(sizeof(sljit_w))) ));
 	if (compiler->saveds >= 1)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_REG1) | A(REAL_STACK_PTR) | IMM(-3 * (int)(sizeof(sljit_w))) ));
-	FAIL_IF(push_inst(compiler, STACK_LOAD | D(ZERO_REG) | A(REAL_STACK_PTR) | IMM(-2 * (int)(sizeof(sljit_w))) ));
-	if (compiler->has_locals)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_LOCALS_REG) | A(REAL_STACK_PTR) | IMM(-(int)(sizeof(sljit_w))) ));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_REG1) | A(SLJIT_LOCALS_REG) | IMM(-2 * (int)(sizeof(sljit_w))) ));
+	FAIL_IF(push_inst(compiler, STACK_LOAD | D(ZERO_REG) | A(SLJIT_LOCALS_REG) | IMM(-(int)(sizeof(sljit_w))) ));
 
 	FAIL_IF(push_inst(compiler, MTLR | S(0)));
 	FAIL_IF(push_inst(compiler, BLR));

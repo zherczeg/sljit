@@ -170,6 +170,21 @@
 #define SLJIT_HAS_VARIABLE_LOCALS_OFFSET 1
 #endif
 
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+#define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
+#define FIXED_LOCALS_OFFSET (4 * sizeof(sljit_w))
+#endif
+
+#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
+#define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
+#define FIXED_LOCALS_OFFSET (2 * sizeof(sljit_w))
+#endif
+
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
+#define FIXED_LOCALS_OFFSET ((7 + 8) * sizeof(sljit_w))
+#endif
+
 #if (defined SLJIT_HAS_VARIABLE_LOCALS_OFFSET && SLJIT_HAS_VARIABLE_LOCALS_OFFSET)
 
 #define ADJUST_LOCAL_OFFSET(p, i) \
@@ -1152,7 +1167,7 @@ static SLJIT_INLINE void check_sljit_get_local_base(struct sljit_compiler *compi
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  locals ");
+		fprintf(compiler->verbose, "  local_base ");
 		sljit_verbose_param(dst, dstw);
 		fprintf(compiler->verbose, ", #%"SLJIT_PRINT_D"d\n", offset);
 	}
