@@ -515,7 +515,7 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 	   arg1 must be register, TMP_REG1, imm
 	   arg2 must be register, TMP_REG2, imm */
 	int reg;
-	sljit_uw imm;
+	sljit_uw imm, negated_imm;
 
 	if (SLJIT_UNLIKELY((flags & (ARG1_IMM | ARG2_IMM)) == (ARG1_IMM | ARG2_IMM))) {
 		/* Both are immediates. */
@@ -542,14 +542,25 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 			/* No form with immediate operand. */
 			break;
 		case SLJIT_ADD:
+			negated_imm = (sljit_uw)-(sljit_w)imm;
 			if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(reg, dst)) {
 				if (imm <= 0x7)
 					return push_inst16(compiler, ADDSI3 | IMM3(imm) | RD3(dst) | RN3(reg));
-				if (reg == dst && imm <= 0xff)
-					return push_inst16(compiler, ADDSI8 | IMM8(imm) | RDN3(dst));
+				if (negated_imm <= 0x7)
+					return push_inst16(compiler, SUBSI3 | IMM3(negated_imm) | RD3(dst) | RN3(reg));
+				if (reg == dst) {
+					if (imm <= 0xff)
+						return push_inst16(compiler, ADDSI8 | IMM8(imm) | RDN3(dst));
+					if (negated_imm <= 0xff)
+						return push_inst16(compiler, SUBSI8 | IMM8(negated_imm) | RDN3(dst));
+				}
 			}
-			if (imm <= 0xfff && !(flags & SET_FLAGS))
-				return push_inst32(compiler, ADDWI | RD4(dst) | RN4(reg) | IMM12(imm));
+			if (!(flags & SET_FLAGS)) {
+				if (imm <= 0xfff)
+					return push_inst32(compiler, ADDWI | RD4(dst) | RN4(reg) | IMM12(imm));
+				if (negated_imm <= 0xfff)
+					return push_inst32(compiler, SUBWI | RD4(dst) | RN4(reg) | IMM12(negated_imm));
+			}
 			imm = get_imm(imm);
 			if (imm != INVALID_IMM)
 				return push_inst32(compiler, ADD_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
@@ -561,18 +572,27 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 			break;
 		case SLJIT_SUB:
 			if (flags & ARG2_IMM) {
+				negated_imm = (sljit_uw)-(sljit_w)imm;
 				if (!(flags & KEEP_FLAGS) && IS_2_LO_REGS(reg, dst)) {
 					if (imm <= 0x7)
 						return push_inst16(compiler, SUBSI3 | IMM3(imm) | RD3(dst) | RN3(reg));
-					if (imm <= 0xff) {
-						if (reg == dst)
+					if (negated_imm <= 0x7)
+						return push_inst16(compiler, ADDSI3 | IMM3(negated_imm) | RD3(dst) | RN3(reg));
+					if (reg == dst) {
+						if (imm <= 0xff)
 							return push_inst16(compiler, SUBSI8 | IMM8(imm) | RDN3(dst));
-						if (flags & UNUSED_RETURN)
-							return push_inst16(compiler, CMPI | IMM8(imm) | RDN3(reg));
+						if (negated_imm <= 0xff)
+							return push_inst16(compiler, ADDSI8 | IMM8(negated_imm) | RDN3(dst));
 					}
+					if (imm <= 0xff && (flags & UNUSED_RETURN))
+						return push_inst16(compiler, CMPI | IMM8(imm) | RDN3(reg));
 				}
-				if (imm <= 0xfff && !(flags & SET_FLAGS))
-					return push_inst32(compiler, SUBWI | RD4(dst) | RN4(reg) | IMM12(imm));
+				if (!(flags & SET_FLAGS)) {
+					if (imm <= 0xfff)
+						return push_inst32(compiler, SUBWI | RD4(dst) | RN4(reg) | IMM12(imm));
+					if (negated_imm <= 0xfff)
+						return push_inst32(compiler, ADDWI | RD4(dst) | RN4(reg) | IMM12(negated_imm));
+				}
 				imm = get_imm(imm);
 				if (imm != INVALID_IMM)
 					return push_inst32(compiler, SUB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);

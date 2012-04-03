@@ -1655,7 +1655,8 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 		src2 = src1;
 		src2w = src1w;
 	}
-	else {
+	else do { /* do { } while(0) is used because of breaks. */
+		src1_r = 0;
 		if ((inp_flags & ALLOW_ANY_IMM) && (src1 & SLJIT_IMM)) {
 			/* The second check will generate a hit. */
 			src2_r = get_immediate(src1w);
@@ -1663,6 +1664,7 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 				flags |= ARGS_SWAPPED;
 				src1 = src2;
 				src1w = src2w;
+				break;
 			}
 			if (inp_flags & ALLOW_INV_IMM) {
 				src2_r = get_immediate(~src1w);
@@ -1670,16 +1672,26 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 					flags |= ARGS_SWAPPED | INV_IMM;
 					src1 = src2;
 					src1w = src2w;
+					break;
+				}
+			}
+			if (GET_OPCODE(op) == SLJIT_ADD) {
+				src2_r = get_immediate(-src1w);
+				if (src2_r) {
+					/* Note: ARGS_SWAPPED is intentionally not applied! */
+					src1 = src2;
+					src1w = src2w;
+					op = SLJIT_SUB | GET_ALL_FLAGS(op);
+					break;
 				}
 			}
 		}
 
-		src1_r = 0;
 		if (getput_arg_fast(compiler, inp_flags | LOAD_DATA, TMP_REG1, src1, src1w)) {
 			FAIL_IF(compiler->error);
 			src1_r = TMP_REG1;
 		}
-	}
+	} while (0);
 
 	/* Source 2. */
 	if (src2_r == 0) {
@@ -1698,6 +1710,22 @@ static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
 					src2_r = get_immediate(~src2w);
 					if (src2_r) {
 						flags |= INV_IMM;
+						break;
+					}
+				}
+				if (GET_OPCODE(op) == SLJIT_ADD) {
+					src2_r = get_immediate(-src2w);
+					if (src2_r) {
+						op = SLJIT_SUB | GET_ALL_FLAGS(op);
+						flags &= ~ARGS_SWAPPED;
+						break;
+					}
+				}
+				if (GET_OPCODE(op) == SLJIT_SUB && !(flags & ARGS_SWAPPED)) {
+					src2_r = get_immediate(-src2w);
+					if (src2_r) {
+						op = SLJIT_ADD | GET_ALL_FLAGS(op);
+						flags &= ~ARGS_SWAPPED;
 						break;
 					}
 				}
@@ -1877,7 +1905,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 		compiler->skip_checks = 1;
 #endif
-		return sljit_emit_op2(compiler, SLJIT_SUB | GET_FLAGS(op), dst, dstw, SLJIT_IMM, 0, src, srcw);
+		return sljit_emit_op2(compiler, SLJIT_SUB | GET_ALL_FLAGS(op), dst, dstw, SLJIT_IMM, 0, src, srcw);
 
 	case SLJIT_CLZ:
 		return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src, srcw);
