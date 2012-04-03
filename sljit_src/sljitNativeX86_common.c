@@ -419,7 +419,7 @@ static SLJIT_INLINE int emit_save_flags(struct sljit_compiler *compiler)
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 6);
 	FAIL_IF(!buf);
 	INC_SIZE(6);
-	*buf++ = 0x48;
+	*buf++ = REX_W;
 #endif
 	*buf++ = 0x8d; /* lea esp/rsp, [esp/rsp + sizeof(sljit_w)] */
 	*buf++ = 0x64;
@@ -444,7 +444,7 @@ static SLJIT_INLINE int emit_restore_flags(struct sljit_compiler *compiler, int 
 	FAIL_IF(!buf);
 	INC_SIZE(6);
 	*buf++ = 0x9d; /* popfq */
-	*buf++ = 0x48;
+	*buf++ = REX_W;
 #endif
 	*buf++ = 0x8d; /* lea esp/rsp, [esp/rsp - sizeof(sljit_w)] */
 	*buf++ = 0x64;

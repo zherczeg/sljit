@@ -167,8 +167,6 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 #define SIMM_MIN	(-0x8000)
 #define UIMM_MAX	(0xffff)
 
-/* SLJIT_LOCALS_REG is not the real stack register, since it must
-   point to the head of the stack chain. */
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
   0, 3, 4, 5, 6, 7, 30, 29, 28, 27, 26, 1, 8, 9, 10, 31
 };
