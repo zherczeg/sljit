@@ -136,7 +136,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 	}
 #endif
 
-	locals_offset = sizeof(sljit_uw);
+	locals_offset = 2 * sizeof(sljit_uw);
 	compiler->temporaries_start = locals_offset;
 	if (temporaries > 3)
 		locals_offset += (temporaries - 3) * sizeof(sljit_uw);
@@ -175,7 +175,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->logical_local_size = local_size;
 #endif
 
-	locals_offset = sizeof(sljit_uw);
+	locals_offset = 2 * sizeof(sljit_uw);
 	compiler->temporaries_start = locals_offset;
 	if (temporaries > 3)
 		locals_offset += (temporaries - 3) * sizeof(sljit_uw);
