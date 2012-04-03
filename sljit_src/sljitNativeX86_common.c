@@ -2590,6 +2590,8 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_get_local_base(struct sljit_compiler *compile
 	check_sljit_get_local_base(compiler, dst, dstw, offset);
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
+	CHECK_EXTRA_REGS(dst, dstw, (void)0);
+
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	compiler->mode32 = 0;
 #endif

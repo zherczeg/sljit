@@ -221,6 +221,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(sljit_touch_stack)));
 	}
 #else
+	local_size += sizeof(sljit_w);
 	compiler->local_size = local_size;
 	if (local_size > 0) {
 #endif
@@ -273,6 +274,8 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->local_size = ((local_size + pushed_size + 16 - 1) & ~(16 - 1)) - pushed_size;
 #ifdef _WIN64
 	compiler->local_size += 4 * sizeof(sljit_w);
+#else
+	compiler->local_size += sizeof(sljit_w);
 #endif
 }
 
