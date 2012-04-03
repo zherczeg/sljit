@@ -415,18 +415,17 @@ static SLJIT_INLINE int emit_save_flags(struct sljit_compiler *compiler)
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 5);
 	FAIL_IF(!buf);
 	INC_SIZE(5);
-	*buf++ = 0x9c; /* pushfd */
 #else
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 6);
 	FAIL_IF(!buf);
 	INC_SIZE(6);
-	*buf++ = 0x9c; /* pushfq */
 	*buf++ = 0x48;
 #endif
 	*buf++ = 0x8d; /* lea esp/rsp, [esp/rsp + sizeof(sljit_w)] */
 	*buf++ = 0x64;
 	*buf++ = 0x24;
-	*buf++ = sizeof(sljit_w);
+	*buf++ = (sljit_ub)sizeof(sljit_w);
+	*buf++ = 0x9c; /* pushfd / pushfq */
 	compiler->flags_saved = 1;
 	return SLJIT_SUCCESS;
 }
@@ -439,17 +438,18 @@ static SLJIT_INLINE int emit_restore_flags(struct sljit_compiler *compiler, int 
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 5);
 	FAIL_IF(!buf);
 	INC_SIZE(5);
+	*buf++ = 0x9d; /* popfd */
 #else
 	buf = (sljit_ub*)ensure_buf(compiler, 1 + 6);
 	FAIL_IF(!buf);
 	INC_SIZE(6);
+	*buf++ = 0x9d; /* popfq */
 	*buf++ = 0x48;
 #endif
 	*buf++ = 0x8d; /* lea esp/rsp, [esp/rsp - sizeof(sljit_w)] */
 	*buf++ = 0x64;
 	*buf++ = 0x24;
 	*buf++ = (sljit_ub)-(int)sizeof(sljit_w);
-	*buf++ = 0x9d; /* popfd / popfq */
 	compiler->flags_saved = keep_flags;
 	return SLJIT_SUCCESS;
 }
@@ -1830,7 +1830,8 @@ static int emit_shift(struct sljit_compiler *compiler,
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_PREF_SHIFT_REG, 0);
 #else
-		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_LOCALS_REG), 0, SLJIT_PREF_SHIFT_REG, 0);
+		/* [esp+0] contains the flags. */
+		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_LOCALS_REG), sizeof(sljit_w), SLJIT_PREF_SHIFT_REG, 0);
 #endif
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, src2, src2w);
 		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_PREF_SHIFT_REG, 0, TMP_REGISTER, 0);
@@ -1839,7 +1840,7 @@ static int emit_shift(struct sljit_compiler *compiler,
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, TMP_REG2, 0);
 #else
-		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, SLJIT_MEM1(SLJIT_LOCALS_REG), 0);
+		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, SLJIT_MEM1(SLJIT_LOCALS_REG), sizeof(sljit_w));
 #endif
 		EMIT_MOV(compiler, dst, dstw, TMP_REGISTER, 0);
 	}

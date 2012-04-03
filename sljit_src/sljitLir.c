@@ -170,9 +170,13 @@
 #define SLJIT_HAS_VARIABLE_LOCALS_OFFSET 1
 #endif
 
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) && defined(_WIN64)
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 #define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
+#ifdef _WIN64
 #define FIXED_LOCALS_OFFSET (4 * sizeof(sljit_w))
+#else
+#define FIXED_LOCALS_OFFSET (sizeof(sljit_w))
+#endif
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
