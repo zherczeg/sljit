@@ -457,11 +457,17 @@ static SLJIT_INLINE int emit_restore_flags(struct sljit_compiler *compiler, int 
 #ifdef _WIN32
 #include <malloc.h>
 
-static void SLJIT_CALL sljit_touch_stack(sljit_w local_size)
+static void SLJIT_CALL sljit_grow_stack(sljit_w local_size)
 {
-	/* Workaround for calling _chkstk. */
+	/* Workaround for calling the internal _chkstk() function on Windows.
+	This function touches all 4k pages belongs to the requested stack space,
+	which size is passed in local_size. This is necessary on Windows where
+	the stack can only grow in 4k steps. However, this function just burn
+	CPU cycles if the stack is large enough, but you don't know it in advance.
+	I think this is a bad design even if it has some reasons. */
 	alloca(local_size);
 }
+
 #endif
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)

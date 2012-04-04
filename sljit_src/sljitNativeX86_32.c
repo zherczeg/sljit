@@ -149,14 +149,14 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 #ifdef _WIN32
 	if (local_size > 1024) {
 		FAIL_IF(emit_do_imm(compiler, 0xb8 + reg_map[SLJIT_TEMPORARY_REG1], local_size));
-		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(sljit_touch_stack)));
+		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(sljit_grow_stack)));
 	}
 #endif
 
 	compiler->local_size = local_size;
-	if (local_size > 0)
-		return emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
-			SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, local_size);
+	SLJIT_ASSERT(local_size > 0);
+	return emit_non_cum_binary(compiler, 0x2b, 0x29, 0x5 << 3, 0x2d,
+		SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, local_size);
 
 	return SLJIT_SUCCESS;
 }
@@ -199,9 +199,9 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 	compiler->flags_saved = 0;
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
 
-	if (compiler->local_size > 0)
-		FAIL_IF(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
-				SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
+	SLJIT_ASSERT(compiler->local_size > 0);
+	FAIL_IF(emit_cum_binary(compiler, 0x03, 0x01, 0x0 << 3, 0x05,
+		SLJIT_LOCALS_REG, 0, SLJIT_LOCALS_REG, 0, SLJIT_IMM, compiler->local_size));
 
 	size = 2 + (compiler->saveds <= 3 ? compiler->saveds : 3);
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
