@@ -1360,7 +1360,9 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_get_local_base(struct sljit_compiler *compile
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->skip_checks = 1;
 #endif
-	return sljit_emit_op2(compiler, SLJIT_ADD, dst, dstw, SLJIT_LOCALS_REG, 0, SLJIT_IMM, offset);
+	if (offset != 0)
+		return sljit_emit_op2(compiler, SLJIT_ADD | SLJIT_KEEP_FLAGS, dst, dstw, SLJIT_LOCALS_REG, 0, SLJIT_IMM, offset);
+	return sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, SLJIT_LOCALS_REG, 0);
 }
 
 #endif

@@ -2616,7 +2616,9 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_get_local_base(struct sljit_compiler *compile
 	}
 #endif
 
-	return emit_lea_binary(compiler, dst, dstw, SLJIT_LOCALS_REG, 0, SLJIT_IMM, offset);
+	if (offset != 0)
+		return emit_lea_binary(compiler, dst, dstw, SLJIT_LOCALS_REG, 0, SLJIT_IMM, offset);
+	return emit_mov(compiler, dst, dstw, SLJIT_LOCALS_REG, 0);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, int dst, sljit_w dstw, sljit_w init_value)
