@@ -615,14 +615,14 @@ static char* freg_names[] = {
 
 #define sljit_verbose_param(p, i) \
 	if ((p) & SLJIT_IMM) \
-		fprintf(compiler->verbose, "#%"SLJIT_PRINT_D"d", (i)); \
+		fprintf(compiler->verbose, "#%" SLJIT_PRINT_D "d", (i)); \
 	else if ((p) & SLJIT_MEM) { \
 		if ((p) & 0xf) { \
 			if (i) { \
 				if (((p) >> 4) & 0xf) \
 					fprintf(compiler->verbose, "[%s + %s * %d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], 1 << (i)); \
 				else \
-					fprintf(compiler->verbose, "[%s + #%"SLJIT_PRINT_D"d]", reg_names[(p) & 0xF], (i)); \
+					fprintf(compiler->verbose, "[%s + #%" SLJIT_PRINT_D "d]", reg_names[(p) & 0xF], (i)); \
 			} \
 			else { \
 				if (((p) >> 4) & 0xf) \
@@ -632,7 +632,7 @@ static char* freg_names[] = {
 			} \
 		} \
 		else \
-			fprintf(compiler->verbose, "[#%"SLJIT_PRINT_D"d]", (i)); \
+			fprintf(compiler->verbose, "[#%" SLJIT_PRINT_D "d]", (i)); \
 	} else \
 		fprintf(compiler->verbose, "%s", reg_names[p]);
 #define sljit_verbose_fparam(p, i) \
@@ -642,7 +642,7 @@ static char* freg_names[] = {
 				if (((p) >> 4) & 0xf) \
 					fprintf(compiler->verbose, "[%s + %s * %d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], 1 << (i)); \
 				else \
-					fprintf(compiler->verbose, "[%s + #%"SLJIT_PRINT_D"d]", reg_names[(p) & 0xF], (i)); \
+					fprintf(compiler->verbose, "[%s + #%" SLJIT_PRINT_D "d]", reg_names[(p) & 0xF], (i)); \
 			} \
 			else { \
 				if (((p) >> 4) & 0xF) \
@@ -652,7 +652,7 @@ static char* freg_names[] = {
 			} \
 		} \
 		else \
-			fprintf(compiler->verbose, "[#%"SLJIT_PRINT_D"d]", (i)); \
+			fprintf(compiler->verbose, "[#%" SLJIT_PRINT_D "d]", (i)); \
 	} else \
 		fprintf(compiler->verbose, "%s", freg_names[p]);
 
@@ -1164,7 +1164,7 @@ static SLJIT_INLINE void check_sljit_get_local_base(struct sljit_compiler *compi
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  local_base ");
 		sljit_verbose_param(dst, dstw);
-		fprintf(compiler->verbose, ", #%"SLJIT_PRINT_D"d\n", offset);
+		fprintf(compiler->verbose, ", #%" SLJIT_PRINT_D "d\n", offset);
 	}
 #endif
 }
@@ -1184,7 +1184,7 @@ static SLJIT_INLINE void check_sljit_emit_const(struct sljit_compiler *compiler,
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  const ");
 		sljit_verbose_param(dst, dstw);
-		fprintf(compiler->verbose, ", #%"SLJIT_PRINT_D"d\n", init_value);
+		fprintf(compiler->verbose, ", #%" SLJIT_PRINT_D "d\n", init_value);
 	}
 #endif
 }
