@@ -106,7 +106,7 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_release_lock(void)
 
 #else /* _WIN32 */
 
-#include "pthread.h"
+#include <pthread.h>
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 
@@ -262,8 +262,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stac
 	}
 	aligned_new_limit = (new_limit + sljit_page_align) & ~sljit_page_align;
 	aligned_old_limit = (stack->limit + sljit_page_align) & ~sljit_page_align;
+	/* If madvise is available, we release the unnecessary space. */
+#if defined(POSIX_MADV_DONTNEED)
 	if (aligned_new_limit < aligned_old_limit)
 		posix_madvise((void*)aligned_new_limit, aligned_old_limit - aligned_new_limit, POSIX_MADV_DONTNEED);
+#elif defined(MADV_DONTNEED)
+	if (aligned_new_limit < aligned_old_limit)
+		madvise((void*)aligned_new_limit, aligned_old_limit - aligned_new_limit, MADV_DONTNEED);
+#endif
 	stack->limit = new_limit;
 	return 0;
 #endif

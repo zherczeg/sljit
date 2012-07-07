@@ -93,9 +93,9 @@
 #else
 #define SLJIT_CONFIG_ARM_V5 1
 #endif
-#elif defined(__ppc64__) || defined(__powerpc64__)
+#elif defined(__ppc64__) || defined(__powerpc64__) || defined(_ARCH_PPC64)
 #define SLJIT_CONFIG_PPC_64 1
-#elif defined(__ppc__) || defined(__powerpc__)
+#elif defined(__ppc__) || defined(__powerpc__) || defined(_ARCH_PPC)
 #define SLJIT_CONFIG_PPC_32 1
 #elif defined(__mips__)
 #define SLJIT_CONFIG_MIPS_32 1

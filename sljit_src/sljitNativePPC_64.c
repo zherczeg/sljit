@@ -26,9 +26,11 @@
 
 /* ppc 64-bit arch dependent functions. */
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || (defined(__IBM_GCC_ASM) && __IBM_GCC_ASM)
 #define ASM_SLJIT_CLZ(src, dst) \
-	asm volatile ( "cntlzd %0, %1" : "=r"(dst) : "r"(src) )
+	__asm__ volatile ( "cntlzd %0, %1" : "=r"(dst) : "r"(src) )
+#elif defined(__xlc__)
+#error "Please enable GCC syntax for inline assembly statements"
 #else
 #error "Must implement count leading zeroes"
 #endif
