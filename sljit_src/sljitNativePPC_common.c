@@ -36,10 +36,15 @@ typedef sljit_ui sljit_ins;
 static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 {
 	while (from < to) {
-#ifdef __GNUC__
-		asm volatile ( "icbi 0, %0" : : "r"(from) );
+#if defined(__GNUC__) || (defined(__IBM_GCC_ASM) && __IBM_GCC_ASM)
+		__asm__ volatile ( "icbi 0, %0" : : "r"(from) );
+#ifdef __xlc__
+#warning "This file may fail to compile if -qfuncsect is used"
+#endif
+#elif defined(__xlc__)
+#error "Please enable GCC syntax for inline assembly statements with -qasm=gcc"
 #else
-#error "Must implement icbi"
+#error "This platform requires a cache flush implementation."
 #endif
 		from++;
 	}
@@ -361,7 +366,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (((sljit_w)code_ptr) & 0x4)
 		code_ptr++;
-	sljit_set_function_context(NULL, (struct sljit_function_context*)code_ptr, (sljit_w)code, sljit_generate_code);
+	sljit_set_function_context(NULL, (struct sljit_function_context*)code_ptr, (sljit_w)code, (void*)sljit_generate_code);
 	return code_ptr;
 #else
 	return code;
