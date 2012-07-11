@@ -186,12 +186,16 @@
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
 #define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
+#if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+#define FIXED_LOCALS_OFFSET ((6 + 8) * sizeof(sljit_w))
+#else
 #define FIXED_LOCALS_OFFSET (2 * sizeof(sljit_w))
+#endif
 #endif
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
-#define FIXED_LOCALS_OFFSET ((7 + 8) * sizeof(sljit_w))
+#define FIXED_LOCALS_OFFSET ((6 + 8) * sizeof(sljit_w))
 #endif
 
 #if (defined SLJIT_HAS_VARIABLE_LOCALS_OFFSET && SLJIT_HAS_VARIABLE_LOCALS_OFFSET)
@@ -336,7 +340,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code)
 	/* Remove thumb mode flag. */
 	SLJIT_FREE_EXEC((void*)((sljit_uw)code & ~0x1));
 }
-#elif (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#elif (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code)
 {
 	/* Resolve indirection. */
