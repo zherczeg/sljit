@@ -37,7 +37,11 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 {
 	while (from < to) {
 #if defined(__GNUC__) || (defined(__IBM_GCC_ASM) && __IBM_GCC_ASM)
+#ifdef _POWER
+		__asm__ volatile ( "clf 0, %0" : : "r"(from) );
+#else
 		__asm__ volatile ( "icbi 0, %0" : : "r"(from) );
+#endif
 #ifdef __xlc__
 #warning "This file may fail to compile if -qfuncsect is used"
 #endif
@@ -176,6 +180,19 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
   0, 3, 4, 5, 6, 7, 30, 29, 28, 27, 26, 1, 8, 9, 10, 31
 };
 
+#if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_w addr, void* func)
+{
+	sljit_w* ptrs;
+	if (func_ptr)
+		*func_ptr = (void*)context;
+	ptrs = (sljit_w*)func;
+	context->addr = addr ? addr : ptrs[0];
+	context->r2 = ptrs[1];
+	context->r11 = ptrs[2];
+}
+#endif
+
 static int push_inst(struct sljit_compiler *compiler, sljit_ins ins)
 {
 	sljit_ins *ptr = (sljit_ins*)ensure_buf(compiler, sizeof(sljit_ins));
@@ -242,8 +259,12 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	check_sljit_generate_code(compiler);
 	reverse_buf(compiler);
 
+#if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	compiler->size += (compiler->size & 0x1) + (sizeof(struct sljit_function_context) / sizeof(sljit_ins));
+#else
+	compiler->size += (sizeof(struct sljit_function_context) / sizeof(sljit_ins));
+#endif
 #endif
 	code = (sljit_ins*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_ins));
 	PTR_FAIL_WITH_EXEC_IF(code);
@@ -307,8 +328,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	SLJIT_ASSERT(!label);
 	SLJIT_ASSERT(!jump);
 	SLJIT_ASSERT(!const_);
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	SLJIT_ASSERT(code_ptr - code <= (int)compiler->size - ((compiler->size & 0x1) ? 3 : 2));
+#if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+	SLJIT_ASSERT(code_ptr - code <= (int)compiler->size - (sizeof(struct sljit_function_context) / sizeof(sljit_ins)));
 #else
 	SLJIT_ASSERT(code_ptr - code <= (int)compiler->size);
 #endif
@@ -363,11 +384,16 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	compiler->error = SLJIT_ERR_COMPILED;
 	compiler->executable_size = compiler->size * sizeof(sljit_ins);
 
+#if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (((sljit_w)code_ptr) & 0x4)
 		code_ptr++;
 	sljit_set_function_context(NULL, (struct sljit_function_context*)code_ptr, (sljit_w)code, (void*)sljit_generate_code);
 	return code_ptr;
+#else
+	sljit_set_function_context(NULL, (struct sljit_function_context*)code_ptr, (sljit_w)code, (void*)sljit_generate_code);
+	return code_ptr;
+#endif
 #else
 	return code;
 #endif
@@ -468,10 +494,10 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 	if (args >= 3)
 		FAIL_IF(push_inst(compiler, OR | S(SLJIT_TEMPORARY_REG3) | A(SLJIT_SAVED_REG3) | B(SLJIT_TEMPORARY_REG3)));
 
-#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	compiler->local_size = (1 + saveds + 2) * sizeof(sljit_w) + local_size;
+#if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+	compiler->local_size = (1 + saveds + 6 + 8) * sizeof(sljit_w) + local_size;
 #else
-	compiler->local_size = (1 + saveds + 7 + 8) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (1 + saveds + 2) * sizeof(sljit_w) + local_size;
 #endif
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 
@@ -505,10 +531,10 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->logical_local_size = local_size;
 #endif
 
-#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	compiler->local_size = (1 + saveds + 2) * sizeof(sljit_w) + local_size;
+#if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+	compiler->local_size = (1 + saveds + 6 + 8) * sizeof(sljit_w) + local_size;
 #else
-	compiler->local_size = (1 + saveds + 7 + 8) * sizeof(sljit_w) + local_size;
+	compiler->local_size = (1 + saveds + 2) * sizeof(sljit_w) + local_size;
 #endif
 	compiler->local_size = (compiler->local_size + 15) & ~0xf;
 }

@@ -95,7 +95,7 @@
 #endif
 #elif defined(__ppc64__) || defined(__powerpc64__) || defined(_ARCH_PPC64)
 #define SLJIT_CONFIG_PPC_64 1
-#elif defined(__ppc__) || defined(__powerpc__) || defined(_ARCH_PPC)
+#elif defined(__ppc__) || defined(__powerpc__) || defined(_ARCH_PPC) || defined(_POWER)
 #define SLJIT_CONFIG_PPC_32 1
 #elif defined(__mips__)
 #define SLJIT_CONFIG_MIPS_32 1
@@ -335,9 +335,9 @@ typedef long int sljit_w;
 #error "Exactly one endianness must be selected"
 #endif
 
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-/* It seems ppc64 compilers use an indirect addressing for functions.
-   It makes things really complicated. */
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) || (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32 && defined _AIX)
+/* It seems certain ppc compilers use an indirect addressing for functions
+   which makes things complicated. */
 #define SLJIT_INDIRECT_CALL 1
 #endif
 
