@@ -33,25 +33,32 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
    Both for ppc-32 and ppc-64. */
 typedef sljit_ui sljit_ins;
 
+#ifdef _AIX
+#include <sys/cache.h>
+#endif
+
 static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 {
+#ifdef _AIX
+	_sync_cache_range((caddr_t)from, (size_t)(to - from) * sizeof(sljit_ins));
+#else
 	while (from < to) {
 #if defined(__GNUC__) || (defined(__IBM_GCC_ASM) && __IBM_GCC_ASM)
-#ifdef _POWER
-		__asm__ volatile ( "clf 0, %0" : : "r"(from) );
-#else
 		__asm__ volatile ( "icbi 0, %0" : : "r"(from) );
-#endif
 #ifdef __xlc__
 #warning "This file may fail to compile if -qfuncsect is used"
 #endif
 #elif defined(__xlc__)
 #error "Please enable GCC syntax for inline assembly statements with -qasm=gcc"
 #else
+		/* Power equivalent of icbi, not used yet. */
+		/* __asm__ volatile ( "clf 0, %0" : : "r"(from) ); */
+
 #error "This platform requires a cache flush implementation."
 #endif
 		from++;
 	}
+#endif /* _AIX */
 }
 
 #define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
