@@ -40,24 +40,37 @@ typedef sljit_ui sljit_ins;
 static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 {
 #ifdef _AIX
-	_sync_cache_range((caddr_t)from, (size_t)(to - from) * sizeof(sljit_ins));
-#else
+	_sync_cache_range((caddr_t)from, (int)((size_t)(to - from) * sizeof(sljit_ins)));
+#elif defined(_ARCH_PWR) || defined(_ARCH_PWR2)
+	/* Cache flush for POWER architecture. */
 	while (from < to) {
-#if defined(__GNUC__) || (defined(__IBM_GCC_ASM) && __IBM_GCC_ASM)
-		__asm__ volatile ( "icbi 0, %0" : : "r"(from) );
+		__asm__ volatile (
+			"clf 0, %0\n"
+			"dcs\n"
+			: : "r"(from)
+		);
+		from++;
+	}
+	__asm__ volatile ( "ics" );
+#elif defined(__GNUC__) || (defined(__IBM_GCC_ASM) && __IBM_GCC_ASM)
+	/* Cache flush for PowerPC architecture. */
+	while (from < to) {
+		__asm__ volatile (
+			"dcbf 0, %0\n"
+			"sync\n"
+			"icbi 0, %0\n"
+			: : "r"(from)
+		);
+		from++;
+	}
+	__asm__ volatile ( "isync" );
 #ifdef __xlc__
-#warning "This file may fail to compile if -qfuncsect is used"
+#warning "This file may fail to compile if -qfuncsect is used."
 #endif
 #elif defined(__xlc__)
 #error "Please enable GCC syntax for inline assembly statements with -qasm=gcc"
 #else
-		/* Power equivalent of icbi, not used yet. */
-		/* __asm__ volatile ( "clf 0, %0" : : "r"(from) ); */
-
 #error "This platform requires a cache flush implementation."
-#endif
-		from++;
-	}
 #endif /* _AIX */
 }
 
