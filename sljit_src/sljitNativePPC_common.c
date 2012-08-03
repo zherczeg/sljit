@@ -40,8 +40,9 @@ typedef sljit_ui sljit_ins;
 static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 {
 #ifdef _AIX
-	_sync_cache_range((caddr_t)from, (int)((size_t)(to - from) * sizeof(sljit_ins)));
-#elif defined(_ARCH_PWR) || defined(_ARCH_PWR2)
+	_sync_cache_range((caddr_t)from, (int)((size_t)to - (size_t)from));
+#elif defined(__GNUC__) || (defined(__IBM_GCC_ASM) && __IBM_GCC_ASM)
+#	if defined(_ARCH_PWR) || defined(_ARCH_PWR2)
 	/* Cache flush for POWER architecture. */
 	while (from < to) {
 		__asm__ volatile (
@@ -52,7 +53,9 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 		from++;
 	}
 	__asm__ volatile ( "ics" );
-#elif defined(__GNUC__) || (defined(__IBM_GCC_ASM) && __IBM_GCC_ASM)
+#	elif defined(_ARCH_COM) && !defined(_ARCH_PPC)
+#	error "Cache flush is not implemented for PowerPC/POWER common mode."
+#	else
 	/* Cache flush for PowerPC architecture. */
 	while (from < to) {
 		__asm__ volatile (
@@ -64,9 +67,10 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 		from++;
 	}
 	__asm__ volatile ( "isync" );
-#ifdef __xlc__
-#warning "This file may fail to compile if -qfuncsect is used."
-#endif
+#	endif
+#	ifdef __xlc__
+#	warning "This file may fail to compile if -qfuncsect is used"
+#	endif
 #elif defined(__xlc__)
 #error "Please enable GCC syntax for inline assembly statements with -qasm=gcc"
 #else
