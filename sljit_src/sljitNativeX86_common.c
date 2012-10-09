@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
+SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 {
 	return "x86" SLJIT_CPUINFO;
 }
@@ -2021,7 +2021,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op_custom(struct sljit_compiler *compile
 static sljit_i sse2_data[3 + 4 + 4];
 static sljit_i *sse2_buffer;
 
-static void init_compiler()
+static void init_compiler(void)
 {
 	sse2_buffer = (sljit_i*)(((sljit_uw)sse2_data + 15) & ~0xf);
 	sse2_buffer[0] = 0;

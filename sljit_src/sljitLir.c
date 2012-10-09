@@ -1375,7 +1375,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_get_local_base(struct sljit_compiler *compile
 
 /* Empty function bodies for those machines, which are not (yet) supported. */
 
-SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name()
+SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 {
 	return "unsupported";
 }
