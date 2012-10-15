@@ -56,7 +56,7 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 
 /* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
-  0, 0, 1, 2, 10, 11, 4, 5, 6, 7, 8, 13, 3, 12, 14, 15
+	0, 0, 1, 2, 10, 11, 4, 5, 6, 7, 8, 13, 3, 12, 14, 15
 };
 
 #define RM(rm) (reg_map[rm])
@@ -792,6 +792,10 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	compiler->executable_size = size * sizeof(sljit_uw);
 	return code;
 }
+
+/* --------------------------------------------------------------------- */
+/*  Entry, exit                                                          */
+/* --------------------------------------------------------------------- */
 
 /* emit_op inp_flags.
    WRITE_BACK must be the first, since it is a flag. */

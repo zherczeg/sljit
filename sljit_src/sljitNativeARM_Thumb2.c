@@ -29,6 +29,9 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 	return "ARM-Thumb2" SLJIT_CPUINFO;
 }
 
+/* Length of an instruction word. */
+typedef sljit_ui sljit_ins;
+
 /* Last register + 1. */
 #define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
 #define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
@@ -40,7 +43,7 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 
 /* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
-  0, 0, 1, 2, 12, 5, 6, 7, 8, 10, 11, 13, 3, 4, 14, 15
+	0, 0, 1, 2, 12, 5, 6, 7, 8, 10, 11, 13, 3, 4, 14, 15
 };
 
 #define COPY_BITS(src, from, to, bits) \
@@ -74,8 +77,6 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 	(COPY_BITS(imm, 2, 12, 3) | ((imm & 0x3) << 6))
 #define IMM12(imm) \
 	(COPY_BITS(imm, 11, 26, 1) | COPY_BITS(imm, 8, 12, 3) | (imm & 0xff))
-
-typedef sljit_ui sljit_ins;
 
 /* --------------------------------------------------------------------- */
 /*  Instrucion forms                                                     */
@@ -1120,6 +1121,10 @@ static SLJIT_INLINE int emit_op_mem(struct sljit_compiler *compiler, int flags, 
 	compiler->cache_argw = 0;
 	return getput_arg(compiler, flags, reg, arg, argw, 0, 0);
 }
+
+/* --------------------------------------------------------------------- */
+/*  Entry, exit                                                          */
+/* --------------------------------------------------------------------- */
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int saveds, int local_size)
 {

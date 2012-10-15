@@ -166,6 +166,14 @@
 	#define MOVABLE_INS	33
 #endif
 
+#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+	/* instruction types */
+	#define UNMOVABLE_INS	0
+	/* 1 - 31 last destination register */
+	/* no destination (i.e: store) */
+	#define MOVABLE_INS	32
+#endif
+
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 #define SLJIT_HAS_VARIABLE_LOCALS_OFFSET 1
 #endif
@@ -177,11 +185,6 @@
 #else
 #define FIXED_LOCALS_OFFSET (sizeof(sljit_w))
 #endif
-#endif
-
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-#define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
-#define FIXED_LOCALS_OFFSET (4 * sizeof(sljit_w))
 #endif
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
@@ -196,6 +199,16 @@
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
 #define FIXED_LOCALS_OFFSET ((6 + 8) * sizeof(sljit_w))
+#endif
+
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+#define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
+#define FIXED_LOCALS_OFFSET (4 * sizeof(sljit_w))
+#endif
+
+#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+#define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
+#define FIXED_LOCALS_OFFSET (23 * sizeof(sljit_w))
 #endif
 
 #if (defined SLJIT_HAS_VARIABLE_LOCALS_OFFSET && SLJIT_HAS_VARIABLE_LOCALS_OFFSET)
@@ -296,6 +309,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	compiler->delay_slot = UNMOVABLE_INS;
+#endif
+
+#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 	compiler->delay_slot = UNMOVABLE_INS;
 #endif
 
@@ -1255,6 +1272,8 @@ static SLJIT_INLINE int emit_mov_before_return(struct sljit_compiler *compiler, 
 	#include "sljitNativePPC_common.c"
 #elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 	#include "sljitNativeMIPS_common.c"
+#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+	#include "sljitNativeSPARC_common.c"
 #endif
 
 #if !(defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
