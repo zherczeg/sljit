@@ -86,6 +86,10 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 #define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
 #define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
 
+static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
+	0, 3, 4, 5, 6, 7, 30, 29, 28, 27, 26, 1, 8, 9, 10, 31
+};
+
 /* --------------------------------------------------------------------- */
 /*  Instrucion forms                                                     */
 /* --------------------------------------------------------------------- */
@@ -199,10 +203,6 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 #define SIMM_MAX	(0x7fff)
 #define SIMM_MIN	(-0x8000)
 #define UIMM_MAX	(0xffff)
-
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
-  0, 3, 4, 5, 6, 7, 30, 29, 28, 27, 26, 1, 8, 9, 10, 31
-};
 
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_w addr, void* func)
@@ -422,6 +422,10 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	return code;
 #endif
 }
+
+/* --------------------------------------------------------------------- */
+/*  Entry, exit                                                          */
+/* --------------------------------------------------------------------- */
 
 /* inp_flags: */
 

@@ -57,6 +57,7 @@
 	|| (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) \
 	|| (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) \
 	|| (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) \
+	|| (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
 	|| (defined SLJIT_CONFIG_AUTO && SLJIT_CONFIG_AUTO) \
 	|| (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED))
 #error "An architecture must be selected"
@@ -71,6 +72,7 @@
 	+ (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) \
 	+ (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) \
 	+ (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) \
+	+ (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
 	+ (defined SLJIT_CONFIG_AUTO && SLJIT_CONFIG_AUTO) \
 	+ (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED) >= 2
 #error "Multiple architectures are selected"
@@ -99,6 +101,8 @@
 #define SLJIT_CONFIG_PPC_32 1
 #elif defined(__mips__)
 #define SLJIT_CONFIG_MIPS_32 1
+#elif defined(__sparc__) || defined(__sparc)
+#define SLJIT_CONFIG_SPARC_32 1
 #else
 /* Unsupported architecture */
 #define SLJIT_CONFIG_UNSUPPORTED 1
@@ -309,7 +313,9 @@ typedef long int sljit_w;
 #if !defined(SLJIT_BIG_ENDIAN) && !defined(SLJIT_LITTLE_ENDIAN)
 
 /* These macros are useful for the application. */
-#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) \
+	|| (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) \
+	|| (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 #define SLJIT_BIG_ENDIAN 1
 
 #elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)

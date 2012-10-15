@@ -260,6 +260,12 @@ struct sljit_compiler {
 	sljit_w cache_argw;
 #endif
 
+#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+	int delay_slot;
+	int cache_arg;
+	sljit_w cache_argw;
+#endif
+
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	FILE* verbose;
 #endif

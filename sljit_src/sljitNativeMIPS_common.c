@@ -41,15 +41,15 @@ typedef sljit_ui sljit_ins;
 #define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
 
 /* For position independent code, t9 must contain the function address. */
-#define PIC_ADDR_REG		TMP_REG2
+#define PIC_ADDR_REG	TMP_REG2
 
 /* TMP_EREG1 is used mainly for literal encoding on 64 bit. */
-#define TMP_EREG1		15
-#define TMP_EREG2		24
+#define TMP_EREG1	15
+#define TMP_EREG2	24
 /* Floating point status register. */
-#define FCSR_REG		31
+#define FCSR_REG	31
 /* Return address register. */
-#define RETURN_ADDR_REG		31
+#define RETURN_ADDR_REG	31
 
 /* Flags are keept in volatile registers. */
 #define EQUAL_FLAG	7
@@ -62,6 +62,10 @@ typedef sljit_ui sljit_ins;
 
 #define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
 #define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
+
+static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
+	0, 2, 5, 6, 3, 8, 16, 17, 18, 19, 20, 29, 4, 25, 9
+};
 
 /* --------------------------------------------------------------------- */
 /*  Instrucion forms                                                     */
@@ -171,10 +175,6 @@ typedef sljit_ui sljit_ins;
 #define SIMM_MAX	(0x7fff)
 #define SIMM_MIN	(-0x8000)
 #define UIMM_MAX	(0xffff)
-
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
-  0, 2, 5, 6, 3, 8, 16, 17, 18, 19, 20, 29, 4, 25, 9
-};
 
 /* dest_reg is the absolute name of the register
    Useful for reordering instructions in the delay slot. */
@@ -406,6 +406,10 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	return code;
 }
 
+/* --------------------------------------------------------------------- */
+/*  Entry, exit                                                          */
+/* --------------------------------------------------------------------- */
+
 /* Creates an index in data_transfer_insts array. */
 #define WORD_DATA	0x00
 #define BYTE_DATA	0x01
@@ -436,17 +440,17 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	(!(flags & UNUSED_DEST) || (op & GET_FLAGS(~(list))))
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-#include "sljitNativeMIPS_32.c"
-#else
-#include "sljitNativeMIPS_64.c"
-#endif
-
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 #define STACK_STORE	SW
 #define STACK_LOAD	LW
 #else
 #define STACK_STORE	SD
 #define STACK_LOAD	LD
+#endif
+
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+#include "sljitNativeMIPS_32.c"
+#else
+#include "sljitNativeMIPS_64.c"
 #endif
 
 static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
