@@ -273,7 +273,6 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 
 	CHECK_ERROR();
 	check_sljit_emit_return(compiler, op, src, srcw);
-	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	compiler->flags_saved = 0;
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));

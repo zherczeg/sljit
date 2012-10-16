@@ -453,11 +453,6 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #include "sljitNativeMIPS_64.c"
 #endif
 
-static int emit_op(struct sljit_compiler *compiler, int op, int inp_flags,
-	int dst, sljit_w dstw,
-	int src1, sljit_w src1w,
-	int src2, sljit_w src2w);
-
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int saveds, int local_size)
 {
 	sljit_ins base;
@@ -532,7 +527,6 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 
 	CHECK_ERROR();
 	check_sljit_emit_return(compiler, op, src, srcw);
-	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
 
@@ -573,32 +567,34 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 /* --------------------------------------------------------------------- */
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-#define ARCH_DEPEND(a, b)	a
+#define ARCH_32_64(a, b)	a
 #else
-#define ARCH_DEPEND(a, b)	b
+#define ARCH_32_64(a, b)	b
 #endif
 
 static SLJIT_CONST sljit_ins data_transfer_insts[16] = {
-/* s u w */ ARCH_DEPEND(HI(43) /* sw */, HI(63) /* sd */),
+/* s u w */ ARCH_32_64(HI(43) /* sw */, HI(63) /* sd */),
 /* s u b */ HI(40) /* sb */,
-/* s u h */ HI(41) /* sh*/,
+/* s u h */ HI(41) /* sh */,
 /* s u i */ HI(43) /* sw */,
 
-/* s s w */ ARCH_DEPEND(HI(43) /* sw */, HI(63) /* sd */),
+/* s s w */ ARCH_32_64(HI(43) /* sw */, HI(63) /* sd */),
 /* s s b */ HI(40) /* sb */,
-/* s s h */ HI(41) /* sh*/,
+/* s s h */ HI(41) /* sh */,
 /* s s i */ HI(43) /* sw */,
 
-/* l u w */ ARCH_DEPEND(HI(35) /* lw */, HI(55) /* ld */),
+/* l u w */ ARCH_32_64(HI(35) /* lw */, HI(55) /* ld */),
 /* l u b */ HI(36) /* lbu */,
 /* l u h */ HI(37) /* lhu */,
-/* l u i */ ARCH_DEPEND(HI(35) /* lw */, HI(39) /* lwu */),
+/* l u i */ ARCH_32_64(HI(35) /* lw */, HI(39) /* lwu */),
 
-/* l s w */ ARCH_DEPEND(HI(35) /* lw */, HI(55) /* ld */),
+/* l s w */ ARCH_32_64(HI(35) /* lw */, HI(55) /* ld */),
 /* l s b */ HI(32) /* lb */,
 /* l s h */ HI(33) /* lh */,
 /* l s i */ HI(35) /* lw */,
 };
+
+#undef ARCH_32_64
 
 /* reg_ar is an absoulute register! */
 
@@ -611,7 +607,8 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int flags, int reg_a
 		/* Works for both absoulte and relative addresses. */
 		if (SLJIT_UNLIKELY(flags & ARG_TEST))
 			return 1;
-		FAIL_IF(push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | S(arg & 0xf) | TA(reg_ar) | IMM(argw), (flags & LOAD_DATA) ? reg_ar : MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | S(arg & 0xf)
+			| TA(reg_ar) | IMM(argw), (flags & LOAD_DATA) ? reg_ar : MOVABLE_INS));
 		return -1;
 	}
 	return (flags & ARG_TEST) ? SLJIT_SUCCESS : 0;
@@ -622,8 +619,7 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int flags, int reg_a
    operators always uses word arguments without write back. */
 static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 {
-	if (!(next_arg & SLJIT_MEM))
-		return 0;
+	SLJIT_ASSERT((arg & SLJIT_MEM) && (next_arg & SLJIT_MEM));
 
 	/* Simple operation except for updates. */
 	if (arg & 0xf0) {
@@ -635,7 +631,7 @@ static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 	}
 
 	if (arg == next_arg) {
-		if (((sljit_uw)(next_argw - argw) <= SIMM_MAX && (sljit_uw)(next_argw - argw) >= SIMM_MIN))
+		if (((next_argw - argw) <= SIMM_MAX && (next_argw - argw) >= SIMM_MIN))
 			return 1;
 		return 0;
 	}
