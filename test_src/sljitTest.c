@@ -3369,22 +3369,23 @@ static void test40(void)
 	sljit_emit_cond_value(compiler, SLJIT_OR | SLJIT_SET_E, SLJIT_TEMPORARY_REG1, 0, SLJIT_C_NOT_EQUAL);
 	sljit_emit_cond_value(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_w) * 8, SLJIT_C_NOT_EQUAL);
 
-	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), 0, SLJIT_IMM, 0xbaddead);
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), 0);
 
 	code.code = sljit_generate_code(compiler);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
-	code.func1((sljit_w)&buf);
-	FAILED(buf[0] != 0x123457, "test40 case 1 failed\n");
-	FAILED(buf[1] != 1, "test40 case 2 failed\n");
-	FAILED(buf[2] != 0, "test40 case 3 failed\n");
-	FAILED(buf[3] != -7, "test40 case 4 failed\n");
-	FAILED(buf[4] != 0, "test40 case 5 failed\n");
-	FAILED(buf[5] != 0x89, "test40 case 6 failed\n");
-	FAILED(buf[6] != 0, "test40 case 7 failed\n");
-	FAILED(buf[7] != 1, "test40 case 8 failed\n");
-	FAILED(buf[8] != 1, "test40 case 9 failed\n");
+	FAILED(code.func1((sljit_w)&buf) != 0xbaddead, "test40 case 1 failed\n");
+	FAILED(buf[0] != 0x123457, "test40 case 2 failed\n");
+	FAILED(buf[1] != 1, "test40 case 3 failed\n");
+	FAILED(buf[2] != 0, "test40 case 4 failed\n");
+	FAILED(buf[3] != -7, "test40 case 5 failed\n");
+	FAILED(buf[4] != 0, "test40 case 6 failed\n");
+	FAILED(buf[5] != 0x89, "test40 case 7 failed\n");
+	FAILED(buf[6] != 0, "test40 case 8 failed\n");
+	FAILED(buf[7] != 1, "test40 case 9 failed\n");
+	FAILED(buf[8] != 1, "test40 case 10 failed\n");
 
 	printf("test40 ok\n");
 	successful_tests++;

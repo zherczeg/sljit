@@ -380,10 +380,10 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	return SLJIT_SUCCESS;
 }
 
-static SLJIT_INLINE int emit_const(struct sljit_compiler *compiler, int reg, sljit_w init_value)
+static SLJIT_INLINE int emit_const(struct sljit_compiler *compiler, int dst, sljit_w init_value)
 {
-	FAIL_IF(push_inst(compiler, LUI | T(reg) | IMM(init_value >> 16), DR(reg)));
-	return push_inst(compiler, ORI | S(reg) | T(reg) | IMM(init_value), DR(reg));
+	FAIL_IF(push_inst(compiler, LUI | T(dst) | IMM(init_value >> 16), DR(dst)));
+	return push_inst(compiler, ORI | S(dst) | T(dst) | IMM(init_value), DR(dst));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)

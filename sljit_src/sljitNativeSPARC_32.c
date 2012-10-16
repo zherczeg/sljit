@@ -30,11 +30,54 @@ static int load_immediate(struct sljit_compiler *compiler, int dst, sljit_w imm)
 		return push_inst(compiler, OR | D(dst) | S1(0) | IMM(imm), DR(dst));
 
 	FAIL_IF(push_inst(compiler, SETHI | D(dst) | ((imm >> 10) & 0x3fffff), DR(dst)));
-	return (imm & 0x3ff) ? push_inst(compiler, OR | D(dst) | S1(dst) | 0x2000 | (imm & 0x3ff), DR(dst)) : SLJIT_SUCCESS;
+	return (imm & 0x3ff) ? push_inst(compiler, OR | D(dst) | S1(dst) | IMM_ARG | (imm & 0x3ff), DR(dst)) : SLJIT_SUCCESS;
 }
 
-static SLJIT_INLINE int emit_const(struct sljit_compiler *compiler, int reg, sljit_w init_value)
+static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
+	int dst, int src1, sljit_w src2)
 {
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV:
+	case SLJIT_MOV_UI:
+	case SLJIT_MOV_SI:
+		SLJIT_ASSERT(src1 == TMP_REG1);
+		if (dst != src2)
+			return push_inst(compiler, OR | D(dst) | S1(0) | S2(src2), DR(dst));
+		return SLJIT_SUCCESS;
+
+	case SLJIT_MOV_UB:
+	case SLJIT_MOV_SB:
+		SLJIT_ASSERT(src1 == TMP_REG1);
+/*		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
+			if (op == SLJIT_MOV_SB)
+				return push_inst(compiler, SEB | T(src2) | D(dst), DR(dst));
+			return push_inst(compiler, ANDI | S(src2) | T(dst) | IMM(0xff), DR(dst));
+		}
+		else if (dst != src2)
+			SLJIT_ASSERT_STOP();*/
+		return SLJIT_SUCCESS;
+
+	case SLJIT_MOV_UH:
+	case SLJIT_MOV_SH:
+		SLJIT_ASSERT(src1 == TMP_REG1);
+/*		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
+			if (op == SLJIT_MOV_SH)
+				return push_inst(compiler, SEH | T(src2) | D(dst), DR(dst));
+			return push_inst(compiler, ANDI | S(src2) | T(dst) | IMM(0xffff), DR(dst));
+		}
+		else if (dst != src2)
+			SLJIT_ASSERT_STOP();*/
+		return SLJIT_SUCCESS;
+	}
+
+	SLJIT_ASSERT_STOP();
+	return SLJIT_SUCCESS;
+}
+
+static SLJIT_INLINE int emit_const(struct sljit_compiler *compiler, int dst, sljit_w init_value)
+{
+	FAIL_IF(push_inst(compiler, SETHI | D(dst) | ((init_value >> 10) & 0x3fffff), DR(dst)));
+	return push_inst(compiler, OR | D(dst) | S1(dst) | IMM_ARG | (init_value & 0x3ff), DR(dst));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)

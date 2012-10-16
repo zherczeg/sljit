@@ -571,7 +571,6 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 {
 	CHECK_ERROR();
 	check_sljit_emit_return(compiler, op, src, srcw);
-	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
 
@@ -621,10 +620,10 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 #define UPDATE_REQ	0x20000
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-#define ARCH_DEPEND(a, b)	a
+#define ARCH_32_64(a, b)	a
 #define GET_INST_CODE(inst)	(inst)
 #else
-#define ARCH_DEPEND(a, b)	b
+#define ARCH_32_64(a, b)	b
 #define GET_INST_CODE(index)	((inst) & ~(ADDR_MODE2 | UPDATE_REQ))
 #endif
 
@@ -632,47 +631,47 @@ static SLJIT_CONST sljit_ins data_transfer_insts[64] = {
 
 /* No write-back. */
 
-/* i n s u w */ ARCH_DEPEND(HI(36) /* stw */, HI(62) | ADDR_MODE2 | 0x0 /* std */),
+/* i n s u w */ ARCH_32_64(HI(36) /* stw */, HI(62) | ADDR_MODE2 | 0x0 /* std */),
 /* i n s u b */ HI(38) /* stb */,
-/* i n s u h */ HI(44) /* sth*/,
+/* i n s u h */ HI(44) /* sth */,
 /* i n s u i */ HI(36) /* stw */,
 
-/* i n s s w */ ARCH_DEPEND(HI(36) /* stw */, HI(62) | ADDR_MODE2 | 0x0 /* std */),
+/* i n s s w */ ARCH_32_64(HI(36) /* stw */, HI(62) | ADDR_MODE2 | 0x0 /* std */),
 /* i n s s b */ HI(38) /* stb */,
-/* i n s s h */ HI(44) /* sth*/,
+/* i n s s h */ HI(44) /* sth */,
 /* i n s s i */ HI(36) /* stw */,
 
-/* i n l u w */ ARCH_DEPEND(HI(32) /* lwz */, HI(58) | ADDR_MODE2 | 0x0 /* ld */),
+/* i n l u w */ ARCH_32_64(HI(32) /* lwz */, HI(58) | ADDR_MODE2 | 0x0 /* ld */),
 /* i n l u b */ HI(34) /* lbz */,
 /* i n l u h */ HI(40) /* lhz */,
 /* i n l u i */ HI(32) /* lwz */,
 
-/* i n l s w */ ARCH_DEPEND(HI(32) /* lwz */, HI(58) | ADDR_MODE2 | 0x0 /* ld */),
+/* i n l s w */ ARCH_32_64(HI(32) /* lwz */, HI(58) | ADDR_MODE2 | 0x0 /* ld */),
 /* i n l s b */ HI(34) /* lbz */ /* EXTS_REQ */,
 /* i n l s h */ HI(42) /* lha */,
-/* i n l s i */ ARCH_DEPEND(HI(32) /* lwz */, HI(58) | ADDR_MODE2 | 0x2 /* lwa */),
+/* i n l s i */ ARCH_32_64(HI(32) /* lwz */, HI(58) | ADDR_MODE2 | 0x2 /* lwa */),
 
 /* Write-back. */
 
-/* i w s u w */ ARCH_DEPEND(HI(37) /* stwu */, HI(62) | ADDR_MODE2 | 0x1 /* stdu */),
+/* i w s u w */ ARCH_32_64(HI(37) /* stwu */, HI(62) | ADDR_MODE2 | 0x1 /* stdu */),
 /* i w s u b */ HI(39) /* stbu */,
 /* i w s u h */ HI(45) /* sthu */,
 /* i w s u i */ HI(37) /* stwu */,
 
-/* i w s s w */ ARCH_DEPEND(HI(37) /* stwu */, HI(62) | ADDR_MODE2 | 0x1 /* stdu */),
+/* i w s s w */ ARCH_32_64(HI(37) /* stwu */, HI(62) | ADDR_MODE2 | 0x1 /* stdu */),
 /* i w s s b */ HI(39) /* stbu */,
 /* i w s s h */ HI(45) /* sthu */,
 /* i w s s i */ HI(37) /* stwu */,
 
-/* i w l u w */ ARCH_DEPEND(HI(33) /* lwzu */, HI(58) | ADDR_MODE2 | 0x1 /* ldu */),
+/* i w l u w */ ARCH_32_64(HI(33) /* lwzu */, HI(58) | ADDR_MODE2 | 0x1 /* ldu */),
 /* i w l u b */ HI(35) /* lbzu */,
 /* i w l u h */ HI(41) /* lhzu */,
 /* i w l u i */ HI(33) /* lwzu */,
 
-/* i w l s w */ ARCH_DEPEND(HI(33) /* lwzu */, HI(58) | ADDR_MODE2 | 0x1 /* ldu */),
+/* i w l s w */ ARCH_32_64(HI(33) /* lwzu */, HI(58) | ADDR_MODE2 | 0x1 /* ldu */),
 /* i w l s b */ HI(35) /* lbzu */ /* EXTS_REQ */,
 /* i w l s h */ HI(43) /* lhau */,
-/* i w l s i */ ARCH_DEPEND(HI(33) /* lwzu */, HI(58) | ADDR_MODE2 | UPDATE_REQ | 0x2 /* lwa */),
+/* i w l s i */ ARCH_32_64(HI(33) /* lwzu */, HI(58) | ADDR_MODE2 | UPDATE_REQ | 0x2 /* lwa */),
 
 /* ---------- */
 /*  Indexed   */
@@ -680,51 +679,51 @@ static SLJIT_CONST sljit_ins data_transfer_insts[64] = {
 
 /* No write-back. */
 
-/* x n s u w */ ARCH_DEPEND(HI(31) | LO(151) /* stwx */, HI(31) | LO(149) /* stdx */),
+/* x n s u w */ ARCH_32_64(HI(31) | LO(151) /* stwx */, HI(31) | LO(149) /* stdx */),
 /* x n s u b */ HI(31) | LO(215) /* stbx */,
 /* x n s u h */ HI(31) | LO(407) /* sthx */,
 /* x n s u i */ HI(31) | LO(151) /* stwx */,
 
-/* x n s s w */ ARCH_DEPEND(HI(31) | LO(151) /* stwx */, HI(31) | LO(149) /* stdx */),
+/* x n s s w */ ARCH_32_64(HI(31) | LO(151) /* stwx */, HI(31) | LO(149) /* stdx */),
 /* x n s s b */ HI(31) | LO(215) /* stbx */,
 /* x n s s h */ HI(31) | LO(407) /* sthx */,
 /* x n s s i */ HI(31) | LO(151) /* stwx */,
 
-/* x n l u w */ ARCH_DEPEND(HI(31) | LO(23) /* lwzx */, HI(31) | LO(21) /* ldx */),
+/* x n l u w */ ARCH_32_64(HI(31) | LO(23) /* lwzx */, HI(31) | LO(21) /* ldx */),
 /* x n l u b */ HI(31) | LO(87) /* lbzx */,
 /* x n l u h */ HI(31) | LO(279) /* lhzx */,
 /* x n l u i */ HI(31) | LO(23) /* lwzx */,
 
-/* x n l s w */ ARCH_DEPEND(HI(31) | LO(23) /* lwzx */, HI(31) | LO(21) /* ldx */),
+/* x n l s w */ ARCH_32_64(HI(31) | LO(23) /* lwzx */, HI(31) | LO(21) /* ldx */),
 /* x n l s b */ HI(31) | LO(87) /* lbzx */ /* EXTS_REQ */,
 /* x n l s h */ HI(31) | LO(343) /* lhax */,
-/* x n l s i */ ARCH_DEPEND(HI(31) | LO(23) /* lwzx */, HI(31) | LO(341) /* lwax */),
+/* x n l s i */ ARCH_32_64(HI(31) | LO(23) /* lwzx */, HI(31) | LO(341) /* lwax */),
 
 /* Write-back. */
 
-/* x w s u w */ ARCH_DEPEND(HI(31) | LO(183) /* stwux */, HI(31) | LO(181) /* stdux */),
+/* x w s u w */ ARCH_32_64(HI(31) | LO(183) /* stwux */, HI(31) | LO(181) /* stdux */),
 /* x w s u b */ HI(31) | LO(247) /* stbux */,
 /* x w s u h */ HI(31) | LO(439) /* sthux */,
 /* x w s u i */ HI(31) | LO(183) /* stwux */,
 
-/* x w s s w */ ARCH_DEPEND(HI(31) | LO(183) /* stwux */, HI(31) | LO(181) /* stdux */),
+/* x w s s w */ ARCH_32_64(HI(31) | LO(183) /* stwux */, HI(31) | LO(181) /* stdux */),
 /* x w s s b */ HI(31) | LO(247) /* stbux */,
 /* x w s s h */ HI(31) | LO(439) /* sthux */,
 /* x w s s i */ HI(31) | LO(183) /* stwux */,
 
-/* x w l u w */ ARCH_DEPEND(HI(31) | LO(55) /* lwzux */, HI(31) | LO(53) /* ldux */),
+/* x w l u w */ ARCH_32_64(HI(31) | LO(55) /* lwzux */, HI(31) | LO(53) /* ldux */),
 /* x w l u b */ HI(31) | LO(119) /* lbzux */,
 /* x w l u h */ HI(31) | LO(311) /* lhzux */,
 /* x w l u i */ HI(31) | LO(55) /* lwzux */,
 
-/* x w l s w */ ARCH_DEPEND(HI(31) | LO(55) /* lwzux */, HI(31) | LO(53) /* ldux */),
+/* x w l s w */ ARCH_32_64(HI(31) | LO(55) /* lwzux */, HI(31) | LO(53) /* ldux */),
 /* x w l s b */ HI(31) | LO(119) /* lbzux */ /* EXTS_REQ */,
 /* x w l s h */ HI(31) | LO(375) /* lhaux */,
-/* x w l s i */ ARCH_DEPEND(HI(31) | LO(55) /* lwzux */, HI(31) | LO(373) /* lwaux */)
+/* x w l s i */ ARCH_32_64(HI(31) | LO(55) /* lwzux */, HI(31) | LO(373) /* lwaux */)
 
 };
 
-#undef ARCH_DEPEND
+#undef ARCH_32_64
 
 /* Simple cases, (no caching is required). */
 static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int reg, int arg, sljit_w argw)
@@ -805,17 +804,13 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int inp_flags, int r
    uses word arguments without write back. */
 static int can_cache(int arg, sljit_w argw, int next_arg, sljit_w next_argw)
 {
-	SLJIT_ASSERT(arg & SLJIT_MEM);
-	SLJIT_ASSERT(next_arg & SLJIT_MEM);
+	SLJIT_ASSERT((arg & SLJIT_MEM) && (next_arg & SLJIT_MEM));
 
-	if (!(arg & 0xf)) {
-		if ((next_arg & SLJIT_MEM) && ((sljit_uw)argw - (sljit_uw)next_argw <= SIMM_MAX || (sljit_uw)next_argw - (sljit_uw)argw <= SIMM_MAX))
-			return 1;
-		return 0;
-	}
+	if (!(arg & 0xf))
+		return (next_arg & SLJIT_MEM) && ((sljit_uw)argw - (sljit_uw)next_argw <= SIMM_MAX || (sljit_uw)next_argw - (sljit_uw)argw <= SIMM_MAX);
 
 	if (arg & 0xf0)
-		return 0;
+		return ((arg & 0xf0) == (next_arg & 0xf0) && argw == next_argw);
 
 	if (argw <= SIMM_MAX && argw >= SIMM_MIN) {
 		if (arg == next_arg && (next_argw >= SIMM_MAX && next_argw <= SIMM_MIN))
@@ -882,11 +877,21 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 		argw &= 0x3;
 		/* Otherwise getput_arg_fast would capture it. */
 		SLJIT_ASSERT(argw);
+
+		if ((SLJIT_MEM | (arg & 0xf0)) == compiler->cache_arg && argw == compiler->cache_argw)
+			tmp_r = TMP_REG3;
+		else {
+			if ((arg & 0xf0) == (next_arg & 0xf0) && argw == next_argw) {
+				compiler->cache_arg = SLJIT_MEM | (arg & 0xf0);
+				compiler->cache_argw = argw;
+				tmp_r = TMP_REG3;
+			}
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-		FAIL_IF(push_inst(compiler, RLWINM | S((arg >> 4) & 0xf) | A(tmp_r) | (argw << 11) | ((31 - argw) << 1)));
+			FAIL_IF(push_inst(compiler, RLWINM | S((arg >> 4) & 0xf) | A(tmp_r) | (argw << 11) | ((31 - argw) << 1)));
 #else
-		FAIL_IF(push_inst(compiler, RLDI(tmp_r, (arg >> 4) & 0xf, argw, 63 - argw, 1)));
+			FAIL_IF(push_inst(compiler, RLDI(tmp_r, (arg >> 4) & 0xf, argw, 63 - argw, 1)));
 #endif
+		}
 		inst = data_transfer_insts[(inp_flags | INDEXED) & MEM_MASK];
 		SLJIT_ASSERT(!(inst & (ADDR_MODE2 | UPDATE_REQ)));
 		return push_inst(compiler, GET_INST_CODE(inst) | D(reg) | A(arg & 0xf) | B(tmp_r));
