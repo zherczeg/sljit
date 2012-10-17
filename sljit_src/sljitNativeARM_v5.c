@@ -1014,6 +1014,74 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	sljit_w mul_inst;
 
 	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
+		if (dst != src2) {
+			if (src2 & SRC2_IMM) {
+				if (flags & INV_IMM)
+					EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, src2);
+				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, src2);
+			}
+			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, reg_map[src2]);
+		}
+		return SLJIT_SUCCESS;
+
+	case SLJIT_MOV_UB:
+	case SLJIT_MOV_SB:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
+		if ((flags & (REG_DEST | REG_SOURCE)) == (REG_DEST | REG_SOURCE)) {
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
+			if (op == SLJIT_MOV_UB)
+				return push_inst(compiler, EMIT_DATA_PROCESS_INS(AND_DP, 0, dst, src2, SRC2_IMM | 0xff));
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (24 << 7) | reg_map[src2]));
+			return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (24 << 7) | (op == SLJIT_MOV_UB ? 0x20 : 0x40) | reg_map[dst]));
+#else
+			return push_inst(compiler, (op == SLJIT_MOV_UB ? UXTB : SXTB) | RD(dst) | RM(src2));
+#endif
+		}
+		else if (dst != src2) {
+			SLJIT_ASSERT(src2 & SRC2_IMM);
+			if (flags & INV_IMM)
+				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, src2);
+			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, src2);
+		}
+		return SLJIT_SUCCESS;
+
+	case SLJIT_MOV_UH:
+	case SLJIT_MOV_SH:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
+		if ((flags & (REG_DEST | REG_SOURCE)) == (REG_DEST | REG_SOURCE)) {
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
+			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (16 << 7) | reg_map[src2]));
+			return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (16 << 7) | (op == SLJIT_MOV_UH ? 0x20 : 0x40) | reg_map[dst]));
+#else
+			return push_inst(compiler, (op == SLJIT_MOV_UH ? UXTH : SXTH) | RD(dst) | RM(src2));
+#endif
+		}
+		else if (dst != src2) {
+			SLJIT_ASSERT(src2 & SRC2_IMM);
+			if (flags & INV_IMM)
+				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, src2);
+			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, src2);
+		}
+		return SLJIT_SUCCESS;
+
+	case SLJIT_NOT:
+		if (src2 & SRC2_IMM) {
+			if (flags & INV_IMM)
+				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, src2);
+			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, src2);
+		}
+		EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, RM(src2));
+
+	case SLJIT_CLZ:
+		SLJIT_ASSERT(!(flags & INV_IMM));
+		SLJIT_ASSERT(!(src2 & SRC2_IMM));
+		FAIL_IF(push_inst(compiler, CLZ | RD(dst) | RM(src2)));
+		if (flags & SET_FLAGS)
+			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(CMP_DP, SLJIT_UNUSED, dst, SRC2_IMM);
+		return SLJIT_SUCCESS;
+
 	case SLJIT_ADD:
 		SLJIT_ASSERT(!(flags & INV_IMM));
 		EMIT_DATA_PROCESS_INS_AND_RETURN(ADD_DP);
@@ -1083,74 +1151,6 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 
 	case SLJIT_ASHR:
 		EMIT_SHIFT_INS_AND_RETURN(2);
-
-	case SLJIT_MOV:
-		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
-		if (dst != src2) {
-			if (src2 & SRC2_IMM) {
-				if (flags & INV_IMM)
-					EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, src2);
-				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, src2);
-			}
-			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, reg_map[src2]);
-		}
-		return SLJIT_SUCCESS;
-
-	case SLJIT_MOV_UB:
-	case SLJIT_MOV_SB:
-		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
-		if ((flags & (REG_DEST | REG_SOURCE)) == (REG_DEST | REG_SOURCE)) {
-#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-			if (op == SLJIT_MOV_UB)
-				return push_inst(compiler, EMIT_DATA_PROCESS_INS(AND_DP, 0, dst, src2, SRC2_IMM | 0xff));
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (24 << 7) | reg_map[src2]));
-			return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (24 << 7) | (op == SLJIT_MOV_UB ? 0x20 : 0x40) | reg_map[dst]));
-#else
-			return push_inst(compiler, (op == SLJIT_MOV_UB ? UXTB : SXTB) | RD(dst) | RM(src2));
-#endif
-		}
-		else if (dst != src2) {
-			SLJIT_ASSERT(src2 & SRC2_IMM);
-			if (flags & INV_IMM)
-				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, src2);
-			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, src2);
-		}
-		return SLJIT_SUCCESS;
-
-	case SLJIT_MOV_UH:
-	case SLJIT_MOV_SH:
-		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
-		if ((flags & (REG_DEST | REG_SOURCE)) == (REG_DEST | REG_SOURCE)) {
-#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (16 << 7) | reg_map[src2]));
-			return push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst, SLJIT_UNUSED, (16 << 7) | (op == SLJIT_MOV_UH ? 0x20 : 0x40) | reg_map[dst]));
-#else
-			return push_inst(compiler, (op == SLJIT_MOV_UH ? UXTH : SXTH) | RD(dst) | RM(src2));
-#endif
-		}
-		else if (dst != src2) {
-			SLJIT_ASSERT(src2 & SRC2_IMM);
-			if (flags & INV_IMM)
-				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, src2);
-			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, src2);
-		}
-		return SLJIT_SUCCESS;
-
-	case SLJIT_NOT:
-		if (src2 & SRC2_IMM) {
-			if (flags & INV_IMM)
-				EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MOV_DP, dst, SLJIT_UNUSED, src2);
-			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, src2);
-		}
-		EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(MVN_DP, dst, SLJIT_UNUSED, RM(src2));
-
-	case SLJIT_CLZ:
-		SLJIT_ASSERT(!(flags & INV_IMM));
-		SLJIT_ASSERT(!(src2 & SRC2_IMM));
-		FAIL_IF(push_inst(compiler, CLZ | RD(dst) | RM(src2)));
-		if (flags & SET_FLAGS)
-			EMIT_FULL_DATA_PROCESS_INS_AND_RETURN(CMP_DP, SLJIT_UNUSED, dst, SRC2_IMM);
-		return SLJIT_SUCCESS;
 	}
 	SLJIT_ASSERT_STOP();
 	return SLJIT_SUCCESS;
