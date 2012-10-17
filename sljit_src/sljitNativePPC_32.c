@@ -63,8 +63,9 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		}
 		else if ((flags & REG_DEST) && op == SLJIT_MOV_SB)
 			return push_inst(compiler, EXTSB | S(src2) | A(dst));
-		else if (dst != src2)
-			SLJIT_ASSERT_STOP();
+		else {
+			SLJIT_ASSERT(dst == src2);
+		}
 		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_UH:
@@ -75,8 +76,9 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 				return push_inst(compiler, EXTSH | S(src2) | A(dst));
 			return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 16));
 		}
-		else if (dst != src2)
-			SLJIT_ASSERT_STOP();
+		else {
+			SLJIT_ASSERT(dst == src2);
+		}
 		return SLJIT_SUCCESS;
 
 	case SLJIT_NOT:

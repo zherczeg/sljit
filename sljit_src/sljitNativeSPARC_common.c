@@ -303,27 +303,27 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 #define ARCH_32_64(a, b)	b
 #endif
 
-static SLJIT_CONST sljit_ins data_transfer_insts[18] = {
-/* s u w */ ARCH_32_64(OP1(3) | OP3(0x04) /* stw */, OP1(3) | OP3(0x0e) /* stx */),
-/* l u w */ ARCH_32_64(OP1(3) | OP3(0x00) /* lduw */, OP1(3) | OP3(0x0b) /* ldx */),
-/* s u b */ OP1(3) | OP3(0x05) /* stb */,
-/* l u b */ OP1(3) | OP3(0x01) /* ldub */,
-/* s u h */ OP1(3) | OP3(0x06) /* sth */,
-/* l u h */ OP1(3) | OP3(0x02) /* lduh */,
-/* s u i */ OP1(3) | OP3(0x04) /* stw */,
-/* l u i */ OP1(3) | OP3(0x00) /* lduw */,
+static SLJIT_CONST sljit_ins data_transfer_insts[16 + 2] = {
+/* u w s */ ARCH_32_64(OP1(3) | OP3(0x04) /* stw */, OP1(3) | OP3(0x0e) /* stx */),
+/* u w l */ ARCH_32_64(OP1(3) | OP3(0x00) /* lduw */, OP1(3) | OP3(0x0b) /* ldx */),
+/* u b s */ OP1(3) | OP3(0x05) /* stb */,
+/* u b l */ OP1(3) | OP3(0x01) /* ldub */,
+/* u h s */ OP1(3) | OP3(0x06) /* sth */,
+/* u h l */ OP1(3) | OP3(0x02) /* lduh */,
+/* u i s */ OP1(3) | OP3(0x04) /* stw */,
+/* u i l */ OP1(3) | OP3(0x00) /* lduw */,
 
-/* s s w */ ARCH_32_64(OP1(3) | OP3(0x04) /* stw */, OP1(3) | OP3(0x0e) /* stx */),
-/* l s w */ ARCH_32_64(OP1(3) | OP3(0x00) /* lduw */, OP1(3) | OP3(0x0b) /* ldx */),
-/* s s b */ OP1(3) | OP3(0x05) /* stb */,
-/* l s b */ OP1(3) | OP3(0x09) /* ldsb */,
-/* s s h */ OP1(3) | OP3(0x06) /* sth */,
-/* l s h */ OP1(3) | OP3(0x0a) /* ldsh */,
-/* s s i */ OP1(3) | OP3(0x04) /* stw */,
-/* l s i */ ARCH_32_64(OP1(3) | OP3(0x00) /* lduw */, OP1(3) | OP3(0x08) /* ldsw */),
+/* s w s */ ARCH_32_64(OP1(3) | OP3(0x04) /* stw */, OP1(3) | OP3(0x0e) /* stx */),
+/* s w l */ ARCH_32_64(OP1(3) | OP3(0x00) /* lduw */, OP1(3) | OP3(0x0b) /* ldx */),
+/* s b s */ OP1(3) | OP3(0x05) /* stb */,
+/* s b l */ OP1(3) | OP3(0x09) /* ldsb */,
+/* s h s */ OP1(3) | OP3(0x06) /* sth */,
+/* s h l */ OP1(3) | OP3(0x0a) /* ldsh */,
+/* s i s */ OP1(3) | OP3(0x04) /* stw */,
+/* s i l */ ARCH_32_64(OP1(3) | OP3(0x00) /* lduw */, OP1(3) | OP3(0x08) /* ldsw */),
 
-/* s   d */ OP1(3) | OP3(0x27),
-/* l   d */ OP1(3) | OP3(0x23)
+/* d   s */ OP1(3) | OP3(0x27),
+/* d   l */ OP1(3) | OP3(0x23),
 };
 
 #undef ARCH_32_64
@@ -342,7 +342,7 @@ static int getput_arg_fast(struct sljit_compiler *compiler, int flags, int reg, 
 			FAIL_IF(push_inst(compiler, data_transfer_insts[flags & MEM_MASK]
 				| ((flags & MEM_MASK) <= GPR_REG ? D(reg) : DA(reg))
 				| S1(arg & 0xf) | ((arg & 0xf0) ? S2((arg >> 4) & 0xf) : IMM(argw)),
-				(flags & LOAD_DATA) ? DR(reg) : MOVABLE_INS));
+				((flags & MEM_MASK) <= GPR_REG && (flags & LOAD_DATA)) ? DR(reg) : MOVABLE_INS));
 			return -1;
 		}
 	}
@@ -773,10 +773,12 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop1(struct sljit_compiler *compiler, in
 	}
 
 	if (dst_fr == TMP_FREG1) {
-		if (getput_arg_fast(compiler, DOUBLE_DATA, src, dst, dstw))
+		if (op == SLJIT_FMOV)
+			dst_fr = src;
+		if (getput_arg_fast(compiler, DOUBLE_DATA, dst_fr, dst, dstw))
 			FAIL_IF(compiler->error);
 		else
-			FAIL_IF(getput_arg(compiler, DOUBLE_DATA, src, dst, dstw, 0, 0));
+			FAIL_IF(getput_arg(compiler, DOUBLE_DATA, dst_fr, dst, dstw, 0, 0));
 	}
 
 	return SLJIT_SUCCESS;
@@ -787,8 +789,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop2(struct sljit_compiler *compiler, in
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
 {
-	int dst_fr;
-	int flags = 0;
+	int dst_fr, flags = 0;
 
 	CHECK_ERROR();
 	check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
