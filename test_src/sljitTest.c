@@ -868,7 +868,7 @@ static void test13(void)
 	/* Test fpu monadic functions. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	double buf[6];
+	double buf[7];
 	sljit_w buf2[6];
 
 	if (!sljit_is_fpu_available()) {
@@ -886,6 +886,7 @@ static void test13(void)
 	buf[3] = 0.0;
 	buf[4] = 0.0;
 	buf[5] = 0.0;
+	buf[6] = 0.0;
 
 	buf2[0] = 10;
 	buf2[1] = 10;
@@ -905,6 +906,7 @@ static void test13(void)
 	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM0(), (sljit_w)&buf[4], SLJIT_FLOAT_REG4, 0);
 	sljit_emit_fop1(compiler, SLJIT_FABS, SLJIT_FLOAT_REG3, 0, SLJIT_FLOAT_REG2, 0);
 	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(double), SLJIT_FLOAT_REG3, 0);
+	sljit_emit_fop1(compiler, SLJIT_FNEG, SLJIT_MEM1(SLJIT_SAVED_REG1), 6 * sizeof(double), SLJIT_FLOAT_REG3, 0);
 
 	sljit_emit_fop1(compiler, SLJIT_FMOV, SLJIT_FLOAT_REG2, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 0);
 	sljit_emit_fop1(compiler, SLJIT_FCMP | SLJIT_SET_S, SLJIT_FLOAT_REG2, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(double));
@@ -929,13 +931,14 @@ static void test13(void)
 	FAILED(buf[3] != 4.5, "test13 case 2 failed\n");
 	FAILED(buf[4] != -7.75, "test13 case 3 failed\n");
 	FAILED(buf[5] != 4.5, "test13 case 4 failed\n");
+	FAILED(buf[6] != -4.5, "test13 case 5 failed\n");
 
-	FAILED(buf2[0] != 1, "test13 case 5 failed\n");
-	FAILED(buf2[1] != 0, "test13 case 6 failed\n");
-	FAILED(buf2[2] != 1, "test13 case 7 failed\n");
-	FAILED(buf2[3] != 0, "test13 case 8 failed\n");
-	FAILED(buf2[4] != 0, "test13 case 9 failed\n");
-	FAILED(buf2[5] != 1, "test13 case 10 failed\n");
+	FAILED(buf2[0] != 1, "test13 case 6 failed\n");
+	FAILED(buf2[1] != 0, "test13 case 7 failed\n");
+	FAILED(buf2[2] != 1, "test13 case 8 failed\n");
+	FAILED(buf2[3] != 0, "test13 case 9 failed\n");
+	FAILED(buf2[4] != 0, "test13 case 10 failed\n");
+	FAILED(buf2[5] != 1, "test13 case 11 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test13 ok\n");
