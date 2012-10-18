@@ -167,11 +167,20 @@
 #endif
 
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+	#define IS_MOVABLE	0x04
+	#define IS_COND		0x08
+
 	/* instruction types */
 	#define UNMOVABLE_INS	0
 	/* 1 - 31 last destination register */
 	/* no destination (i.e: store) */
 	#define MOVABLE_INS	32
+
+	#define DST_INS_MASK	0xff
+
+	/* ICC_SET is the same as SET_FLAGS. */
+	#define ICC_IS_SET	(1 << 23)
+	#define FCC_IS_SET	(1 << 24)
 #endif
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
