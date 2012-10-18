@@ -47,7 +47,7 @@ void devel(void)
 {
 	executable_code code;
 
-	struct sljit_compiler* compiler = sljit_create_compiler();
+	struct sljit_compiler *compiler = sljit_create_compiler();
 	sljit_w buf[4];
 
 	if (!compiler)

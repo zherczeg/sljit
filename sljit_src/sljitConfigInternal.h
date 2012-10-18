@@ -39,6 +39,7 @@
    SLJIT_BIG_ENDIAN : big endian architecture
    SLJIT_UNALIGNED : allows unaligned memory accesses for non-fpu operations (only!)
    SLJIT_INDIRECT_CALL : see SLJIT_FUNC_OFFSET() for more information
+   SLJIT_RETURN_ADDRESS_OFFSET : a return instruction is adds this offset to the return address
 
    Types and useful macros:
    sljit_b, sljit_ub : signed and unsigned 8 bit byte
@@ -341,11 +342,21 @@ typedef long int sljit_w;
 #error "Exactly one endianness must be selected"
 #endif
 
+#ifndef SLJIT_INDIRECT_CALL
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) || (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32 && defined _AIX)
 /* It seems certain ppc compilers use an indirect addressing for functions
    which makes things complicated. */
 #define SLJIT_INDIRECT_CALL 1
 #endif
+#endif /* SLJIT_INDIRECT_CALL */
+
+#ifndef SLJIT_RETURN_ADDRESS_OFFSET
+#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+#define SLJIT_RETURN_ADDRESS_OFFSET 8
+#else
+#define SLJIT_RETURN_ADDRESS_OFFSET 0
+#endif
+#endif /* SLJIT_RETURN_ADDRESS_OFFSET */
 
 #ifndef SLJIT_SSE2
 

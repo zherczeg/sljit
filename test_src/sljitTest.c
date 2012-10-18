@@ -2856,7 +2856,7 @@ static void test34(void)
 	sljit_free_compiler(compiler);
 
 	FAILED(codeF.func1((sljit_w)&buf) != 40, "test34 case 1 failed\n");
-	FAILED(buf[0] != addr, "test34 case 2 failed\n");
+	FAILED(buf[0] != addr - SLJIT_RETURN_ADDRESS_OFFSET, "test34 case 2 failed\n");
 
 	sljit_free_code(codeA.code);
 	sljit_free_code(codeB.code);
@@ -2897,7 +2897,7 @@ static void test35(void)
 
 	codeA.code = sljit_generate_code(compiler);
 	CHECK(compiler);
-	return_addr = sljit_get_label_addr(label);
+	return_addr = sljit_get_label_addr(label) - SLJIT_RETURN_ADDRESS_OFFSET;
 	jump_addr = sljit_get_jump_addr(jump);
 	sljit_free_compiler(compiler);
 
@@ -2931,7 +2931,7 @@ static void test35(void)
 	sljit_free_compiler(compiler);
 
 	FAILED(codeC.func0() != 12, "test35 case 1 failed\n");
-	FAILED(buf[0] != return_addr, "test35 case 2 failed\n");
+	FAILED(buf[0] != return_addr - SLJIT_RETURN_ADDRESS_OFFSET, "test35 case 2 failed\n");
 
 	sljit_free_code(codeA.code);
 	sljit_free_code(codeB.code);

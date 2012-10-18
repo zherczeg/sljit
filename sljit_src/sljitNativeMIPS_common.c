@@ -333,7 +333,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 				jump->addr = (sljit_uw)(code_ptr - 3);
 #else
-				jump->addr = (sljit_uw)(code_ptr - 6);
+#error "Implementation required"
 #endif
 				code_ptr = optimize_jump(jump, code_ptr, code);
 				jump = jump->next;
@@ -384,10 +384,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 			buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 16) & 0xffff);
 			buf_ptr[1] = (buf_ptr[1] & 0xffff0000) | (addr & 0xffff);
 #else
-			buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 48) & 0xffff);
-			buf_ptr[1] = (buf_ptr[1] & 0xffff0000) | ((addr >> 32) & 0xffff);
-			buf_ptr[3] = (buf_ptr[3] & 0xffff0000) | ((addr >> 16) & 0xffff);
-			buf_ptr[4] = (buf_ptr[4] & 0xffff0000) | (addr & 0xffff);
+#error "Implementation required"
 #endif
 		} while (0);
 		jump = jump->next;
@@ -1291,6 +1288,8 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compil
 		return push_inst(compiler, ADDU_W | SA(RETURN_ADDR_REG) | TA(0) | D(dst), DR(dst));
 	else if (dst & SLJIT_MEM)
 		return emit_op_mem(compiler, WORD_DATA, RETURN_ADDR_REG, dst, dstw);
+
+	/* SLJIT_UNUSED is also possible, although highly unlikely. */
 	return SLJIT_SUCCESS;
 }
 
@@ -1335,7 +1334,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 #define JUMP_LENGTH	4
 #else
-#define JUMP_LENGTH	7
+#error "Implementation required"
 #endif
 
 #define BR_Z(src) \
