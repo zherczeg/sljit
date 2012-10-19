@@ -3474,6 +3474,12 @@ static void test41(void)
 		| (sljit_get_register_index(SLJIT_SAVED_REG1) << 21)
 		| (sljit_get_register_index(SLJIT_SAVED_REG2) << 16);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+	/* add rd, rs1, rs2 */
+	inst = (0x2 << 30) | (sljit_get_register_index(SLJIT_RETURN_REG) << 25)
+		| (sljit_get_register_index(SLJIT_SAVED_REG1) << 14)
+		| sljit_get_register_index(SLJIT_SAVED_REG2);
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
 #else
 	inst = 0;
 	sljit_emit_op_custom(compiler, &inst, 0);
