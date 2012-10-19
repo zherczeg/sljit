@@ -39,7 +39,7 @@
    SLJIT_BIG_ENDIAN : big endian architecture
    SLJIT_UNALIGNED : allows unaligned memory accesses for non-fpu operations (only!)
    SLJIT_INDIRECT_CALL : see SLJIT_FUNC_OFFSET() for more information
-   SLJIT_RETURN_ADDRESS_OFFSET : a return instruction is adds this offset to the return address
+   SLJIT_RETURN_ADDRESS_OFFSET : a return instruction always adds this offset to the return address
 
    Types and useful macros:
    sljit_b, sljit_ub : signed and unsigned 8 bit byte

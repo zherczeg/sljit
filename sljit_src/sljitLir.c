@@ -122,7 +122,7 @@
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
-	#define IS_CONDITIONAL	0x04
+	#define IS_COND		0x04
 	#define IS_BL		0x08
 	/* cannot be encoded as branch */
 	#define B_TYPE0		0x00
@@ -159,22 +159,27 @@
 	#define PATCH_J		0x80
 
 	/* instruction types */
-	#define UNMOVABLE_INS	0
+	#define MOVABLE_INS	0
 	/* 1 - 31 last destination register */
-	#define FCSR_FCC	32
 	/* no destination (i.e: store) */
-	#define MOVABLE_INS	33
+	#define UNMOVABLE_INS	32
+	/* FPU status register */
+	#define FCSR_FCC	33
 #endif
 
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 	#define IS_MOVABLE	0x04
 	#define IS_COND		0x08
+	#define IS_CALL		0x10
+
+	#define PATCH_B		0x20
+	#define PATCH_CALL	0x40
 
 	/* instruction types */
-	#define UNMOVABLE_INS	0
+	#define MOVABLE_INS	0
 	/* 1 - 31 last destination register */
 	/* no destination (i.e: store) */
-	#define MOVABLE_INS	32
+	#define UNMOVABLE_INS	32
 
 	#define DST_INS_MASK	0xff
 
