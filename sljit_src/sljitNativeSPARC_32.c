@@ -79,7 +79,18 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
-		return SLJIT_SUCCESS;
+		/* sparc 32 does not support SLJIT_KEEP_FLAGS. Not sure I can fix this. */
+		FAIL_IF(push_inst(compiler, SUB | SET_FLAGS | D(0) | S1(src2) | S2(0), SET_FLAGS));
+		FAIL_IF(push_inst(compiler, OR | D(TMP_REG1) | S1(0) | S2(src2), DR(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, BICC | DA(0x1) | (7 & DISP_MASK), UNMOVABLE_INS));
+		FAIL_IF(push_inst(compiler, OR | (flags & SET_FLAGS) | D(dst) | S1(0) | IMM(32), UNMOVABLE_INS | (flags & SET_FLAGS)));
+		FAIL_IF(push_inst(compiler, OR | D(dst) | S1(0) | IMM(-1), DR(dst)));
+
+		/* Loop. */
+		FAIL_IF(push_inst(compiler, SUB | SET_FLAGS | D(0) | S1(TMP_REG1) | S2(0), SET_FLAGS));
+		FAIL_IF(push_inst(compiler, SLL | D(TMP_REG1) | S1(TMP_REG1) | IMM(1), DR(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, BICC | DA(0xe) | (-2 & DISP_MASK), UNMOVABLE_INS));
+		return push_inst(compiler, ADD | (flags & SET_FLAGS) | D(dst) | S1(dst) | IMM(1), UNMOVABLE_INS | (flags & SET_FLAGS));
 
 	case SLJIT_ADD:
 		return push_inst(compiler, ADD | (flags & SET_FLAGS) | D(dst) | S1(src1) | ARG2(flags, src2), DR(dst) | (flags & SET_FLAGS));

@@ -548,7 +548,9 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 /* Flags: I | E | O | K */
 #define SLJIT_NEG			21
 /* Count leading zeroes
-   Flags: I | E | K */
+   Flags: I | E | K
+   Important note! Sparc 32 does not support K flag, since
+   the required popc instruction is introduced only in sparc 64. */
 #define SLJIT_CLZ			22
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int op,
