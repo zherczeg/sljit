@@ -3167,7 +3167,9 @@ static void test37(void)
 	FAILED(ibuf[0] != 32, "test37 case 7 failed\n");
 	FAILED(buf[6] != 1, "test37 case 8 failed\n");
 	FAILED(buf[7] != RESN(13), "test37 case 9 failed\n");
+#if !(defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 	FAILED(buf[8] != 0, "test37 case 10 failed\n");
+#endif
 	FAILED(buf[9] != RESN(58), "test37 case 11 failed\n");
 	FAILED(buf[10] != 0, "test37 case 12 failed\n");
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)

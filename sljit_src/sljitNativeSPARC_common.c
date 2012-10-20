@@ -84,7 +84,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 7] = {
 #define NOP		(OP1(0x0) | OP2(0x04))
 #define OR		(OP1(0x2) | OP3(0x02))
 #define ORN		(OP1(0x2) | OP3(0x06))
-#define RDY		(OP1(0x2) | OP3(0x28))
+#define RDY		(OP1(0x2) | OP3(0x28) | S1A(0))
 #define RESTORE		(OP1(0x2) | OP3(0x3d))
 #define SAVE		(OP1(0x2) | OP3(0x3c))
 #define SETHI		(OP1(0x0) | OP2(0x04))
@@ -97,6 +97,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 7] = {
 #define SUB		(OP1(0x2) | OP3(0x04))
 #define SUBC		(OP1(0x2) | OP3(0x0c))
 #define TA		(OP1(0x2) | OP3(0x3a) | (8 << 25))
+#define WRY		(OP1(0x2) | OP3(0x30) | DA(0))
 #define XOR		(OP1(0x2) | OP3(0x03))
 #define XNOR		(OP1(0x2) | OP3(0x07))
 
@@ -108,7 +109,9 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 7] = {
 #define BICC		(OP1(0x0) | OP2(0x2))
 #define FBFCC		(OP1(0x0) | OP2(0x6))
 #define SLL_W		SLL
+#define SDIV		(OP1(0x2) | OP3(0x0f))
 #define SMUL		(OP1(0x2) | OP3(0x0b))
+#define UDIV		(OP1(0x2) | OP3(0x0e))
 #define UMUL		(OP1(0x2) | OP3(0x0a))
 #else
 #define SLL_W		SLLX
@@ -720,6 +723,16 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 	case SLJIT_UDIV:
 	case SLJIT_SDIV:
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+		if (op == SLJIT_UDIV)
+			FAIL_IF(push_inst(compiler, WRY | S1(0), MOVABLE_INS));
+		else {
+			FAIL_IF(push_inst(compiler, SRA | D(TMP_REG1) | S1(SLJIT_TEMPORARY_REG1) | IMM(31), DR(TMP_REG1)));
+			FAIL_IF(push_inst(compiler, WRY | S1(TMP_REG1), MOVABLE_INS));
+		}
+		FAIL_IF(push_inst(compiler, OR | D(TMP_REG2) | S1(0) | S2(SLJIT_TEMPORARY_REG1), DR(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, (op == SLJIT_UDIV ? UDIV : SDIV) | D(SLJIT_TEMPORARY_REG1) | S1(SLJIT_TEMPORARY_REG1) | S2(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG1)));
+		FAIL_IF(push_inst(compiler, SMUL | D(SLJIT_TEMPORARY_REG2) | S1(SLJIT_TEMPORARY_REG1) | S2(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG2)));
+		FAIL_IF(push_inst(compiler, SUB | D(SLJIT_TEMPORARY_REG2) | S1(TMP_REG2) | S2(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG2)));
 		return SLJIT_SUCCESS;
 #else
 #error "Implementation required"

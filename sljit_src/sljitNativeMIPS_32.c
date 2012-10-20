@@ -139,15 +139,13 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 		/* Nearly all instructions are unmovable in the following sequence. */
 		FAIL_IF(push_inst(compiler, ADDU_W | S(src2) | TA(0) | D(TMP_REG1), DR(TMP_REG1)));
 		/* Check zero. */
-		FAIL_IF(push_inst(compiler, BEQ | S(TMP_REG1) | TA(0) | IMM(6), UNMOVABLE_INS));
+		FAIL_IF(push_inst(compiler, BEQ | S(TMP_REG1) | TA(0) | IMM(5), UNMOVABLE_INS));
 		FAIL_IF(push_inst(compiler, ORI | SA(0) | T(dst) | IMM(32), UNMOVABLE_INS));
-		/* Check sign bit. */
-		FAIL_IF(push_inst(compiler, BLTZ | S(TMP_REG1) | IMM(4), UNMOVABLE_INS));
-		FAIL_IF(push_inst(compiler, ORI | SA(0) | T(dst) | IMM(0), UNMOVABLE_INS));
+		FAIL_IF(push_inst(compiler, ADDIU_W | SA(0) | T(dst) | IMM(-1), DR(dst)));
 		/* Loop for searching the highest bit. */
-		FAIL_IF(push_inst(compiler, SLL | T(TMP_REG1) | D(TMP_REG1) | SH_IMM(1), DR(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, ADDIU_W | S(dst) | T(dst) | IMM(1), DR(dst)));
 		FAIL_IF(push_inst(compiler, BGEZ | S(TMP_REG1) | IMM(-2), UNMOVABLE_INS));
-		FAIL_IF(push_inst(compiler, ADDIU_W | S(dst) | T(dst) | IMM(1), UNMOVABLE_INS));
+		FAIL_IF(push_inst(compiler, SLL | T(TMP_REG1) | D(TMP_REG1) | SH_IMM(1), UNMOVABLE_INS));
 		if (op & SLJIT_SET_E)
 			return push_inst(compiler, ADDU_W | S(dst) | TA(0) | DA(EQUAL_FLAG), EQUAL_FLAG);
 #endif
