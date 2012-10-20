@@ -651,9 +651,14 @@ static int getput_arg(struct sljit_compiler *compiler, int flags, int reg_ar, in
 		next_argw = 0;
 	}
 
-	tmp_ar = (flags & LOAD_DATA) ? reg_ar : DR(TMP_REG3);
+	if ((flags & MEM_MASK) <= GPR_REG && (flags & LOAD_DATA)) {
+		tmp_ar = reg_ar;
+		delay_slot = reg_ar;
+	} else {
+		tmp_ar = DR(TMP_REG1);
+		delay_slot = MOVABLE_INS;
+	}
 	base = arg & 0xf;
-	delay_slot = ((flags & MEM_MASK) <= GPR_REG && (flags & LOAD_DATA)) ? reg_ar : MOVABLE_INS;
 
 	if (SLJIT_UNLIKELY(arg & 0xf0)) {
 		argw &= 0x3;
@@ -1410,10 +1415,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	case SLJIT_C_MUL_NOT_OVERFLOW:
 		BR_NZ(OVERFLOW_FLAG);
 		break;
-	case SLJIT_C_FLOAT_NAN:
+	case SLJIT_C_FLOAT_UNORDERED:
 		BR_F();
 		break;
-	case SLJIT_C_FLOAT_NOT_NAN:
+	case SLJIT_C_FLOAT_ORDERED:
 		BR_T();
 		break;
 	default:
@@ -1646,11 +1651,11 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 		inst = C_ULE_D;
 		if_true = 1;
 		break;
-	case SLJIT_C_FLOAT_NAN:
+	case SLJIT_C_FLOAT_UNORDERED:
 		inst = C_UN_D;
 		if_true = 1;
 		break;
-	case SLJIT_C_FLOAT_NOT_NAN:
+	case SLJIT_C_FLOAT_ORDERED:
 	default: /* Make compilers happy. */
 		inst = C_UN_D;
 		if_true = 0;
@@ -1785,8 +1790,8 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_cond_value(struct sljit_compiler *compil
 		dst_ar = EQUAL_FLAG;
 		break;
 
-	case SLJIT_C_FLOAT_NAN:
-	case SLJIT_C_FLOAT_NOT_NAN:
+	case SLJIT_C_FLOAT_UNORDERED:
+	case SLJIT_C_FLOAT_ORDERED:
 		FAIL_IF(push_inst(compiler, CFC1 | TA(sugg_dst_ar) | DA(FCSR_REG), sugg_dst_ar));
 		FAIL_IF(push_inst(compiler, SRL | TA(sugg_dst_ar) | DA(sugg_dst_ar) | SH_IMM(23), sugg_dst_ar));
 		FAIL_IF(push_inst(compiler, ANDI | SA(sugg_dst_ar) | TA(sugg_dst_ar) | IMM(1), sugg_dst_ar));

@@ -852,14 +852,10 @@ static int getput_arg(struct sljit_compiler *compiler, int inp_flags, int reg, i
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
-	tmp_r = (inp_flags & LOAD_DATA) ? reg : TMP_REG3;
-	if ((arg & 0xf) == tmp_r) {
-		/* Special case for "mov reg, [reg, ... ]".
-		   Caching would not happen anyway. */
-		tmp_r = TMP_REG3;
-		compiler->cache_arg = 0;
-		compiler->cache_argw = 0;
-	}
+	tmp_r = ((inp_flags & LOAD_DATA) && ((inp_flags) & MEM_MASK) <= GPR_REG) ? reg : TMP_REG1;
+	/* Special case for "mov reg, [reg, ... ]". */
+	if ((arg & 0xf) == tmp_r)
+		tmp_r = TMP_REG1;
 
 	if (!(arg & 0xf)) {
 		inst = data_transfer_insts[(inp_flags & ~WRITE_BACK) & MEM_MASK];
@@ -1735,10 +1731,10 @@ static sljit_ins get_bo_bi_flags(int type)
 	case SLJIT_C_FLOAT_NOT_EQUAL:
 		return (4 << 21) | ((4 + 2) << 16);
 
-	case SLJIT_C_FLOAT_NAN:
+	case SLJIT_C_FLOAT_UNORDERED:
 		return (12 << 21) | ((4 + 3) << 16);
 
-	case SLJIT_C_FLOAT_NOT_NAN:
+	case SLJIT_C_FLOAT_ORDERED:
 		return (4 << 21) | ((4 + 3) << 16);
 
 	default:
@@ -1897,11 +1893,11 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_cond_value(struct sljit_compiler *compil
 		INVERT_BIT(reg);
 		break;
 
-	case SLJIT_C_FLOAT_NAN:
+	case SLJIT_C_FLOAT_UNORDERED:
 		GET_CR_BIT(4 + 3, reg);
 		break;
 
-	case SLJIT_C_FLOAT_NOT_NAN:
+	case SLJIT_C_FLOAT_ORDERED:
 		GET_CR_BIT(4 + 3, reg);
 		INVERT_BIT(reg);
 		break;

@@ -1770,11 +1770,11 @@ static sljit_uw get_cc(int type)
 		return 0xd;
 
 	case SLJIT_C_OVERFLOW:
-	case SLJIT_C_FLOAT_NAN:
+	case SLJIT_C_FLOAT_UNORDERED:
 		return 0x6;
 
 	case SLJIT_C_NOT_OVERFLOW:
-	case SLJIT_C_FLOAT_NOT_NAN:
+	case SLJIT_C_FLOAT_ORDERED:
 		return 0x7;
 
 	default: /* SLJIT_JUMP */

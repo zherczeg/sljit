@@ -2083,7 +2083,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop1(struct sljit_compiler *compiler, in
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw)
 {
-	int dst_freg;
+	int dst_fr;
 
 	CHECK_ERROR();
 	check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw);
@@ -2105,28 +2105,31 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop1(struct sljit_compiler *compiler, in
 		return SLJIT_SUCCESS;
 	}
 
-	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+	dst_fr = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
 
 	if (src > SLJIT_FLOAT_REG4) {
-		FAIL_IF(emit_fpu_data_transfer(compiler, dst_freg, 1, src, srcw));
-		src = dst_freg;
+		FAIL_IF(emit_fpu_data_transfer(compiler, dst_fr, 1, src, srcw));
+		src = dst_fr;
 	}
 
 	switch (op) {
 		case SLJIT_FMOV:
-			if (src != dst_freg && dst_freg != TMP_FREG1)
-				EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VMOV_F64, dst_freg, src, 0));
+			if (src != dst_fr && dst_fr != TMP_FREG1)
+				EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VMOV_F64, dst_fr, src, 0));
 			break;
 		case SLJIT_FNEG:
-			EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VNEG_F64, dst_freg, src, 0));
+			EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VNEG_F64, dst_fr, src, 0));
 			break;
 		case SLJIT_FABS:
-			EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VABS_F64, dst_freg, src, 0));
+			EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VABS_F64, dst_fr, src, 0));
 			break;
 	}
 
-	if (dst_freg == TMP_FREG1)
-		FAIL_IF(emit_fpu_data_transfer(compiler, src, 0, dst, dstw));
+	if (dst_fr == TMP_FREG1) {
+		if (op == SLJIT_FMOV)
+			dst_fr = src;
+		FAIL_IF(emit_fpu_data_transfer(compiler, dst_fr, 0, dst, dstw));
+	}
 
 	return SLJIT_SUCCESS;
 }
@@ -2136,7 +2139,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop2(struct sljit_compiler *compiler, in
 	int src1, sljit_w src1w,
 	int src2, sljit_w src2w)
 {
-	int dst_freg;
+	int dst_fr;
 
 	CHECK_ERROR();
 	check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
@@ -2144,7 +2147,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop2(struct sljit_compiler *compiler, in
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_freg = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+	dst_fr = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
 
 	if (src2 > SLJIT_FLOAT_REG4) {
 		FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src2, src2w));
@@ -2158,23 +2161,23 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop2(struct sljit_compiler *compiler, in
 
 	switch (op) {
 	case SLJIT_FADD:
-		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VADD_F64, dst_freg, src2, src1));
+		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VADD_F64, dst_fr, src2, src1));
 		break;
 
 	case SLJIT_FSUB:
-		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VSUB_F64, dst_freg, src2, src1));
+		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VSUB_F64, dst_fr, src2, src1));
 		break;
 
 	case SLJIT_FMUL:
-		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VMUL_F64, dst_freg, src2, src1));
+		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VMUL_F64, dst_fr, src2, src1));
 		break;
 
 	case SLJIT_FDIV:
-		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VDIV_F64, dst_freg, src2, src1));
+		EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VDIV_F64, dst_fr, src2, src1));
 		break;
 	}
 
-	if (dst_freg == TMP_FREG1)
+	if (dst_fr == TMP_FREG1)
 		FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG1, 0, dst, dstw));
 
 	return SLJIT_SUCCESS;
@@ -2273,11 +2276,11 @@ static sljit_uw get_cc(int type)
 		return 0xd0000000;
 
 	case SLJIT_C_OVERFLOW:
-	case SLJIT_C_FLOAT_NAN:
+	case SLJIT_C_FLOAT_UNORDERED:
 		return 0x60000000;
 
 	case SLJIT_C_NOT_OVERFLOW:
-	case SLJIT_C_FLOAT_NOT_NAN:
+	case SLJIT_C_FLOAT_ORDERED:
 		return 0x70000000;
 
 	default: /* SLJIT_JUMP */

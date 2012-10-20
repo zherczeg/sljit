@@ -1123,7 +1123,7 @@ static SLJIT_INLINE void check_sljit_emit_fcmp(struct sljit_compiler *compiler, 
 
 	SLJIT_ASSERT(sljit_is_fpu_available());
 	SLJIT_ASSERT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP)));
-	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_FLOAT_EQUAL && (type & 0xff) <= SLJIT_C_FLOAT_NOT_NAN);
+	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_FLOAT_EQUAL && (type & 0xff) <= SLJIT_C_FLOAT_ORDERED);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	FUNCTION_FCHECK(src1, src1w);
 	FUNCTION_FCHECK(src2, src2w);
