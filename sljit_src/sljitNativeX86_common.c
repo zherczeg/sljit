@@ -203,10 +203,10 @@ static sljit_ub get_jump_code(int type)
 	case SLJIT_C_MUL_NOT_OVERFLOW:
 		return 0x81;
 
-	case SLJIT_C_FLOAT_NAN:
+	case SLJIT_C_FLOAT_UNORDERED:
 		return 0x8a;
 
-	case SLJIT_C_FLOAT_NOT_NAN:
+	case SLJIT_C_FLOAT_ORDERED:
 		return 0x8b;
 	}
 	return 0;
@@ -2477,11 +2477,11 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_cond_value(struct sljit_compiler *compil
 		cond_set = 0x91;
 		break;
 
-	case SLJIT_C_FLOAT_NAN:
+	case SLJIT_C_FLOAT_UNORDERED:
 		cond_set = 0x9a;
 		break;
 
-	case SLJIT_C_FLOAT_NOT_NAN:
+	case SLJIT_C_FLOAT_ORDERED:
 		cond_set = 0x9b;
 		break;
 	}
