@@ -62,57 +62,57 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 7] = {
 #define IMM(imm)	(((imm) & 0x1fff) | IMM_ARG)
 
 #define DR(dr)		(reg_map[dr])
-#define OP1(opcode)	((opcode) << 30)
-#define OP2(opcode)	((opcode) << 22)
-#define OP3(opcode)	((opcode) << 19)
-#define SET_FLAGS	OP3(0x10)
+#define OPC1(opcode)	((opcode) << 30)
+#define OPC2(opcode)	((opcode) << 22)
+#define OPC3(opcode)	((opcode) << 19)
+#define SET_FLAGS	OPC3(0x10)
 
-#define ADD		(OP1(0x2) | OP3(0x00))
-#define ADDC		(OP1(0x2) | OP3(0x08))
-#define AND		(OP1(0x2) | OP3(0x01))
-#define ANDN		(OP1(0x2) | OP3(0x05))
-#define CALL		(OP1(0x1))
-#define FABSS		(OP1(0x2) | OP3(0x34) | DOP(0x09))
-#define FADDD		(OP1(0x2) | OP3(0x34) | DOP(0x42))
-#define FCMPD		(OP1(0x2) | OP3(0x35) | DOP(0x52))
-#define FDIVD		(OP1(0x2) | OP3(0x34) | DOP(0x4e))
-#define FMOVS		(OP1(0x2) | OP3(0x34) | DOP(0x01))
-#define FMULD		(OP1(0x2) | OP3(0x34) | DOP(0x4a))
-#define FNEGS		(OP1(0x2) | OP3(0x34) | DOP(0x05))
-#define FSUBD		(OP1(0x2) | OP3(0x34) | DOP(0x46))
-#define JMPL		(OP1(0x2) | OP3(0x38))
-#define NOP		(OP1(0x0) | OP2(0x04))
-#define OR		(OP1(0x2) | OP3(0x02))
-#define ORN		(OP1(0x2) | OP3(0x06))
-#define RDY		(OP1(0x2) | OP3(0x28) | S1A(0))
-#define RESTORE		(OP1(0x2) | OP3(0x3d))
-#define SAVE		(OP1(0x2) | OP3(0x3c))
-#define SETHI		(OP1(0x0) | OP2(0x04))
-#define SLL		(OP1(0x2) | OP3(0x25))
-#define SLLX		(OP1(0x2) | OP3(0x25) | (1 << 12))
-#define SRA		(OP1(0x2) | OP3(0x27))
-#define SRAX		(OP1(0x2) | OP3(0x27) | (1 << 12))
-#define SRL		(OP1(0x2) | OP3(0x26))
-#define SRLX		(OP1(0x2) | OP3(0x26) | (1 << 12))
-#define SUB		(OP1(0x2) | OP3(0x04))
-#define SUBC		(OP1(0x2) | OP3(0x0c))
-#define TA		(OP1(0x2) | OP3(0x3a) | (8 << 25))
-#define WRY		(OP1(0x2) | OP3(0x30) | DA(0))
-#define XOR		(OP1(0x2) | OP3(0x03))
-#define XNOR		(OP1(0x2) | OP3(0x07))
+#define ADD		(OPC1(0x2) | OPC3(0x00))
+#define ADDC		(OPC1(0x2) | OPC3(0x08))
+#define AND		(OPC1(0x2) | OPC3(0x01))
+#define ANDN		(OPC1(0x2) | OPC3(0x05))
+#define CALL		(OPC1(0x1))
+#define FABSS		(OPC1(0x2) | OPC3(0x34) | DOP(0x09))
+#define FADDD		(OPC1(0x2) | OPC3(0x34) | DOP(0x42))
+#define FCMPD		(OPC1(0x2) | OPC3(0x35) | DOP(0x52))
+#define FDIVD		(OPC1(0x2) | OPC3(0x34) | DOP(0x4e))
+#define FMOVS		(OPC1(0x2) | OPC3(0x34) | DOP(0x01))
+#define FMULD		(OPC1(0x2) | OPC3(0x34) | DOP(0x4a))
+#define FNEGS		(OPC1(0x2) | OPC3(0x34) | DOP(0x05))
+#define FSUBD		(OPC1(0x2) | OPC3(0x34) | DOP(0x46))
+#define JMPL		(OPC1(0x2) | OPC3(0x38))
+#define NOP		(OPC1(0x0) | OPC2(0x04))
+#define OR		(OPC1(0x2) | OPC3(0x02))
+#define ORN		(OPC1(0x2) | OPC3(0x06))
+#define RDY		(OPC1(0x2) | OPC3(0x28) | S1A(0))
+#define RESTORE		(OPC1(0x2) | OPC3(0x3d))
+#define SAVE		(OPC1(0x2) | OPC3(0x3c))
+#define SETHI		(OPC1(0x0) | OPC2(0x04))
+#define SLL		(OPC1(0x2) | OPC3(0x25))
+#define SLLX		(OPC1(0x2) | OPC3(0x25) | (1 << 12))
+#define SRA		(OPC1(0x2) | OPC3(0x27))
+#define SRAX		(OPC1(0x2) | OPC3(0x27) | (1 << 12))
+#define SRL		(OPC1(0x2) | OPC3(0x26))
+#define SRLX		(OPC1(0x2) | OPC3(0x26) | (1 << 12))
+#define SUB		(OPC1(0x2) | OPC3(0x04))
+#define SUBC		(OPC1(0x2) | OPC3(0x0c))
+#define TA		(OPC1(0x2) | OPC3(0x3a) | (8 << 25))
+#define WRY		(OPC1(0x2) | OPC3(0x30) | DA(0))
+#define XOR		(OPC1(0x2) | OPC3(0x03))
+#define XNOR		(OPC1(0x2) | OPC3(0x07))
 
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 #define MAX_DISP	(0x1fffff)
 #define MIN_DISP	(-0x200000)
 #define DISP_MASK	(0x3fffff)
 
-#define BICC		(OP1(0x0) | OP2(0x2))
-#define FBFCC		(OP1(0x0) | OP2(0x6))
+#define BICC		(OPC1(0x0) | OPC2(0x2))
+#define FBFCC		(OPC1(0x0) | OPC2(0x6))
 #define SLL_W		SLL
-#define SDIV		(OP1(0x2) | OP3(0x0f))
-#define SMUL		(OP1(0x2) | OP3(0x0b))
-#define UDIV		(OP1(0x2) | OP3(0x0e))
-#define UMUL		(OP1(0x2) | OP3(0x0a))
+#define SDIV		(OPC1(0x2) | OPC3(0x0f))
+#define SMUL		(OPC1(0x2) | OPC3(0x0b))
+#define UDIV		(OPC1(0x2) | OPC3(0x0e))
+#define UMUL		(OPC1(0x2) | OPC3(0x0a))
 #else
 #define SLL_W		SLLX
 #endif
@@ -163,7 +163,6 @@ static SLJIT_INLINE sljit_ins* optimize_jump(struct sljit_jump *jump, sljit_ins 
 			jump->addr -= sizeof(sljit_ins);
 			return inst;
 		}
-printf("M\n");
 		inst[0] = CALL;
 		inst[1] = NOP;
 		return inst + 1;
@@ -429,26 +428,26 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 #endif
 
 static SLJIT_CONST sljit_ins data_transfer_insts[16 + 2] = {
-/* u w s */ ARCH_32_64(OP1(3) | OP3(0x04) /* stw */, OP1(3) | OP3(0x0e) /* stx */),
-/* u w l */ ARCH_32_64(OP1(3) | OP3(0x00) /* lduw */, OP1(3) | OP3(0x0b) /* ldx */),
-/* u b s */ OP1(3) | OP3(0x05) /* stb */,
-/* u b l */ OP1(3) | OP3(0x01) /* ldub */,
-/* u h s */ OP1(3) | OP3(0x06) /* sth */,
-/* u h l */ OP1(3) | OP3(0x02) /* lduh */,
-/* u i s */ OP1(3) | OP3(0x04) /* stw */,
-/* u i l */ OP1(3) | OP3(0x00) /* lduw */,
+/* u w s */ ARCH_32_64(OPC1(3) | OPC3(0x04) /* stw */, OPC1(3) | OPC3(0x0e) /* stx */),
+/* u w l */ ARCH_32_64(OPC1(3) | OPC3(0x00) /* lduw */, OPC1(3) | OPC3(0x0b) /* ldx */),
+/* u b s */ OPC1(3) | OPC3(0x05) /* stb */,
+/* u b l */ OPC1(3) | OPC3(0x01) /* ldub */,
+/* u h s */ OPC1(3) | OPC3(0x06) /* sth */,
+/* u h l */ OPC1(3) | OPC3(0x02) /* lduh */,
+/* u i s */ OPC1(3) | OPC3(0x04) /* stw */,
+/* u i l */ OPC1(3) | OPC3(0x00) /* lduw */,
 
-/* s w s */ ARCH_32_64(OP1(3) | OP3(0x04) /* stw */, OP1(3) | OP3(0x0e) /* stx */),
-/* s w l */ ARCH_32_64(OP1(3) | OP3(0x00) /* lduw */, OP1(3) | OP3(0x0b) /* ldx */),
-/* s b s */ OP1(3) | OP3(0x05) /* stb */,
-/* s b l */ OP1(3) | OP3(0x09) /* ldsb */,
-/* s h s */ OP1(3) | OP3(0x06) /* sth */,
-/* s h l */ OP1(3) | OP3(0x0a) /* ldsh */,
-/* s i s */ OP1(3) | OP3(0x04) /* stw */,
-/* s i l */ ARCH_32_64(OP1(3) | OP3(0x00) /* lduw */, OP1(3) | OP3(0x08) /* ldsw */),
+/* s w s */ ARCH_32_64(OPC1(3) | OPC3(0x04) /* stw */, OPC1(3) | OPC3(0x0e) /* stx */),
+/* s w l */ ARCH_32_64(OPC1(3) | OPC3(0x00) /* lduw */, OPC1(3) | OPC3(0x0b) /* ldx */),
+/* s b s */ OPC1(3) | OPC3(0x05) /* stb */,
+/* s b l */ OPC1(3) | OPC3(0x09) /* ldsb */,
+/* s h s */ OPC1(3) | OPC3(0x06) /* sth */,
+/* s h l */ OPC1(3) | OPC3(0x0a) /* ldsh */,
+/* s i s */ OPC1(3) | OPC3(0x04) /* stw */,
+/* s i l */ ARCH_32_64(OPC1(3) | OPC3(0x00) /* lduw */, OPC1(3) | OPC3(0x08) /* ldsw */),
 
-/* d   s */ OP1(3) | OP3(0x27),
-/* d   l */ OP1(3) | OP3(0x23),
+/* d   s */ OPC1(3) | OPC3(0x27),
+/* d   l */ OPC1(3) | OPC3(0x23),
 };
 
 #undef ARCH_32_64
