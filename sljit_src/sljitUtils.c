@@ -106,9 +106,9 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_release_lock(void)
 
 #else /* _WIN32 */
 
-#include <pthread.h>
-
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
+
+#include <pthread.h>
 
 static pthread_mutex_t allocator_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -125,6 +125,8 @@ static SLJIT_INLINE void allocator_release_lock(void)
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
 #if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
+
+#include <pthread.h>
 
 static pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 

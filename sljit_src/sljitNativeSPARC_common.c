@@ -33,6 +33,30 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
    Both for sparc-32 and sparc-64 */
 typedef sljit_ui sljit_ins;
 
+static void sparc_cache_flush(sljit_ins *from, sljit_ins *to)
+{
+	if (SLJIT_UNLIKELY(from == to))
+		return;
+
+	do {
+		__asm__ volatile (
+			"flush %0\n"
+			: : "r"(from)
+		);
+		/* Operates at least on doubleword. */
+		from += 2;
+	} while (from < to);
+
+	if (from == to) {
+		/* Flush the last word. */
+		to --;
+		__asm__ volatile (
+			"flush %0\n"
+			: : "r"(to)
+		);
+	}
+}
+
 /* TMP_REG2 is not used by getput_arg */
 #define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
 #define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
