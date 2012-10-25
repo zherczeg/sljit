@@ -219,6 +219,12 @@
 #define SLJIT_CACHE_FLUSH(from, to) \
 	ppc_cache_flush((from), (to))
 
+#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+
+/* The __clear_cache() implementation of GCC is a dummy function on Sparc. */
+#define SLJIT_CACHE_FLUSH(from, to) \
+	sparc_cache_flush((from), (to))
+
 #else
 
 /* Calls __ARM_NR_cacheflush on ARM-Linux. */

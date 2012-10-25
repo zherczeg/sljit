@@ -23,31 +23,40 @@ REGEXDIR = regex_src
 CFLAGS += -Isljit_src
 REGEX_CFLAGS = -fshort-wchar
 
+SLJIT_HEADERS = $(SRCDIR)/sljitLir.h $(SRCDIR)/sljitConfig.h $(SRCDIR)/sljitConfigInternal.h
+
+SLJIT_LIR_FILES = $(SRCDIR)/sljitLir.c $(SRCDIR)/sljitExecAllocator.c $(SRCDIR)/sljitUtils.c \
+	$(SRCDIR)/sljitNativeX86_common.c $(SRCDIR)/sljitNativeX86_32.c $(SRCDIR)/sljitNativeX86_64.c \
+	$(SRCDIR)/sljitNativeARM_v5.c $(SRCDIR)/sljitNativeARM_Thumb2.c \
+	$(SRCDIR)/sljitNativePPC_common.c $(SRCDIR)/sljitNativePPC_32.c $(SRCDIR)/sljitNativePPC_64.c \
+	$(SRCDIR)/sljitNativeMIPS_common.c $(SRCDIR)/sljitNativeMIPS_32.c \
+	$(SRCDIR)/sljitNativeSPARC_common.c $(SRCDIR)/sljitNativeSPARC_32.c
+
 all: $(BINDIR) $(TARGET)
 
 $(BINDIR) :
 	mkdir $(BINDIR)
 
-$(BINDIR)/sljitLir.o : $(addprefix $(SRCDIR)/, sljitLir.c sljitLir.h sljitConfig.h sljitExecAllocator.c sljitNativeX86_common.c sljitNativeX86_32.c sljitNativeX86_64.c sljitNativeARM_v5.c sljitNativeARM_Thumb2.c sljitNativePPC_common.c sljitNativePPC_32.c sljitNativePPC_64.c sljitNativeMIPS_common.c sljitNativeMIPS_32.c) $(BINDIR)
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(BINDIR)/sljitLir.o : $(BINDIR) $(SLJIT_LIR_FILES) $(SLJIT_HEADERS)
+	$(CC) $(CFLAGS) -c -o $@ $(SRCDIR)/sljitLir.c
 
-$(BINDIR)/sljitMain.o : $(TESTDIR)/sljitMain.c $(BINDIR) $(SRCDIR)/sljitLir.h $(SRCDIR)/sljitConfig.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(BINDIR)/sljitMain.o : $(TESTDIR)/sljitMain.c $(BINDIR) $(SLJIT_HEADERS)
+	$(CC) $(CFLAGS) -c -o $@ $(TESTDIR)/sljitMain.c
 
-$(BINDIR)/sljitTest.o : $(TESTDIR)/sljitTest.c $(BINDIR) $(SRCDIR)/sljitLir.h $(SRCDIR)/sljitConfig.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(BINDIR)/sljitTest.o : $(TESTDIR)/sljitTest.c $(BINDIR) $(SLJIT_HEADERS)
+	$(CC) $(CFLAGS) -c -o $@ $(TESTDIR)/sljitTest.c
 
-$(BINDIR)/regexMain.o : $(REGEXDIR)/regexMain.c $(BINDIR) $(REGEXDIR)/regexJIT.h $(SRCDIR)/sljitConfig.h
-	$(CC) $(CFLAGS) $(REGEX_CFLAGS) -c -o $@ $<
+$(BINDIR)/regexMain.o : $(REGEXDIR)/regexMain.c $(BINDIR) $(SLJIT_HEADERS)
+	$(CC) $(CFLAGS) $(REGEX_CFLAGS) -c -o $@ $(REGEXDIR)/regexMain.c
 
-$(BINDIR)/regexJIT.o : $(REGEXDIR)/regexJIT.c $(BINDIR) $(SRCDIR)/sljitLir.h $(SRCDIR)/sljitConfig.h $(REGEXDIR)/regexJIT.h
-	$(CC) $(CFLAGS) $(REGEX_CFLAGS) -c -o $@ $<
+$(BINDIR)/regexJIT.o : $(REGEXDIR)/regexJIT.c $(BINDIR) $(SLJIT_HEADERS) $(REGEXDIR)/regexJIT.h
+	$(CC) $(CFLAGS) $(REGEX_CFLAGS) -c -o $@ $(REGEXDIR)/regexJIT.c
 
 clean:
-	rm -f $(BINDIR)/*.o $(addprefix $(BINDIR)/, $(TARGET))
+	rm -f $(BINDIR)/*.o $(BINDIR)/sljit_test $(BINDIR)/regex_test
 
-sljit_test: $(addprefix $(BINDIR)/, sljitMain.o sljitTest.o sljitLir.o)
-	$(CC) $(LDFLAGS) $^ -o $(BINDIR)/$@ -lm
+sljit_test: $(BINDIR)/sljitMain.o $(BINDIR)/sljitTest.o $(BINDIR)/sljitLir.o
+	$(CC) $(LDFLAGS) $(BINDIR)/sljitMain.o $(BINDIR)/sljitTest.o $(BINDIR)/sljitLir.o -o $(BINDIR)/$@ -lm -lpthread
 
-regex_test: $(addprefix $(BINDIR)/, regexMain.o regexJIT.o sljitLir.o)
-	$(CC) $(LDFLAGS) $^ -o $(BINDIR)/$@ -lm
+regex_test: $(BINDIR)/regexMain.o $(BINDIR)/regexJIT.o $(BINDIR)/sljitLir.o
+	$(CC) $(LDFLAGS) $(BINDIR)/regexMain.o $(BINDIR)/regexJIT.o $(BINDIR)/sljitLir.o -o $(BINDIR)/$@ -lm -lpthread
