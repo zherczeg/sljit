@@ -52,7 +52,7 @@
    The unused blocks are stored in a chain list pointed by free_blocks. This
    list is useful if we need to find a suitable memory area when the allocator
    is called.
- 
+
    When a block is freed, the new free block is connected to its adjacent free
    blocks if possible.
 
@@ -83,7 +83,7 @@
 
 static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 {
-	return VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+	return VirtualAlloc(NULL, size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 }
 
 static SLJIT_INLINE void free_chunk(void* chunk, sljit_uw size)
@@ -94,11 +94,20 @@ static SLJIT_INLINE void free_chunk(void* chunk, sljit_uw size)
 
 #else
 
-#include <sys/mman.h>
-
 static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 {
-	void* retval = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+	void* retval;
+
+#ifdef MAP_ANON
+	retval = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+#else
+	if (dev_zero < 0) {
+		if (open_dev_zero())
+			return NULL;
+	}
+	retval = mmap(0, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE, dev_zero, 0);
+#endif
+
 	return (retval != MAP_FAILED) ? retval : NULL;
 }
 

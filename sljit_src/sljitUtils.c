@@ -148,14 +148,54 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_release_lock(void)
 /*  Stack                                                                   */
 /* ------------------------------------------------------------------------ */
 
-#if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
+#if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) || (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 
 #ifdef _WIN32
 #include "windows.h"
 #else
+/* Provides mmap function. */
 #include <sys/mman.h>
+/* For detecting the page size. */
 #include <unistd.h>
+
+#ifndef MAP_ANON
+
+#include <fcntl.h>
+
+/* Some old systems does not have MAP_ANON. */
+static int dev_zero = -1;
+
+#if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
+
+static SLJIT_INLINE int open_dev_zero(void)
+{
+	dev_zero = open("/dev/zero", O_RDWR);
+	return dev_zero < 0;
+}
+
+#else /* SLJIT_SINGLE_THREADED */
+
+#include <pthread.h>
+
+static pthread_mutex_t dev_zero_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static SLJIT_INLINE int open_dev_zero(void)
+{
+	pthread_mutex_lock(&dev_zero_mutex);
+	dev_zero = open("/dev/zero", O_RDWR);
+	pthread_mutex_unlock(&dev_zero_mutex);
+	return dev_zero < 0;
+}
+
+#endif /* SLJIT_SINGLE_THREADED */
+
 #endif
+
+#endif
+
+#endif /* SLJIT_UTIL_STACK || SLJIT_EXECUTABLE_ALLOCATOR */
+
+#if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
 
 /* Planning to make it even more clever in the future. */
 static sljit_w sljit_page_align = 0;
@@ -197,7 +237,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(slj
 		return NULL;
 
 #ifdef _WIN32
-	base.ptr = VirtualAlloc(0, max_limit, MEM_RESERVE, PAGE_READWRITE);
+	base.ptr = VirtualAlloc(NULL, max_limit, MEM_RESERVE, PAGE_READWRITE);
 	if (!base.ptr) {
 		SLJIT_FREE(stack);
 		return NULL;
@@ -210,7 +250,17 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(slj
 		return NULL;
 	}
 #else
+#ifdef MAP_ANON
 	base.ptr = mmap(0, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+#else
+	if (dev_zero < 0) {
+		if (open_dev_zero()) {
+			SLJIT_FREE(stack);
+			return NULL;
+		}
+	}
+	base.ptr = mmap(0, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE, dev_zero, 0);
+#endif
 	if (base.ptr == MAP_FAILED) {
 		SLJIT_FREE(stack);
 		return NULL;
