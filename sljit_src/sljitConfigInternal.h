@@ -34,7 +34,7 @@
    SLJIT_32BIT_ARCHITECTURE : 32 bit architecture
    SLJIT_64BIT_ARCHITECTURE : 64 bit architecture
    SLJIT_WORD_SHIFT : the shift required to apply when accessing a sljit_w/sljit_uw array by index
-   SLJIT_FLOAT_SHIFT : the shift required to apply when accessing a double array by index
+   SLJIT_DOUBLE_SHIFT : the shift required to apply when accessing a double array by index
    SLJIT_LITTLE_ENDIAN : little endian architecture
    SLJIT_BIG_ENDIAN : big endian architecture
    SLJIT_UNALIGNED : allows unaligned memory accesses for non-fpu operations (only!)
@@ -45,7 +45,10 @@
    sljit_b, sljit_ub : signed and unsigned 8 bit byte
    sljit_h, sljit_uh : signed and unsigned 16 bit half-word (short) type
    sljit_i, sljit_ui : signed and unsigned 32 bit integer type
-   sljit_w, sljit_uw : signed and unsigned machine word, enough to store a pointer (same as intptr_t)
+   sljit_w, sljit_uw : signed and unsigned machine word, enough to store a pointer
+   sljit_p           : unsgined pointer value (usually the same as sljit_uw, but
+                       some 64 bit ABIs may use 32 bit pointers)
+   sljit_d           : double precision floating point value
    SLJIT_CALL : C calling convention define for both calling JIT form C and C callbacks for JIT
    SLJIT_W(number) : defining 64 bit constants on 64 bit architectures (compiler independent helper)
 */
@@ -272,8 +275,14 @@ typedef long int sljit_w;
 #endif
 #endif
 
-/* Double precision. */
-#define SLJIT_FLOAT_SHIFT 3
+typedef sljit_uw sljit_p;
+typedef double sljit_d;
+
+/* Shift for pointer sized data. */
+#define SLJIT_POINTER_SHIFT SLJIT_WORD_SHIFT
+
+/* Shift for double precision sized data. */
+#define SLJIT_DOUBLE_SHIFT 3
 
 #ifndef SLJIT_W
 

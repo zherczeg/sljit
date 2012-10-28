@@ -280,7 +280,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 		sizeof(sljit_b) == 1 && sizeof(sljit_ub) == 1
 		&& sizeof(sljit_h) == 2 && sizeof(sljit_uh) == 2
 		&& sizeof(sljit_i) == 4 && sizeof(sljit_ui) == 4
-		&& ((sizeof(sljit_w) == 4 && sizeof(sljit_uw) == 4) || (sizeof(sljit_w) == 8 && sizeof(sljit_uw) == 8)),
+		&& (sizeof(sljit_p) == 4 || sizeof(sljit_p) == 8)
+		&& (sizeof(sljit_w) == 4 || sizeof(sljit_w) == 8)
+		&& (sizeof(sljit_uw) == 4 || sizeof(sljit_uw) == 8),
 		invalid_integer_types);
 
 	/* Only the non-zero members must be set. */
@@ -609,10 +611,10 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		SLJIT_ASSERT_STOP();
 
 #define FUNCTION_CHECK_OP1() \
-	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SI) { \
+	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_P) { \
 		SLJIT_ASSERT(!GET_ALL_FLAGS(op)); \
 	} \
-        if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_SI) { \
+        if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_P) { \
 		SLJIT_ASSERT(!(src & SLJIT_MEM) || (src & 0xf) != SLJIT_LOCALS_REG); \
 		SLJIT_ASSERT(!(dst & SLJIT_MEM) || (dst & 0xf) != SLJIT_LOCALS_REG); \
 		if ((src & SLJIT_MEM) && (src & 0xf)) \
@@ -697,10 +699,10 @@ static SLJIT_CONST char* op_names[] = {
 	(char*)"umul", (char*)"smul", (char*)"udiv", (char*)"sdiv",
 	/* op1 */
 	(char*)"mov", (char*)"mov.ub", (char*)"mov.sb", (char*)"mov.uh",
-	(char*)"mov.sh", (char*)"mov.ui", (char*)"mov.si", (char*)"movu",
-	(char*)"movu.ub", (char*)"movu.sb", (char*)"movu.uh", (char*)"movu.sh",
-	(char*)"movu.ui", (char*)"movu.si", (char*)"not", (char*)"neg",
-	(char*)"clz",
+	(char*)"mov.sh", (char*)"mov.ui", (char*)"mov.si", (char*)"mov.p",
+	(char*)"movu", (char*)"movu.ub", (char*)"movu.sb", (char*)"movu.uh",
+	(char*)"movu.sh", (char*)"movu.ui", (char*)"movu.si", (char*)"movu.p",
+	(char*)"not", (char*)"neg", (char*)"clz",
 	/* op2 */
 	(char*)"add", (char*)"addc", (char*)"sub", (char*)"subc",
 	(char*)"mul", (char*)"and", (char*)"or", (char*)"xor",
@@ -809,7 +811,7 @@ static SLJIT_INLINE void check_sljit_emit_return(struct sljit_compiler *compiler
 
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	if (op != SLJIT_UNUSED) {
-		SLJIT_ASSERT(op >= SLJIT_MOV && op <= SLJIT_MOV_SI);
+		SLJIT_ASSERT(op >= SLJIT_MOV && op <= SLJIT_MOV_P);
 		FUNCTION_CHECK_SRC(src, srcw);
 	}
 	else
@@ -1231,10 +1233,11 @@ static SLJIT_INLINE int emit_mov_before_return(struct sljit_compiler *compiler, 
 		return SLJIT_SUCCESS;
 
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-	if (src == SLJIT_RETURN_REG && op == SLJIT_MOV)
+	/* At the moment the pointer size is always equal to sljit_w. May be changed in the future. */
+	if (src == SLJIT_RETURN_REG && (op == SLJIT_MOV || op == SLJIT_MOV_P))
 		return SLJIT_SUCCESS;
 #else
-	if (src == SLJIT_RETURN_REG && (op == SLJIT_MOV || op == SLJIT_MOV_UI || op == SLJIT_MOV_SI))
+	if (src == SLJIT_RETURN_REG && (op == SLJIT_MOV || op == SLJIT_MOV_UI || op == SLJIT_MOV_SI || op == SLJIT_MOV_P))
 		return SLJIT_SUCCESS;
 #endif
 

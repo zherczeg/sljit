@@ -1065,38 +1065,38 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 	compiler->mode32 = op & SLJIT_INT_OP;
 #endif
 
-	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SI) {
+	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_P) {
 		op = GET_OPCODE(op);
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		compiler->mode32 = 0;
 #endif
 
-		SLJIT_COMPILE_ASSERT(SLJIT_MOV + 7 == SLJIT_MOVU, movu_offset);
+		SLJIT_COMPILE_ASSERT(SLJIT_MOV + 8 == SLJIT_MOVU, movu_offset);
 		if (op >= SLJIT_MOVU) {
 			update = 1;
-			op -= 7;
+			op -= 8;
 		}
 
 		if (src & SLJIT_IMM) {
 			switch (op) {
 			case SLJIT_MOV_UB:
-				srcw = (unsigned char)srcw;
+				srcw = (sljit_ub)srcw;
 				break;
 			case SLJIT_MOV_SB:
-				srcw = (signed char)srcw;
+				srcw = (sljit_b)srcw;
 				break;
 			case SLJIT_MOV_UH:
-				srcw = (unsigned short)srcw;
+				srcw = (sljit_uh)srcw;
 				break;
 			case SLJIT_MOV_SH:
-				srcw = (signed short)srcw;
+				srcw = (sljit_h)srcw;
 				break;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 			case SLJIT_MOV_UI:
-				srcw = (unsigned int)srcw;
+				srcw = (sljit_ui)srcw;
 				break;
 			case SLJIT_MOV_SI:
-				srcw = (signed int)srcw;
+				srcw = (sljit_i)srcw;
 				break;
 #endif
 			}
@@ -1115,7 +1115,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 		}
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		if (SLJIT_UNLIKELY(dst_is_ereg) && (!(op == SLJIT_MOV || op == SLJIT_MOV_UI || op == SLJIT_MOV_SI) || (src & SLJIT_MEM))) {
+		if (SLJIT_UNLIKELY(dst_is_ereg) && (!(op == SLJIT_MOV || op == SLJIT_MOV_UI || op == SLJIT_MOV_SI || op == SLJIT_MOV_P) || (src & SLJIT_MEM))) {
 			SLJIT_ASSERT(dst == SLJIT_MEM1(SLJIT_LOCALS_REG));
 			dst = TMP_REGISTER;
 		}
@@ -1123,6 +1123,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 
 		switch (op) {
 		case SLJIT_MOV:
+		case SLJIT_MOV_P:
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		case SLJIT_MOV_UI:
 		case SLJIT_MOV_SI:
@@ -1130,23 +1131,23 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 			FAIL_IF(emit_mov(compiler, dst, dstw, src, srcw));
 			break;
 		case SLJIT_MOV_UB:
-			FAIL_IF(emit_mov_byte(compiler, 0, dst, dstw, src, (src & SLJIT_IMM) ? (unsigned char)srcw : srcw));
+			FAIL_IF(emit_mov_byte(compiler, 0, dst, dstw, src, srcw));
 			break;
 		case SLJIT_MOV_SB:
-			FAIL_IF(emit_mov_byte(compiler, 1, dst, dstw, src, (src & SLJIT_IMM) ? (signed char)srcw : srcw));
+			FAIL_IF(emit_mov_byte(compiler, 1, dst, dstw, src, srcw));
 			break;
 		case SLJIT_MOV_UH:
-			FAIL_IF(emit_mov_half(compiler, 0, dst, dstw, src, (src & SLJIT_IMM) ? (unsigned short)srcw : srcw));
+			FAIL_IF(emit_mov_half(compiler, 0, dst, dstw, src, srcw));
 			break;
 		case SLJIT_MOV_SH:
-			FAIL_IF(emit_mov_half(compiler, 1, dst, dstw, src, (src & SLJIT_IMM) ? (signed short)srcw : srcw));
+			FAIL_IF(emit_mov_half(compiler, 1, dst, dstw, src, srcw));
 			break;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		case SLJIT_MOV_UI:
-			FAIL_IF(emit_mov_int(compiler, 0, dst, dstw, src, (src & SLJIT_IMM) ? (unsigned int)srcw : srcw));
+			FAIL_IF(emit_mov_int(compiler, 0, dst, dstw, src, srcw));
 			break;
 		case SLJIT_MOV_SI:
-			FAIL_IF(emit_mov_int(compiler, 1, dst, dstw, src, (src & SLJIT_IMM) ? (signed int)srcw : srcw));
+			FAIL_IF(emit_mov_int(compiler, 1, dst, dstw, src, srcw));
 			break;
 #endif
 		}

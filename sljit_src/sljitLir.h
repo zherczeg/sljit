@@ -369,7 +369,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 
 /* Return from machine code.  The op argument can be SLJIT_UNUSED which means the
    function does not return with anything or any opcode between SLJIT_MOV and
-   SLJIT_MOV_SI (see sljit_emit_op1). As for src and srcw they must be 0 if op
+   SLJIT_MOV_P (see sljit_emit_op1). As for src and srcw they must be 0 if op
    is SLJIT_UNUSED, otherwise see below the description about source and
    destination arguments. */
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int op,
@@ -377,13 +377,13 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 
 /* Really fast calling method for utility functions inside sljit (see SLJIT_FAST_CALL).
    All registers and even the stack frame is passed to the callee. The return address is
-   preserved in dst/dstw by sljit_emit_fast_enter, and sljit_emit_fast_return can
-   use this as a return value later. */
+   preserved in dst/dstw by sljit_emit_fast_enter (the size of the address is the same as
+   sljit_p), and sljit_emit_fast_return can use this as a return value later. */
 
-/* Note: only for sljit specific, non ABI compilant calls. Fast, since only a few machine instructions
-   are needed. Excellent for small uility functions, where saving registers and setting up
-   a new stack frame would cost too much performance. However, it is still possible to return
-   to the address of the caller (or anywhere else). */
+/* Note: only for sljit specific, non ABI compilant calls. Fast, since only a few machine
+   instructions are needed. Excellent for small uility functions, where saving registers
+   and setting up a new stack frame would cost too much performance. However, it is still
+   possible to return to the address of the caller (or anywhere else). */
 
 /* Note: flags are not changed (unlike sljit_emit_enter / sljit_emit_return). */
 
@@ -512,8 +512,11 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
        or SLJIT_MEM2(r1, r2), r1 is increased by the sum of r2 and the constant argument
    UB = unsigned byte (8 bit)
    SB = signed byte (8 bit)
-   UH = unsgined half (16 bit)
-   SH = unsgined half (16 bit) */
+   UH = unsigned half (16 bit)
+   SH = signed half (16 bit)
+   UI = unsigned int (32 bit)
+   SI = signed int (32 bit)
+   P  = pointer (sljit_p) size */
 
 /* Flags: - (never set any flags) */
 #define SLJIT_MOV			6
@@ -530,68 +533,72 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op0(struct sljit_compiler *compiler, int
 /* Flags: - (never set any flags) */
 #define SLJIT_MOV_SI			12
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU			13
+#define SLJIT_MOV_P			13
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_UB			14
+#define SLJIT_MOVU			14
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_SB			15
+#define SLJIT_MOVU_UB			15
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_UH			16
+#define SLJIT_MOVU_SB			16
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_SH			17
+#define SLJIT_MOVU_UH			17
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_UI			18
+#define SLJIT_MOVU_SH			18
 /* Flags: - (never set any flags) */
-#define SLJIT_MOVU_SI			19
+#define SLJIT_MOVU_UI			19
+/* Flags: - (never set any flags) */
+#define SLJIT_MOVU_SI			20
+/* Flags: - (never set any flags) */
+#define SLJIT_MOVU_P			21
 /* Flags: I | E | K */
-#define SLJIT_NOT			20
+#define SLJIT_NOT			22
 /* Flags: I | E | O | K */
-#define SLJIT_NEG			21
+#define SLJIT_NEG			23
 /* Count leading zeroes
    Flags: I | E | K
    Important note! Sparc 32 does not support K flag, since
    the required popc instruction is introduced only in sparc 64. */
-#define SLJIT_CLZ			22
+#define SLJIT_CLZ			24
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
 /* Flags: I | E | O | C | K */
-#define SLJIT_ADD			23
+#define SLJIT_ADD			25
 /* Flags: I | C | K */
-#define SLJIT_ADDC			24
+#define SLJIT_ADDC			26
 /* Flags: I | E | S | U | O | C | K */
-#define SLJIT_SUB			25
+#define SLJIT_SUB			27
 /* Flags: I | C | K */
-#define SLJIT_SUBC			26
+#define SLJIT_SUBC			28
 /* Note: integer mul
    Flags: I | O (see SLJIT_C_MUL_*) | K */
-#define SLJIT_MUL			27
+#define SLJIT_MUL			29
 /* Flags: I | E | K */
-#define SLJIT_AND			28
+#define SLJIT_AND			30
 /* Flags: I | E | K */
-#define SLJIT_OR			29
+#define SLJIT_OR			31
 /* Flags: I | E | K */
-#define SLJIT_XOR			30
+#define SLJIT_XOR			32
 /* Flags: I | E | K
    Let bit_length be the length of the shift operation: 32 or 64.
    If src2 is immediate, src2w is masked by (bit_length - 1).
    Otherwise, if the content of src2 is outside the range from 0
    to bit_length - 1, the operation is undefined. */
-#define SLJIT_SHL			31
+#define SLJIT_SHL			33
 /* Flags: I | E | K
    Let bit_length be the length of the shift operation: 32 or 64.
    If src2 is immediate, src2w is masked by (bit_length - 1).
    Otherwise, if the content of src2 is outside the range from 0
    to bit_length - 1, the operation is undefined. */
-#define SLJIT_LSHR			32
+#define SLJIT_LSHR			34
 /* Flags: I | E | K
    Let bit_length be the length of the shift operation: 32 or 64.
    If src2 is immediate, src2w is masked by (bit_length - 1).
    Otherwise, if the content of src2 is outside the range from 0
    to bit_length - 1, the operation is undefined. */
-#define SLJIT_ASHR			33
+#define SLJIT_ASHR			35
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
@@ -628,26 +635,26 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_is_fpu_available(void);
    Note: NaN check is always performed. If SLJIT_C_FLOAT_UNORDERED is set,
          the comparison result is unpredictable.
    Flags: E | S (see SLJIT_C_FLOAT_*) */
-#define SLJIT_FCMP			34
+#define SLJIT_FCMP			36
 /* Flags: - (never set any flags) */
-#define SLJIT_FMOV			35
+#define SLJIT_FMOV			37
 /* Flags: - (never set any flags) */
-#define SLJIT_FNEG			36
+#define SLJIT_FNEG			38
 /* Flags: - (never set any flags) */
-#define SLJIT_FABS			37
+#define SLJIT_FABS			39
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop1(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
 	int src, sljit_w srcw);
 
 /* Flags: - (never set any flags) */
-#define SLJIT_FADD			38
+#define SLJIT_FADD			40
 /* Flags: - (never set any flags) */
-#define SLJIT_FSUB			39
+#define SLJIT_FSUB			41
 /* Flags: - (never set any flags) */
-#define SLJIT_FMUL			40
+#define SLJIT_FMUL			42
 /* Flags: - (never set any flags) */
-#define SLJIT_FDIV			41
+#define SLJIT_FDIV			43
 
 SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fop2(struct sljit_compiler *compiler, int op,
 	int dst, sljit_w dstw,
