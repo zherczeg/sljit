@@ -1170,6 +1170,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
+	case SLJIT_MOV_P:
 		return emit_op(compiler, SLJIT_MOV, flags | WORD_DATA, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_MOV_UI:
@@ -1179,18 +1180,19 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 		return emit_op(compiler, SLJIT_MOV_SI, flags | INT_DATA | SIGNED_DATA, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_MOV_UB:
-		return EMIT_MOV(SLJIT_MOV_UB, BYTE_DATA, (unsigned char));
+		return EMIT_MOV(SLJIT_MOV_UB, BYTE_DATA, (sljit_ub));
 
 	case SLJIT_MOV_SB:
-		return EMIT_MOV(SLJIT_MOV_SB, BYTE_DATA | SIGNED_DATA, (signed char));
+		return EMIT_MOV(SLJIT_MOV_SB, BYTE_DATA | SIGNED_DATA, (sljit_b));
 
 	case SLJIT_MOV_UH:
-		return EMIT_MOV(SLJIT_MOV_UH, HALF_DATA, (unsigned short));
+		return EMIT_MOV(SLJIT_MOV_UH, HALF_DATA, (sljit_uh));
 
 	case SLJIT_MOV_SH:
-		return EMIT_MOV(SLJIT_MOV_SH, HALF_DATA | SIGNED_DATA, (signed short));
+		return EMIT_MOV(SLJIT_MOV_SH, HALF_DATA | SIGNED_DATA, (sljit_h));
 
 	case SLJIT_MOVU:
+	case SLJIT_MOVU_P:
 		return emit_op(compiler, SLJIT_MOV, flags | WORD_DATA | WRITE_BACK, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_MOVU_UI:
@@ -1200,16 +1202,16 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 		return emit_op(compiler, SLJIT_MOV_SI, flags | INT_DATA | SIGNED_DATA | WRITE_BACK, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_MOVU_UB:
-		return EMIT_MOV(SLJIT_MOV_UB, BYTE_DATA | WRITE_BACK, (unsigned char));
+		return EMIT_MOV(SLJIT_MOV_UB, BYTE_DATA | WRITE_BACK, (sljit_ub));
 
 	case SLJIT_MOVU_SB:
-		return EMIT_MOV(SLJIT_MOV_SB, BYTE_DATA | SIGNED_DATA | WRITE_BACK, (signed char));
+		return EMIT_MOV(SLJIT_MOV_SB, BYTE_DATA | SIGNED_DATA | WRITE_BACK, (sljit_b));
 
 	case SLJIT_MOVU_UH:
-		return EMIT_MOV(SLJIT_MOV_UH, HALF_DATA | WRITE_BACK, (unsigned short));
+		return EMIT_MOV(SLJIT_MOV_UH, HALF_DATA | WRITE_BACK, (sljit_uh));
 
 	case SLJIT_MOVU_SH:
-		return EMIT_MOV(SLJIT_MOV_SH, HALF_DATA | SIGNED_DATA | WRITE_BACK, (signed short));
+		return EMIT_MOV(SLJIT_MOV_SH, HALF_DATA | SIGNED_DATA | WRITE_BACK, (sljit_h));
 
 	case SLJIT_NOT:
 		return emit_op(compiler, SLJIT_NOT, flags, dst, dstw, TMP_REG1, 0, src, srcw);

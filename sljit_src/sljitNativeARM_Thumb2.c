@@ -702,9 +702,11 @@ static int emit_op_imm(struct sljit_compiler *compiler, int flags, int dst, slji
 	case SLJIT_MOV:
 	case SLJIT_MOV_UI:
 	case SLJIT_MOV_SI:
+	case SLJIT_MOV_P:
 	case SLJIT_MOVU:
 	case SLJIT_MOVU_UI:
 	case SLJIT_MOVU_SI:
+	case SLJIT_MOVU_P:
 		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
 		return push_inst16(compiler, MOV | SET_REGS44(dst, arg2));
 	case SLJIT_MOV_UB:
@@ -1314,57 +1316,59 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_op1(struct sljit_compiler *compiler, int
 	op_type = GET_OPCODE(op);
 	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG1;
 
-	if (op_type >= SLJIT_MOV && op_type <= SLJIT_MOVU_SI) {
+	if (op_type >= SLJIT_MOV && op_type <= SLJIT_MOVU_P) {
 		switch (op_type) {
 		case SLJIT_MOV:
 		case SLJIT_MOV_UI:
 		case SLJIT_MOV_SI:
+		case SLJIT_MOV_P:
 			flags = WORD_SIZE;
 			break;
 		case SLJIT_MOV_UB:
 			flags = BYTE_SIZE;
 			if (src & SLJIT_IMM)
-				srcw = (unsigned char)srcw;
+				srcw = (sljit_ub)srcw;
 			break;
 		case SLJIT_MOV_SB:
 			flags = BYTE_SIZE | SIGNED;
 			if (src & SLJIT_IMM)
-				srcw = (signed char)srcw;
+				srcw = (sljit_b)srcw;
 			break;
 		case SLJIT_MOV_UH:
 			flags = HALF_SIZE;
 			if (src & SLJIT_IMM)
-				srcw = (unsigned short)srcw;
+				srcw = (sljit_uh)srcw;
 			break;
 		case SLJIT_MOV_SH:
 			flags = HALF_SIZE | SIGNED;
 			if (src & SLJIT_IMM)
-				srcw = (signed short)srcw;
+				srcw = (sljit_h)srcw;
 			break;
 		case SLJIT_MOVU:
 		case SLJIT_MOVU_UI:
 		case SLJIT_MOVU_SI:
+		case SLJIT_MOVU_P:
 			flags = WORD_SIZE | UPDATE;
 			break;
 		case SLJIT_MOVU_UB:
 			flags = BYTE_SIZE | UPDATE;
 			if (src & SLJIT_IMM)
-				srcw = (unsigned char)srcw;
+				srcw = (sljit_ub)srcw;
 			break;
 		case SLJIT_MOVU_SB:
 			flags = BYTE_SIZE | SIGNED | UPDATE;
 			if (src & SLJIT_IMM)
-				srcw = (signed char)srcw;
+				srcw = (sljit_b)srcw;
 			break;
 		case SLJIT_MOVU_UH:
 			flags = HALF_SIZE | UPDATE;
 			if (src & SLJIT_IMM)
-				srcw = (unsigned short)srcw;
+				srcw = (sljit_uh)srcw;
 			break;
 		case SLJIT_MOVU_SH:
 			flags = HALF_SIZE | SIGNED | UPDATE;
 			if (src & SLJIT_IMM)
-				srcw = (signed short)srcw;
+				srcw = (sljit_h)srcw;
 			break;
 		default:
 			SLJIT_ASSERT_STOP();

@@ -48,6 +48,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	case SLJIT_MOV:
 	case SLJIT_MOV_UI:
 	case SLJIT_MOV_SI:
+	case SLJIT_MOV_P:
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		if (dst != src2)
 			return push_inst(compiler, OR | S(src2) | A(dst) | B(src2));
