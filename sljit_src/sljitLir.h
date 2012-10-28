@@ -377,8 +377,8 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 
 /* Really fast calling method for utility functions inside sljit (see SLJIT_FAST_CALL).
    All registers and even the stack frame is passed to the callee. The return address is
-   preserved in dst/dstw by sljit_emit_fast_enter (the size of the address is the same as
-   sljit_p), and sljit_emit_fast_return can use this as a return value later. */
+   preserved in dst/dstw by sljit_emit_fast_enter (the type of the value stored by this
+   function is sljit_p), and sljit_emit_fast_return can use this as a return value later. */
 
 /* Note: only for sljit specific, non ABI compilant calls. Fast, since only a few machine
    instructions are needed. Excellent for small uility functions, where saving registers
