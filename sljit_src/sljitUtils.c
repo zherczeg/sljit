@@ -251,7 +251,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(slj
 	}
 #else
 #ifdef MAP_ANON
-	base.ptr = mmap(0, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+	base.ptr = mmap(NULL, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 #else
 	if (dev_zero < 0) {
 		if (open_dev_zero()) {
@@ -259,7 +259,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(slj
 			return NULL;
 		}
 	}
-	base.ptr = mmap(0, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE, dev_zero, 0);
+	base.ptr = mmap(NULL, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE, dev_zero, 0);
 #endif
 	if (base.ptr == MAP_FAILED) {
 		SLJIT_FREE(stack);
