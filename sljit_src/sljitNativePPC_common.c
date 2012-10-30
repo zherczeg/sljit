@@ -83,8 +83,8 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 #define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
 #define ZERO_REG	(SLJIT_NO_REGISTERS + 4)
 
-#define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
-#define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
+#define TMP_FREG1	(0)
+#define TMP_FREG2	(SLJIT_FLOAT_REG6 + 1)
 
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 	0, 3, 4, 5, 6, 7, 30, 29, 28, 27, 26, 1, 8, 9, 10, 31
@@ -1506,12 +1506,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler
 	compiler->cache_argw = 0;
 
 	if (GET_OPCODE(op) == SLJIT_FCMP) {
-		if (dst > SLJIT_FLOAT_REG4) {
+		if (dst > SLJIT_FLOAT_REG6) {
 			FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, dst, dstw, src, srcw));
 			dst = TMP_FREG1;
 		}
 
-		if (src > SLJIT_FLOAT_REG4) {
+		if (src > SLJIT_FLOAT_REG6) {
 			FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src, srcw, 0, 0));
 			src = TMP_FREG2;
 		}
@@ -1519,9 +1519,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler
 		return push_inst(compiler, FCMPU | CRD(4) | FA(dst) | FB(src));
 	}
 
-	dst_fr = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+	dst_fr = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG1 : dst;
 
-	if (src > SLJIT_FLOAT_REG4) {
+	if (src > SLJIT_FLOAT_REG6) {
 		FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, dst_fr, src, srcw, dst, dstw));
 		src = dst_fr;
 	}
@@ -1561,9 +1561,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_fr = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG2 : dst;
+	dst_fr = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG2 : dst;
 
-	if (src1 > SLJIT_FLOAT_REG4) {
+	if (src1 > SLJIT_FLOAT_REG6) {
 		if (getput_arg_fast(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w)) {
 			FAIL_IF(compiler->error);
 			src1 = TMP_FREG1;
@@ -1571,7 +1571,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 			flags |= ALT_FORM1;
 	}
 
-	if (src2 > SLJIT_FLOAT_REG4) {
+	if (src2 > SLJIT_FLOAT_REG6) {
 		if (getput_arg_fast(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w)) {
 			FAIL_IF(compiler->error);
 			src2 = TMP_FREG2;

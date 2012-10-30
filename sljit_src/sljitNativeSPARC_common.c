@@ -64,8 +64,8 @@ static void sparc_cache_flush(sljit_ins *from, sljit_ins *to)
 #define TMP_REG4	(SLJIT_NO_REGISTERS + 4)
 #define LINK_REG	(SLJIT_NO_REGISTERS + 5)
 
-#define TMP_FREG1	((SLJIT_FLOAT_REG4 + 1) << 1)
-#define TMP_FREG2	((SLJIT_FLOAT_REG4 + 2) << 1)
+#define TMP_FREG1	(0)
+#define TMP_FREG2	((SLJIT_FLOAT_REG6 + 1) << 1)
 
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 7] = {
 	0, 8, 9, 10, 11, 12, 16, 17, 18, 19, 20, 14, 1, 24, 25, 26, 15
@@ -913,14 +913,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler
 	compiler->cache_argw = 0;
 
 	if (GET_OPCODE(op) == SLJIT_FCMP) {
-		if (dst > SLJIT_FLOAT_REG4) {
+		if (dst > SLJIT_FLOAT_REG6) {
 			FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, dst, dstw, src, srcw));
 			dst = TMP_FREG1;
 		}
 		else
 			dst <<= 1;
 
-		if (src > SLJIT_FLOAT_REG4) {
+		if (src > SLJIT_FLOAT_REG6) {
 			FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src, srcw, 0, 0));
 			src = TMP_FREG2;
 		}
@@ -930,9 +930,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler
 		return push_inst(compiler, FCMPD | S1A(dst) | S2A(src), FCC_IS_SET | MOVABLE_INS);
 	}
 
-	dst_fr = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : (dst << 1);
+	dst_fr = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG1 : (dst << 1);
 
-	if (src > SLJIT_FLOAT_REG4) {
+	if (src > SLJIT_FLOAT_REG6) {
 		FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, dst_fr, src, srcw, dst, dstw));
 		src = dst_fr;
 	}
@@ -980,9 +980,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_fr = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG2 : (dst << 1);
+	dst_fr = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG2 : (dst << 1);
 
-	if (src1 > SLJIT_FLOAT_REG4) {
+	if (src1 > SLJIT_FLOAT_REG6) {
 		if (getput_arg_fast(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w)) {
 			FAIL_IF(compiler->error);
 			src1 = TMP_FREG1;
@@ -992,7 +992,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 	else
 		src1 <<= 1;
 
-	if (src2 > SLJIT_FLOAT_REG4) {
+	if (src2 > SLJIT_FLOAT_REG6) {
 		if (getput_arg_fast(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w)) {
 			FAIL_IF(compiler->error);
 			src2 = TMP_FREG2;

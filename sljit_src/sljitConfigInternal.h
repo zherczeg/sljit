@@ -48,6 +48,7 @@
    sljit_w, sljit_uw : signed and unsigned machine word, enough to store a pointer
    sljit_p           : unsgined pointer value (usually the same as sljit_uw, but
                        some 64 bit ABIs may use 32 bit pointers)
+   sljit_s           : single precision floating point value
    sljit_d           : double precision floating point value
    SLJIT_CALL : C calling convention define for both calling JIT form C and C callbacks for JIT
    SLJIT_W(number) : defining 64 bit constants on 64 bit architectures (compiler independent helper)
@@ -276,6 +277,9 @@ typedef long int sljit_w;
 #endif
 
 typedef sljit_uw sljit_p;
+
+/* Floating point types. */
+typedef float sljit_s;
 typedef double sljit_d;
 
 /* Shift for pointer sized data. */

@@ -41,8 +41,8 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 #define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
 #define TMP_PC		(SLJIT_NO_REGISTERS + 4)
 
-#define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
-#define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
+#define TMP_FREG1	(0)
+#define TMP_FREG2	(SLJIT_FLOAT_REG6 + 1)
 
 /* In ARM instruction words.
    Cache lines are usually 32 byte aligned. */
@@ -2094,11 +2094,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler
 	compiler->cache_argw = 0;
 
 	if (GET_OPCODE(op) == SLJIT_FCMP) {
-		if (dst > SLJIT_FLOAT_REG4) {
+		if (dst > SLJIT_FLOAT_REG6) {
 			FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG1, 1, dst, dstw));
 			dst = TMP_FREG1;
 		}
-		if (src > SLJIT_FLOAT_REG4) {
+		if (src > SLJIT_FLOAT_REG6) {
 			FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src, srcw));
 			src = TMP_FREG2;
 		}
@@ -2107,9 +2107,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler
 		return SLJIT_SUCCESS;
 	}
 
-	dst_fr = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+	dst_fr = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG1 : dst;
 
-	if (src > SLJIT_FLOAT_REG4) {
+	if (src > SLJIT_FLOAT_REG6) {
 		FAIL_IF(emit_fpu_data_transfer(compiler, dst_fr, 1, src, srcw));
 		src = dst_fr;
 	}
@@ -2149,14 +2149,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_fr = (dst > SLJIT_FLOAT_REG4) ? TMP_FREG1 : dst;
+	dst_fr = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG1 : dst;
 
-	if (src2 > SLJIT_FLOAT_REG4) {
+	if (src2 > SLJIT_FLOAT_REG6) {
 		FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG2, 1, src2, src2w));
 		src2 = TMP_FREG2;
 	}
 
-	if (src1 > SLJIT_FLOAT_REG4) {
+	if (src1 > SLJIT_FLOAT_REG6) {
 		FAIL_IF(emit_fpu_data_transfer(compiler, TMP_FREG1, 1, src1, src1w));
 		src1 = TMP_FREG1;
 	}

@@ -394,6 +394,9 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_i s
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
 	/* SSE2 and immediate is not possible. */
 	SLJIT_ASSERT(!(a & SLJIT_IMM) || !(flags & EX86_SSE2));
+	SLJIT_ASSERT((flags & (EX86_PREF_F2 | EX86_PREF_F3)) != (EX86_PREF_F2 | EX86_PREF_F3)
+		&& (flags & (EX86_PREF_F2 | EX86_PREF_66)) != (EX86_PREF_F2 | EX86_PREF_66)
+		&& (flags & (EX86_PREF_F3 | EX86_PREF_66)) != (EX86_PREF_F3 | EX86_PREF_66));
 #endif
 
 	size &= 0xf;
@@ -415,7 +418,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_i s
 		rex |= REX;
 
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
-	if (flags & EX86_PREF_F2)
+	if (flags & (EX86_PREF_F2 | EX86_PREF_F3))
 		inst_size++;
 #endif
 	if (flags & EX86_PREF_66)
@@ -499,6 +502,8 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_i s
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
 	if (flags & EX86_PREF_F2)
 		*buf++ = 0xf2;
+	if (flags & EX86_PREF_F3)
+		*buf++ = 0xf3;
 #endif
 	if (flags & EX86_PREF_66)
 		*buf++ = 0x66;
