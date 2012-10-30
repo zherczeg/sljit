@@ -98,12 +98,17 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 7] = {
 #define CALL		(OPC1(0x1))
 #define FABSS		(OPC1(0x2) | OPC3(0x34) | DOP(0x09))
 #define FADDD		(OPC1(0x2) | OPC3(0x34) | DOP(0x42))
+#define FADDS		(OPC1(0x2) | OPC3(0x34) | DOP(0x41))
 #define FCMPD		(OPC1(0x2) | OPC3(0x35) | DOP(0x52))
+#define FCMPS		(OPC1(0x2) | OPC3(0x35) | DOP(0x51))
 #define FDIVD		(OPC1(0x2) | OPC3(0x34) | DOP(0x4e))
+#define FDIVS		(OPC1(0x2) | OPC3(0x34) | DOP(0x4d))
 #define FMOVS		(OPC1(0x2) | OPC3(0x34) | DOP(0x01))
 #define FMULD		(OPC1(0x2) | OPC3(0x34) | DOP(0x4a))
+#define FMULS		(OPC1(0x2) | OPC3(0x34) | DOP(0x49))
 #define FNEGS		(OPC1(0x2) | OPC3(0x34) | DOP(0x05))
 #define FSUBD		(OPC1(0x2) | OPC3(0x34) | DOP(0x46))
+#define FSUBS		(OPC1(0x2) | OPC3(0x34) | DOP(0x45))
 #define JMPL		(OPC1(0x2) | OPC3(0x38))
 #define NOP		(OPC1(0x0) | OPC2(0x04))
 #define OR		(OPC1(0x2) | OPC3(0x02))
@@ -451,7 +456,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_return(struct sljit_compiler *compil
 #define ARCH_32_64(a, b)	b
 #endif
 
-static SLJIT_CONST sljit_ins data_transfer_insts[16 + 2] = {
+static SLJIT_CONST sljit_ins data_transfer_insts[16 + 4] = {
 /* u w s */ ARCH_32_64(OPC1(3) | OPC3(0x04) /* stw */, OPC1(3) | OPC3(0x0e) /* stx */),
 /* u w l */ ARCH_32_64(OPC1(3) | OPC3(0x00) /* lduw */, OPC1(3) | OPC3(0x0b) /* ldx */),
 /* u b s */ OPC1(3) | OPC3(0x05) /* stb */,
@@ -472,6 +477,8 @@ static SLJIT_CONST sljit_ins data_transfer_insts[16 + 2] = {
 
 /* d   s */ OPC1(3) | OPC3(0x27),
 /* d   l */ OPC1(3) | OPC3(0x23),
+/* s   s */ OPC1(3) | OPC3(0x24),
+/* s   l */ OPC1(3) | OPC3(0x20),
 };
 
 #undef ARCH_32_64
@@ -900,6 +907,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_is_fpu_available(void)
 	return 1;
 }
 
+#define FLOAT_DATA(op) (DOUBLE_DATA | ((op & SLJIT_SINGLE_OP) >> 7))
+#define SELECT_FOP(op, single, double) ((op & SLJIT_SINGLE_OP) ? single : double)
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler, sljit_i op,
 	sljit_i dst, sljit_w dstw,
 	sljit_i src, sljit_w srcw)
@@ -908,60 +918,62 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler
 
 	CHECK_ERROR();
 	check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw);
+	SLJIT_COMPILE_ASSERT((SLJIT_SINGLE_OP == 0x100) && !(DOUBLE_DATA & 0x2), float_transfer_bit_error);
 
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
 	if (GET_OPCODE(op) == SLJIT_FCMP) {
 		if (dst > SLJIT_FLOAT_REG6) {
-			FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, dst, dstw, src, srcw));
+			FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, dst, dstw, src, srcw));
 			dst = TMP_FREG1;
 		}
 		else
 			dst <<= 1;
 
 		if (src > SLJIT_FLOAT_REG6) {
-			FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src, srcw, 0, 0));
+			FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG2, src, srcw, 0, 0));
 			src = TMP_FREG2;
 		}
 		else
 			src <<= 1;
 
-		return push_inst(compiler, FCMPD | S1A(dst) | S2A(src), FCC_IS_SET | MOVABLE_INS);
+		return push_inst(compiler, SELECT_FOP(op, FCMPS, FCMPD) | S1A(dst) | S2A(src), FCC_IS_SET | MOVABLE_INS);
 	}
 
 	dst_fr = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG1 : (dst << 1);
 
 	if (src > SLJIT_FLOAT_REG6) {
-		FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, dst_fr, src, srcw, dst, dstw));
+		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op) | LOAD_DATA, dst_fr, src, srcw, dst, dstw));
 		src = dst_fr;
 	}
 	else
 		src <<= 1;
 
-	switch (op) {
+	switch (GET_OPCODE(op)) {
 		case SLJIT_FMOV:
 			if (src != dst_fr && dst_fr != TMP_FREG1) {
 				FAIL_IF(push_inst(compiler, FMOVS | DA(dst_fr) | S2A(src), MOVABLE_INS));
-				FAIL_IF(push_inst(compiler, FMOVS | DA(dst_fr | 1) | S2A(src | 1), MOVABLE_INS));
+				if (!(op & SLJIT_SINGLE_OP))
+					FAIL_IF(push_inst(compiler, FMOVS | DA(dst_fr | 1) | S2A(src | 1), MOVABLE_INS));
 			}
 			break;
 		case SLJIT_FNEG:
 			FAIL_IF(push_inst(compiler, FNEGS | DA(dst_fr) | S2A(src), MOVABLE_INS));
-			if (dst_fr != src)
+			if (dst_fr != src && !(op & SLJIT_SINGLE_OP))
 				FAIL_IF(push_inst(compiler, FMOVS | DA(dst_fr | 1) | S2A(src | 1), MOVABLE_INS));
 			break;
 		case SLJIT_FABS:
 			FAIL_IF(push_inst(compiler, FABSS | DA(dst_fr) | S2A(src), MOVABLE_INS));
-			if (dst_fr != src)
+			if (dst_fr != src && !(op & SLJIT_SINGLE_OP))
 				FAIL_IF(push_inst(compiler, FMOVS | DA(dst_fr | 1) | S2A(src | 1), MOVABLE_INS));
 			break;
 	}
 
 	if (dst_fr == TMP_FREG1) {
-		if (op == SLJIT_FMOV)
+		if (GET_OPCODE(op) == SLJIT_FMOV)
 			dst_fr = src;
-		FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA, dst_fr, dst, dstw, 0, 0));
+		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op), dst_fr, dst, dstw, 0, 0));
 	}
 
 	return SLJIT_SUCCESS;
@@ -983,7 +995,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 	dst_fr = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG2 : (dst << 1);
 
 	if (src1 > SLJIT_FLOAT_REG6) {
-		if (getput_arg_fast(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w)) {
+		if (getput_arg_fast(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, src1, src1w)) {
 			FAIL_IF(compiler->error);
 			src1 = TMP_FREG1;
 		} else
@@ -993,7 +1005,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 		src1 <<= 1;
 
 	if (src2 > SLJIT_FLOAT_REG6) {
-		if (getput_arg_fast(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w)) {
+		if (getput_arg_fast(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG2, src2, src2w)) {
 			FAIL_IF(compiler->error);
 			src2 = TMP_FREG2;
 		} else
@@ -1004,47 +1016,50 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 
 	if ((flags & (SLOW_SRC1 | SLOW_SRC2)) == (SLOW_SRC1 | SLOW_SRC2)) {
 		if (!can_cache(src1, src1w, src2, src2w) && can_cache(src1, src1w, dst, dstw)) {
-			FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w, src1, src1w));
-			FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w, dst, dstw));
+			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG2, src2, src2w, src1, src1w));
+			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, src1, src1w, dst, dstw));
 		}
 		else {
-			FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w, src2, src2w));
-			FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w, dst, dstw));
+			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, src1, src1w, src2, src2w));
+			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG2, src2, src2w, dst, dstw));
 		}
 	}
 	else if (flags & SLOW_SRC1)
-		FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w, dst, dstw));
+		FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, src1, src1w, dst, dstw));
 	else if (flags & SLOW_SRC2)
-		FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w, dst, dstw));
+		FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG2, src2, src2w, dst, dstw));
 
 	if (flags & SLOW_SRC1)
 		src1 = TMP_FREG1;
 	if (flags & SLOW_SRC2)
 		src2 = TMP_FREG2;
 
-	switch (op) {
+	switch (GET_OPCODE(op)) {
 	case SLJIT_FADD:
-		FAIL_IF(push_inst(compiler, FADDD | DA(dst_fr) | S1A(src1) | S2A(src2), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FADDS, FADDD) | DA(dst_fr) | S1A(src1) | S2A(src2), MOVABLE_INS));
 		break;
 
 	case SLJIT_FSUB:
-		FAIL_IF(push_inst(compiler, FSUBD | DA(dst_fr) | S1A(src1) | S2A(src2), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FSUBS, FSUBD) | DA(dst_fr) | S1A(src1) | S2A(src2), MOVABLE_INS));
 		break;
 
 	case SLJIT_FMUL:
-		FAIL_IF(push_inst(compiler, FMULD | DA(dst_fr) | S1A(src1) | S2A(src2), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FMULS, FMULD) | DA(dst_fr) | S1A(src1) | S2A(src2), MOVABLE_INS));
 		break;
 
 	case SLJIT_FDIV:
-		FAIL_IF(push_inst(compiler, FDIVD | DA(dst_fr) | S1A(src1) | S2A(src2), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FDIVS, FDIVD) | DA(dst_fr) | S1A(src1) | S2A(src2), MOVABLE_INS));
 		break;
 	}
 
 	if (dst_fr == TMP_FREG2)
-		FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA, TMP_FREG2, dst, dstw, 0, 0));
+		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op), TMP_FREG2, dst, dstw, 0, 0));
 
 	return SLJIT_SUCCESS;
 }
+
+#undef FLOAT_DATA
+#undef SELECT_FOP
 
 /* --------------------------------------------------------------------- */
 /*  Other instructions                                                   */

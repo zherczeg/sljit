@@ -87,10 +87,11 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
 #define DR(dr)		(reg_map[dr])
 #define HI(opcode)	((opcode) << 26)
 #define LO(opcode)	(opcode)
-#define FMT_D		(17 << 21)
+/* S = (16 << 21) D = (17 << 21) */
+#define FMT_SD		(16 << 21)
 
-#define ABS_D		(HI(17) | FMT_D | LO(5))
-#define ADD_D		(HI(17) | FMT_D | LO(0))
+#define ABS_fmt		(HI(17) | FMT_SD | LO(5))
+#define ADD_fmt		(HI(17) | FMT_SD | LO(0))
 #define ADDU		(HI(0) | LO(33))
 #define ADDIU		(HI(9))
 #define AND		(HI(0) | LO(36))
@@ -106,13 +107,14 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
 #define BLTZ		(HI(1) | (0 << 16))
 #define BNE		(HI(5))
 #define BREAK		(HI(0) | LO(13))
-#define C_UN_D		(HI(17) | FMT_D | LO(49))
-#define C_UEQ_D		(HI(17) | FMT_D | LO(51))
-#define C_ULE_D		(HI(17) | FMT_D | LO(55))
-#define C_ULT_D		(HI(17) | FMT_D | LO(53))
+#define CFC1		(HI(17) | (2 << 21))
+#define C_UN_fmt	(HI(17) | FMT_SD | LO(49))
+#define C_UEQ_fmt	(HI(17) | FMT_SD | LO(51))
+#define C_ULE_fmt	(HI(17) | FMT_SD | LO(55))
+#define C_ULT_fmt	(HI(17) | FMT_SD | LO(53))
 #define DIV		(HI(0) | LO(26))
 #define DIVU		(HI(0) | LO(27))
-#define DIV_D		(HI(17) | FMT_D | LO(3))
+#define DIV_fmt		(HI(17) | FMT_SD | LO(3))
 #define J		(HI(2))
 #define JAL		(HI(3))
 #define JALR		(HI(0) | LO(9))
@@ -120,16 +122,15 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
 #define LD		(HI(55))
 #define LUI		(HI(15))
 #define LW		(HI(35))
-#define NEG_D		(HI(17) | FMT_D | LO(7))
 #define MFHI		(HI(0) | LO(16))
 #define MFLO		(HI(0) | LO(18))
-#define MOV_D		(HI(17) | FMT_D | LO(6))
-#define CFC1		(HI(17) | (2 << 21))
+#define MOV_fmt		(HI(17) | FMT_SD | LO(6))
 #define MOVN		(HI(0) | LO(11))
 #define MOVZ		(HI(0) | LO(10))
-#define MUL_D		(HI(17) | FMT_D | LO(2))
+#define MUL_fmt		(HI(17) | FMT_SD | LO(2))
 #define MULT		(HI(0) | LO(24))
 #define MULTU		(HI(0) | LO(25))
+#define NEG_fmt		(HI(17) | FMT_SD | LO(7))
 #define NOP		(HI(0) | LO(0))
 #define NOR		(HI(0) | LO(39))
 #define OR		(HI(0) | LO(37))
@@ -145,7 +146,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
 #define SRLV		(HI(0) | LO(6))
 #define SRA		(HI(0) | LO(3))
 #define SRAV		(HI(0) | LO(7))
-#define SUB_D		(HI(17) | FMT_D | LO(1))
+#define SUB_fmt		(HI(17) | FMT_SD | LO(1))
 #define SUBU		(HI(0) | LO(35))
 #define SW		(HI(43))
 #define XOR		(HI(0) | LO(38))
@@ -572,7 +573,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_return(struct sljit_compiler *compil
 #define ARCH_32_64(a, b)	b
 #endif
 
-static SLJIT_CONST sljit_ins data_transfer_insts[16 + 2] = {
+static SLJIT_CONST sljit_ins data_transfer_insts[16 + 4] = {
 /* u w s */ ARCH_32_64(HI(43) /* sw */, HI(63) /* sd */),
 /* u w l */ ARCH_32_64(HI(35) /* lw */, HI(55) /* ld */),
 /* u b s */ HI(40) /* sb */,
@@ -593,6 +594,8 @@ static SLJIT_CONST sljit_ins data_transfer_insts[16 + 2] = {
 
 /* d   s */ HI(61) /* sdc1 */,
 /* d   l */ HI(53) /* ldc1 */,
+/* s   s */ HI(57) /* swc1 */,
+/* s   l */ HI(49) /* lwc1 */,
 };
 
 #undef ARCH_32_64
@@ -1114,6 +1117,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_is_fpu_available(void)
 #endif
 }
 
+#define FLOAT_DATA(op) (DOUBLE_DATA | ((op & SLJIT_SINGLE_OP) >> 7))
+#define FMT(op) (((op & SLJIT_SINGLE_OP) ^ SLJIT_SINGLE_OP) << (21 - 8))
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler, sljit_i op,
 	sljit_i dst, sljit_w dstw,
 	sljit_i src, sljit_w srcw)
@@ -1122,20 +1128,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler
 
 	CHECK_ERROR();
 	check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw);
+	SLJIT_COMPILE_ASSERT((SLJIT_SINGLE_OP == 0x100) && !(DOUBLE_DATA & 0x2), float_transfer_bit_error);
 
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
 	if (GET_OPCODE(op) == SLJIT_FCMP) {
 		if (dst > SLJIT_FLOAT_REG6) {
-			FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, dst, dstw, src, srcw));
+			FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, dst, dstw, src, srcw));
 			dst = TMP_FREG1;
 		}
 		else
 			dst <<= 1;
 
 		if (src > SLJIT_FLOAT_REG6) {
-			FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src, srcw, 0, 0));
+			FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG2, src, srcw, 0, 0));
 			src = TMP_FREG2;
 		}
 		else
@@ -1143,51 +1150,51 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler
 
 		/* src and dst are swapped. */
 		if (op & SLJIT_SET_E) {
-			FAIL_IF(push_inst(compiler, C_UEQ_D | FT(src) | FS(dst), UNMOVABLE_INS));
+			FAIL_IF(push_inst(compiler, C_UEQ_fmt | FMT(op) | FT(src) | FS(dst), UNMOVABLE_INS));
 			FAIL_IF(push_inst(compiler, CFC1 | TA(EQUAL_FLAG) | DA(FCSR_REG), EQUAL_FLAG));
 			FAIL_IF(push_inst(compiler, SRL | TA(EQUAL_FLAG) | DA(EQUAL_FLAG) | SH_IMM(23), EQUAL_FLAG));
 			FAIL_IF(push_inst(compiler, ANDI | SA(EQUAL_FLAG) | TA(EQUAL_FLAG) | IMM(1), EQUAL_FLAG));
 		}
 		if (op & SLJIT_SET_S) {
 			/* Mixing the instructions for the two checks. */
-			FAIL_IF(push_inst(compiler, C_ULT_D | FT(src) | FS(dst), UNMOVABLE_INS));
+			FAIL_IF(push_inst(compiler, C_ULT_fmt | FMT(op) | FT(src) | FS(dst), UNMOVABLE_INS));
 			FAIL_IF(push_inst(compiler, CFC1 | TA(ULESS_FLAG) | DA(FCSR_REG), ULESS_FLAG));
-			FAIL_IF(push_inst(compiler, C_ULT_D | FT(dst) | FS(src), UNMOVABLE_INS));
+			FAIL_IF(push_inst(compiler, C_ULT_fmt | FMT(op) | FT(dst) | FS(src), UNMOVABLE_INS));
 			FAIL_IF(push_inst(compiler, SRL | TA(ULESS_FLAG) | DA(ULESS_FLAG) | SH_IMM(23), ULESS_FLAG));
 			FAIL_IF(push_inst(compiler, ANDI | SA(ULESS_FLAG) | TA(ULESS_FLAG) | IMM(1), ULESS_FLAG));
 			FAIL_IF(push_inst(compiler, CFC1 | TA(UGREATER_FLAG) | DA(FCSR_REG), UGREATER_FLAG));
 			FAIL_IF(push_inst(compiler, SRL | TA(UGREATER_FLAG) | DA(UGREATER_FLAG) | SH_IMM(23), UGREATER_FLAG));
 			FAIL_IF(push_inst(compiler, ANDI | SA(UGREATER_FLAG) | TA(UGREATER_FLAG) | IMM(1), UGREATER_FLAG));
 		}
-		return push_inst(compiler, C_UN_D | FT(src) | FS(dst), FCSR_FCC);
+		return push_inst(compiler, C_UN_fmt | FMT(op) | FT(src) | FS(dst), FCSR_FCC);
 	}
 
 	dst_fr = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG1 : (dst << 1);
 
 	if (src > SLJIT_FLOAT_REG6) {
-		FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, dst_fr, src, srcw, dst, dstw));
+		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op) | LOAD_DATA, dst_fr, src, srcw, dst, dstw));
 		src = dst_fr;
 	}
 	else
 		src <<= 1;
 
-	switch (op) {
+	switch (GET_OPCODE(op)) {
 		case SLJIT_FMOV:
 			if (src != dst_fr && dst_fr != TMP_FREG1)
-				FAIL_IF(push_inst(compiler, MOV_D | FS(src) | FD(dst_fr), MOVABLE_INS));
+				FAIL_IF(push_inst(compiler, MOV_fmt | FMT(op) | FS(src) | FD(dst_fr), MOVABLE_INS));
 			break;
 		case SLJIT_FNEG:
-			FAIL_IF(push_inst(compiler, NEG_D | FS(src) | FD(dst_fr), MOVABLE_INS));
+			FAIL_IF(push_inst(compiler, NEG_fmt | FMT(op) | FS(src) | FD(dst_fr), MOVABLE_INS));
 			break;
 		case SLJIT_FABS:
-			FAIL_IF(push_inst(compiler, ABS_D | FS(src) | FD(dst_fr), MOVABLE_INS));
+			FAIL_IF(push_inst(compiler, ABS_fmt | FMT(op) | FS(src) | FD(dst_fr), MOVABLE_INS));
 			break;
 	}
 
 	if (dst_fr == TMP_FREG1) {
-		if (op == SLJIT_FMOV)
+		if (GET_OPCODE(op) == SLJIT_FMOV)
 			dst_fr = src;
-		FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA, dst_fr, dst, dstw, 0, 0));
+		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op), dst_fr, dst, dstw, 0, 0));
 	}
 
 	return SLJIT_SUCCESS;
@@ -1209,7 +1216,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 	dst_fr = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG2 : (dst << 1);
 
 	if (src1 > SLJIT_FLOAT_REG6) {
-		if (getput_arg_fast(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w)) {
+		if (getput_arg_fast(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, src1, src1w)) {
 			FAIL_IF(compiler->error);
 			src1 = TMP_FREG1;
 		} else
@@ -1219,7 +1226,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 		src1 <<= 1;
 
 	if (src2 > SLJIT_FLOAT_REG6) {
-		if (getput_arg_fast(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w)) {
+		if (getput_arg_fast(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG2, src2, src2w)) {
 			FAIL_IF(compiler->error);
 			src2 = TMP_FREG2;
 		} else
@@ -1230,44 +1237,44 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 
 	if ((flags & (SLOW_SRC1 | SLOW_SRC2)) == (SLOW_SRC1 | SLOW_SRC2)) {
 		if (!can_cache(src1, src1w, src2, src2w) && can_cache(src1, src1w, dst, dstw)) {
-			FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w, src1, src1w));
-			FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w, dst, dstw));
+			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG2, src2, src2w, src1, src1w));
+			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, src1, src1w, dst, dstw));
 		}
 		else {
-			FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w, src2, src2w));
-			FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w, dst, dstw));
+			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, src1, src1w, src2, src2w));
+			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG2, src2, src2w, dst, dstw));
 		}
 	}
 	else if (flags & SLOW_SRC1)
-		FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w, dst, dstw));
+		FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, src1, src1w, dst, dstw));
 	else if (flags & SLOW_SRC2)
-		FAIL_IF(getput_arg(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w, dst, dstw));
+		FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG2, src2, src2w, dst, dstw));
 
 	if (flags & SLOW_SRC1)
 		src1 = TMP_FREG1;
 	if (flags & SLOW_SRC2)
 		src2 = TMP_FREG2;
 
-	switch (op) {
+	switch (GET_OPCODE(op)) {
 	case SLJIT_FADD:
-		FAIL_IF(push_inst(compiler, ADD_D | FT(src2) | FS(src1) | FD(dst_fr), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, ADD_fmt | FMT(op) | FT(src2) | FS(src1) | FD(dst_fr), MOVABLE_INS));
 		break;
 
 	case SLJIT_FSUB:
-		FAIL_IF(push_inst(compiler, SUB_D | FT(src2) | FS(src1) | FD(dst_fr), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, SUB_fmt | FMT(op) | FT(src2) | FS(src1) | FD(dst_fr), MOVABLE_INS));
 		break;
 
 	case SLJIT_FMUL:
-		FAIL_IF(push_inst(compiler, MUL_D | FT(src2) | FS(src1) | FD(dst_fr), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, MUL_fmt | FMT(op) | FT(src2) | FS(src1) | FD(dst_fr), MOVABLE_INS));
 		break;
 
 	case SLJIT_FDIV:
-		FAIL_IF(push_inst(compiler, DIV_D | FT(src2) | FS(src1) | FD(dst_fr), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, DIV_fmt | FMT(op) | FT(src2) | FS(src1) | FD(dst_fr), MOVABLE_INS));
 		break;
 	}
 
 	if (dst_fr == TMP_FREG2)
-		FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA, TMP_FREG2, dst, dstw, 0, 0));
+		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op), TMP_FREG2, dst, dstw, 0, 0));
 
 	return SLJIT_SUCCESS;
 }
@@ -1607,14 +1614,14 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 	compiler->cache_argw = 0;
 
 	if (src1 > SLJIT_FLOAT_REG6) {
-		PTR_FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src1, src1w, src2, src2w));
+		PTR_FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(type) | LOAD_DATA, TMP_FREG1, src1, src1w, src2, src2w));
 		src1 = TMP_FREG1;
 	}
 	else
 		src1 <<= 1;
 
 	if (src2 > SLJIT_FLOAT_REG6) {
-		PTR_FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, src2, src2w, 0, 0));
+		PTR_FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(type) | LOAD_DATA, TMP_FREG2, src2, src2w, 0, 0));
 		src2 = TMP_FREG2;
 	}
 	else
@@ -1624,45 +1631,44 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 	PTR_FAIL_IF(!jump);
 	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 	jump->flags |= IS_BIT16_COND;
-	type &= 0xff;
 
-	switch (type) {
+	switch (type & 0xff) {
 	case SLJIT_C_FLOAT_EQUAL:
-		inst = C_UEQ_D;
+		inst = C_UEQ_fmt;
 		if_true = 1;
 		break;
 	case SLJIT_C_FLOAT_NOT_EQUAL:
-		inst = C_UEQ_D;
+		inst = C_UEQ_fmt;
 		if_true = 0;
 		break;
 	case SLJIT_C_FLOAT_LESS:
-		inst = C_ULT_D;
+		inst = C_ULT_fmt;
 		if_true = 1;
 		break;
 	case SLJIT_C_FLOAT_GREATER_EQUAL:
-		inst = C_ULT_D;
+		inst = C_ULT_fmt;
 		if_true = 0;
 		break;
 	case SLJIT_C_FLOAT_GREATER:
-		inst = C_ULE_D;
+		inst = C_ULE_fmt;
 		if_true = 0;
 		break;
 	case SLJIT_C_FLOAT_LESS_EQUAL:
-		inst = C_ULE_D;
+		inst = C_ULE_fmt;
 		if_true = 1;
 		break;
 	case SLJIT_C_FLOAT_UNORDERED:
-		inst = C_UN_D;
+		inst = C_UN_fmt;
 		if_true = 1;
 		break;
 	case SLJIT_C_FLOAT_ORDERED:
 	default: /* Make compilers happy. */
-		inst = C_UN_D;
+		inst = C_UN_fmt;
 		if_true = 0;
 		break;
 	}
 
-	PTR_FAIL_IF(push_inst(compiler, inst | FT(src2) | FS(src1), UNMOVABLE_INS));
+	PTR_FAIL_IF(push_inst(compiler, inst | FMT(type) | FT(src2) | FS(src1), UNMOVABLE_INS));
 	/* Intentionally the other opcode. */
 	PTR_FAIL_IF(push_inst(compiler, (if_true ? BC1F : BC1T) | JUMP_LENGTH, UNMOVABLE_INS));
 	PTR_FAIL_IF(emit_const(compiler, TMP_REG2, 0));
@@ -1677,6 +1683,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 #undef BR_NZ
 #undef BR_T
 #undef BR_F
+
+#undef FLOAT_DATA
+#undef FMT
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_ijump(struct sljit_compiler *compiler, sljit_i type, sljit_i src, sljit_w srcw)
 {
