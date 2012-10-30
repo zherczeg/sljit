@@ -26,7 +26,7 @@
 
 /* x86 32-bit arch dependent functions. */
 
-static int emit_do_imm(struct sljit_compiler *compiler, sljit_ub opcode, sljit_w imm)
+static sljit_i emit_do_imm(struct sljit_compiler *compiler, sljit_ub opcode, sljit_w imm)
 {
 	sljit_ub *buf;
 
@@ -38,7 +38,7 @@ static int emit_do_imm(struct sljit_compiler *compiler, sljit_ub opcode, sljit_w
 	return SLJIT_SUCCESS;
 }
 
-static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_ptr, int type)
+static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_ptr, sljit_i type)
 {
 	if (type == SLJIT_JUMP) {
 		*code_ptr++ = 0xe9;
@@ -63,10 +63,10 @@ static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_
 	return code_ptr;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, int args, int temporaries, int saveds, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_enter(struct sljit_compiler *compiler, sljit_i args, sljit_i temporaries, sljit_i saveds, sljit_i local_size)
 {
-	int size;
-	int locals_offset;
+	sljit_i size;
+	sljit_i locals_offset;
 	sljit_ub *buf;
 
 	CHECK_ERROR();
@@ -161,9 +161,9 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_enter(struct sljit_compiler *compiler, i
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, int args, int temporaries, int saveds, int local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_i args, sljit_i temporaries, sljit_i saveds, sljit_i local_size)
 {
-	int locals_offset;
+	sljit_i locals_offset;
 
 	CHECK_ERROR_VOID();
 	check_sljit_set_context(compiler, args, temporaries, saveds, local_size);
@@ -186,9 +186,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->local_size = locals_offset + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
 }
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, int op, int src, sljit_w srcw)
+SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_return(struct sljit_compiler *compiler, sljit_i op, sljit_i src, sljit_w srcw)
 {
-	int size;
+	sljit_i size;
 	sljit_ub *buf;
 
 	CHECK_ERROR();
@@ -242,16 +242,16 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_return(struct sljit_compiler *compiler, 
 /* --------------------------------------------------------------------- */
 
 /* Size contains the flags as well. */
-static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
+static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_i size,
 	/* The register or immediate operand. */
-	int a, sljit_w imma,
+	sljit_i a, sljit_w imma,
 	/* The general operand (not immediate). */
-	int b, sljit_w immb)
+	sljit_i b, sljit_w immb)
 {
 	sljit_ub *buf;
 	sljit_ub *buf_ptr;
-	int flags = size & ~0xf;
-	int inst_size;
+	sljit_i flags = size & ~0xf;
+	sljit_i inst_size;
 
 	/* Both cannot be switched on. */
 	SLJIT_ASSERT((flags & (EX86_BIN_INS | EX86_SHIFT_INS)) != (EX86_BIN_INS | EX86_SHIFT_INS));
@@ -419,7 +419,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, int size,
 /*  Call / return instructions                                           */
 /* --------------------------------------------------------------------- */
 
-static SLJIT_INLINE int call_with_args(struct sljit_compiler *compiler, int type)
+static SLJIT_INLINE sljit_i call_with_args(struct sljit_compiler *compiler, sljit_i type)
 {
 	sljit_ub *buf;
 
@@ -445,7 +445,7 @@ static SLJIT_INLINE int call_with_args(struct sljit_compiler *compiler, int type
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compiler, int dst, sljit_w dstw)
+SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fast_enter(struct sljit_compiler *compiler, sljit_i dst, sljit_w dstw)
 {
 	sljit_ub *buf;
 
@@ -479,7 +479,7 @@ SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_enter(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE int sljit_emit_fast_return(struct sljit_compiler *compiler, int src, sljit_w srcw)
+SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fast_return(struct sljit_compiler *compiler, sljit_i src, sljit_w srcw)
 {
 	sljit_ub *buf;
 

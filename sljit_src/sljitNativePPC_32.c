@@ -26,7 +26,7 @@
 
 /* ppc 32-bit arch dependent functions. */
 
-static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
+static sljit_i load_immediate(struct sljit_compiler *compiler, sljit_i reg, sljit_w imm)
 {
 	if (imm <= SIMM_MAX && imm >= SIMM_MIN)
 		return push_inst(compiler, ADDI | D(reg) | A(0) | IMM(imm));
@@ -41,8 +41,8 @@ static int load_immediate(struct sljit_compiler *compiler, int reg, sljit_w imm)
 #define INS_CLEAR_LEFT(dst, src, from) \
 	(RLWINM | S(src) | A(dst) | ((from) << 6) | (31 << 1))
 
-static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, int flags,
-	int dst, int src1, int src2)
+static SLJIT_INLINE sljit_i emit_single_op(struct sljit_compiler *compiler, sljit_i op, sljit_i flags,
+	sljit_i dst, sljit_i src1, sljit_i src2)
 {
 	switch (op) {
 	case SLJIT_MOV:
@@ -240,7 +240,7 @@ static SLJIT_INLINE int emit_single_op(struct sljit_compiler *compiler, int op, 
 	return SLJIT_SUCCESS;
 }
 
-static SLJIT_INLINE int emit_const(struct sljit_compiler *compiler, int reg, sljit_w init_value)
+static SLJIT_INLINE sljit_i emit_const(struct sljit_compiler *compiler, sljit_i reg, sljit_w init_value)
 {
 	FAIL_IF(push_inst(compiler, ADDIS | D(reg) | A(0) | IMM(init_value >> 16)));
 	return push_inst(compiler, ORI | S(reg) | A(reg) | IMM(init_value));

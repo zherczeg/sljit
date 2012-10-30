@@ -419,7 +419,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr);
 #ifndef SLJIT_ASSERT
 
 #define SLJIT_HALT_PROCESS() \
-	*((int*)0) = 0
+	*((sljit_i*)0) = 0
 
 #define SLJIT_ASSERT(x) \
 	do { \
