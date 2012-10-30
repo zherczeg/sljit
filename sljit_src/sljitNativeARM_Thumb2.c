@@ -38,8 +38,8 @@ typedef sljit_ui sljit_ins;
 #define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
 #define TMP_PC		(SLJIT_NO_REGISTERS + 4)
 
-#define TMP_FREG1	(SLJIT_FLOAT_REG4 + 1)
-#define TMP_FREG2	(SLJIT_FLOAT_REG4 + 2)
+#define TMP_FREG1	(0)
+#define TMP_FREG2	(SLJIT_FLOAT_REG6 + 1)
 
 /* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
@@ -1614,7 +1614,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler
 		return push_inst32(compiler, VMRS);
 	}
 
-	dst_r = (dst >= SLJIT_FLOAT_REG1 && dst <= SLJIT_FLOAT_REG4) ? dst : TMP_FREG1;
+	dst_r = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG1 : dst;
 	if (src & SLJIT_MEM) {
 		emit_fop_mem(compiler, 0, dst_r, src, srcw);
 		src = dst_r;
@@ -1651,7 +1651,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_r = (dst >= SLJIT_FLOAT_REG1 && dst <= SLJIT_FLOAT_REG4) ? dst : TMP_FREG1;
+	dst_r = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG1 : dst;
 	if (src1 & SLJIT_MEM) {
 		emit_fop_mem(compiler, 0, TMP_FREG1, src1, src1w);
 		src1 = TMP_FREG1;

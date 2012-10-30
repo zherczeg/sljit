@@ -153,6 +153,8 @@ of sljitConfigInternal.h */
 #define SLJIT_FLOAT_REG2	2
 #define SLJIT_FLOAT_REG3	3
 #define SLJIT_FLOAT_REG4	4
+#define SLJIT_FLOAT_REG5	5
+#define SLJIT_FLOAT_REG6	6
 
 /* --------------------------------------------------------------------- */
 /*  Main structures and functions                                        */
@@ -446,6 +448,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fast_return(struct sljit_compiler *c
    The addressing modes (SLJIT_MEM1/SLJIT_MEM2 macros) are unaffected by this flag. */
 #define SLJIT_INT_OP		0x100
 
+/* Single precision mode (SP). Affects sljit_emit_fop1, sljit_emit_fop2 and sljit_emit_fcmp. */
+#define SLJIT_SINGLE_OP		0x100
+
 /* Common CPU status flags for all architectures (x86, ARM, PPC)
     - carry flag
     - overflow flag
@@ -487,20 +492,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fast_return(struct sljit_compiler *c
    Note: may or may not cause an extra cycle wait
          it can even decrease the runtime in a few cases. */
 #define SLJIT_NOP			1
-/* Flags: may destroy flags
+/* Flags: - (may destroy flags)
    Unsigned multiplication of SLJIT_TEMPORARY_REG1 and SLJIT_TEMPORARY_REG2.
    Result goes to SLJIT_TEMPORARY_REG2:SLJIT_TEMPORARY_REG1 (high:low) word */
 #define SLJIT_UMUL			2
-/* Flags: may destroy flags
+/* Flags: - (may destroy flags)
    Signed multiplication of SLJIT_TEMPORARY_REG1 and SLJIT_TEMPORARY_REG2.
    Result goes to SLJIT_TEMPORARY_REG2:SLJIT_TEMPORARY_REG1 (high:low) word */
 #define SLJIT_SMUL			3
-/* Flags: I | may destroy flags
+/* Flags: I - (may destroy flags)
    Unsigned divide of the value in SLJIT_TEMPORARY_REG1 by the value in SLJIT_TEMPORARY_REG2.
    The result is placed in SLJIT_TEMPORARY_REG1 and the remainder goes to SLJIT_TEMPORARY_REG2.
    Note: if SLJIT_TEMPORARY_REG2 contains 0, the behaviour is undefined. */
 #define SLJIT_UDIV			4
-/* Flags: I | may destroy flags
+/* Flags: I - (may destroy flags)
    Signed divide of the value in SLJIT_TEMPORARY_REG1 by the value in SLJIT_TEMPORARY_REG2.
    The result is placed in SLJIT_TEMPORARY_REG1 and the remainder goes to SLJIT_TEMPORARY_REG2.
    Note: if SLJIT_TEMPORARY_REG2 contains 0, the behaviour is undefined. */
@@ -635,26 +640,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_is_fpu_available(void);
 /* Note: dst is the left and src is the right operand for SLJIT_FCMP.
    Note: NaN check is always performed. If SLJIT_C_FLOAT_UNORDERED is set,
          the comparison result is unpredictable.
-   Flags: E | S (see SLJIT_C_FLOAT_*) */
+   Flags: SP | E | S (see SLJIT_C_FLOAT_*) */
 #define SLJIT_FCMP			36
-/* Flags: - (never set any flags) */
+/* Flags: SP - (never set any flags) */
 #define SLJIT_FMOV			37
-/* Flags: - (never set any flags) */
+/* Flags: SP - (never set any flags) */
 #define SLJIT_FNEG			38
-/* Flags: - (never set any flags) */
+/* Flags: SP - (never set any flags) */
 #define SLJIT_FABS			39
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop1(struct sljit_compiler *compiler, sljit_i op,
 	sljit_i dst, sljit_w dstw,
 	sljit_i src, sljit_w srcw);
 
-/* Flags: - (never set any flags) */
+/* Flags: SP - (never set any flags) */
 #define SLJIT_FADD			40
-/* Flags: - (never set any flags) */
+/* Flags: SP - (never set any flags) */
 #define SLJIT_FSUB			41
-/* Flags: - (never set any flags) */
+/* Flags: SP - (never set any flags) */
 #define SLJIT_FMUL			42
-/* Flags: - (never set any flags) */
+/* Flags: SP - (never set any flags) */
 #define SLJIT_FDIV			43
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_i sljit_emit_fop2(struct sljit_compiler *compiler, sljit_i op,
@@ -733,7 +738,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
    special optimizations here. It is suggested to use this comparison form
    when appropriate.
     type must be between SLJIT_C_FLOAT_EQUAL and SLJIT_C_FLOAT_ORDERED
-    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
+    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP and SLJIT_SINGLE_OP
    Flags: destroy flags.
    Note: if either operand is NaN, the behaviour is undefined for
          type <= SLJIT_C_FLOAT_LESS_EQUAL. */

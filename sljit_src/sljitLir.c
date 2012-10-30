@@ -285,6 +285,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 		&& (sizeof(sljit_w) == 4 || sizeof(sljit_w) == 8)
 		&& (sizeof(sljit_uw) == 4 || sizeof(sljit_uw) == 8),
 		invalid_integer_types);
+	SLJIT_COMPILE_ASSERT(SLJIT_INT_OP == SLJIT_SINGLE_OP,
+		int_op_and_single_op_must_be_the_same);
+	SLJIT_COMPILE_ASSERT(SLJIT_REWRITABLE_JUMP != SLJIT_SINGLE_OP,
+		rewritable_jump_and_single_op_must_not_be_the_same);
 
 	/* Only the non-zero members must be set. */
 	compiler->error = SLJIT_SUCCESS;
@@ -539,7 +543,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		SLJIT_ASSERT(!(op & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_C))); \
 		break; \
 	case SLJIT_FCMP: \
-		SLJIT_ASSERT(!(op & (SLJIT_INT_OP | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
+		SLJIT_ASSERT(!(op & (SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
 		SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_SET_S))); \
 		break; \
 	case SLJIT_ADD: \
@@ -550,6 +554,15 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	case SLJIT_ADDC: \
 	case SLJIT_SUBC: \
 		SLJIT_ASSERT(!(op & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O))); \
+		break; \
+	case SLJIT_FMOV: \
+	case SLJIT_FNEG: \
+	case SLJIT_FABS: \
+	case SLJIT_FADD: \
+	case SLJIT_FMUL: \
+	case SLJIT_FSUB: \
+	case SLJIT_FDIV: \
+		SLJIT_ASSERT(!(op & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
 		break; \
 	default: \
 		/* Nothing allowed */ \
@@ -599,7 +612,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		SLJIT_ASSERT_STOP();
 
 #define FUNCTION_FCHECK(p, i) \
-	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG4) \
+	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG6) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
@@ -640,7 +653,8 @@ static char* reg_names[] = {
 };
 
 static char* freg_names[] = {
-	(char*)"<noreg>", (char*)"float_r1", (char*)"float_r2", (char*)"float_r3", (char*)"float_r4"
+	(char*)"<noreg>", (char*)"float_r1", (char*)"float_r2", (char*)"float_r3",
+	(char*)"float_r4", (char*)"float_r5", (char*)"float_r6"
 };
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
@@ -711,9 +725,9 @@ static SLJIT_CONST char* op_names[] = {
 	(char*)"mul", (char*)"and", (char*)"or", (char*)"xor",
 	(char*)"shl", (char*)"lshr", (char*)"ashr",
 	/* fop1 */
-	(char*)"fcmp", (char*)"fmov", (char*)"fneg", (char*)"fabs",
+	(char*)"cmp", (char*)"mov", (char*)"neg", (char*)"abs",
 	/* fop2 */
-	(char*)"fadd", (char*)"fsub", (char*)"fmul", (char*)"fdiv"
+	(char*)"add", (char*)"sub", (char*)"mul", (char*)"div"
 };
 
 static char* jump_names[] = {
@@ -1009,7 +1023,7 @@ static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, 
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s%s%s ", op_names[GET_OPCODE(op)],
+		fprintf(compiler->verbose, "  %s%s%s%s ", (op & SLJIT_SINGLE_OP) ? "s" : "d", op_names[GET_OPCODE(op)],
 			!(op & SLJIT_SET_E) ? "" : "E", !(op & SLJIT_SET_S) ? "" : "S");
 		sljit_verbose_fparam(dst, dstw);
 		fprintf(compiler->verbose, ", ");
@@ -1044,7 +1058,7 @@ static SLJIT_INLINE void check_sljit_emit_fop2(struct sljit_compiler *compiler, 
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s ", op_names[GET_OPCODE(op)]);
+		fprintf(compiler->verbose, "  %s%s ", (op & SLJIT_SINGLE_OP) ? "s" : "d", op_names[GET_OPCODE(op)]);
 		sljit_verbose_fparam(dst, dstw);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_fparam(src1, src1w);
@@ -1127,7 +1141,7 @@ static SLJIT_INLINE void check_sljit_emit_fcmp(struct sljit_compiler *compiler, 
 	SLJIT_UNUSED_ARG(src2w);
 
 	SLJIT_ASSERT(sljit_is_fpu_available());
-	SLJIT_ASSERT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP)));
+	SLJIT_ASSERT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_SINGLE_OP)));
 	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_FLOAT_EQUAL && (type & 0xff) <= SLJIT_C_FLOAT_ORDERED);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	FUNCTION_FCHECK(src1, src1w);
@@ -1135,7 +1149,8 @@ static SLJIT_INLINE void check_sljit_emit_fcmp(struct sljit_compiler *compiler, 
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  fcmp%s <%s> ", !(type & SLJIT_REWRITABLE_JUMP) ? "" : "R", jump_names[type & 0xff]);
+		fprintf(compiler->verbose, "  %scmpj%s <%s> ", (type & SLJIT_SINGLE_OP) ? "s" : "d",
+			!(type & SLJIT_REWRITABLE_JUMP) ? "" : "R", jump_names[type & 0xff]);
 		sljit_verbose_fparam(src1, src1w);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_fparam(src2, src2w);
@@ -1374,10 +1389,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 	check_sljit_emit_fcmp(compiler, type, src1, src1w, src2, src2w);
 
 	condition = type & 0xff;
-	if (condition <= SLJIT_C_FLOAT_NOT_EQUAL)
-		flags = SLJIT_SET_E;
-	else
-		flags = SLJIT_SET_S;
+	flags = (condition <= SLJIT_C_FLOAT_NOT_EQUAL) ? SLJIT_SET_E : SLJIT_SET_S;
+	if (type & SLJIT_SINGLE_OP)
+		flags |= SLJIT_SINGLE_OP;
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->skip_checks = 1;
