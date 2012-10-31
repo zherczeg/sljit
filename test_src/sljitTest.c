@@ -3779,9 +3779,17 @@ static void test45(void)
 
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_s buf[10];
+	sljit_s buf[12];
 	sljit_w buf2[6];
 	struct sljit_jump* jump;
+
+	if (!sljit_is_fpu_available()) {
+		printf("no fpu available, test45 skipped\n");
+		successful_tests++;
+		if (compiler)
+			sljit_free_compiler(compiler);
+		return;
+	}
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -3795,6 +3803,8 @@ static void test45(void)
 	buf[7] = 8.75;
 	buf[8] = 0;
 	buf[9] = 16.5;
+	buf[10] = 0;
+	buf[11] = 0;
 
 	buf2[0] = -1;
 	buf2[1] = -1;
@@ -3821,6 +3831,10 @@ static void test45(void)
 	sljit_emit_fop2(compiler, SLJIT_FMUL | SLJIT_SINGLE_OP, SLJIT_MEM1(SLJIT_SAVED_REG1), 8 * sizeof(sljit_s), SLJIT_FLOAT_REG1, 0, SLJIT_FLOAT_REG1, 0);
 	sljit_emit_fop2(compiler, SLJIT_FDIV | SLJIT_SINGLE_OP, SLJIT_FLOAT_REG3, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 9 * sizeof(sljit_s), SLJIT_FLOAT_REG1, 0);
 	sljit_emit_fop1(compiler, SLJIT_FABS | SLJIT_SINGLE_OP, SLJIT_MEM1(SLJIT_SAVED_REG1), 9 * sizeof(sljit_s), SLJIT_FLOAT_REG3, 0);
+	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TEMPORARY_REG1, 0, SLJIT_SAVED_REG1, 0, SLJIT_IMM, 0x3d0ac);
+	sljit_emit_fop1(compiler, SLJIT_FNEG | SLJIT_SINGLE_OP, SLJIT_MEM1(SLJIT_SAVED_REG1), 10 * sizeof(sljit_s), SLJIT_MEM1(SLJIT_TEMPORARY_REG1), 0x3d0ac);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TEMPORARY_REG1, 0, SLJIT_SAVED_REG1, 0, SLJIT_IMM, 0x3d0ac + sizeof(sljit_s));
+	sljit_emit_fop1(compiler, SLJIT_FABS | SLJIT_SINGLE_OP, SLJIT_MEM1(SLJIT_SAVED_REG1), 11 * sizeof(sljit_s), SLJIT_MEM1(SLJIT_TEMPORARY_REG1), -0x3d0ac);
 
 	sljit_emit_fop1(compiler, SLJIT_FMOV | SLJIT_SINGLE_OP, SLJIT_FLOAT_REG2, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 0);
 	sljit_emit_fop1(compiler, SLJIT_FMOV | SLJIT_SINGLE_OP, SLJIT_FLOAT_REG3, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_s));
@@ -3855,12 +3869,14 @@ static void test45(void)
 	FAILED(buf[7] != 16.0, "test45 case 6 failed\n");
 	FAILED(buf[8] != 30.25, "test45 case 7 failed\n");
 	FAILED(buf[9] != 3, "test45 case 8 failed\n");
-	FAILED(buf2[0] != 1, "test45 case 9 failed\n");
-	FAILED(buf2[1] != 2, "test45 case 10 failed\n");
-	FAILED(buf2[2] != 2, "test45 case 11 failed\n");
-	FAILED(buf2[3] != 1, "test45 case 12 failed\n");
-	FAILED(buf2[4] != 7, "test45 case 13 failed\n");
-	FAILED(buf2[5] != -1, "test45 case 14 failed\n");
+	FAILED(buf[10] != -5.5, "test45 case 9 failed\n");
+	FAILED(buf[11] != 7.25, "test45 case 10 failed\n");
+	FAILED(buf2[0] != 1, "test45 case 11 failed\n");
+	FAILED(buf2[1] != 2, "test45 case 12 failed\n");
+	FAILED(buf2[2] != 2, "test45 case 13 failed\n");
+	FAILED(buf2[3] != 1, "test45 case 14 failed\n");
+	FAILED(buf2[4] != 7, "test45 case 15 failed\n");
+	FAILED(buf2[5] != -1, "test45 case 16 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test45 ok\n");
