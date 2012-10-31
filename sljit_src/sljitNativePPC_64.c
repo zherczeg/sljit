@@ -41,7 +41,7 @@
 #define PUSH_RLDICR(reg, shift) \
 	push_inst(compiler, RLDI(reg, reg, 63 - shift, shift, 1))
 
-static sljit_i load_immediate(struct sljit_compiler *compiler, sljit_i reg, sljit_w imm)
+static sljit_si load_immediate(struct sljit_compiler *compiler, sljit_si reg, sljit_sw imm)
 {
 	sljit_uw tmp;
 	sljit_uw shift;
@@ -145,8 +145,8 @@ static sljit_i load_immediate(struct sljit_compiler *compiler, sljit_i reg, slji
 		src1 = TMP_REG1; \
 	}
 
-static SLJIT_INLINE sljit_i emit_single_op(struct sljit_compiler *compiler, sljit_i op, sljit_i flags,
-	sljit_i dst, sljit_i src1, sljit_i src2)
+static SLJIT_INLINE sljit_si emit_single_op(struct sljit_compiler *compiler, sljit_si op, sljit_si flags,
+	sljit_si dst, sljit_si src1, sljit_si src2)
 {
 	switch (op) {
 	case SLJIT_MOV:
@@ -391,7 +391,7 @@ static SLJIT_INLINE sljit_i emit_single_op(struct sljit_compiler *compiler, slji
 	return SLJIT_SUCCESS;
 }
 
-static SLJIT_INLINE sljit_i emit_const(struct sljit_compiler *compiler, sljit_i reg, sljit_w init_value)
+static SLJIT_INLINE sljit_si emit_const(struct sljit_compiler *compiler, sljit_si reg, sljit_sw init_value)
 {
 	FAIL_IF(push_inst(compiler, ADDIS | D(reg) | A(0) | IMM(init_value >> 48)));
 	FAIL_IF(push_inst(compiler, ORI | S(reg) | A(reg) | IMM(init_value >> 32)));
@@ -411,7 +411,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ad
 	SLJIT_CACHE_FLUSH(inst, inst + 5);
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_w new_constant)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant)
 {
 	sljit_ins *inst = (sljit_ins*)addr;
 

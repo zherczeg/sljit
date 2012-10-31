@@ -39,7 +39,7 @@ void error(SLJIT_CONST char* str)
 
 union executable_code {
 	void* code;
-	sljit_w (SLJIT_CALL *func)(sljit_w* a);
+	sljit_sw (SLJIT_CALL *func)(sljit_sw* a);
 };
 typedef union executable_code executable_code;
 
@@ -48,7 +48,7 @@ void devel(void)
 	executable_code code;
 
 	struct sljit_compiler *compiler = sljit_create_compiler();
-	sljit_w buf[4];
+	sljit_sw buf[4];
 
 	if (!compiler)
 		error("Not enough of memory");
@@ -60,7 +60,7 @@ void devel(void)
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	sljit_compiler_verbose(compiler, stdout);
 #endif
-	sljit_emit_enter(compiler, 1, 4, 5, 2 * sizeof(sljit_w));
+	sljit_emit_enter(compiler, 1, 4, 5, 2 * sizeof(sljit_sw));
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
@@ -69,7 +69,7 @@ void devel(void)
 
 	printf("Code at: %p\n", code.code);
 
-	printf("Function returned with %ld\n", (long)code.func((sljit_w*)buf));
+	printf("Function returned with %ld\n", (long)code.func((sljit_sw*)buf));
 	printf("buf[0] = %ld\n", (long)buf[0]);
 	printf("buf[1] = %ld\n", (long)buf[1]);
 	printf("buf[2] = %ld\n", (long)buf[2]);

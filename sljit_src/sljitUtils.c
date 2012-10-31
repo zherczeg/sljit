@@ -163,11 +163,11 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_release_lock(void)
 #include <fcntl.h>
 
 /* Some old systems does not have MAP_ANON. */
-static sljit_i dev_zero = -1;
+static sljit_si dev_zero = -1;
 
 #if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
 
-static SLJIT_INLINE sljit_i open_dev_zero(void)
+static SLJIT_INLINE sljit_si open_dev_zero(void)
 {
 	dev_zero = open("/dev/zero", O_RDWR);
 	return dev_zero < 0;
@@ -179,7 +179,7 @@ static SLJIT_INLINE sljit_i open_dev_zero(void)
 
 static pthread_mutex_t dev_zero_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static SLJIT_INLINE sljit_i open_dev_zero(void)
+static SLJIT_INLINE sljit_si open_dev_zero(void)
 {
 	pthread_mutex_lock(&dev_zero_mutex);
 	dev_zero = open("/dev/zero", O_RDWR);
@@ -198,7 +198,7 @@ static SLJIT_INLINE sljit_i open_dev_zero(void)
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
 
 /* Planning to make it even more clever in the future. */
-static sljit_w sljit_page_align = 0;
+static sljit_sw sljit_page_align = 0;
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_uw limit, sljit_uw max_limit)
 {
@@ -285,7 +285,7 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_free_stack(struct sljit_stack* st
 	SLJIT_FREE(stack);
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_w SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_uw new_limit)
+SLJIT_API_FUNC_ATTRIBUTE sljit_sw SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_uw new_limit)
 {
 	sljit_uw aligned_old_limit;
 	sljit_uw aligned_new_limit;
