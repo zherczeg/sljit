@@ -53,13 +53,13 @@ struct regex_machine
 	/* flags. */
 	int flags;
 	/* Number of state descriptors for one term. */
-	sljit_w no_states;
+	sljit_sw no_states;
 	/* Total size. */
-	sljit_w size;
+	sljit_sw size;
 
 	union {
 		void *init_match;
-		sljit_w (SLJIT_CALL *call_init)(void *next, void* match);
+		sljit_sw (SLJIT_CALL *call_init)(void *next, void* match);
 	} u;
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
 	struct sljit_function_context context;
@@ -74,19 +74,19 @@ struct regex_machine
 struct regex_match
 {
 	/* Current and next state array. */
-	sljit_w *current;
-	sljit_w *next;
+	sljit_sw *current;
+	sljit_sw *next;
 	/* Starting. */
-	sljit_w head;
+	sljit_sw head;
 	/* String character index (ever increasing). */
-	sljit_w index;
+	sljit_sw index;
 	/* Best match found so far (members in priority order). */
-	sljit_w best_begin;
-	sljit_w best_end;
-	sljit_w best_id;
+	sljit_sw best_begin;
+	sljit_sw best_end;
+	sljit_sw best_id;
 	/* Bool flags (encoded as word). */
-	sljit_w fast_quit;
-	sljit_w fast_forward;
+	sljit_sw fast_quit;
+	sljit_sw fast_forward;
 	/* Machine. */
 	struct regex_machine *machine;
 
@@ -96,7 +96,7 @@ struct regex_match
 	} u;
 
 	/* Variable sized array to contain the state arrays. */
-	sljit_w states[1];
+	sljit_sw states[1];
 };
 
 /* State vector
@@ -379,13 +379,13 @@ struct compiler_common {
 	/* REGEX_ flags. */
 	int flags;
 	/* Encoded size of the dfa representation. */
-	sljit_w dfa_size;
+	sljit_sw dfa_size;
 	/* Number of terms. */
-	sljit_w terms_size;
+	sljit_sw terms_size;
 	/* Number of state descriptors for one term (same as machine->no_states). */
-	sljit_w no_states;
+	sljit_sw no_states;
 	/* Number of type_rng_(char|left)-s in the longest character range. */
-	sljit_w longest_range_size;
+	sljit_sw longest_range_size;
 
 	/* DFA linear representation (size: dfa_size). */
 	struct stack_item *dfa_transitions;
@@ -555,7 +555,7 @@ static int iterate(struct stack *stack, int min, int max)
 	return len;
 }
 
-static int parse_iterator(const regex_char_t *regex_string, int length, struct stack *stack, sljit_w *dfa_size, int begin)
+static int parse_iterator(const regex_char_t *regex_string, int length, struct stack *stack, sljit_sw *dfa_size, int begin)
 {
 	/* We only know that *regex_string == { . */
 	int val1, val2;
@@ -1281,8 +1281,8 @@ static int trace_transitions(int from, struct compiler_common *compiler_common)
 /*  Code generator                                                       */
 /* --------------------------------------------------------------------- */
 
-#define TERM_OFFSET_OF(index, offs)	(((index) * no_states + (offs)) * sizeof(sljit_w))
-#define TERM_REL_OFFSET_OF(base, offs)	((base) + ((offs) * sizeof(sljit_w)))
+#define TERM_OFFSET_OF(index, offs)	(((index) * no_states + (offs)) * sizeof(sljit_sw))
+#define TERM_REL_OFFSET_OF(base, offs)	((base) + ((offs) * sizeof(sljit_sw)))
 
 #define EMIT_OP1(type, arg1, arg2, arg3, arg4) \
 	CHECK(sljit_emit_op1(compiler, type, arg1, arg2, arg3, arg4))
@@ -1314,9 +1314,9 @@ static int compile_uncond_tran(struct compiler_common *compiler_common, int reg)
 	struct stack *stack = &compiler_common->stack;
 	struct stack_item *search_states = compiler_common->search_states;
 	int flags = compiler_common->flags;
-	sljit_w no_states = compiler_common->no_states;
+	sljit_sw no_states = compiler_common->no_states;
 	sljit_uw head = 0;
-	sljit_w offset, value;
+	sljit_sw offset, value;
 
 	if (reg != R_CURR_STATE || !(compiler_common->flags & REGEX_FAKE_MATCH_BEGIN)) {
 		CHECK(trace_transitions(0, compiler_common));
@@ -1366,15 +1366,15 @@ static int compile_uncond_tran(struct compiler_common *compiler_common, int reg)
 	return REGEX_NO_ERROR;
 }
 
-static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w curr_index)
+static int compile_cond_tran(struct compiler_common *compiler_common, sljit_sw curr_index)
 {
 	struct sljit_compiler *compiler = compiler_common->compiler;
 	struct stack *stack = &compiler_common->stack;
 	struct stack_item *search_states = compiler_common->search_states;
-	sljit_w offset;
+	sljit_sw offset;
 	int flags;
-	sljit_w no_states;
-	sljit_w value;
+	sljit_sw no_states;
+	sljit_sw value;
 	struct sljit_jump *jump1;
 	struct sljit_jump *jump2;
 	struct sljit_jump *jump3;
@@ -1402,8 +1402,8 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w cu
 			if (!(flags & REGEX_ID_CHECK)) {
 				if (!(flags & REGEX_MATCH_BEGIN)) {
 					/* Check whether item is inserted. */
-					EMIT_CMP(jump1, SLJIT_C_NOT_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w), SLJIT_IMM, -1);
-					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w), R_NEXT_HEAD, 0);
+					EMIT_CMP(jump1, SLJIT_C_NOT_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_sw), SLJIT_IMM, -1);
+					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_sw), R_NEXT_HEAD, 0);
 					if (offset > 0) {
 						EMIT_OP1(SLJIT_MOV, R_NEXT_HEAD, 0, SLJIT_IMM, offset);
 					}
@@ -1413,19 +1413,19 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w cu
 					EMIT_LABEL(label1);
 					sljit_set_label(jump1, label1);
 
-					EMIT_CMP(jump1, SLJIT_C_LESS_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_w), R_TEMP, 0);
+					EMIT_CMP(jump1, SLJIT_C_LESS_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_sw), R_TEMP, 0);
 
 					EMIT_LABEL(label1);
 					sljit_set_label(jump2, label1);
-					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_w), R_TEMP, 0);
+					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_sw), R_TEMP, 0);
 
 					EMIT_LABEL(label1);
 					sljit_set_label(jump1, label1);
 				}
 				else {
 					/* Check whether item is inserted. */
-					EMIT_CMP(jump1, SLJIT_C_NOT_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w), SLJIT_IMM, -1);
-					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w), R_NEXT_HEAD, 0);
+					EMIT_CMP(jump1, SLJIT_C_NOT_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_sw), SLJIT_IMM, -1);
+					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_sw), R_NEXT_HEAD, 0);
 					if (offset > 0) {
 						EMIT_OP1(SLJIT_MOV, R_NEXT_HEAD, 0, SLJIT_IMM, offset);
 					}
@@ -1438,8 +1438,8 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w cu
 					EMIT_OP1(SLJIT_MOV, R_TEMP, 0, SLJIT_MEM1(R_CURR_STATE), TERM_OFFSET_OF(curr_index, 2));
 
 					/* Check whether item is inserted. */
-					EMIT_CMP(jump1, SLJIT_C_NOT_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w), SLJIT_IMM, -1);
-					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w), R_NEXT_HEAD, 0);
+					EMIT_CMP(jump1, SLJIT_C_NOT_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_sw), SLJIT_IMM, -1);
+					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_sw), R_NEXT_HEAD, 0);
 					if (offset > 0) {
 						EMIT_OP1(SLJIT_MOV, R_NEXT_HEAD, 0, SLJIT_IMM, offset);
 					}
@@ -1449,7 +1449,7 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w cu
 					EMIT_LABEL(label1);
 					sljit_set_label(jump1, label1);
 
-					EMIT_OP2(SLJIT_SUB | SLJIT_SET_U, SLJIT_UNUSED, 0, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_w), R_TEMP, 0);
+					EMIT_OP2(SLJIT_SUB | SLJIT_SET_U, SLJIT_UNUSED, 0, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_sw), R_TEMP, 0);
 					EMIT_JUMP(jump1, SLJIT_C_LESS);
 					EMIT_JUMP(jump3, SLJIT_C_GREATER);
 
@@ -1463,7 +1463,7 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w cu
 						sljit_set_label(jump4, label1);
 					}
 
-					EMIT_OP2(SLJIT_SUB | SLJIT_SET_U, SLJIT_UNUSED, 0, SLJIT_MEM1(R_NEXT_STATE), offset + 3 * sizeof(sljit_w), R_TEMP, 0);
+					EMIT_OP2(SLJIT_SUB | SLJIT_SET_U, SLJIT_UNUSED, 0, SLJIT_MEM1(R_NEXT_STATE), offset + 3 * sizeof(sljit_sw), R_TEMP, 0);
 					EMIT_JUMP(jump4, SLJIT_C_GREATER_EQUAL);
 					EMIT_JUMP(jump5, SLJIT_JUMP);
 
@@ -1471,7 +1471,7 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w cu
 					EMIT_LABEL(label1);
 					sljit_set_label(jump3, label1);
 					sljit_set_label(jump2, label1);
-					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_w), R_TEMP, 0);
+					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_sw), R_TEMP, 0);
 
 					EMIT_OP1(SLJIT_MOV, R_TEMP, 0, SLJIT_MEM1(R_CURR_STATE), TERM_OFFSET_OF(curr_index, 3));
 					if (search_states[value].value > 0) {
@@ -1484,7 +1484,7 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w cu
 
 					EMIT_LABEL(label1);
 					sljit_set_label(jump5, label1);
-					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + 3 * sizeof(sljit_w), R_TEMP, 0);
+					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + 3 * sizeof(sljit_sw), R_TEMP, 0);
 
 					/* Exit. */
 					EMIT_LABEL(label1);
@@ -1503,8 +1503,8 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w cu
 					}
 
 					/* Check whether item is inserted. */
-					EMIT_CMP(jump1, SLJIT_C_NOT_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w), SLJIT_IMM, -1);
-					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_w), R_NEXT_HEAD, 0);
+					EMIT_CMP(jump1, SLJIT_C_NOT_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_sw), SLJIT_IMM, -1);
+					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + sizeof(sljit_sw), R_NEXT_HEAD, 0);
 					if (offset > 0) {
 						EMIT_OP1(SLJIT_MOV, R_NEXT_HEAD, 0, SLJIT_IMM, offset);
 					}
@@ -1514,11 +1514,11 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_w cu
 					EMIT_LABEL(label1);
 					sljit_set_label(jump1, label1);
 
-					EMIT_CMP(jump1, SLJIT_C_GREATER_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_w), R_TEMP, 0);
+					EMIT_CMP(jump1, SLJIT_C_GREATER_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_sw), R_TEMP, 0);
 
 					EMIT_LABEL(label1);
 					sljit_set_label(jump2, label1);
-					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_w), R_TEMP, 0);
+					EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_sw), R_TEMP, 0);
 
 					EMIT_LABEL(label1);
 					sljit_set_label(jump1, label1);
@@ -1593,11 +1593,11 @@ static int compile_end_check(struct compiler_common *compiler_common, struct slj
 		sljit_set_label(jump, leave_label);
 
 		EMIT_OP2(SLJIT_ADD, R_TEMP, 0, R_TEMP, 0, R_CURR_STATE, 0);
-		EMIT_OP1(SLJIT_MOV, R_BEST_BEGIN, 0, SLJIT_MEM1(R_TEMP), sizeof(sljit_w));
-		EMIT_CMP(clear_states_jump, !(compiler_common->flags & REGEX_MATCH_NON_GREEDY) ? SLJIT_C_GREATER : SLJIT_C_GREATER_EQUAL, SLJIT_MEM1(R_TEMP), 2 * sizeof(sljit_w), R_CURR_CHAR, 0);
+		EMIT_OP1(SLJIT_MOV, R_BEST_BEGIN, 0, SLJIT_MEM1(R_TEMP), sizeof(sljit_sw));
+		EMIT_CMP(clear_states_jump, !(compiler_common->flags & REGEX_MATCH_NON_GREEDY) ? SLJIT_C_GREATER : SLJIT_C_GREATER_EQUAL, SLJIT_MEM1(R_TEMP), 2 * sizeof(sljit_sw), R_CURR_CHAR, 0);
 
 		/* Case 1: keep this case. */
-		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_TEMP), sizeof(sljit_w), R_NEXT_HEAD, 0);
+		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_TEMP), sizeof(sljit_sw), R_NEXT_HEAD, 0);
 		EMIT_OP2(SLJIT_SUB, R_NEXT_HEAD, 0, R_TEMP, 0, R_CURR_STATE, 0);
 
 		EMIT_OP1(SLJIT_MOV, R_TEMP, 0, R_BEST_BEGIN, 0);
@@ -1608,7 +1608,7 @@ static int compile_end_check(struct compiler_common *compiler_common, struct slj
 		EMIT_LABEL(label);
 		sljit_set_label(clear_states_jump, label);
 
-		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_TEMP), sizeof(sljit_w), SLJIT_IMM, -1);
+		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_TEMP), sizeof(sljit_sw), SLJIT_IMM, -1);
 
 		EMIT_OP1(SLJIT_MOV, R_TEMP, 0, R_BEST_BEGIN, 0);
 		EMIT_JUMP(jump, SLJIT_JUMP);
@@ -1689,14 +1689,14 @@ static int compile_leave_fast_forward(struct compiler_common *compiler_common, s
 	return REGEX_NO_ERROR;
 }
 
-static int compile_newline_check(struct compiler_common *compiler_common, sljit_w ind)
+static int compile_newline_check(struct compiler_common *compiler_common, sljit_sw ind)
 {
 	struct sljit_compiler *compiler = compiler_common->compiler;
 	struct sljit_jump *jump1;
 	struct sljit_jump *jump2;
 	struct sljit_label *label;
-	sljit_w no_states;
-	sljit_w offset;
+	sljit_sw no_states;
+	sljit_sw offset;
 
 	/* Check whether a new-line character is found. */
 	EMIT_CMP(jump1, SLJIT_C_EQUAL, R_CURR_CHAR, 0, SLJIT_IMM, '\n');
@@ -1728,15 +1728,15 @@ static SLJIT_INLINE void range_set_label(struct sljit_jump **range_jump_list, st
 	}
 }
 
-static sljit_w compile_range_check(struct compiler_common *compiler_common, sljit_w ind)
+static sljit_sw compile_range_check(struct compiler_common *compiler_common, sljit_sw ind)
 {
 	struct sljit_compiler *compiler = compiler_common->compiler;
 	struct stack_item *dfa_transitions = compiler_common->dfa_transitions;
 	struct sljit_jump **range_jump_list = compiler_common->range_jump_list;
 	int invert = dfa_transitions[ind].value;
 	struct sljit_label *label;
-	sljit_w no_states;
-	sljit_w offset;
+	sljit_sw no_states;
+	sljit_sw offset;
 	int init_range = 1, prev_value = 0;
 
 	ind++;
@@ -1799,7 +1799,7 @@ static sljit_w compile_range_check(struct compiler_common *compiler_common, slji
 /*  Main compiler                                                        */
 /* --------------------------------------------------------------------- */
 
-#define TERM_OFFSET_OF(ind, offs) (((ind) * compiler_common.no_states + (offs)) * sizeof(sljit_w))
+#define TERM_OFFSET_OF(ind, offs) (((ind) * compiler_common.no_states + (offs)) * sizeof(sljit_sw))
 
 #define EMIT_OP1(type, arg1, arg2, arg3, arg4) \
 	CHECK(sljit_emit_op1(compiler_common.compiler, type, arg1, arg2, arg3, arg4))
@@ -1833,7 +1833,7 @@ static sljit_w compile_range_check(struct compiler_common *compiler_common, slji
 struct regex_machine* regex_compile(const regex_char_t *regex_string, int length, int re_flags, int *error)
 {
 	struct compiler_common compiler_common;
-	sljit_w ind;
+	sljit_sw ind;
 	int error_code, done, suggest_fast_forward;
 	/* ID of an empty match (-1 if not reachable). */
 	int empty_match_id;
@@ -2263,7 +2263,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 
 		compiler_common.machine->continue_match = sljit_generate_code(compiler_common.compiler);
 #ifndef SLJIT_INDIRECT_CALL
-		compiler_common.machine->u.init_match = (void*)(sljit_w)sljit_get_label_addr(label);
+		compiler_common.machine->u.init_match = (void*)(sljit_sw)sljit_get_label_addr(label);
 #else
 		sljit_set_function_context(&compiler_common.machine->u.init_match, &compiler_common.machine->context, sljit_get_label_addr(label), regex_compile);
 #endif
@@ -2325,19 +2325,19 @@ const char* regex_get_platform_name(void)
 
 struct regex_match* regex_begin_match(struct regex_machine *machine)
 {
-	sljit_w *ptr1;
-	sljit_w *ptr2;
-	sljit_w *end;
-	sljit_w *entry_addrs;
+	sljit_sw *ptr1;
+	sljit_sw *ptr2;
+	sljit_sw *end;
+	sljit_sw *entry_addrs;
 
-	struct regex_match *match = (struct regex_match*)SLJIT_MALLOC(sizeof(struct regex_match) + (machine->size * 2 - 1) * sizeof(sljit_w));
+	struct regex_match *match = (struct regex_match*)SLJIT_MALLOC(sizeof(struct regex_match) + (machine->size * 2 - 1) * sizeof(sljit_sw));
 	if (!match)
 		return NULL;
 
 	ptr1 = match->states;
 	ptr2 = match->states + machine->size;
 	end = ptr2;
-	entry_addrs = (sljit_w*)machine->entry_addrs;
+	entry_addrs = (sljit_sw*)machine->entry_addrs;
 
 	match->current = ptr1;
 	match->next = ptr2;
@@ -2395,8 +2395,8 @@ struct regex_match* regex_begin_match(struct regex_machine *machine)
 void regex_reset_match(struct regex_match *match)
 {
 	struct regex_machine *machine = match->machine;
-	sljit_w current, ind;
-	sljit_w *current_ptr;
+	sljit_sw current, ind;
+	sljit_sw *current_ptr;
 
 	match->best_end = 0;
 	match->fast_quit = 0;
@@ -2407,7 +2407,7 @@ void regex_reset_match(struct regex_match *match)
 		current = match->head;
 		current_ptr = match->current;
 		do {
-			ind = (current / sizeof(sljit_w)) + 1;
+			ind = (current / sizeof(sljit_sw)) + 1;
 			current = current_ptr[ind];
 			current_ptr[ind] = -1;
 		} while (current != 0);
@@ -2428,7 +2428,7 @@ void regex_continue_match(struct regex_match *match, const regex_char_t *input_s
 int regex_get_result(struct regex_match *match, int *end, int *id)
 {
 	int flags = match->machine->flags;
-	sljit_w no_states;
+	sljit_sw no_states;
 
 	*end = match->best_end;
 	*id = match->best_id;
@@ -2493,14 +2493,14 @@ int regex_is_match_finished(struct regex_match *match)
 #ifdef REGEX_MATCH_VERBOSE
 void regex_continue_match_debug(struct regex_match *match, const regex_char_t *input_string, int length)
 {
-	sljit_w *ptr;
-	sljit_w *end;
-	sljit_w count;
+	sljit_sw *ptr;
+	sljit_sw *end;
+	sljit_sw count;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	sljit_w current;
+	sljit_sw current;
 #endif
-	sljit_w no_states = match->machine->no_states;
-	sljit_w len = match->machine->size;
+	sljit_sw no_states = match->machine->no_states;
+	sljit_sw len = match->machine->size;
 
 	while (length > 0) {
 		match->u.call_continue(match, input_string, 1);
@@ -2568,10 +2568,10 @@ void regex_continue_match_debug(struct regex_match *match, const regex_char_t *i
 		current = match->head;
 		ptr = match->current;
 		while (current != 0) {
-			SLJIT_ASSERT(current >= 0 && current < len * sizeof(sljit_w));
-			SLJIT_ASSERT((current % (no_states * sizeof(sljit_w))) == 0);
+			SLJIT_ASSERT(current >= 0 && current < len * sizeof(sljit_sw));
+			SLJIT_ASSERT((current % (no_states * sizeof(sljit_sw))) == 0);
 			SLJIT_ASSERT(count > 0);
-			current = ptr[(current / sizeof(sljit_w)) + 1];
+			current = ptr[(current / sizeof(sljit_sw)) + 1];
 			count--;
 		}
 		SLJIT_ASSERT(count == 0);

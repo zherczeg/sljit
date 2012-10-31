@@ -33,7 +33,7 @@
    Feature detection (boolean) macros:
    SLJIT_32BIT_ARCHITECTURE : 32 bit architecture
    SLJIT_64BIT_ARCHITECTURE : 64 bit architecture
-   SLJIT_WORD_SHIFT : the shift required to apply when accessing a sljit_w/sljit_uw array by index
+   SLJIT_WORD_SHIFT : the shift required to apply when accessing a sljit_sw/sljit_uw array by index
    SLJIT_DOUBLE_SHIFT : the shift required to apply when accessing a double array by index
    SLJIT_LITTLE_ENDIAN : little endian architecture
    SLJIT_BIG_ENDIAN : big endian architecture
@@ -42,14 +42,14 @@
    SLJIT_RETURN_ADDRESS_OFFSET : a return instruction always adds this offset to the return address
 
    Types and useful macros:
-   sljit_b, sljit_ub : signed and unsigned 8 bit byte
-   sljit_h, sljit_uh : signed and unsigned 16 bit half-word (short) type
-   sljit_i, sljit_ui : signed and unsigned 32 bit integer type
-   sljit_w, sljit_uw : signed and unsigned machine word, enough to store a pointer
-   sljit_p           : unsgined pointer value (usually the same as sljit_uw, but
-                       some 64 bit ABIs may use 32 bit pointers)
-   sljit_s           : single precision floating point value
-   sljit_d           : double precision floating point value
+   sljit_sb, sljit_ub : signed and unsigned 8 bit byte
+   sljit_sh, sljit_uh : signed and unsigned 16 bit half-word (short) type
+   sljit_si, sljit_ui : signed and unsigned 32 bit integer type
+   sljit_sw, sljit_uw : signed and unsigned machine word, enough to store a pointer
+   sljit_p : unsgined pointer value (usually the same as sljit_uw, but
+             some 64 bit ABIs may use 32 bit pointers)
+   sljit_s : single precision floating point value
+   sljit_d : double precision floating point value
    SLJIT_CALL : C calling convention define for both calling JIT form C and C callbacks for JIT
    SLJIT_W(number) : defining 64 bit constants on 64 bit architectures (compiler independent helper)
 */
@@ -241,15 +241,15 @@
 
 /* 8 bit byte type. */
 typedef unsigned char sljit_ub;
-typedef signed char sljit_b;
+typedef signed char sljit_sb;
 
 /* 16 bit half-word type. */
 typedef unsigned short int sljit_uh;
-typedef signed short int sljit_h;
+typedef signed short int sljit_sh;
 
 /* 32 bit integer type. */
 typedef unsigned int sljit_ui;
-typedef signed int sljit_i;
+typedef signed int sljit_si;
 
 /* Machine word type. Can encapsulate a pointer.
      32 bit for 32 bit machines.
@@ -258,21 +258,21 @@ typedef signed int sljit_i;
 /* Just to have something. */
 #define SLJIT_WORD_SHIFT 0
 typedef unsigned long int sljit_uw;
-typedef long int sljit_w;
+typedef long int sljit_sw;
 #elif !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) && !(defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define SLJIT_32BIT_ARCHITECTURE 1
 #define SLJIT_WORD_SHIFT 2
 typedef unsigned int sljit_uw;
-typedef int sljit_w;
+typedef int sljit_sw;
 #else
 #define SLJIT_64BIT_ARCHITECTURE 1
 #define SLJIT_WORD_SHIFT 3
 #ifdef _WIN32
 typedef unsigned __int64 sljit_uw;
-typedef __int64 sljit_w;
+typedef __int64 sljit_sw;
 #else
 typedef unsigned long int sljit_uw;
-typedef long int sljit_w;
+typedef long int sljit_sw;
 #endif
 #endif
 
@@ -423,7 +423,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr);
 #ifndef SLJIT_ASSERT
 
 #define SLJIT_HALT_PROCESS() \
-	*((sljit_i*)0) = 0
+	*((sljit_si*)0) = 0
 
 #define SLJIT_ASSERT(x) \
 	do { \
