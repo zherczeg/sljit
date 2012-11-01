@@ -1011,15 +1011,6 @@ static sljit_si emit_op(struct sljit_compiler *compiler, sljit_si op, sljit_si i
 		flags |= REG1_SOURCE;
 	}
 	else if (src1 & SLJIT_IMM) {
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-		SLJIT_COMPILE_ASSERT(INT_DATA == 0x18, int_data_check1);
-		if ((input_flags & 0x18) == INT_DATA) {
-			if (input_flags & SIGNED_DATA)
-				src1w = (sljit_si)src1w;
-			else
-				src1w = (sljit_ui)src1w;
-		}
-#endif
 		FAIL_IF(load_immediate(compiler, TMP_REG1, src1w));
 		src1_r = TMP_REG1;
 	}
@@ -1038,15 +1029,6 @@ static sljit_si emit_op(struct sljit_compiler *compiler, sljit_si op, sljit_si i
 			dst_r = src2_r;
 	}
 	else if (src2 & SLJIT_IMM) {
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-		SLJIT_COMPILE_ASSERT(INT_DATA == 0x18, int_data_check2);
-		if ((input_flags & 0x18) == INT_DATA) {
-			if (input_flags & SIGNED_DATA)
-				src2w = (sljit_si)src2w;
-			else
-				src2w = (sljit_ui)src2w;
-		}
-#endif
 		FAIL_IF(load_immediate(compiler, sugg_src2_r, src2w));
 		src2_r = sugg_src2_r;
 	}
@@ -1158,35 +1140,63 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	sljit_si src, sljit_sw srcw)
 {
 	sljit_si flags = GET_FLAGS(op) ? ALT_SET_FLAGS : 0;
+	sljit_si op_flags = GET_ALL_FLAGS(op);
 
 	CHECK_ERROR();
 	check_sljit_emit_op1(compiler, op, dst, dstw, src, srcw);
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	if ((src & SLJIT_IMM) && srcw == 0 && GET_OPCODE(op) >= SLJIT_NOT)
+	op = GET_OPCODE(op);
+	if ((src & SLJIT_IMM) && srcw == 0 && op >= SLJIT_NOT)
 		src = ZERO_REG;
 
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	if (op & SLJIT_INT_OP) {
-		flags |= INT_DATA | SIGNED_DATA;
-		if (src & SLJIT_IMM)
-			srcw = (sljit_si)srcw;
-	}
-#endif
-	if (op & SLJIT_SET_O)
+	if (op_flags & SLJIT_SET_O)
 		FAIL_IF(push_inst(compiler, MTXER | S(ZERO_REG)));
 
-	switch (GET_OPCODE(op)) {
+	if (op_flags & SLJIT_INT_OP) {
+		if (op >= SLJIT_MOV && op <= SLJIT_MOVU_P) {
+			if (src <= SLJIT_NO_REGISTERS && src == dst) {
+				if (!TYPE_CAST_NEEDED(op))
+					return SLJIT_SUCCESS;
+			}
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+			if (op == SLJIT_MOV_SI && (src & SLJIT_MEM))
+				op = SLJIT_MOV_UI;
+			if (op == SLJIT_MOVU_SI && (src & SLJIT_MEM))
+				op = SLJIT_MOVU_UI;
+			if (op == SLJIT_MOV_UI && (src & SLJIT_IMM))
+				op = SLJIT_MOV_SI;
+			if (op == SLJIT_MOVU_UI && (src & SLJIT_IMM))
+				op = SLJIT_MOVU_SI;
+#endif
+		}
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+		else {
+			/* Most operations expect sign extended arguments. */
+			flags |= INT_DATA | SIGNED_DATA;
+			if (src & SLJIT_IMM)
+				srcw = (sljit_si)srcw;
+		}
+#endif
+	}
+
+	switch (op) {
 	case SLJIT_MOV:
 	case SLJIT_MOV_P:
+#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
+	case SLJIT_MOV_UI:
+	case SLJIT_MOV_SI:
+#endif
 		return emit_op(compiler, SLJIT_MOV, flags | WORD_DATA, dst, dstw, TMP_REG1, 0, src, srcw);
 
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	case SLJIT_MOV_UI:
-		return emit_op(compiler, SLJIT_MOV_UI, flags | INT_DATA, dst, dstw, TMP_REG1, 0, src, srcw);
+		return EMIT_MOV(SLJIT_MOV_UI, INT_DATA, (sljit_ui));
 
 	case SLJIT_MOV_SI:
-		return emit_op(compiler, SLJIT_MOV_SI, flags | INT_DATA | SIGNED_DATA, dst, dstw, TMP_REG1, 0, src, srcw);
+		return EMIT_MOV(SLJIT_MOV_SI, INT_DATA | SIGNED_DATA, (sljit_si));
+#endif
 
 	case SLJIT_MOV_UB:
 		return EMIT_MOV(SLJIT_MOV_UB, BYTE_DATA, (sljit_ub));
@@ -1202,13 +1212,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 
 	case SLJIT_MOVU:
 	case SLJIT_MOVU_P:
+#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
+	case SLJIT_MOVU_UI:
+	case SLJIT_MOVU_SI:
+#endif
 		return emit_op(compiler, SLJIT_MOV, flags | WORD_DATA | WRITE_BACK, dst, dstw, TMP_REG1, 0, src, srcw);
 
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	case SLJIT_MOVU_UI:
-		return emit_op(compiler, SLJIT_MOV_UI, flags | INT_DATA | WRITE_BACK, dst, dstw, TMP_REG1, 0, src, srcw);
+		return EMIT_MOV(SLJIT_MOV_UI, INT_DATA | WRITE_BACK, (sljit_ui));
 
 	case SLJIT_MOVU_SI:
-		return emit_op(compiler, SLJIT_MOV_SI, flags | INT_DATA | SIGNED_DATA | WRITE_BACK, dst, dstw, TMP_REG1, 0, src, srcw);
+		return EMIT_MOV(SLJIT_MOV_SI, INT_DATA | SIGNED_DATA | WRITE_BACK, (sljit_si));
+#endif
 
 	case SLJIT_MOVU_UB:
 		return EMIT_MOV(SLJIT_MOV_UB, BYTE_DATA | WRITE_BACK, (sljit_ub));
@@ -1230,7 +1246,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 
 	case SLJIT_CLZ:
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-		return emit_op(compiler, SLJIT_CLZ, flags | (!(op & SLJIT_INT_OP) ? 0 : ALT_FORM1), dst, dstw, TMP_REG1, 0, src, srcw);
+		return emit_op(compiler, SLJIT_CLZ, flags | (!(op_flags & SLJIT_INT_OP) ? 0 : ALT_FORM1), dst, dstw, TMP_REG1, 0, src, srcw);
 #else
 		return emit_op(compiler, SLJIT_CLZ, flags, dst, dstw, TMP_REG1, 0, src, srcw);
 #endif
@@ -1294,6 +1310,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (op & SLJIT_INT_OP) {
+		/* Most operations expect sign extended arguments. */
 		flags |= INT_DATA | SIGNED_DATA;
 		if (src1 & SLJIT_IMM)
 			src1w = (sljit_si)(src1w);

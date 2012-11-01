@@ -956,14 +956,14 @@ static sljit_si emit_not_with_flags(struct sljit_compiler *compiler,
 	return SLJIT_SUCCESS;
 }
 
-static sljit_si emit_clz(struct sljit_compiler *compiler, sljit_si op,
+static sljit_si emit_clz(struct sljit_compiler *compiler, sljit_si op_flags,
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw)
 {
 	sljit_ub* code;
 	sljit_si dst_r;
 
-	SLJIT_UNUSED_ARG(op);
+	SLJIT_UNUSED_ARG(op_flags);
 	if (SLJIT_UNLIKELY(dst == SLJIT_UNUSED)) {
 		/* Just set the zero flag. */
 		EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
@@ -974,7 +974,7 @@ static sljit_si emit_clz(struct sljit_compiler *compiler, sljit_si op,
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 31, TMP_REGISTER, 0);
 #else
-		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, !(op & SLJIT_INT_OP) ? 63 : 31, TMP_REGISTER, 0);
+		code = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, !(op_flags & SLJIT_INT_OP) ? 63 : 31, TMP_REGISTER, 0);
 #endif
 		FAIL_IF(!code);
 		*code |= 0x5 << 3;
@@ -1009,8 +1009,8 @@ static sljit_si emit_clz(struct sljit_compiler *compiler, sljit_si op,
 #else
 	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REGISTER) ? dst : TMP_REG2;
 	compiler->mode32 = 0;
-	EMIT_MOV(compiler, dst_r, 0, SLJIT_IMM, !(op & SLJIT_INT_OP) ? 64 + 63 : 32 + 31);
-	compiler->mode32 = op & SLJIT_INT_OP;
+	EMIT_MOV(compiler, dst_r, 0, SLJIT_IMM, !(op_flags & SLJIT_INT_OP) ? 64 + 63 : 32 + 31);
+	compiler->mode32 = op_flags & SLJIT_INT_OP;
 #endif
 
 	code = emit_x86_instruction(compiler, 2, dst_r, 0, TMP_REGISTER, 0);
@@ -1021,7 +1021,7 @@ static sljit_si emit_clz(struct sljit_compiler *compiler, sljit_si op,
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	code = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, 31, dst_r, 0);
 #else
-	code = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, !(op & SLJIT_INT_OP) ? 63 : 31, dst_r, 0);
+	code = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, !(op_flags & SLJIT_INT_OP) ? 63 : 31, dst_r, 0);
 #endif
 	FAIL_IF(!code);
 	*(code + 1) |= 0x6 << 3;
@@ -1045,6 +1045,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 {
 	sljit_ub* code;
 	sljit_si update = 0;
+	sljit_si op_flags = GET_ALL_FLAGS(op);
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	sljit_si dst_is_ereg = 0;
 	sljit_si src_is_ereg = 0;
@@ -1060,14 +1061,31 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	CHECK_EXTRA_REGS(dst, dstw, dst_is_ereg = 1);
 	CHECK_EXTRA_REGS(src, srcw, src_is_ereg = 1);
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	compiler->mode32 = op & SLJIT_INT_OP;
+	compiler->mode32 = op_flags & SLJIT_INT_OP;
 #endif
 
-	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_P) {
-		op = GET_OPCODE(op);
+	op = GET_OPCODE(op);
+	if (op >= SLJIT_MOV && op <= SLJIT_MOVU_P) {
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		compiler->mode32 = 0;
 #endif
+
+		if (op_flags & SLJIT_INT_OP) {
+			if (src <= SLJIT_NO_REGISTERS && src == dst) {
+				if (!TYPE_CAST_NEEDED(op))
+					return SLJIT_SUCCESS;
+			}
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+			if (op == SLJIT_MOV_SI && (src & SLJIT_MEM))
+				op = SLJIT_MOV_UI;
+			if (op == SLJIT_MOVU_SI && (src & SLJIT_MEM))
+				op = SLJIT_MOVU_UI;
+			if (op == SLJIT_MOV_UI && (src & SLJIT_IMM))
+				op = SLJIT_MOV_SI;
+			if (op == SLJIT_MOVU_UI && (src & SLJIT_IMM))
+				op = SLJIT_MOVU_SI;
+#endif
+		}
 
 		SLJIT_COMPILE_ASSERT(SLJIT_MOV + 8 == SLJIT_MOVU, movu_offset);
 		if (op >= SLJIT_MOVU) {
@@ -1163,24 +1181,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 		return SLJIT_SUCCESS;
 	}
 
-	if (SLJIT_UNLIKELY(GET_FLAGS(op)))
+	if (SLJIT_UNLIKELY(GET_FLAGS(op_flags)))
 		compiler->flags_saved = 0;
 
-	switch (GET_OPCODE(op)) {
+	switch (op) {
 	case SLJIT_NOT:
-		if (SLJIT_UNLIKELY(op & SLJIT_SET_E))
+		if (SLJIT_UNLIKELY(op_flags & SLJIT_SET_E))
 			return emit_not_with_flags(compiler, dst, dstw, src, srcw);
 		return emit_unary(compiler, 0x2, dst, dstw, src, srcw);
 
 	case SLJIT_NEG:
-		if (SLJIT_UNLIKELY(op & SLJIT_KEEP_FLAGS) && !compiler->flags_saved)
+		if (SLJIT_UNLIKELY(op_flags & SLJIT_KEEP_FLAGS) && !compiler->flags_saved)
 			FAIL_IF(emit_save_flags(compiler));
 		return emit_unary(compiler, 0x3, dst, dstw, src, srcw);
 
 	case SLJIT_CLZ:
-		if (SLJIT_UNLIKELY(op & SLJIT_KEEP_FLAGS) && !compiler->flags_saved)
+		if (SLJIT_UNLIKELY(op_flags & SLJIT_KEEP_FLAGS) && !compiler->flags_saved)
 			FAIL_IF(emit_save_flags(compiler));
-		return emit_clz(compiler, op, dst, dstw, src, srcw);
+		return emit_clz(compiler, op_flags, dst, dstw, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;

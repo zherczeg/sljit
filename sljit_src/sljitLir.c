@@ -89,7 +89,10 @@
 	((op) & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C))
 
 #define GET_ALL_FLAGS(op) \
-	((op) & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))
+	((op) & (SLJIT_INT_OP | SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))
+
+#define TYPE_CAST_NEEDED(op) \
+	(((op) >= SLJIT_MOV_UB && (op) <= SLJIT_MOV_SH) || ((op) >= SLJIT_MOVU_UB && (op) <= SLJIT_MOVU_SH))
 
 #define BUF_SIZE	4096
 
@@ -555,18 +558,20 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	case SLJIT_SUBC: \
 		SLJIT_ASSERT(!(op & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O))); \
 		break; \
-	case SLJIT_FMOV: \
-	case SLJIT_FNEG: \
-	case SLJIT_FABS: \
-	case SLJIT_FADD: \
-	case SLJIT_FMUL: \
-	case SLJIT_FSUB: \
-	case SLJIT_FDIV: \
-		SLJIT_ASSERT(!(op & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
-		break; \
-	default: \
+	case SLJIT_BREAKPOINT: \
+	case SLJIT_NOP: \
+	case SLJIT_UMUL: \
+	case SLJIT_SMUL: \
+	case SLJIT_MOV: \
+	case SLJIT_MOV_P: \
+	case SLJIT_MOVU: \
+	case SLJIT_MOVU_P: \
 		/* Nothing allowed */ \
 		SLJIT_ASSERT(!(op & (SLJIT_INT_OP | SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
+		break; \
+	default: \
+		/* Only SLJIT_INT_OP or SLJIT_SINGLE_OP is allowed. */ \
+		SLJIT_ASSERT(!(op & (SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
 		break; \
 	}
 
@@ -627,10 +632,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		SLJIT_ASSERT_STOP();
 
 #define FUNCTION_CHECK_OP1() \
-	if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_P) { \
-		SLJIT_ASSERT(!GET_ALL_FLAGS(op)); \
-	} \
-        if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_P) { \
+	if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_P) { \
 		SLJIT_ASSERT(!(src & SLJIT_MEM) || (src & 0xf) != SLJIT_LOCALS_REG); \
 		SLJIT_ASSERT(!(dst & SLJIT_MEM) || (dst & 0xf) != SLJIT_LOCALS_REG); \
 		if ((src & SLJIT_MEM) && (src & 0xf)) \

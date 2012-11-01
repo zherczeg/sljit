@@ -1,0 +1,20 @@
+This file is the short summary of the API changes:
+
+01.10.2012 - Non-backward compatible
+    Register arguments of operations with SLJIT_INT_OP flag
+    must be computed by another operation with SLJIT_INT_OP flag.
+
+01.10.2012 - Backward compatible
+    All operations whose support the SLJIT_INT_OP flag, have an
+    alternate name now, which includes the SLJIT_INT_OP. These
+    names starting with I.
+
+31.09.2012 - Non-backward compatible
+    Renaming sljit_w to sljit_sw, sljit_i to sljit_si, sljit_h
+    to sljit_sh, and sljit_b to sljit_sb. Reason: their sign
+    bit is part of the type now.
+
+20.09.2012 - Non-backward compatible
+    Renaming SLJIT_C_FLOAT_NAN to SLJIT_C_FLOAT_UNORDERED.
+    Reason: all architectures call these unordered comparions.
+
