@@ -1623,7 +1623,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	compiler->cache_argw = 0;
 	op ^= SLJIT_SINGLE_OP;
 
-	if (GET_OPCODE(op) == SLJIT_FCMP) {
+	if (GET_OPCODE(op) == SLJIT_CMPD) {
 		if (dst & SLJIT_MEM) {
 			emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP) | FPU_LOAD, TMP_FREG1, dst, dstw);
 			dst = TMP_FREG1;
@@ -1643,14 +1643,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_FMOV:
+	case SLJIT_MOVD:
 		if (src != dst_r)
 			FAIL_IF(push_inst32(compiler, VMOV_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(src)));
 		break;
-	case SLJIT_FNEG:
+	case SLJIT_NEGD:
 		FAIL_IF(push_inst32(compiler, VNEG_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(src)));
 		break;
-	case SLJIT_FABS:
+	case SLJIT_ABSD:
 		FAIL_IF(push_inst32(compiler, VABS_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(src)));
 		break;
 	}
@@ -1685,16 +1685,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_FADD:
+	case SLJIT_ADDD:
 		FAIL_IF(push_inst32(compiler, VADD_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DN4(src1) | DM4(src2)));
 		break;
-	case SLJIT_FSUB:
+	case SLJIT_SUBD:
 		FAIL_IF(push_inst32(compiler, VSUB_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DN4(src1) | DM4(src2)));
 		break;
-	case SLJIT_FMUL:
+	case SLJIT_MULD:
 		FAIL_IF(push_inst32(compiler, VMUL_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DN4(src1) | DM4(src2)));
 		break;
-	case SLJIT_FDIV:
+	case SLJIT_DIVD:
 		FAIL_IF(push_inst32(compiler, VDIV_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DN4(src1) | DM4(src2)));
 		break;
 	}

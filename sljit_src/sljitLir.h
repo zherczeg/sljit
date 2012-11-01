@@ -460,13 +460,29 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 #define SLJIT_IMM		0x200
 
 /* Set 32 bit operation mode (I) on 64 bit CPUs. The flag is totally ignored on
-   32 bit CPUs. The arithmetic instruction uses only the lower 32 bit of the
-   input register(s), and set the flags according to the 32 bit result. If the
-   destination is a register, the higher 32 bit of the result is undefined.
-   The addressing modes (SLJIT_MEM1/SLJIT_MEM2 macros) are unaffected by this flag. */
+   32 bit CPUs. If this flag is set for an arithmetic operation, it uses only the
+   lower 32 bit of the input register(s), and set the CPU status flags according
+   to the 32 bit result. The higher 32 bits are undefined for both the input and
+   output. However, the CPU might not ignore those higher 32 bits, like MIPS, which
+   expects it to be the sign extension of the lower 32 bit. All 32 bit operations
+   are undefined, if this condition is not fulfilled. Therefore, when SLJIT_INT_OP
+   is specified, all register arguments must be the result of other operations with
+   the same SLJIT_INT_OP flag. In other words, although a register can hold either
+   a 64 or 32 bit value, these values cannot be mixed. The only exceptions are
+   SLJIT_IMOV and SLJIT_IMOVU (SLJIT_MOV_SI/SLJIT_MOV_UI/SLJIT_MOVU_SI/SLJIT_MOV_UI
+   with SLJIT_INT_OP flag) which can convert any source argument to SLJIT_INT_OP
+   compatible result. This conversion might be unnecessary on some CPUs like x86-64,
+   since the upper 32 bit is always ignored. In this case SLJIT is clever enough
+   to not generate any instructions if the source and destination operands are the
+   same registers. Affects sljit_emit_op0, sljit_emit_op1 and sljit_emit_op2. */
 #define SLJIT_INT_OP		0x100
 
-/* Single precision mode (SP). Affects sljit_emit_fop1, sljit_emit_fop2 and sljit_emit_fcmp. */
+/* Single precision mode (SP). This flag is similar to SLJIT_INT_OP, just
+   it applies to floating point registers (it is even the same bit). When
+   this flag is passed, the CPU performs single precision floating point
+   operations. Similar to SLJIT_INT_OP, all register arguments must be the
+   result of other floating point operations with this flag. Affects
+   sljit_emit_fop1, sljit_emit_fop2 and sljit_emit_fcmp. */
 #define SLJIT_SINGLE_OP		0x100
 
 /* Common CPU status flags for all architectures (x86, ARM, PPC)
@@ -558,10 +574,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 /* Flags: I - (never set any flags) */
 #define SLJIT_MOV_SH			10
 #define SLJIT_IMOV_SH			(SLJIT_MOV_SH | SLJIT_INT_OP)
-/* Flags: I - (never set any flags) */
+/* Flags: I - (never set any flags)
+   Note: see SLJIT_INT_OP for further details. */
 #define SLJIT_MOV_UI			11
-/* The SLJIT_INT_OP form is exactly the same as SLJIT_IMOV */
-/* Flags: I - (never set any flags) */
+/* No SLJIT_INT_OP form, since it the same as SLJIT_IMOVU. */
+/* Flags: I - (never set any flags)
+   Note: see SLJIT_INT_OP for further details. */
 #define SLJIT_MOV_SI			12
 #define SLJIT_IMOV			(SLJIT_MOV_SI | SLJIT_INT_OP)
 /* Flags: - (never set any flags) */
@@ -580,10 +598,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 /* Flags: I - (never set any flags) */
 #define SLJIT_MOVU_SH			18
 #define SLJIT_IMOVU_SH			(SLJIT_MOVU_SH | SLJIT_INT_OP)
-/* Flags: I - (never set any flags) */
+/* Flags: I - (never set any flags)
+   Note: see SLJIT_INT_OP for further details. */
 #define SLJIT_MOVU_UI			19
-/* The SLJIT_INT_OP form is exactly the same as SLJIT_IMOVU */
-/* Flags: I - (never set any flags) */
+/* No SLJIT_INT_OP form, since it the same as SLJIT_IMOVU. */
+/* Flags: I - (never set any flags)
+   Note: see SLJIT_INT_OP for further details. */
 #define SLJIT_MOVU_SI			20
 #define SLJIT_IMOVU			(SLJIT_MOVU_SI | SLJIT_INT_OP)
 /* Flags: - (never set any flags) */
@@ -687,26 +707,34 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_is_fpu_available(void);
    Note: NaN check is always performed. If SLJIT_C_FLOAT_UNORDERED is set,
          the comparison result is unpredictable.
    Flags: SP | E | S (see SLJIT_C_FLOAT_*) */
-#define SLJIT_FCMP			36
+#define SLJIT_CMPD			36
+#define SLJIT_CMPS			(SLJIT_CMPD | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_FMOV			37
+#define SLJIT_MOVD			37
+#define SLJIT_MOVS			(SLJIT_MOVD | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_FNEG			38
+#define SLJIT_NEGD			38
+#define SLJIT_NEGS			(SLJIT_NEGD | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_FABS			39
+#define SLJIT_ABSD			39
+#define SLJIT_ABSS			(SLJIT_ABSD | SLJIT_SINGLE_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw);
 
 /* Flags: SP - (never set any flags) */
-#define SLJIT_FADD			40
+#define SLJIT_ADDD			40
+#define SLJIT_ADDS			(SLJIT_ADDD | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_FSUB			41
+#define SLJIT_SUBD			41
+#define SLJIT_SUBS			(SLJIT_SUBD | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_FMUL			42
+#define SLJIT_MULD			42
+#define SLJIT_MULS			(SLJIT_MULD | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_FDIV			43
+#define SLJIT_DIVD			43
+#define SLJIT_DIVS			(SLJIT_DIVD | SLJIT_SINGLE_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si dst, sljit_sw dstw,
