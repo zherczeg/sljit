@@ -120,7 +120,7 @@ static SLJIT_INLINE sljit_si emit_single_op(struct sljit_compiler *compiler, slj
 
 	case SLJIT_ADDC:
 		if (flags & ALT_FORM1) {
-			FAIL_IF(push_inst(compiler, MFXER | S(0)));
+			FAIL_IF(push_inst(compiler, MFXER | D(0)));
 			FAIL_IF(push_inst(compiler, ADDE | D(dst) | A(src1) | B(src2)));
 			return push_inst(compiler, MTXER | S(0));
 		}
@@ -155,7 +155,7 @@ static SLJIT_INLINE sljit_si emit_single_op(struct sljit_compiler *compiler, slj
 
 	case SLJIT_SUBC:
 		if (flags & ALT_FORM1) {
-			FAIL_IF(push_inst(compiler, MFXER | S(0)));
+			FAIL_IF(push_inst(compiler, MFXER | D(0)));
 			FAIL_IF(push_inst(compiler, SUBFE | D(dst) | A(src2) | B(src1)));
 			return push_inst(compiler, MTXER | S(0));
 		}
@@ -228,12 +228,16 @@ static SLJIT_INLINE sljit_si emit_single_op(struct sljit_compiler *compiler, slj
 		return push_inst(compiler, SRW | RC(flags) | S(src1) | A(dst) | B(src2));
 
 	case SLJIT_ASHR:
+		if (flags & ALT_FORM3)
+			FAIL_IF(push_inst(compiler, MFXER | D(0)));
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			compiler->imm &= 0x1f;
-			return push_inst(compiler, SRAWI | RC(flags) | S(src1) | A(dst) | (compiler->imm << 11));
+			FAIL_IF(push_inst(compiler, SRAWI | RC(flags) | S(src1) | A(dst) | (compiler->imm << 11)));
 		}
-		return push_inst(compiler, SRAW | RC(flags) | S(src1) | A(dst) | B(src2));
+		else
+			FAIL_IF(push_inst(compiler, SRAW | RC(flags) | S(src1) | A(dst) | B(src2)));
+		return (flags & ALT_FORM3) ? push_inst(compiler, MTXER | S(0)) : SLJIT_SUCCESS;
 	}
 
 	SLJIT_ASSERT_STOP();
