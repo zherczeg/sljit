@@ -2148,7 +2148,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	compiler->mode32 = 1;
 #endif
 
-	if (GET_OPCODE(op) == SLJIT_FCMP) {
+	if (GET_OPCODE(op) == SLJIT_CMPD) {
 		compiler->flags_saved = 0;
 		if (dst <= SLJIT_FLOAT_REG6)
 			dst_r = dst;
@@ -2159,7 +2159,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 		return emit_sse2_logic(compiler, 0x2e, !(op & SLJIT_SINGLE_OP), dst_r, src, srcw);
 	}
 
-	if (op == SLJIT_FMOV) {
+	if (op == SLJIT_MOVD) {
 		if (dst <= SLJIT_FLOAT_REG6)
 			return emit_sse2_load(compiler, op & SLJIT_SINGLE_OP, dst, src, srcw);
 		if (src <= SLJIT_FLOAT_REG6)
@@ -2179,11 +2179,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_FNEG:
+	case SLJIT_NEGD:
 		FAIL_IF(emit_sse2_logic(compiler, 0x57, 1, dst_r, SLJIT_MEM0(), (sljit_sw)(op & SLJIT_SINGLE_OP ? sse2_buffer : sse2_buffer + 8)));
 		break;
 
-	case SLJIT_FABS:
+	case SLJIT_ABSD:
 		FAIL_IF(emit_sse2_logic(compiler, 0x54, 1, dst_r, SLJIT_MEM0(), (sljit_sw)(op & SLJIT_SINGLE_OP ? sse2_buffer + 4 : sse2_buffer + 12)));
 		break;
 	}
@@ -2211,7 +2211,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 		dst_r = dst;
 		if (dst == src1)
 			; /* Do nothing here. */
-		else if (dst == src2 && (op == SLJIT_FADD || op == SLJIT_FMUL)) {
+		else if (dst == src2 && (op == SLJIT_ADDD || op == SLJIT_MULD)) {
 			/* Swap arguments. */
 			src2 = src1;
 			src2w = src1w;
@@ -2229,19 +2229,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_FADD:
+	case SLJIT_ADDD:
 		FAIL_IF(emit_sse2(compiler, 0x58, op & SLJIT_SINGLE_OP, dst_r, src2, src2w));
 		break;
 
-	case SLJIT_FSUB:
+	case SLJIT_SUBD:
 		FAIL_IF(emit_sse2(compiler, 0x5c, op & SLJIT_SINGLE_OP, dst_r, src2, src2w));
 		break;
 
-	case SLJIT_FMUL:
+	case SLJIT_MULD:
 		FAIL_IF(emit_sse2(compiler, 0x59, op & SLJIT_SINGLE_OP, dst_r, src2, src2w));
 		break;
 
-	case SLJIT_FDIV:
+	case SLJIT_DIVD:
 		FAIL_IF(emit_sse2(compiler, 0x5e, op & SLJIT_SINGLE_OP, dst_r, src2, src2w));
 		break;
 	}
