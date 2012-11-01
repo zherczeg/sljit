@@ -2706,7 +2706,7 @@ static void test33(void)
 	sljit_sw big_word = 0x80000003;
 #endif
 
-	sljit_sw buf[12];
+	sljit_sw buf[7];
 	buf[0] = 3;
 	buf[1] = 3;
 	buf[2] = 3;
@@ -2714,11 +2714,6 @@ static void test33(void)
 	buf[4] = 3;
 	buf[5] = 3;
 	buf[6] = 3;
-	buf[7] = 3;
-	buf[8] = 3;
-	buf[9] = 3;
-	buf[10] = 3;
-	buf[11] = 3;
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -2744,6 +2739,14 @@ static void test33(void)
 	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_KEEP_FLAGS, SLJIT_UNUSED, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0);
 	sljit_emit_cond_value(compiler, SLJIT_OR, SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_sw), SLJIT_C_NOT_EQUAL);
 
+	/* PowerPC specific test. */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, -1);
+	sljit_emit_op2(compiler, SLJIT_ADD | SLJIT_SET_C, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 2);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 0x80);
+	sljit_emit_op2(compiler, SLJIT_ASHR | SLJIT_KEEP_FLAGS, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 1);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 0);
+	sljit_emit_op2(compiler, SLJIT_ADDC, SLJIT_MEM1(SLJIT_SAVED_REG1), 6 * sizeof(sljit_sw), SLJIT_TEMPORARY_REG2, 0, SLJIT_IMM, 0);
+
 	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
 
 	code.code = sljit_generate_code(compiler);
@@ -2758,6 +2761,7 @@ static void test33(void)
 	FAILED(buf[3] != 16, "test33 case 4 failed\n");
 	FAILED(buf[4] != 1, "test33 case 5 failed\n");
 	FAILED(buf[5] != 0x125, "test33 case 6 failed\n");
+	FAILED(buf[6] != 1, "test33 case 7 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test33 ok\n");

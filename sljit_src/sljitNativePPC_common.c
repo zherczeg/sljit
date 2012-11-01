@@ -1476,9 +1476,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 		}
 		return emit_op(compiler, GET_OPCODE(op), flags, dst, dstw, src1, src1w, src2, src2w);
 
+	case SLJIT_ASHR:
+		if (op & SLJIT_KEEP_FLAGS)
+			flags |= ALT_FORM3;
+		/* Fall through. */
 	case SLJIT_SHL:
 	case SLJIT_LSHR:
-	case SLJIT_ASHR:
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		if (op & SLJIT_INT_OP)
 			flags |= ALT_FORM2;
