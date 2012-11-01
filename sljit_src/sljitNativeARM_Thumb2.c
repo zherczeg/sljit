@@ -1303,7 +1303,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw)
 {
-	sljit_si op_type, dst_r, flags;
+	sljit_si dst_r, flags;
+	sljit_si op_flags = GET_ALL_FLAGS(op);
 
 	CHECK_ERROR();
 	check_sljit_emit_op1(compiler, op, dst, dstw, src, srcw);
@@ -1313,11 +1314,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	op_type = GET_OPCODE(op);
 	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG1;
 
-	if (op_type >= SLJIT_MOV && op_type <= SLJIT_MOVU_P) {
-		switch (op_type) {
+	op = GET_OPCODE(op);
+	if (op >= SLJIT_MOV && op <= SLJIT_MOVU_P) {
+		switch (op) {
 		case SLJIT_MOV:
 		case SLJIT_MOV_UI:
 		case SLJIT_MOV_SI:
@@ -1385,7 +1386,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 				FAIL_IF(getput_arg(compiler, flags, dst_r, src, srcw, dst, dstw));
 		} else {
 			if (dst_r != TMP_REG1)
-				return emit_op_imm(compiler, op_type, dst_r, TMP_REG1, src);
+				return emit_op_imm(compiler, op, dst_r, TMP_REG1, src);
 			dst_r = src;
 		}
 
@@ -1398,14 +1399,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 		return SLJIT_SUCCESS;
 	}
 
-	if (op_type == SLJIT_NEG) {
+	if (op == SLJIT_NEG) {
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 		compiler->skip_checks = 1;
 #endif
-		return sljit_emit_op2(compiler, GET_FLAGS(op) | SLJIT_SUB, dst, dstw, SLJIT_IMM, 0, src, srcw);
+		return sljit_emit_op2(compiler, SLJIT_SUB | op_flags, dst, dstw, SLJIT_IMM, 0, src, srcw);
 	}
 
-	flags = (GET_FLAGS(op) ? SET_FLAGS : 0) | ((op & SLJIT_KEEP_FLAGS) ? KEEP_FLAGS : 0);
+	flags = (GET_FLAGS(op_flags) ? SET_FLAGS : 0) | ((op_flags & SLJIT_KEEP_FLAGS) ? KEEP_FLAGS : 0);
 	if (src & SLJIT_MEM) {
 		if (getput_arg_fast(compiler, WORD_SIZE, TMP_REG2, src, srcw))
 			FAIL_IF(compiler->error);
@@ -1419,7 +1420,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	else
 		srcw = src;
 
-	emit_op_imm(compiler, flags | op_type, dst_r, TMP_REG1, srcw);
+	emit_op_imm(compiler, flags | op, dst_r, TMP_REG1, srcw);
 
 	if (dst & SLJIT_MEM) {
 		if (getput_arg_fast(compiler, flags | STORE, dst_r, dst, dstw))

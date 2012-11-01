@@ -413,24 +413,42 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 
      length | alignment
    ---------+-----------
-     byte   | 1 byte (not aligned)
-     half   | 2 byte (real_address & 0x1 == 0)
-     int    | 4 byte (real_address & 0x3 == 0)
+     byte   | 1 byte (any physical_address is accepted)
+     half   | 2 byte (physical_address & 0x1 == 0)
+     int    | 4 byte (physical_address & 0x3 == 0)
      word   | 4 byte if SLJIT_32BIT_ARCHITECTURE is defined and its value is 1
             | 8 byte if SLJIT_64BIT_ARCHITECTURE is defined and its value is 1
+    pointer | size of sljit_p type (4 byte on 32 bit machines, 4 or 8 byte
+            | on 64 bit machines)
 
-   Note: different architectures have different addressing limitations
-         Thus sljit may generate several instructions for other addressing modes
-   x86:  all addressing modes supported, but write-back is not supported
-         (requires an extra instruction). On x86-64 only 32 bit signed
-         integers are supported by the architecture.
-   arm:  [reg+imm] supported for small immediates (-4095 <= imm <= 4095
-         or -255 <= imm <= 255 for loading signed bytes, any halfs or doubles)
-         [reg+(reg<<imm)] are supported or requires only two instructions
-         Write back is limited to small immediates on thumb2
-   ppc:  [reg+imm], -65535 <= imm <= 65535. 64 bit moves requires immediates
-         divisible by 4. [reg+reg] supported, write-back supported
-         [reg+(reg<<imm)] (imm != 0) is cheap (requires two instructions)
+   Note:   Different architectures have different addressing limitations.
+           A single instruction is enough for the following addressing
+           modes. Other adrressing modes are emulated by instruction
+           sequences. This information could help to improve those code
+           generators which focuses only a few architectures.
+
+   x86:    [reg+imm], -2^32+1 <= imm <= 2^32-1 (full adress space on x86-32)
+           [reg+(reg<<imm)] is supported
+           [imm], -2^32+1 <= imm <= 2^32-1 is supported
+           Write-back is not supported
+   arm:    [reg+imm], -4095 <= imm <= 4095 or -255 <= imm <= 255 for signed
+                bytes, any halfs or floating point values)
+           [reg+(reg<<imm)] is supported
+           Write-back is supported
+   arm-t2: [reg+imm], -255 <= imm <= 4095
+           [reg+(reg<<imm)] is supported
+           Write back is supported only for [reg+imm], where -255 <= imm <= 255
+   ppc:    [reg+imm], -65536 <= imm <= 65535. 64 bit loads/stores and 32 bit
+                signed load on 64 bit requires immediates divisible by 4.
+                [reg+imm] is not supported for signed 8 bit values.
+           [reg+reg] is supported
+           Write-back is supported except for one instruction: 32 bit signed
+                load with [reg+imm] addressing mode on 64 bit.
+   mips:   [reg+imm], -65536 <= imm <= 65535
+           Nothing else is supported
+   sparc:  [reg+imm], -4096 <= imm <= 4095
+           [reg+reg] is supported
+           Nothing else is supported
 */
 
 /* Register output: simply the name of the register.
@@ -505,11 +523,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
    The result is placed in SLJIT_TEMPORARY_REG1 and the remainder goes to SLJIT_TEMPORARY_REG2.
    Note: if SLJIT_TEMPORARY_REG2 contains 0, the behaviour is undefined. */
 #define SLJIT_UDIV			4
+#define SLJIT_IUDIV			(SLJIT_UDIV | SLJIT_INT_OP)
 /* Flags: I - (may destroy flags)
    Signed divide of the value in SLJIT_TEMPORARY_REG1 by the value in SLJIT_TEMPORARY_REG2.
    The result is placed in SLJIT_TEMPORARY_REG1 and the remainder goes to SLJIT_TEMPORARY_REG2.
    Note: if SLJIT_TEMPORARY_REG2 contains 0, the behaviour is undefined. */
 #define SLJIT_SDIV			5
+#define SLJIT_ISDIV			(SLJIT_SDIV | SLJIT_INT_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler, sljit_si op);
 
@@ -526,45 +546,60 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 
 /* Flags: - (never set any flags) */
 #define SLJIT_MOV			6
-/* Flags: - (never set any flags) */
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOV_UB			7
-/* Flags: - (never set any flags) */
+#define SLJIT_IMOV_UB			(SLJIT_MOV_UB | SLJIT_INT_OP)
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOV_SB			8
-/* Flags: - (never set any flags) */
+#define SLJIT_IMOV_SB			(SLJIT_MOV_SB | SLJIT_INT_OP)
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOV_UH			9
-/* Flags: - (never set any flags) */
+#define SLJIT_IMOV_UH			(SLJIT_MOV_UH | SLJIT_INT_OP)
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOV_SH			10
-/* Flags: - (never set any flags) */
+#define SLJIT_IMOV_SH			(SLJIT_MOV_SH | SLJIT_INT_OP)
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOV_UI			11
-/* Flags: - (never set any flags) */
+/* The SLJIT_INT_OP form is exactly the same as SLJIT_IMOV */
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOV_SI			12
+#define SLJIT_IMOV			(SLJIT_MOV_SI | SLJIT_INT_OP)
 /* Flags: - (never set any flags) */
 #define SLJIT_MOV_P			13
 /* Flags: - (never set any flags) */
 #define SLJIT_MOVU			14
-/* Flags: - (never set any flags) */
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOVU_UB			15
-/* Flags: - (never set any flags) */
+#define SLJIT_IMOVU_UB			(SLJIT_MOVU_UB | SLJIT_INT_OP)
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOVU_SB			16
-/* Flags: - (never set any flags) */
+#define SLJIT_IMOVU_SB			(SLJIT_MOVU_SB | SLJIT_INT_OP)
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOVU_UH			17
-/* Flags: - (never set any flags) */
+#define SLJIT_IMOVU_UH			(SLJIT_MOVU_UH | SLJIT_INT_OP)
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOVU_SH			18
-/* Flags: - (never set any flags) */
+#define SLJIT_IMOVU_SH			(SLJIT_MOVU_SH | SLJIT_INT_OP)
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOVU_UI			19
-/* Flags: - (never set any flags) */
+/* The SLJIT_INT_OP form is exactly the same as SLJIT_IMOVU */
+/* Flags: I - (never set any flags) */
 #define SLJIT_MOVU_SI			20
+#define SLJIT_IMOVU			(SLJIT_MOVU_SI | SLJIT_INT_OP)
 /* Flags: - (never set any flags) */
 #define SLJIT_MOVU_P			21
 /* Flags: I | E | K */
 #define SLJIT_NOT			22
+#define SLJIT_INOT			(SLJIT_NOT | SLJIT_INT_OP)
 /* Flags: I | E | O | K */
 #define SLJIT_NEG			23
+#define SLJIT_INEG			(SLJIT_NEG | SLJIT_INT_OP)
 /* Count leading zeroes
    Flags: I | E | K
    Important note! Sparc 32 does not support K flag, since
    the required popc instruction is introduced only in sparc 64. */
 #define SLJIT_CLZ			24
+#define SLJIT_ICLZ			(SLJIT_CLZ | SLJIT_INT_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si dst, sljit_sw dstw,
@@ -572,39 +607,50 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 
 /* Flags: I | E | O | C | K */
 #define SLJIT_ADD			25
+#define SLJIT_IADD			(SLJIT_ADD | SLJIT_INT_OP)
 /* Flags: I | C | K */
 #define SLJIT_ADDC			26
+#define SLJIT_IADDC			(SLJIT_ADDC | SLJIT_INT_OP)
 /* Flags: I | E | S | U | O | C | K */
 #define SLJIT_SUB			27
+#define SLJIT_ISUB			(SLJIT_SUB | SLJIT_INT_OP)
 /* Flags: I | C | K */
 #define SLJIT_SUBC			28
+#define SLJIT_ISUBC			(SLJIT_SUBC | SLJIT_INT_OP)
 /* Note: integer mul
    Flags: I | O (see SLJIT_C_MUL_*) | K */
 #define SLJIT_MUL			29
+#define SLJIT_IMUL			(SLJIT_MUL | SLJIT_INT_OP)
 /* Flags: I | E | K */
 #define SLJIT_AND			30
+#define SLJIT_IAND			(SLJIT_AND | SLJIT_INT_OP)
 /* Flags: I | E | K */
 #define SLJIT_OR			31
+#define SLJIT_IOR			(SLJIT_OR | SLJIT_INT_OP)
 /* Flags: I | E | K */
 #define SLJIT_XOR			32
+#define SLJIT_IXOR			(SLJIT_XOR | SLJIT_INT_OP)
 /* Flags: I | E | K
    Let bit_length be the length of the shift operation: 32 or 64.
    If src2 is immediate, src2w is masked by (bit_length - 1).
    Otherwise, if the content of src2 is outside the range from 0
    to bit_length - 1, the operation is undefined. */
 #define SLJIT_SHL			33
+#define SLJIT_ISHL			(SLJIT_SHL | SLJIT_INT_OP)
 /* Flags: I | E | K
    Let bit_length be the length of the shift operation: 32 or 64.
    If src2 is immediate, src2w is masked by (bit_length - 1).
    Otherwise, if the content of src2 is outside the range from 0
    to bit_length - 1, the operation is undefined. */
 #define SLJIT_LSHR			34
+#define SLJIT_ILSHR			(SLJIT_LSHR | SLJIT_INT_OP)
 /* Flags: I | E | K
    Let bit_length be the length of the shift operation: 32 or 64.
    If src2 is immediate, src2w is masked by (bit_length - 1).
    Otherwise, if the content of src2 is outside the range from 0
    to bit_length - 1, the operation is undefined. */
 #define SLJIT_ASHR			35
+#define SLJIT_IASHR			(SLJIT_ASHR | SLJIT_INT_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si dst, sljit_sw dstw,
