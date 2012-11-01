@@ -240,6 +240,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 		*(sljit_si*)buf = local_size;
 		buf += sizeof(sljit_si);
 	}
+#ifdef _WIN64
+	/* Save xmm6 with MOVAPS instruction. */
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + 5);
+	FAIL_IF(!buf);
+	INC_SIZE(5);
+	*buf++ = 0x0f;
+	*(sljit_si*)buf = 0x20247429;
+#endif
 
 	return SLJIT_SUCCESS;
 }
@@ -277,6 +285,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 	compiler->flags_saved = 0;
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
 
+#ifdef _WIN64
+	/* Restore xmm6 with MOVAPS instruction. */
+	buf = (sljit_ub*)ensure_buf(compiler, 1 + 5);
+	FAIL_IF(!buf);
+	INC_SIZE(5);
+	*buf++ = 0x0f;
+	*(sljit_si*)buf = 0x20247428;
+#endif
 	SLJIT_ASSERT(compiler->local_size > 0);
 	if (compiler->local_size <= 127) {
 		buf = (sljit_ub*)ensure_buf(compiler, 1 + 4);

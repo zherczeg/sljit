@@ -198,7 +198,7 @@
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 #define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
 #ifdef _WIN64
-#define FIXED_LOCALS_OFFSET (4 * sizeof(sljit_sw))
+#define FIXED_LOCALS_OFFSET ((4 + 2) * sizeof(sljit_sw))
 #else
 #define FIXED_LOCALS_OFFSET (sizeof(sljit_sw))
 #endif
