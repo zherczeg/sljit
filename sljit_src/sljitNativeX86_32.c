@@ -93,7 +93,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 #if !(defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 	if (args > 0) {
 		*inst++ = MOV_r_rm;
-		*inst++ = MOD_REG | 0x4 | (reg_map[TMP_REGISTER] << 3);
+		*inst++ = MOD_REG | (reg_map[TMP_REGISTER] << 3) | 0x4 /* esp */;
 	}
 #endif
 	if (saveds > 2)
@@ -114,24 +114,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	}
 	if (args > 2) {
 		*inst++ = MOV_r_rm;
-		*inst++ = 0x44 | (reg_map[SLJIT_SAVED_REG3] << 3);
+		*inst++ = MOD_DISP8 | (reg_map[SLJIT_SAVED_REG3] << 3) | 0x4 /* esp */;
 		*inst++ = 0x24;
 		*inst++ = sizeof(sljit_sw) * (3 + 2); /* saveds >= 3 as well. */
 	}
 #else
 	if (args > 0) {
 		*inst++ = MOV_r_rm;
-		*inst++ = 0x40 | (reg_map[SLJIT_SAVED_REG1] << 3) | reg_map[TMP_REGISTER];
+		*inst++ = MOD_DISP8 | (reg_map[SLJIT_SAVED_REG1] << 3) | reg_map[TMP_REGISTER];
 		*inst++ = sizeof(sljit_sw) * 2;
 	}
 	if (args > 1) {
 		*inst++ = MOV_r_rm;
-		*inst++ = 0x40 | (reg_map[SLJIT_SAVED_REG2] << 3) | reg_map[TMP_REGISTER];
+		*inst++ = MOD_DISP8 | (reg_map[SLJIT_SAVED_REG2] << 3) | reg_map[TMP_REGISTER];
 		*inst++ = sizeof(sljit_sw) * 3;
 	}
 	if (args > 2) {
 		*inst++ = MOV_r_rm;
-		*inst++ = 0x40 | (reg_map[SLJIT_SAVED_REG3] << 3) | reg_map[TMP_REGISTER];
+		*inst++ = MOD_DISP8 | (reg_map[SLJIT_SAVED_REG3] << 3) | reg_map[TMP_REGISTER];
 		*inst++ = sizeof(sljit_sw) * 4;
 	}
 #endif
@@ -341,7 +341,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_si 
 	/* Encode mod/rm byte. */
 	if (!(flags & EX86_SHIFT_INS)) {
 		if ((flags & EX86_BIN_INS) && (a & SLJIT_IMM))
-			*inst = (flags & EX86_BYTE_ARG) ? GROUP_BIN_83 : GROUP_BIN_81;
+			*inst = (flags & EX86_BYTE_ARG) ? GROUP_BINARY_83 : GROUP_BINARY_81;
 
 		if ((a & SLJIT_IMM) || (a == 0))
 			*buf_ptr = 0;
@@ -358,11 +358,11 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_si 
 	else {
 		if (a & SLJIT_IMM) {
 			if (imma == 1)
-				*inst = 0xd1;
+				*inst = GROUP_SHIFT_1;
 			else
-				*inst = 0xc1;
+				*inst = GROUP_SHIFT_N;
 		} else
-			*inst = 0xd3;
+			*inst = GROUP_SHIFT_CL;
 		*buf_ptr = 0;
 	}
 
