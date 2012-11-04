@@ -179,6 +179,7 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
 #define IMUL_r_rm	(/* GROUP_0F */ 0xaf)
 #define IMUL_r_rm_i8	0x6b
 #define IMUL_r_rm_i32	0x69
+#define JE_i8		0x74
 #define JMP_i8		0xeb
 #define JMP_i32		0xe9
 #define JMP_rm		(/* GROUP_FF */ 4 << 3)
@@ -240,10 +241,14 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
 #define GROUP_0F	0x0f
 #define GROUP_F7	0xf7
 #define GROUP_FF	0xff
-#define GROUP_BIN_81	0x81
-#define GROUP_BIN_83	0x83
+#define GROUP_BINARY_81	0x81
+#define GROUP_BINARY_83	0x83
+#define GROUP_SHIFT_1	0xd1
+#define GROUP_SHIFT_N	0xc1
+#define GROUP_SHIFT_CL	0xd3
 
 #define MOD_REG		0xc0
+#define MOD_DISP8	0x40
 
 #define INC_SIZE(s)			(*inst++ = (s), compiler->size += (s))
 
@@ -253,6 +258,80 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
 #define RET_I16(n)			(*inst++ = (RET_i16), *inst++ = n, *inst++ = 0)
 /* r32, r/m32 */
 #define MOV_RM(mod, reg, rm)		(*inst++ = (MOV_r_rm), *inst++ = (mod) << 6 | (reg) << 3 | (rm))
+
+/* Multithreading does not affect these static variables, since they store
+   built-in CPU features. Therefore they can be overwritten by different threads
+   if they detect the CPU features in the same time. */
+#if (defined SLJIT_SSE2 && SLJIT_SSE2) && (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
+static sljit_ui cpu_has_sse2 = -1;
+#endif
+static sljit_ui cpu_has_cmov = -1;
+
+#if defined(_MSC_VER) && (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#include <intrin.h>
+#endif
+
+static void get_cpu_features()
+{
+	sljit_ui features;
+
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+
+#ifdef __GNUC__
+	/* AT&T syntax. */
+	asm (
+		"pushl %%ebx\n"
+		"movl $0x1, %%eax\n"
+		"cpuid\n"
+		"popl %%ebx\n"
+		"movl %%edx, %0\n"
+		: "=g" (features)
+		:
+		: "%eax", "%ecx", "%edx"
+	);
+#elif defined(_MSC_VER) || defined(__BORLANDC__)
+	/* Intel syntax. */
+	__asm {
+		mov eax, 1
+		push ebx
+		cpuid
+		pop ebx
+		mov features, edx
+	}
+#else
+	#error "SLJIT_DETECT_SSE2 is not implemented for this C compiler"
+#endif
+
+#else /* SLJIT_CONFIG_X86_32 */
+
+#ifdef __GNUC__
+	/* AT&T syntax. */
+	asm (
+		"pushq %%rbx\n"
+		"movl $0x1, %%eax\n"
+		"cpuid\n"
+		"popq %%rbx\n"
+		"movl %%edx, %0\n"
+		: "=g" (features)
+		:
+		: "%rax", "%rcx", "%rdx"
+	);
+#elif defined(_MSC_VER)
+	int CPUInfo[4];
+
+	__cpuid(CPUInfo, 1);
+	features = (sljit_ui)CPUInfo[3];
+#else
+	#error "SLJIT_DETECT_SSE2 is not implemented for this C compiler"
+#endif
+
+#endif /* SLJIT_CONFIG_X86_32 */
+
+#if (defined SLJIT_SSE2 && SLJIT_SSE2) && (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
+	cpu_has_sse2 = (features >> 26) & 0x1;
+#endif
+	cpu_has_cmov = (features >> 15) & 0x1;
+}
 
 static sljit_ub get_jump_code(sljit_si type)
 {
@@ -807,7 +886,10 @@ static sljit_si emit_mov_byte(struct sljit_compiler *compiler, sljit_si sign,
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 			return emit_do_imm(compiler, MOV_r_i32 + reg_map[dst], srcw);
 #else
-			return emit_load_imm64(compiler, dst, srcw);
+			inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, srcw, dst, 0);
+			FAIL_IF(!inst);
+			*inst = MOV_rm_i32;
+			return SLJIT_SUCCESS;
 #endif
 		}
 		inst = emit_x86_instruction(compiler, 1 | EX86_BYTE_ARG | EX86_NO_REXW, SLJIT_IMM, srcw, dst, dstw);
@@ -946,7 +1028,10 @@ static sljit_si emit_mov_half(struct sljit_compiler *compiler, sljit_si sign,
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 			return emit_do_imm(compiler, MOV_r_i32 + reg_map[dst], srcw);
 #else
-			return emit_load_imm64(compiler, dst, srcw);
+			inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, srcw, dst, 0);
+			FAIL_IF(!inst);
+			*inst = MOV_rm_i32;
+			return SLJIT_SUCCESS;
 #endif
 		}
 		inst = emit_x86_instruction(compiler, 1 | EX86_HALF_ARG | EX86_NO_REXW | EX86_PREF_66, SLJIT_IMM, srcw, dst, dstw);
@@ -1080,7 +1165,7 @@ static sljit_si emit_clz(struct sljit_compiler *compiler, sljit_si op_flags,
 	}
 
 	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {
-		EMIT_MOV(compiler, TMP_REGISTER, 0, src, srcw);
+		EMIT_MOV(compiler, TMP_REGISTER, 0, SLJIT_IMM, srcw);
 		src = TMP_REGISTER;
 		srcw = 0;
 	}
@@ -1111,10 +1196,36 @@ static sljit_si emit_clz(struct sljit_compiler *compiler, sljit_si op_flags,
 	compiler->mode32 = op_flags & SLJIT_INT_OP;
 #endif
 
-	inst = emit_x86_instruction(compiler, 2, dst_r, 0, TMP_REGISTER, 0);
-	FAIL_IF(!inst);
-	*inst++ = GROUP_0F;
-	*inst = CMOVNE_r_rm;
+	if (cpu_has_cmov == -1)
+		get_cpu_features();
+
+	if (cpu_has_cmov) {
+		inst = emit_x86_instruction(compiler, 2, dst_r, 0, TMP_REGISTER, 0);
+		FAIL_IF(!inst);
+		*inst++ = GROUP_0F;
+		*inst = CMOVNE_r_rm;
+	} else {
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		inst = (sljit_ub*)ensure_buf(compiler, 1 + 4);
+		FAIL_IF(!inst);
+		INC_SIZE(4);
+
+		*inst++ = JE_i8;
+		*inst++ = 2;
+		*inst++ = MOV_r_rm;
+		*inst++ = MOD_REG | (reg_map[dst_r] << 3) | reg_map[TMP_REGISTER];
+#else
+		inst = (sljit_ub*)ensure_buf(compiler, 1 + 5);
+		FAIL_IF(!inst);
+		INC_SIZE(5);
+
+		*inst++ = JE_i8;
+		*inst++ = 3;
+		*inst++ = REX_W | (reg_map[dst_r] >= 8 ? REX_R : 0) | (reg_map[TMP_REGISTER] >= 8 ? REX_B : 0);
+		*inst++ = MOV_r_rm;
+		*inst++ = MOD_REG | (reg_lmap[dst_r] << 3) | reg_lmap[TMP_REGISTER];
+#endif
+	}
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, 31, dst_r, 0);
@@ -1308,31 +1419,31 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 
-#define BINARY_IMM(_op_imm_, _op_mr_, immw, arg, argw) \
+#define BINARY_IMM(op_imm, op_mr, immw, arg, argw) \
 	if (IS_HALFWORD(immw) || compiler->mode32) { \
 		inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, immw, arg, argw); \
 		FAIL_IF(!inst); \
-		*(inst + 1) |= (_op_imm_); \
+		*(inst + 1) |= (op_imm); \
 	} \
 	else { \
 		FAIL_IF(emit_load_imm64(compiler, TMP_REG2, immw)); \
 		inst = emit_x86_instruction(compiler, 1, TMP_REG2, 0, arg, argw); \
 		FAIL_IF(!inst); \
-		*inst = (_op_mr_); \
+		*inst = (op_mr); \
 	}
 
-#define BINARY_EAX_IMM(_op_eax_imm_, immw) \
-	FAIL_IF(emit_do_imm32(compiler, (!compiler->mode32) ? REX_W : 0, (_op_eax_imm_), immw))
+#define BINARY_EAX_IMM(op_eax_imm, immw) \
+	FAIL_IF(emit_do_imm32(compiler, (!compiler->mode32) ? REX_W : 0, (op_eax_imm), immw))
 
 #else
 
-#define BINARY_IMM(_op_imm_, _op_mr_, immw, arg, argw) \
+#define BINARY_IMM(op_imm, op_mr, immw, arg, argw) \
 	inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, immw, arg, argw); \
 	FAIL_IF(!inst); \
-	*(inst + 1) |= (_op_imm_);
+	*(inst + 1) |= (op_imm);
 
-#define BINARY_EAX_IMM(_op_eax_imm_, immw) \
-	FAIL_IF(emit_do_imm(compiler, (_op_eax_imm_), immw))
+#define BINARY_EAX_IMM(op_eax_imm, immw) \
+	FAIL_IF(emit_do_imm(compiler, (op_eax_imm), immw))
 
 #endif
 
@@ -2155,42 +2266,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_is_fpu_available(void)
 {
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
-	static sljit_si sse2_available = -1;
-	sljit_si features;
-
-	if (sse2_available != -1)
-		return sse2_available;
-
-#ifdef __GNUC__
-	/* AT&T syntax. */
-	asm (
-		"pushl %%ebx\n"
-		"movl $0x1, %%eax\n"
-		"cpuid\n"
-		"popl %%ebx\n"
-		"movl %%edx, %0\n"
-		: "=g" (features)
-		:
-		: "%eax", "%ecx", "%edx"
-	);
-#elif defined(_MSC_VER) || defined(__BORLANDC__)
-	/* Intel syntax. */
-	__asm {
-		mov eax, 1
-		push ebx
-		cpuid
-		pop ebx
-		mov features, edx
-	}
-#else
-	#error "SLJIT_DETECT_SSE2 is not implemented for this C compiler"
-#endif
-	sse2_available = (features >> 26) & 0x1;
-	return sse2_available;
-#else
+	if (cpu_has_sse2 == -1)
+		get_cpu_features();
+	return cpu_has_sse2;
+#else /* SLJIT_DETECT_SSE2 */
 	return 1;
-#endif
-#else
+#endif /* SLJIT_DETECT_SSE2 */
+#else /* SLJIT_SSE2 */
 	return 0;
 #endif
 }

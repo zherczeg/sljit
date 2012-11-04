@@ -1115,7 +1115,7 @@ static SLJIT_INLINE void check_sljit_emit_cmp(struct sljit_compiler *compiler, s
 	SLJIT_UNUSED_ARG(src2);
 	SLJIT_UNUSED_ARG(src2w);
 
-	SLJIT_ASSERT(!(type & ~(0xff | SLJIT_INT_OP | SLJIT_REWRITABLE_JUMP)));
+	SLJIT_ASSERT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_INT_OP)));
 	SLJIT_ASSERT((type & 0xff) >= SLJIT_C_EQUAL && (type & 0xff) <= SLJIT_C_SIG_LESS_EQUAL);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	FUNCTION_CHECK_SRC(src1, src1w);
@@ -1169,6 +1169,13 @@ static SLJIT_INLINE void check_sljit_emit_ijump(struct sljit_compiler *compiler,
 	SLJIT_UNUSED_ARG(type);
 	SLJIT_UNUSED_ARG(src);
 	SLJIT_UNUSED_ARG(srcw);
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		return;
+	}
+#endif
 
 	SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL3);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
