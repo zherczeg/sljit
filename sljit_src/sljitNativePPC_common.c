@@ -1850,7 +1850,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *compiler, sljit_si op, sljit_si dst, sljit_sw dstw, sljit_si type)
 {
-	sljit_si reg;
+	sljit_si reg, flags = GET_ALL_FLAGS(op);
 
 	CHECK_ERROR();
 	check_sljit_emit_cond_value(compiler, op, dst, dstw, type);
@@ -1859,7 +1859,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;
 
-	reg = (op == SLJIT_MOV && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
+	op = GET_OPCODE(op);
+	reg = (op < SLJIT_ADD && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
 
 	switch (type) {
 	case SLJIT_C_EQUAL:
@@ -1945,10 +1946,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 		break;
 	}
 
-	if (GET_OPCODE(op) == SLJIT_OR)
-		return emit_op(compiler, SLJIT_OR, GET_FLAGS(op) ? ALT_SET_FLAGS : 0, dst, dstw, dst, dstw, TMP_REG2, 0);
+	if (op < SLJIT_ADD) {
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+		if (op == SLJIT_MOV)
+			flags = WORD_DATA;
+		else {
+			op = SLJIT_MOV_UI;
+			flags = INT_DATA;
+		}
+#else
+		op = SLJIT_MOV;
+		flags = WORD_DATA;
+#endif
+		return (reg == TMP_REG2) ? emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, TMP_REG2, 0) : SLJIT_SUCCESS;
+	}
 
-	return (reg == TMP_REG2) ? emit_op(compiler, SLJIT_MOV, WORD_DATA, dst, dstw, TMP_REG1, 0, TMP_REG2, 0) : SLJIT_SUCCESS;
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->skip_checks = 1;
+#endif
+	return sljit_emit_op2(compiler, op | flags, dst, dstw, dst, dstw, TMP_REG2, 0);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_si dst, sljit_sw dstw, sljit_sw init_value)

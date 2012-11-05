@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+05.10.2012 - Backward compatible
+    sljit_emit_cond_value now supports SLJIT_AND and SLJIT_INT_OP
+    flags, which makes this function complete.
+
 01.10.2012 - Non-backward compatible
     SLJIT_F* opcodes are renamed to SLJIT_*D to show that
     they are double precision operators. Furthermore

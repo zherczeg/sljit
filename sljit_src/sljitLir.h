@@ -834,14 +834,18 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw
    Flags: destroy all flags for calls. */
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compiler, sljit_si type, sljit_si src, sljit_sw srcw);
 
-/* If op == SLJIT_MOV:
+/* If op == SLJIT_MOV, SLJIT_MOV_SI, SLJIT_MOV_UI:
      Set dst to 1 if condition is fulfilled, 0 otherwise
        type must be between SLJIT_C_EQUAL and SLJIT_C_FLOAT_ORDERED
      Flags: - (never set any flags)
    If op == SLJIT_OR
      Dst is used as src as well, and set its lowest bit to 1 if
-     the condition is fulfilled. Otherwise it does nothing.
-     Flags: E | K
+     the condition is fulfilled. Other bits are unaffected
+     Flags: I | E | K
+   If op == SLJIT_AND
+     Dst is used as src as well, and set its lowest bit to 0 if
+     the condition is not fulfilled. Resets all other bits.
+     Flags: I | E | K
    Note: sljit_emit_cond_value does nothing, if dst is SLJIT_UNUSED (regardless of op). */
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *compiler, sljit_si op, sljit_si dst, sljit_sw dstw, sljit_si type);
 
