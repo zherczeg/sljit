@@ -1272,7 +1272,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *compiler, sljit_si op, sljit_si dst, sljit_sw dstw, sljit_si type)
 {
-	sljit_si reg;
+	sljit_si reg, flags = (GET_FLAGS(op) ? SET_FLAGS : 0);
 
 	CHECK_ERROR();
 	check_sljit_emit_cond_value(compiler, op, dst, dstw, type);
@@ -1282,7 +1282,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 		return SLJIT_SUCCESS;
 
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-	reg = (op == SLJIT_MOV && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
+	op = GET_OPCODE(op);
+	reg = (op < SLJIT_ADD && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
 
 	if (type < SLJIT_C_FLOAT_EQUAL)
 		FAIL_IF(push_inst(compiler, BICC | get_cc(type) | 3, UNMOVABLE_INS));
@@ -1292,8 +1293,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 	FAIL_IF(push_inst(compiler, OR | D(reg) | S1(0) | IMM(1), UNMOVABLE_INS));
 	FAIL_IF(push_inst(compiler, OR | D(reg) | S1(0) | IMM(0), UNMOVABLE_INS));
 
-	if (GET_OPCODE(op) == SLJIT_OR)
-		return emit_op(compiler, SLJIT_OR, (GET_FLAGS(op) ? SET_FLAGS : 0) | CUMULATIVE_OP | IMM_OP, dst, dstw, dst, dstw, TMP_REG2, 0);
+	if (op == SLJIT_AND || op == SLJIT_OR)
+		return emit_op(compiler, op, flags | CUMULATIVE_OP | IMM_OP, dst, dstw, dst, dstw, TMP_REG2, 0);
 
 	return (reg == TMP_REG2) ? emit_op_mem(compiler, WORD_DATA, TMP_REG2, dst, dstw) : SLJIT_SUCCESS;
 #else

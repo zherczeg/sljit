@@ -1892,7 +1892,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *compiler, sljit_si op, sljit_si dst, sljit_sw dstw, sljit_si type)
 {
-	sljit_si dst_r;
+	sljit_si dst_r, flags = GET_ALL_FLAGS(op);
 	sljit_uw cc;
 
 	CHECK_ERROR();
@@ -1902,37 +1902,42 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;
 
+	op = GET_OPCODE(op);
 	cc = get_cc(type);
-	if (GET_OPCODE(op) == SLJIT_OR && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
+	if ((op == SLJIT_AND || op == SLJIT_OR) && dst <= SLJIT_NO_REGISTERS) {
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
-		FAIL_IF(push_inst32(compiler, ORRI | RN4(dst) | RD4(dst) | 0x1));
-		if (op & SLJIT_SET_E) {
+		FAIL_IF(push_inst32(compiler, ((op == SLJIT_AND) ? ANDI : ORRI) | RN4(dst) | RD4(dst) | 0x1));
+		if (flags & SLJIT_SET_E) {
+			/* The condition must always be set, even if the AND/ORR is not executed above. */
 			if (reg_map[dst] <= 7)
-				return push_inst16(compiler, ORRS | RD3(dst) | RN3(dst));
-			return push_inst32(compiler, ORR_W | SET_FLAGS | RD4(TMP_REG1) | RN4(dst) | RM4(dst));
+				return push_inst16(compiler, MOVS | RD3(TMP_REG1) | RN3(dst));
+			return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(TMP_REG1) | RM4(dst));
 		}
 		return SLJIT_SUCCESS;
 	}
 
-	dst_r = TMP_REG2;
-	if (op == SLJIT_MOV && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS && reg_map[dst] <= 7)
-		dst_r = dst;
-
 	FAIL_IF(push_inst16(compiler, IT | (cc << 4) | (((cc & 0x1) ^ 0x1) << 3) | 0x4));
-	FAIL_IF(push_inst16(compiler, MOVSI | 0x1 | RDN3(dst_r)));
-	FAIL_IF(push_inst16(compiler, MOVSI | 0x0 | RDN3(dst_r)));
+	dst_r = TMP_REG2;
+	if (op < SLJIT_ADD && dst <= SLJIT_NO_REGISTERS) {
+		if (reg_map[dst] > 7) {
+			FAIL_IF(push_inst32(compiler, MOV_WI | RD4(dst) | 1));
+			return push_inst32(compiler, MOV_WI | RD4(dst) | 0);
+		}
+		dst_r = dst;
+	}
+
+	FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 0x1));
+	FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 0x0));
 
 	if (dst_r == TMP_REG2) {
-		if (GET_OPCODE(op) == SLJIT_OR) {
+		if (op == SLJIT_AND || op == SLJIT_OR) {
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 			compiler->skip_checks = 1;
 #endif
-			return sljit_emit_op2(compiler, op, dst, dstw, dst, dstw, TMP_REG2, 0);
+			return sljit_emit_op2(compiler, op | flags, dst, dstw, dst, dstw, TMP_REG2, 0);
 		}
-		if (dst & SLJIT_MEM)
-			return emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG2, dst, dstw);
-		else
-			return push_inst16(compiler, MOV | SET_REGS44(dst, TMP_REG2));
+		SLJIT_ASSERT(dst & SLJIT_MEM);
+		return emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG2, dst, dstw);
 	}
 
 	return SLJIT_SUCCESS;

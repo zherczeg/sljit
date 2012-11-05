@@ -1200,15 +1200,17 @@ static SLJIT_INLINE void check_sljit_emit_cond_value(struct sljit_compiler *comp
 	SLJIT_UNUSED_ARG(type);
 
 	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type < SLJIT_JUMP);
-	SLJIT_ASSERT(op == SLJIT_MOV || GET_OPCODE(op) == SLJIT_OR);
-	SLJIT_ASSERT(GET_ALL_FLAGS(op) == 0 || GET_ALL_FLAGS(op) == SLJIT_SET_E || GET_ALL_FLAGS(op) == SLJIT_KEEP_FLAGS);
+	SLJIT_ASSERT(op == SLJIT_MOV || op == SLJIT_MOV_UI || op == SLJIT_MOV_SI
+		|| GET_OPCODE(op) == SLJIT_OR || GET_OPCODE(op) == SLJIT_AND);
+	SLJIT_ASSERT((op & (SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C)) == 0);
+	SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_KEEP_FLAGS)) != (SLJIT_SET_E | SLJIT_KEEP_FLAGS));
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  cond_set%s%s <%s> ", !(op & SLJIT_SET_E) ? "" : "E",
-			!(op & SLJIT_KEEP_FLAGS) ? "" : "K", op_names[GET_OPCODE(op)]);
+		fprintf(compiler->verbose, "  %scond_value%s%s <%s> ", !(op & SLJIT_INT_OP) ? "" : "i",
+			!(op & SLJIT_SET_E) ? "" : "E", !(op & SLJIT_KEEP_FLAGS) ? "" : "K", op_names[GET_OPCODE(op)]);
 		sljit_verbose_param(dst, dstw);
 		fprintf(compiler->verbose, ", <%s>\n", jump_names[type]);
 	}
