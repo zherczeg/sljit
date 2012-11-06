@@ -271,7 +271,7 @@ static sljit_si cpu_has_cmov = -1;
 #include <intrin.h>
 #endif
 
-static void get_cpu_features()
+static void get_cpu_features(void)
 {
 	sljit_ui features;
 
@@ -2623,71 +2623,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 	if (SLJIT_UNLIKELY(compiler->flags_saved))
 		FAIL_IF(emit_restore_flags(compiler, op & SLJIT_KEEP_FLAGS));
 
-	switch (type) {
-	case SLJIT_C_EQUAL:
-	case SLJIT_C_FLOAT_EQUAL:
-		cond_set = 0x94 /* sete */;
-		break;
-
-	case SLJIT_C_NOT_EQUAL:
-	case SLJIT_C_FLOAT_NOT_EQUAL:
-		cond_set = 0x95 /* setne */;
-		break;
-
-	case SLJIT_C_LESS:
-	case SLJIT_C_FLOAT_LESS:
-		cond_set = 0x92 /* setnae */;
-		break;
-
-	case SLJIT_C_GREATER_EQUAL:
-	case SLJIT_C_FLOAT_GREATER_EQUAL:
-		cond_set = 0x93 /* setnb */;
-		break;
-
-	case SLJIT_C_GREATER:
-	case SLJIT_C_FLOAT_GREATER:
-		cond_set = 0x97 /* seta */;
-		break;
-
-	case SLJIT_C_LESS_EQUAL:
-	case SLJIT_C_FLOAT_LESS_EQUAL:
-		cond_set = 0x96 /* setbe */;
-		break;
-
-	case SLJIT_C_SIG_LESS:
-		cond_set = 0x9c /* setnge */;
-		break;
-
-	case SLJIT_C_SIG_GREATER_EQUAL:
-		cond_set = 0x9d /* setnl */;
-		break;
-
-	case SLJIT_C_SIG_GREATER:
-		cond_set = 0x9f /* setg */;
-		break;
-
-	case SLJIT_C_SIG_LESS_EQUAL:
-		cond_set = 0x9e /* setle */;
-		break;
-
-	case SLJIT_C_OVERFLOW:
-	case SLJIT_C_MUL_OVERFLOW:
-		cond_set = 0x90 /* seto */;
-		break;
-
-	case SLJIT_C_NOT_OVERFLOW:
-	case SLJIT_C_MUL_NOT_OVERFLOW:
-		cond_set = 0x91 /* setno */;
-		break;
-
-	case SLJIT_C_FLOAT_UNORDERED:
-		cond_set = 0x9a /* setp */;
-		break;
-
-	case SLJIT_C_FLOAT_ORDERED:
-		cond_set = 0x9b /* setpo */;
-		break;
-	}
+	/* setcc = jcc + 0x10. */
+	cond_set = get_jump_code(type) + 0x10;
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	reg = (op == SLJIT_MOV && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REGISTER;
@@ -2748,6 +2685,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 			INC_SIZE(3);
 
 			*inst++ = GROUP_0F;
+			/* cmovcc = setcc - 0x50. */
 			*inst++ = cond_set - 0x50;
 			*inst++ = MOD_REG | (reg_map[dst] << 3) | reg_map[TMP_REGISTER];
 			return SLJIT_SUCCESS;
