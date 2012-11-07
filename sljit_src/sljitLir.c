@@ -1190,28 +1190,42 @@ static SLJIT_INLINE void check_sljit_emit_ijump(struct sljit_compiler *compiler,
 #endif
 }
 
-static SLJIT_INLINE void check_sljit_emit_cond_value(struct sljit_compiler *compiler, sljit_si op, sljit_si dst, sljit_sw dstw, sljit_si type)
+static SLJIT_INLINE void check_sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_si op,
+	sljit_si dst, sljit_sw dstw,
+	sljit_si src, sljit_sw srcw,
+	sljit_si type)
 {
 	/* If debug and verbose are disabled, all arguments are unused. */
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(op);
 	SLJIT_UNUSED_ARG(dst);
 	SLJIT_UNUSED_ARG(dstw);
+	SLJIT_UNUSED_ARG(src);
+	SLJIT_UNUSED_ARG(srcw);
 	SLJIT_UNUSED_ARG(type);
 
 	SLJIT_ASSERT(type >= SLJIT_C_EQUAL && type < SLJIT_JUMP);
 	SLJIT_ASSERT(op == SLJIT_MOV || op == SLJIT_MOV_UI || op == SLJIT_MOV_SI
-		|| GET_OPCODE(op) == SLJIT_OR || GET_OPCODE(op) == SLJIT_AND);
+		|| (GET_OPCODE(op) >= SLJIT_AND && GET_OPCODE(op) <= SLJIT_XOR));
 	SLJIT_ASSERT((op & (SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C)) == 0);
 	SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_KEEP_FLAGS)) != (SLJIT_SET_E | SLJIT_KEEP_FLAGS));
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if (GET_OPCODE(op) < SLJIT_ADD) {
+		SLJIT_ASSERT(src == SLJIT_UNUSED && srcw == 0);
+	} else {
+		SLJIT_ASSERT(src == dst && srcw == dstw);
+	}
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %scond_value%s%s <%s> ", !(op & SLJIT_INT_OP) ? "" : "i",
+		fprintf(compiler->verbose, "  %sop_flags%s%s <%s> ", !(op & SLJIT_INT_OP) ? "" : "i",
 			!(op & SLJIT_SET_E) ? "" : "E", !(op & SLJIT_KEEP_FLAGS) ? "" : "K", op_names[GET_OPCODE(op)]);
 		sljit_verbose_param(dst, dstw);
+		if (src != SLJIT_UNUSED) {
+			fprintf(compiler->verbose, ", ");
+			sljit_verbose_param(src, srcw);
+		}
 		fprintf(compiler->verbose, ", <%s>\n", jump_names[type]);
 	}
 #endif
@@ -1699,12 +1713,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *compiler, sljit_si op, sljit_si dst, sljit_sw dstw, sljit_si type)
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_si op,
+	sljit_si dst, sljit_sw dstw,
+	sljit_si src, sljit_sw srcw,
+	sljit_si type)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(op);
 	SLJIT_UNUSED_ARG(dst);
 	SLJIT_UNUSED_ARG(dstw);
+	SLJIT_UNUSED_ARG(src);
+	SLJIT_UNUSED_ARG(srcw);
 	SLJIT_UNUSED_ARG(type);
 	SLJIT_ASSERT_STOP();
 	return SLJIT_ERR_UNSUPPORTED;

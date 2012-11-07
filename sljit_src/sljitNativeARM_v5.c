@@ -2405,13 +2405,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *compiler, sljit_si op, sljit_si dst, sljit_sw dstw, sljit_si type)
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_si op,
+	sljit_si dst, sljit_sw dstw,
+	sljit_si src, sljit_sw srcw,
+	sljit_si type)
 {
 	sljit_si reg;
 	sljit_uw cc;
 
 	CHECK_ERROR();
-	check_sljit_emit_cond_value(compiler, op, dst, dstw, type);
+	check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type);
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	if (dst == SLJIT_UNUSED)
@@ -2428,7 +2431,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 	}
 
 	if (dst <= SLJIT_NO_REGISTERS) {
-		EMIT_INSTRUCTION((EMIT_DATA_PROCESS_INS(GET_OPCODE(op) == SLJIT_AND ? AND_DP : ORR_DP,
+		EMIT_INSTRUCTION((EMIT_DATA_PROCESS_INS(GET_OPCODE(op) == SLJIT_AND ? AND_DP : (GET_OPCODE(op) == SLJIT_OR ? ORR_DP : EOR_DP),
 			0, dst, dst, SRC2_IMM | 1) & ~COND_MASK) | cc);
 		/* The condition must always be set, even if the AND/ORR is not executed above. */
 		return (op & SLJIT_SET_E) ? push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, SET_FLAGS, TMP_REG1, SLJIT_UNUSED, RM(dst))) : SLJIT_SUCCESS;
