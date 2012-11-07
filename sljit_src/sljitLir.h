@@ -834,20 +834,25 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw
    Flags: destroy all flags for calls. */
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compiler, sljit_si type, sljit_si src, sljit_sw srcw);
 
-/* If op == SLJIT_MOV, SLJIT_MOV_SI, SLJIT_MOV_UI:
-     Set dst to 1 if condition is fulfilled, 0 otherwise
-       type must be between SLJIT_C_EQUAL and SLJIT_C_FLOAT_ORDERED
+/* Perform the operation using the conditional flags as the second argument.
+   Type must always be between SLJIT_C_EQUAL and SLJIT_C_FLOAT_ORDERED. The
+   value represented by the type is 1, if the condition represented by the type
+   is fulfilled, and 0 otherwise.
+
+   If op == SLJIT_MOV, SLJIT_MOV_SI, SLJIT_MOV_UI:
+     Set dst to the value represented by the type (0 or 1).
+     Src must be SLJIT_UNUSED, and srcw must be 0
      Flags: - (never set any flags)
-   If op == SLJIT_OR
-     Dst is used as src as well, and set its lowest bit to 1 if
-     the condition is fulfilled. Other bits are unaffected
+   If op == SLJIT_OR, op == SLJIT_AND, op == SLJIT_XOR
+     Performs the binary operation using src as the first, and the value
+     represented by type as the second argument.
+     Important note: only dst=src and dstw=srcw is supported at the moment!
      Flags: I | E | K
-   If op == SLJIT_AND
-     Dst is used as src as well, and set its lowest bit to 0 if
-     the condition is not fulfilled. Resets all other bits.
-     Flags: I | E | K
-   Note: sljit_emit_cond_value does nothing, if dst is SLJIT_UNUSED (regardless of op). */
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *compiler, sljit_si op, sljit_si dst, sljit_sw dstw, sljit_si type);
+   Note: sljit_emit_op_flags does nothing, if dst is SLJIT_UNUSED (regardless of op). */
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_si op,
+	sljit_si dst, sljit_sw dstw,
+	sljit_si src, sljit_sw srcw,
+	sljit_si type);
 
 /* Copies the base address of SLJIT_LOCALS_REG+offset to dst.
    Flags: - (never set any flags) */

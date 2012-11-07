@@ -1890,13 +1890,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *compiler, sljit_si op, sljit_si dst, sljit_sw dstw, sljit_si type)
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_si op,
+	sljit_si dst, sljit_sw dstw,
+	sljit_si src, sljit_sw srcw,
+	sljit_si type)
 {
 	sljit_si dst_r, flags = GET_ALL_FLAGS(op);
 	sljit_uw cc;
 
 	CHECK_ERROR();
-	check_sljit_emit_cond_value(compiler, op, dst, dstw, type);
+	check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type);
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	if (dst == SLJIT_UNUSED)
@@ -1904,9 +1907,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 
 	op = GET_OPCODE(op);
 	cc = get_cc(type);
-	if ((op == SLJIT_AND || op == SLJIT_OR) && dst <= SLJIT_NO_REGISTERS) {
+	if ((op >= SLJIT_AND && op <= SLJIT_XOR) && dst <= SLJIT_NO_REGISTERS) {
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
-		FAIL_IF(push_inst32(compiler, ((op == SLJIT_AND) ? ANDI : ORRI) | RN4(dst) | RD4(dst) | 0x1));
+		FAIL_IF(push_inst32(compiler, (op == SLJIT_AND ? ANDI : (op == SLJIT_OR ? ORRI : EORI)) | RN4(dst) | RD4(dst) | 0x1));
 		if (flags & SLJIT_SET_E) {
 			/* The condition must always be set, even if the AND/ORR is not executed above. */
 			if (reg_map[dst] <= 7)
@@ -1930,7 +1933,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 	FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 0x0));
 
 	if (dst_r == TMP_REG2) {
-		if (op == SLJIT_AND || op == SLJIT_OR) {
+		if (op >= SLJIT_AND && op <= SLJIT_XOR) {
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 			compiler->skip_checks = 1;
 #endif

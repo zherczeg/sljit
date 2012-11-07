@@ -1487,7 +1487,7 @@ static sljit_si emit_cum_binary(struct sljit_compiler *compiler,
 			*inst = op_rm;
 		}
 		else if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= TMP_REGISTER) {
-			/* Special exception for sljit_emit_cond_value. */
+			/* Special exception for sljit_emit_op_flags. */
 			inst = emit_x86_instruction(compiler, 1, src2, src2w, dst, dstw);
 			FAIL_IF(!inst);
 			*inst = op_mr;
@@ -2600,7 +2600,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *compiler, sljit_si op, sljit_si dst, sljit_sw dstw, sljit_si type)
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_si op,
+	sljit_si dst, sljit_sw dstw,
+	sljit_si src, sljit_sw srcw,
+	sljit_si type)
 {
 	sljit_ub *inst;
 	sljit_ub cond_set = 0;
@@ -2613,7 +2616,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_cond_value(struct sljit_compiler *c
 #endif
 
 	CHECK_ERROR();
-	check_sljit_emit_cond_value(compiler, op, dst, dstw, type);
+	check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type);
 
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;

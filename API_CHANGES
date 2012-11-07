@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+07.10.2012 - Non-backward compatible
+    sljit_emit_cond_value is renamed to sljit_emit_op_flags. An
+    extra source argument is added which will be used in the future.
+
 05.10.2012 - Backward compatible
     sljit_emit_cond_value now supports SLJIT_AND and SLJIT_INT_OP
     flags, which makes this function complete.
