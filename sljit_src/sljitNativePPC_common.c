@@ -449,6 +449,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #define ALT_SIGN_EXT	0x000200
 /* This flag affects the RC() and OERC() macros. */
 #define ALT_SET_FLAGS	0x000400
+#define ALT_KEEP_CACHE	0x000800
 #define ALT_FORM1	0x010000
 #define ALT_FORM2	0x020000
 #define ALT_FORM3	0x040000
@@ -978,8 +979,10 @@ static sljit_si emit_op(struct sljit_compiler *compiler, sljit_si op, sljit_si i
 	sljit_si sugg_src2_r = TMP_REG2;
 	sljit_si flags = input_flags & (ALT_FORM1 | ALT_FORM2 | ALT_FORM3 | ALT_FORM4 | ALT_FORM5 | ALT_FORM6 | ALT_SIGN_EXT | ALT_SET_FLAGS);
 
-	compiler->cache_arg = 0;
-	compiler->cache_argw = 0;
+	if (!(input_flags & ALT_KEEP_CACHE)) {
+		compiler->cache_arg = 0;
+		compiler->cache_argw = 0;
+	}
 
 	/* Destination check. */
 	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= ZERO_REG) {
@@ -1148,7 +1151,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	op = GET_OPCODE(op);
-	if ((src & SLJIT_IMM) && srcw == 0 && op >= SLJIT_NOT)
+	if ((src & SLJIT_IMM) && srcw == 0)
 		src = ZERO_REG;
 
 	if (op_flags & SLJIT_SET_O)
@@ -1322,6 +1325,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 #endif
 	if (op & SLJIT_SET_O)
 		FAIL_IF(push_inst(compiler, MTXER | S(ZERO_REG)));
+	if (src2 == TMP_REG2)
+		flags |= ALT_KEEP_CACHE;
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
@@ -1853,7 +1858,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 	sljit_si src, sljit_sw srcw,
 	sljit_si type)
 {
-	sljit_si reg, flags = GET_ALL_FLAGS(op);
+	sljit_si reg, input_flags;
+	sljit_si flags = GET_ALL_FLAGS(op);
 
 	CHECK_ERROR();
 	check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type);
@@ -1863,7 +1869,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 		return SLJIT_SUCCESS;
 
 	op = GET_OPCODE(op);
-	reg = (op < SLJIT_ADD && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
+	reg = (op < SLJIT_ADD && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
+
+	compiler->cache_arg = 0;
+	compiler->cache_argw = 0;
+	if (op >= SLJIT_ADD && (src & SLJIT_MEM)) {
+		ADJUST_LOCAL_OFFSET(src, srcw);
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+		input_flags = (flags & SLJIT_INT_OP) ? INT_DATA : WORD_DATA;
+#else
+		input_flags = WORD_DATA;
+#endif
+		FAIL_IF(emit_op_mem2(compiler, input_flags | LOAD_DATA, TMP_REG1, src, srcw, dst, dstw));
+		src = TMP_REG1;
+		srcw = 0;
+	}
 
 	switch (type) {
 	case SLJIT_C_EQUAL:
@@ -1952,22 +1972,22 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 	if (op < SLJIT_ADD) {
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		if (op == SLJIT_MOV)
-			flags = WORD_DATA;
+			input_flags = WORD_DATA;
 		else {
 			op = SLJIT_MOV_UI;
-			flags = INT_DATA;
+			input_flags = INT_DATA;
 		}
 #else
 		op = SLJIT_MOV;
-		flags = WORD_DATA;
+		input_flags = WORD_DATA;
 #endif
-		return (reg == TMP_REG2) ? emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, TMP_REG2, 0) : SLJIT_SUCCESS;
+		return (reg == TMP_REG2) ? emit_op(compiler, op, input_flags, dst, dstw, TMP_REG1, 0, TMP_REG2, 0) : SLJIT_SUCCESS;
 	}
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->skip_checks = 1;
 #endif
-	return sljit_emit_op2(compiler, op | flags, dst, dstw, dst, dstw, TMP_REG2, 0);
+	return sljit_emit_op2(compiler, op | flags, dst, dstw, src, srcw, TMP_REG2, 0);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_si dst, sljit_sw dstw, sljit_sw init_value)

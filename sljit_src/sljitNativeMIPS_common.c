@@ -423,18 +423,19 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 #define WRITE_BACK	0x00020
 #define ARG_TEST	0x00040
-#define CUMULATIVE_OP	0x00080
-#define LOGICAL_OP	0x00100
-#define IMM_OP		0x00200
-#define SRC2_IMM	0x00400
+#define ALT_KEEP_CACHE	0x00080
+#define CUMULATIVE_OP	0x00100
+#define LOGICAL_OP	0x00200
+#define IMM_OP		0x00400
+#define SRC2_IMM	0x00800
 
-#define UNUSED_DEST	0x00800
-#define REG_DEST	0x01000
-#define REG1_SOURCE	0x02000
-#define REG2_SOURCE	0x04000
-#define SLOW_SRC1	0x08000
-#define SLOW_SRC2	0x10000
-#define SLOW_DEST	0x20000
+#define UNUSED_DEST	0x01000
+#define REG_DEST	0x02000
+#define REG1_SOURCE	0x04000
+#define REG2_SOURCE	0x08000
+#define SLOW_SRC1	0x10000
+#define SLOW_SRC2	0x20000
+#define SLOW_DEST	0x40000
 
 /* Only these flags are set. UNUSED_DEST is not set when no flags should be set. */
 #define CHECK_FLAGS(list) \
@@ -813,13 +814,15 @@ static sljit_si emit_op(struct sljit_compiler *compiler, sljit_si op, sljit_si f
 	sljit_sw src2_r = 0;
 	sljit_si sugg_src2_r = TMP_REG2;
 
-	compiler->cache_arg = 0;
-	compiler->cache_argw = 0;
+	if (!(flags & ALT_KEEP_CACHE)) {
+		compiler->cache_arg = 0;
+		compiler->cache_argw = 0;
+	}
 
 	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REG3) {
 		dst_r = dst;
 		flags |= REG_DEST;
-		if (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SI)
+		if (op >= SLJIT_MOV && op <= SLJIT_MOVU_SI)
 			sugg_src2_r = dst_r;
 	}
 	else if (dst == SLJIT_UNUSED) {
@@ -879,17 +882,20 @@ static sljit_si emit_op(struct sljit_compiler *compiler, sljit_si op, sljit_si f
 	if (src2 >= SLJIT_TEMPORARY_REG1 && src2 <= TMP_REG3) {
 		src2_r = src2;
 		flags |= REG2_SOURCE;
-		if (!(flags & REG_DEST) && GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SI)
+		if (!(flags & REG_DEST) && op >= SLJIT_MOV && op <= SLJIT_MOVU_SI)
 			dst_r = src2_r;
 	}
 	else if (src2 & SLJIT_IMM) {
 		if (!(flags & SRC2_IMM)) {
-			if (src2w || (GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOVU_SI)) {
+			if (src2w) {
 				FAIL_IF(load_immediate(compiler, DR(sugg_src2_r), src2w));
 				src2_r = sugg_src2_r;
 			}
-			else
+			else {
 				src2_r = 0;
+				if ((op >= SLJIT_MOV && op <= SLJIT_MOVU_SI) && (dst & SLJIT_MEM))
+					dst_r = 0;
+			}
 		}
 	}
 	else {
@@ -1763,6 +1769,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 	op = GET_OPCODE(op);
 	sugg_dst_ar = DR((op < SLJIT_ADD && dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2);
 
+	compiler->cache_arg = 0;
+	compiler->cache_argw = 0;
+	if (op >= SLJIT_ADD && (src & SLJIT_MEM)) {
+		ADJUST_LOCAL_OFFSET(src, srcw);
+		FAIL_IF(emit_op_mem2(compiler, WORD_DATA | LOAD_DATA, DR(TMP_REG1), src, srcw, dst, dstw));
+		src = TMP_REG1;
+		srcw = 0;
+	}
+
 	switch (type) {
 	case SLJIT_C_EQUAL:
 	case SLJIT_C_NOT_EQUAL:
@@ -1823,10 +1838,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 		dst_ar = sugg_dst_ar;
 	}
 
-	if (op >= SLJIT_AND && op <= SLJIT_XOR) {
+	if (op >= SLJIT_ADD) {
 		if (DR(TMP_REG2) != dst_ar)
 			FAIL_IF(push_inst(compiler, ADDU_W | SA(dst_ar) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
-		return emit_op(compiler, op | flags, CUMULATIVE_OP | LOGICAL_OP | IMM_OP, dst, dstw, dst, dstw, TMP_REG2, 0);
+		return emit_op(compiler, op | flags, CUMULATIVE_OP | LOGICAL_OP | IMM_OP | ALT_KEEP_CACHE, dst, dstw, src, srcw, TMP_REG2, 0);
 	}
 
 	if (dst & SLJIT_MEM)
