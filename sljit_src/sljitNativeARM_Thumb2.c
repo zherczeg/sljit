@@ -1124,6 +1124,13 @@ static SLJIT_INLINE sljit_si emit_op_mem(struct sljit_compiler *compiler, sljit_
 	return getput_arg(compiler, flags, reg, arg, argw, 0, 0);
 }
 
+static SLJIT_INLINE sljit_si emit_op_mem2(struct sljit_compiler *compiler, sljit_si flags, sljit_si reg, sljit_si arg1, sljit_sw arg1w, sljit_si arg2, sljit_sw arg2w)
+{
+	if (getput_arg_fast(compiler, flags, reg, arg1, arg1w))
+		return compiler->error;
+	return getput_arg(compiler, flags, reg, arg1, arg1w, arg2, arg2w);
+}
+
 /* --------------------------------------------------------------------- */
 /*  Entry, exit                                                          */
 /* --------------------------------------------------------------------- */
@@ -1896,22 +1903,40 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 	sljit_si type)
 {
 	sljit_si dst_r, flags = GET_ALL_FLAGS(op);
+	sljit_ins ins;
 	sljit_uw cc;
 
 	CHECK_ERROR();
 	check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type);
 	ADJUST_LOCAL_OFFSET(dst, dstw);
+	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;
 
 	op = GET_OPCODE(op);
 	cc = get_cc(type);
-	if ((op >= SLJIT_AND && op <= SLJIT_XOR) && dst <= SLJIT_NO_REGISTERS) {
+	dst_r = (dst <= SLJIT_NO_REGISTERS) ? dst : TMP_REG2;
+
+	if (op < SLJIT_ADD) {
+		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | (((cc & 0x1) ^ 0x1) << 3) | 0x4));
+		if (reg_map[dst_r] > 7) {
+			FAIL_IF(push_inst32(compiler, MOV_WI | RD4(dst_r) | 1));
+			FAIL_IF(push_inst32(compiler, MOV_WI | RD4(dst_r) | 0));
+		} else {
+			FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 1));
+			FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 0));
+		}
+		return dst_r == TMP_REG2 ? emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG2, dst, dstw) : SLJIT_SUCCESS;
+	}
+
+	ins = (op == SLJIT_AND ? ANDI : (op == SLJIT_OR ? ORRI : EORI));
+	if ((op == SLJIT_OR || op == SLJIT_XOR) && dst <= SLJIT_NO_REGISTERS && dst == src) {
+		/* Does not change the other bits. */
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
-		FAIL_IF(push_inst32(compiler, (op == SLJIT_AND ? ANDI : (op == SLJIT_OR ? ORRI : EORI)) | RN4(dst) | RD4(dst) | 0x1));
+		FAIL_IF(push_inst32(compiler, ins | RN4(src) | RD4(dst) | 1));
 		if (flags & SLJIT_SET_E) {
-			/* The condition must always be set, even if the AND/ORR is not executed above. */
+			/* The condition must always be set, even if the ORRI/EORI is not executed above. */
 			if (reg_map[dst] <= 7)
 				return push_inst16(compiler, MOVS | RD3(TMP_REG1) | RN3(dst));
 			return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(TMP_REG1) | RM4(dst));
@@ -1919,30 +1944,30 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 		return SLJIT_SUCCESS;
 	}
 
+	compiler->cache_arg = 0;
+	compiler->cache_argw = 0;
+	if (src & SLJIT_MEM) {
+		FAIL_IF(emit_op_mem2(compiler, WORD_SIZE, TMP_REG1, src, srcw, dst, dstw));
+		src = TMP_REG1;
+		srcw = 0;
+	} else if (src & SLJIT_IMM) {
+		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
+		src = TMP_REG1;
+		srcw = 0;
+	}
+
 	FAIL_IF(push_inst16(compiler, IT | (cc << 4) | (((cc & 0x1) ^ 0x1) << 3) | 0x4));
-	dst_r = TMP_REG2;
-	if (op < SLJIT_ADD && dst <= SLJIT_NO_REGISTERS) {
-		if (reg_map[dst] > 7) {
-			FAIL_IF(push_inst32(compiler, MOV_WI | RD4(dst) | 1));
-			return push_inst32(compiler, MOV_WI | RD4(dst) | 0);
-		}
-		dst_r = dst;
+	FAIL_IF(push_inst32(compiler, ins | RN4(src) | RD4(dst_r) | 1));
+	FAIL_IF(push_inst32(compiler, ins | RN4(src) | RD4(dst_r) | 0));
+	if (dst_r == TMP_REG2)
+		FAIL_IF(emit_op_mem2(compiler, WORD_SIZE | STORE, TMP_REG2, dst, dstw, 0, 0));
+
+	if (flags & SLJIT_SET_E) {
+		/* The condition must always be set, even if the ORR/EORI is not executed above. */
+		if (reg_map[dst_r] <= 7)
+			return push_inst16(compiler, MOVS | RD3(TMP_REG1) | RN3(dst_r));
+		return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(TMP_REG1) | RM4(dst_r));
 	}
-
-	FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 0x1));
-	FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 0x0));
-
-	if (dst_r == TMP_REG2) {
-		if (op >= SLJIT_AND && op <= SLJIT_XOR) {
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
-			compiler->skip_checks = 1;
-#endif
-			return sljit_emit_op2(compiler, op | flags, dst, dstw, dst, dstw, TMP_REG2, 0);
-		}
-		SLJIT_ASSERT(dst & SLJIT_MEM);
-		return emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG2, dst, dstw);
-	}
-
 	return SLJIT_SUCCESS;
 }
 

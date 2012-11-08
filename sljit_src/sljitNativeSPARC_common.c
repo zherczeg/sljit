@@ -490,7 +490,7 @@ static sljit_si getput_arg_fast(struct sljit_compiler *compiler, sljit_si flags,
 {
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
-	if (!(flags & WRITE_BACK)) {
+	if (!(flags & WRITE_BACK) || !(arg & 0xf)) {
 		if ((!(arg & 0xf0) && argw <= SIMM_MAX && argw >= SIMM_MIN)
 				|| ((arg & 0xf0) && (argw & 0x3) == 0)) {
 			/* Works for both absoulte and relative addresses (immediate case). */
