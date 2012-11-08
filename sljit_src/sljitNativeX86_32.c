@@ -460,7 +460,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_enter(struct sljit_compiler *c
 
 	CHECK_EXTRA_REGS(dst, dstw, (void)0);
 
-	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
+	/* For UNUSED dst. Uncommon, but possible. */
+	if (dst == SLJIT_UNUSED)
+		dst = TMP_REGISTER;
+
+	if (dst <= TMP_REGISTER) {
+		/* Unused dest is possible here. */
 		inst = (sljit_ub*)ensure_buf(compiler, 1 + 1);
 		FAIL_IF(!inst);
 
@@ -468,19 +473,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_enter(struct sljit_compiler *c
 		POP_REG(reg_map[dst]);
 		return SLJIT_SUCCESS;
 	}
-	else if (dst & SLJIT_MEM) {
-		inst = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
-		FAIL_IF(!inst);
-		*inst++ = POP_rm;
-		return SLJIT_SUCCESS;
-	}
 
-	/* For UNUSED dst. Uncommon, but possible. */
-	inst = (sljit_ub*)ensure_buf(compiler, 1 + 1);
+	/* Memory. */
+	inst = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
 	FAIL_IF(!inst);
-
-	INC_SIZE(1);
-	POP_REG(reg_map[TMP_REGISTER]);
+	*inst++ = POP_rm;
 	return SLJIT_SUCCESS;
 }
 
@@ -494,7 +491,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 
 	CHECK_EXTRA_REGS(src, srcw, (void)0);
 
-	if (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_NO_REGISTERS) {
+	if (src <= TMP_REGISTER) {
 		inst = (sljit_ub*)ensure_buf(compiler, 1 + 1 + 1);
 		FAIL_IF(!inst);
 
