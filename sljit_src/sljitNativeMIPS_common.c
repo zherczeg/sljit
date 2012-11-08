@@ -608,7 +608,7 @@ static sljit_si getput_arg_fast(struct sljit_compiler *compiler, sljit_si flags,
 {
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
-	if (!(flags & WRITE_BACK) && !(arg & 0xf0) && argw <= SIMM_MAX && argw >= SIMM_MIN) {
+	if ((!(flags & WRITE_BACK) || !(arg & 0xf)) && !(arg & 0xf0) && argw <= SIMM_MAX && argw >= SIMM_MIN) {
 		/* Works for both absoulte and relative addresses. */
 		if (SLJIT_UNLIKELY(flags & ARG_TEST))
 			return 1;

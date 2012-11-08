@@ -3937,7 +3937,7 @@ static void test46(void)
 	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_E, SLJIT_UNUSED, 0, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, -7);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 12);
 	sljit_emit_op_flags(compiler, SLJIT_MOV_UI, SLJIT_MEM2(SLJIT_SAVED_REG1, SLJIT_TEMPORARY_REG1), 2, SLJIT_UNUSED, 0, SLJIT_C_EQUAL);
-	sljit_emit_op_flags(compiler, SLJIT_MOV_UI, SLJIT_TEMPORARY_REG1, 0, SLJIT_UNUSED, 0, SLJIT_C_EQUAL);
+	sljit_emit_op_flags(compiler, SLJIT_MOV_UI | SLJIT_INT_OP, SLJIT_TEMPORARY_REG1, 0, SLJIT_UNUSED, 0, SLJIT_C_EQUAL);
 	sljit_emit_op1(compiler, SLJIT_MOV_SI, SLJIT_MEM1(SLJIT_SAVED_REG1), 14 * sizeof(sljit_si), SLJIT_TEMPORARY_REG1, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 16);
 	sljit_emit_op_flags(compiler, SLJIT_IAND | SLJIT_SET_E, SLJIT_MEM2(SLJIT_SAVED_REG1, SLJIT_TEMPORARY_REG1), 2, SLJIT_MEM2(SLJIT_SAVED_REG1, SLJIT_TEMPORARY_REG1), 2, SLJIT_C_EQUAL);
@@ -3947,7 +3947,7 @@ static void test46(void)
 	sljit_emit_op_flags(compiler, SLJIT_IXOR | SLJIT_KEEP_FLAGS, SLJIT_MEM1(SLJIT_SAVED_REG1), 20 * sizeof(sljit_si), SLJIT_MEM1(SLJIT_SAVED_REG1), 20 * sizeof(sljit_si), SLJIT_C_EQUAL);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TEMPORARY_REG1, 0, SLJIT_IMM, 39);
 	sljit_emit_op_flags(compiler, SLJIT_IXOR, SLJIT_TEMPORARY_REG1, 0, SLJIT_TEMPORARY_REG1, 0, SLJIT_C_EQUAL);
-	sljit_emit_op1(compiler, SLJIT_MOV_SI, SLJIT_MEM1(SLJIT_SAVED_REG1), 22 * sizeof(sljit_si), SLJIT_TEMPORARY_REG1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV_SI | SLJIT_INT_OP, SLJIT_MEM1(SLJIT_SAVED_REG1), 22 * sizeof(sljit_si), SLJIT_TEMPORARY_REG1, 0);
 
 	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_E | SLJIT_SET_U, SLJIT_UNUSED, 0, SLJIT_TEMPORARY_REG3, 0, SLJIT_IMM, -7);
 	sljit_emit_op_flags(compiler, SLJIT_AND, SLJIT_MEM0(), (sljit_sw)&buf2, SLJIT_MEM0(), (sljit_sw)&buf2, SLJIT_C_GREATER);
