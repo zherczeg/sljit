@@ -664,30 +664,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_enter(struct sljit_compiler *c
 	if (dst == SLJIT_UNUSED)
 		dst = TMP_REGISTER;
 
-	if (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REGISTER) {
+	if (dst <= TMP_REGISTER) {
 		if (reg_map[dst] < 8) {
 			inst = (sljit_ub*)ensure_buf(compiler, 1 + 1);
 			FAIL_IF(!inst);
-
 			INC_SIZE(1);
 			POP_REG(reg_lmap[dst]);
+			return SLJIT_SUCCESS;
 		}
-		else {
-			inst = (sljit_ub*)ensure_buf(compiler, 1 + 2);
-			FAIL_IF(!inst);
 
-			INC_SIZE(2);
-			*inst++ = REX_B;
-			POP_REG(reg_lmap[dst]);
-		}
-	}
-	else if (dst & SLJIT_MEM) {
-		/* REX_W is not necessary (src is not immediate). */
-		compiler->mode32 = 1;
-		inst = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
+		inst = (sljit_ub*)ensure_buf(compiler, 1 + 2);
 		FAIL_IF(!inst);
-		*inst++ = POP_rm;
+		INC_SIZE(2);
+		*inst++ = REX_B;
+		POP_REG(reg_lmap[dst]);
+		return SLJIT_SUCCESS;
 	}
+
+	/* REX_W is not necessary (src is not immediate). */
+	compiler->mode32 = 1;
+	inst = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
+	FAIL_IF(!inst);
+	*inst++ = POP_rm;
 	return SLJIT_SUCCESS;
 }
 
@@ -704,7 +702,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 		src = TMP_REGISTER;
 	}
 
-	if (src >= SLJIT_TEMPORARY_REG1 && src <= TMP_REGISTER) {
+	if (src <= TMP_REGISTER) {
 		if (reg_map[src] < 8) {
 			inst = (sljit_ub*)ensure_buf(compiler, 1 + 1 + 1);
 			FAIL_IF(!inst);
@@ -767,7 +765,7 @@ static sljit_si emit_mov_int(struct sljit_compiler *compiler, sljit_si sign,
 		return SLJIT_SUCCESS; /* Empty instruction. */
 
 	if (src & SLJIT_IMM) {
-		if (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_NO_REGISTERS) {
+		if (dst <= TMP_REGISTER) {
 			if (sign || ((sljit_uw)srcw <= 0x7fffffff)) {
 				inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, (sljit_sw)(sljit_si)srcw, dst, dstw);
 				FAIL_IF(!inst);
@@ -784,9 +782,9 @@ static sljit_si emit_mov_int(struct sljit_compiler *compiler, sljit_si sign,
 		return SLJIT_SUCCESS;
 	}
 
-	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= SLJIT_SAVED_REG3) ? dst : TMP_REGISTER;
+	dst_r = (dst <= TMP_REGISTER) ? dst : TMP_REGISTER;
 
-	if ((dst & SLJIT_MEM) && (src >= SLJIT_TEMPORARY_REG1 && src <= SLJIT_SAVED_REG3))
+	if ((dst & SLJIT_MEM) && (src <= TMP_REGISTER))
 		dst_r = src;
 	else {
 		if (sign) {
