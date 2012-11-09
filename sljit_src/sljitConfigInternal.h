@@ -413,17 +413,28 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr);
 #define SLJIT_FREE_EXEC(ptr) sljit_free_exec(ptr)
 #endif
 
-#if (defined SLJIT_DEBUG && SLJIT_DEBUG) || (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 #include <stdio.h>
 #endif
 
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 
-/* Feel free to redefine these two macros. */
-#ifndef SLJIT_ASSERT
+#if !defined(SLJIT_ASSERT) || !defined(SLJIT_ASSERT_STOP)
+
+/* SLJIT_HALT_PROCESS must halt the process. */
+#ifndef SLJIT_HALT_PROCESS
+#include <stdlib.h>
 
 #define SLJIT_HALT_PROCESS() \
-	*((sljit_si*)0) = 0
+	abort();
+#endif /* !SLJIT_HALT_PROCESS */
+
+#include <stdio.h>
+
+#endif /* !SLJIT_ASSERT || !SLJIT_ASSERT_STOP */
+
+/* Feel free to redefine these two macros. */
+#ifndef SLJIT_ASSERT
 
 #define SLJIT_ASSERT(x) \
 	do { \
@@ -447,6 +458,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr);
 
 #else /* (defined SLJIT_DEBUG && SLJIT_DEBUG) */
 
+/* Forcing empty, but valid statements. */
 #undef SLJIT_ASSERT
 #undef SLJIT_ASSERT_STOP
 
