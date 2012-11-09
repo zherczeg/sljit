@@ -63,16 +63,16 @@ static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_
 	return code_ptr;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si temporaries, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
 {
 	sljit_si size;
 	sljit_si locals_offset;
 	sljit_ub *inst;
 
 	CHECK_ERROR();
-	check_sljit_emit_enter(compiler, args, temporaries, saveds, local_size);
+	check_sljit_emit_enter(compiler, args, scratches, saveds, local_size);
 
-	compiler->temporaries = temporaries;
+	compiler->scratches = scratches;
 	compiler->saveds = saveds;
 	compiler->args = args;
 	compiler->flags_saved = 0;
@@ -137,9 +137,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 #endif
 
 	locals_offset = 2 * sizeof(sljit_uw);
-	compiler->temporaries_start = locals_offset;
-	if (temporaries > 3)
-		locals_offset += (temporaries - 3) * sizeof(sljit_uw);
+	compiler->scratches_start = locals_offset;
+	if (scratches > 3)
+		locals_offset += (scratches - 3) * sizeof(sljit_uw);
 	compiler->saveds_start = locals_offset;
 	if (saveds > 3)
 		locals_offset += (saveds - 3) * sizeof(sljit_uw);
@@ -161,14 +161,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si temporaries, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
 {
 	sljit_si locals_offset;
 
 	CHECK_ERROR_VOID();
-	check_sljit_set_context(compiler, args, temporaries, saveds, local_size);
+	check_sljit_set_context(compiler, args, scratches, saveds, local_size);
 
-	compiler->temporaries = temporaries;
+	compiler->scratches = scratches;
 	compiler->saveds = saveds;
 	compiler->args = args;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
@@ -176,9 +176,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 #endif
 
 	locals_offset = 2 * sizeof(sljit_uw);
-	compiler->temporaries_start = locals_offset;
-	if (temporaries > 3)
-		locals_offset += (temporaries - 3) * sizeof(sljit_uw);
+	compiler->scratches_start = locals_offset;
+	if (scratches > 3)
+		locals_offset += (scratches - 3) * sizeof(sljit_uw);
 	compiler->saveds_start = locals_offset;
 	if (saveds > 3)
 		locals_offset += (saveds - 3) * sizeof(sljit_uw);

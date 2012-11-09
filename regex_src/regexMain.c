@@ -90,7 +90,7 @@ struct test_case {
 	const regex_char_t *string;	/* NULL : end of tests. */
 };
 
-void run_tests(struct test_case* test)
+void run_tests(struct test_case* test, int verbose)
 {
 	int error;
 	const regex_char_t *ptr;
@@ -99,8 +99,12 @@ void run_tests(struct test_case* test)
 	int begin, end, id, finished;
 	int success = 0, fail = 0;
 
+	if (!verbose)
+		printf("\nSilent mode (report errors only).\nPass -v to enable verbose.\n\n");
+
 	for ( ; test->string ; test++) {
-		printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
+		if (verbose)
+			printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 		fail++;
 
 		if (test->pattern) {
@@ -114,15 +118,21 @@ void run_tests(struct test_case* test)
 			machine = regex_compile(test->pattern, ptr - test->pattern, test->flags, &error);
 
 			if (error) {
+				if (!verbose)
+					printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 				printf("ABORT: Error %d\n", error);
 				return;
 			}
 			if (!machine) {
+				if (!verbose)
+					printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 				printf("ABORT: machine must be exists. Report this bug, please\n");
 				return;
 			}
 		}
 		else if (test->flags != 0) {
+			if (!verbose)
+				printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 			printf("ABORT: flag must be 0 if no pattern\n");
 			return;
 		}
@@ -134,6 +144,8 @@ void run_tests(struct test_case* test)
 		match = regex_begin_match(machine);
 #ifdef REGEX_MATCH_VERBOSE
 		if (!match) {
+			if (!verbose)
+				printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 			printf("ABORT: Not enough memory for matching\n");
 			regex_free_machine(machine);
 			return;
@@ -143,10 +155,14 @@ void run_tests(struct test_case* test)
 		finished = regex_is_match_finished(match);
 
 		if (begin != test->begin || end != test->end || id != test->id) {
+			if (!verbose)
+				printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 			printf("FAIL A: begin: %d != %d || end: %d != %d || id: %d != %d\n", test->begin, begin, test->end, end, test->id, id);
 			continue;
 		}
 		if (test->finished != -1 && test->finished != !!finished) {
+			if (!verbose)
+				printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 			printf("FAIL A: finish check\n");
 			continue;
 		}
@@ -159,15 +175,20 @@ void run_tests(struct test_case* test)
 		regex_free_match(match);
 
 		if (begin != test->begin || end != test->end || id != test->id) {
+			if (!verbose)
+				printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 			printf("FAIL B: begin: %d != %d || end: %d != %d || id: %d != %d\n", test->begin, begin, test->end, end, test->id, id);
 			continue;
 		}
 		if (test->finished != -1 && test->finished != !!finished) {
+			if (!verbose)
+				printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 			printf("FAIL B: finish check\n");
 			continue;
 		}
 
-		printf("SUCCESS\n");
+		if (verbose)
+			printf("SUCCESS\n");
 		fail--;
 		success++;
 	}
@@ -287,7 +308,6 @@ int main(int argc, char* argv[])
 /*	verbose_test("^a({2!})*b+(a|{1!}b)+d$"); */
 /*	verbose_test("((a|b|c)*(xy)+)+", "asbcxyxy"); */
 
-	run_tests(tests);
+	run_tests(tests, argv[1] && argv[1][0] == '-' && argv[1][1] == 'v' && argv[1][2] == '\0');
 	return 0;
 }
-

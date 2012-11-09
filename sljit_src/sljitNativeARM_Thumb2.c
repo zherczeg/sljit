@@ -1135,15 +1135,15 @@ static SLJIT_INLINE sljit_si emit_op_mem2(struct sljit_compiler *compiler, sljit
 /*  Entry, exit                                                          */
 /* --------------------------------------------------------------------- */
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si temporaries, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
 {
 	sljit_si size;
 	sljit_ins push;
 
 	CHECK_ERROR();
-	check_sljit_emit_enter(compiler, args, temporaries, saveds, local_size);
+	check_sljit_emit_enter(compiler, args, scratches, saveds, local_size);
 
-	compiler->temporaries = temporaries;
+	compiler->scratches = scratches;
 	compiler->saveds = saveds;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->logical_local_size = local_size;
@@ -1160,7 +1160,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 		push |= 1 << 7;
 	if (saveds >= 1)
 		push |= 1 << 6;
-        if (temporaries >= 5)
+        if (scratches >= 5)
 		push |= 1 << 5;
 	FAIL_IF(saveds >= 3
 		? push_inst32(compiler, PUSH_W | (1 << 14) | push)
@@ -1189,14 +1189,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si temporaries, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
 {
 	sljit_si size;
 
 	CHECK_ERROR_VOID();
-	check_sljit_set_context(compiler, args, temporaries, saveds, local_size);
+	check_sljit_set_context(compiler, args, scratches, saveds, local_size);
 
-	compiler->temporaries = temporaries;
+	compiler->scratches = scratches;
 	compiler->saveds = saveds;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->logical_local_size = local_size;
@@ -1236,7 +1236,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 		pop |= 1 << 7;
 	if (compiler->saveds >= 1)
 		pop |= 1 << 6;
-        if (compiler->temporaries >= 5)
+        if (compiler->scratches >= 5)
 		pop |= 1 << 5;
 	return compiler->saveds >= 3
 		? push_inst32(compiler, POP_W | (1 << 15) | pop)
@@ -1284,10 +1284,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 			| reg_map[SLJIT_SCRATCH_REG2]);
 	case SLJIT_UDIV:
 	case SLJIT_SDIV:
-		if (compiler->temporaries >= 4) {
+		if (compiler->scratches >= 4) {
 			FAIL_IF(push_inst32(compiler, 0xf84d2d04 /* str r2, [sp, #-4]! */));
 			FAIL_IF(push_inst32(compiler, 0xf84dcd04 /* str ip, [sp, #-4]! */));
-		} else if (compiler->temporaries >= 3)
+		} else if (compiler->scratches >= 3)
 			FAIL_IF(push_inst32(compiler, 0xf84d2d08 /* str r2, [sp, #-8]! */));
 #if defined(__GNUC__)
 		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM,
@@ -1295,10 +1295,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 #else
 #error "Software divmod functions are needed"
 #endif
-		if (compiler->temporaries >= 4) {
+		if (compiler->scratches >= 4) {
 			FAIL_IF(push_inst32(compiler, 0xf85dcb04 /* ldr ip, [sp], #4 */));
 			return push_inst32(compiler, 0xf85d2b04 /* ldr r2, [sp], #4 */);
-		} else if (compiler->temporaries >= 3)
+		} else if (compiler->scratches >= 3)
 			return push_inst32(compiler, 0xf85d2b08 /* ldr r2, [sp], #8 */);
 		return SLJIT_SUCCESS;
 	}

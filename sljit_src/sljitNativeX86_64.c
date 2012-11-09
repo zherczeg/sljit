@@ -87,15 +87,15 @@ static sljit_ub* generate_fixed_jump(sljit_ub *code_ptr, sljit_sw addr, sljit_si
 	return code_ptr;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si temporaries, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
 {
 	sljit_si size, pushed_size;
 	sljit_ub *inst;
 
 	CHECK_ERROR();
-	check_sljit_emit_enter(compiler, args, temporaries, saveds, local_size);
+	check_sljit_emit_enter(compiler, args, scratches, saveds, local_size);
 
-	compiler->temporaries = temporaries;
+	compiler->scratches = scratches;
 	compiler->saveds = saveds;
 	compiler->flags_saved = 0;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
@@ -111,7 +111,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 #else
 	if (saveds >= 4)
 		size += saveds - 3;
-	if (temporaries >= 5) {
+	if (scratches >= 5) {
 		size += (5 - 4) * 2;
 		pushed_size += sizeof(sljit_sw);
 	}
@@ -155,7 +155,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 			PUSH_REG(reg_lmap[SLJIT_SAVED_REG1]);
 		}
 #ifdef _WIN64
-		if (temporaries >= 5) {
+		if (scratches >= 5) {
 			SLJIT_COMPILE_ASSERT(reg_map[SLJIT_TEMPORARY_EREG2] >= 8, temporary_ereg2_is_hireg);
 			*inst++ = REX_B;
 			PUSH_REG(reg_lmap[SLJIT_TEMPORARY_EREG2]);
@@ -261,14 +261,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si temporaries, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
 {
 	sljit_si pushed_size;
 
 	CHECK_ERROR_VOID();
-	check_sljit_set_context(compiler, args, temporaries, saveds, local_size);
+	check_sljit_set_context(compiler, args, scratches, saveds, local_size);
 
-	compiler->temporaries = temporaries;
+	compiler->scratches = scratches;
 	compiler->saveds = saveds;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->logical_local_size = local_size;
@@ -277,7 +277,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	/* Including the return address saved by the call instruction. */
 	pushed_size = (saveds + 1) * sizeof(sljit_sw);
 #ifdef _WIN64
-	if (temporaries >= 5)
+	if (scratches >= 5)
 		pushed_size += sizeof(sljit_sw);
 #endif
 	compiler->local_size = ((local_size + FIXED_LOCALS_OFFSET + pushed_size + 16 - 1) & ~(16 - 1)) - pushed_size;
@@ -329,7 +329,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 #else
 	if (compiler->saveds >= 4)
 		size += compiler->saveds - 3;
-	if (compiler->temporaries >= 5)
+	if (compiler->scratches >= 5)
 		size += (5 - 4) * 2;
 #endif
 	inst = (sljit_ub*)ensure_buf(compiler, 1 + size);
@@ -338,7 +338,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 	INC_SIZE(size);
 
 #ifdef _WIN64
-	if (compiler->temporaries >= 5) {
+	if (compiler->scratches >= 5) {
 		*inst++ = REX_B;
 		POP_REG(reg_lmap[SLJIT_TEMPORARY_EREG2]);
 	}
