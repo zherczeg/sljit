@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+08.10.2012 - Non-backward compatible
+    SLJIT_TEMPORARY_REGx registers are renamed to SLJIT_SCRATCH_REGx.
+
 07.10.2012 - Non-backward compatible
     sljit_emit_cond_value is renamed to sljit_emit_op_flags. An
     extra source argument is added which will be used in the future.

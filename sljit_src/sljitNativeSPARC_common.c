@@ -441,11 +441,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 
 	if (op != SLJIT_MOV || !(src <= TMP_REG3)) {
 		FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
-		src = SLJIT_TEMPORARY_REG1;
+		src = SLJIT_SCRATCH_REG1;
 	}
 
 	FAIL_IF(push_inst(compiler, JMPL | D(0) | S1A(31) | IMM(8), UNMOVABLE_INS));
-	return push_inst(compiler, RESTORE | D(SLJIT_TEMPORARY_REG1) | S1(src) | S2(0), UNMOVABLE_INS);
+	return push_inst(compiler, RESTORE | D(SLJIT_SCRATCH_REG1) | S1(src) | S2(0), UNMOVABLE_INS);
 }
 
 /* --------------------------------------------------------------------- */
@@ -752,8 +752,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 	case SLJIT_UMUL:
 	case SLJIT_SMUL:
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-		FAIL_IF(push_inst(compiler, (op == SLJIT_UMUL ? UMUL : SMUL) | D(SLJIT_TEMPORARY_REG1) | S1(SLJIT_TEMPORARY_REG1) | S2(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG1)));
-		return push_inst(compiler, RDY | D(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG2));
+		FAIL_IF(push_inst(compiler, (op == SLJIT_UMUL ? UMUL : SMUL) | D(SLJIT_SCRATCH_REG1) | S1(SLJIT_SCRATCH_REG1) | S2(SLJIT_SCRATCH_REG2), DR(SLJIT_SCRATCH_REG1)));
+		return push_inst(compiler, RDY | D(SLJIT_SCRATCH_REG2), DR(SLJIT_SCRATCH_REG2));
 #else
 #error "Implementation required"
 #endif
@@ -763,13 +763,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 		if (op == SLJIT_UDIV)
 			FAIL_IF(push_inst(compiler, WRY | S1(0), MOVABLE_INS));
 		else {
-			FAIL_IF(push_inst(compiler, SRA | D(TMP_REG1) | S1(SLJIT_TEMPORARY_REG1) | IMM(31), DR(TMP_REG1)));
+			FAIL_IF(push_inst(compiler, SRA | D(TMP_REG1) | S1(SLJIT_SCRATCH_REG1) | IMM(31), DR(TMP_REG1)));
 			FAIL_IF(push_inst(compiler, WRY | S1(TMP_REG1), MOVABLE_INS));
 		}
-		FAIL_IF(push_inst(compiler, OR | D(TMP_REG2) | S1(0) | S2(SLJIT_TEMPORARY_REG1), DR(TMP_REG2)));
-		FAIL_IF(push_inst(compiler, (op == SLJIT_UDIV ? UDIV : SDIV) | D(SLJIT_TEMPORARY_REG1) | S1(SLJIT_TEMPORARY_REG1) | S2(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG1)));
-		FAIL_IF(push_inst(compiler, SMUL | D(SLJIT_TEMPORARY_REG2) | S1(SLJIT_TEMPORARY_REG1) | S2(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG2)));
-		FAIL_IF(push_inst(compiler, SUB | D(SLJIT_TEMPORARY_REG2) | S1(TMP_REG2) | S2(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG2)));
+		FAIL_IF(push_inst(compiler, OR | D(TMP_REG2) | S1(0) | S2(SLJIT_SCRATCH_REG1), DR(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, (op == SLJIT_UDIV ? UDIV : SDIV) | D(SLJIT_SCRATCH_REG1) | S1(SLJIT_SCRATCH_REG1) | S2(SLJIT_SCRATCH_REG2), DR(SLJIT_SCRATCH_REG1)));
+		FAIL_IF(push_inst(compiler, SMUL | D(SLJIT_SCRATCH_REG2) | S1(SLJIT_SCRATCH_REG1) | S2(SLJIT_SCRATCH_REG2), DR(SLJIT_SCRATCH_REG2)));
+		FAIL_IF(push_inst(compiler, SUB | D(SLJIT_SCRATCH_REG2) | S1(TMP_REG2) | S2(SLJIT_SCRATCH_REG2), DR(SLJIT_SCRATCH_REG2)));
 		return SLJIT_SUCCESS;
 #else
 #error "Implementation required"

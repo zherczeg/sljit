@@ -218,10 +218,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 			local_size -= 4 * sizeof(sljit_sw);
 		}
 		/* Second instruction */
-		SLJIT_COMPILE_ASSERT(reg_map[SLJIT_TEMPORARY_REG1] < 8, temporary_reg1_is_loreg);
+		SLJIT_COMPILE_ASSERT(reg_map[SLJIT_SCRATCH_REG1] < 8, temporary_reg1_is_loreg);
 		*inst++ = REX_W;
 		*inst++ = MOV_rm_i32;
-		*inst++ = MOD_REG | reg_lmap[SLJIT_TEMPORARY_REG1];
+		*inst++ = MOD_REG | reg_lmap[SLJIT_SCRATCH_REG1];
 		*(sljit_si*)inst = local_size;
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 		compiler->skip_checks = 1;
@@ -621,7 +621,7 @@ static SLJIT_INLINE sljit_si call_with_args(struct sljit_compiler *compiler, slj
 	sljit_ub *inst;
 
 #ifndef _WIN64
-	SLJIT_COMPILE_ASSERT(reg_map[SLJIT_TEMPORARY_REG2] == 6 && reg_map[SLJIT_TEMPORARY_REG1] < 8 && reg_map[SLJIT_TEMPORARY_REG3] < 8, args_registers);
+	SLJIT_COMPILE_ASSERT(reg_map[SLJIT_SCRATCH_REG2] == 6 && reg_map[SLJIT_SCRATCH_REG1] < 8 && reg_map[SLJIT_SCRATCH_REG3] < 8, args_registers);
 
 	inst = (sljit_ub*)ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
 	FAIL_IF(!inst);
@@ -629,13 +629,13 @@ static SLJIT_INLINE sljit_si call_with_args(struct sljit_compiler *compiler, slj
 	if (type >= SLJIT_CALL3) {
 		*inst++ = REX_W;
 		*inst++ = MOV_r_rm;
-		*inst++ = MOD_REG | (0x2 /* rdx */ << 3) | reg_lmap[SLJIT_TEMPORARY_REG3];
+		*inst++ = MOD_REG | (0x2 /* rdx */ << 3) | reg_lmap[SLJIT_SCRATCH_REG3];
 	}
 	*inst++ = REX_W;
 	*inst++ = MOV_r_rm;
-	*inst++ = MOD_REG | (0x7 /* rdi */ << 3) | reg_lmap[SLJIT_TEMPORARY_REG1];
+	*inst++ = MOD_REG | (0x7 /* rdi */ << 3) | reg_lmap[SLJIT_SCRATCH_REG1];
 #else
-	SLJIT_COMPILE_ASSERT(reg_map[SLJIT_TEMPORARY_REG2] == 2 && reg_map[SLJIT_TEMPORARY_REG1] < 8 && reg_map[SLJIT_TEMPORARY_REG3] < 8, args_registers);
+	SLJIT_COMPILE_ASSERT(reg_map[SLJIT_SCRATCH_REG2] == 2 && reg_map[SLJIT_SCRATCH_REG1] < 8 && reg_map[SLJIT_SCRATCH_REG3] < 8, args_registers);
 
 	inst = (sljit_ub*)ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
 	FAIL_IF(!inst);
@@ -643,11 +643,11 @@ static SLJIT_INLINE sljit_si call_with_args(struct sljit_compiler *compiler, slj
 	if (type >= SLJIT_CALL3) {
 		*inst++ = REX_W | REX_R;
 		*inst++ = MOV_r_rm;
-		*inst++ = MOD_REG | (0x0 /* r8 */ << 3) | reg_lmap[SLJIT_TEMPORARY_REG3];
+		*inst++ = MOD_REG | (0x0 /* r8 */ << 3) | reg_lmap[SLJIT_SCRATCH_REG3];
 	}
 	*inst++ = REX_W;
 	*inst++ = MOV_r_rm;
-	*inst++ = MOD_REG | (0x1 /* rcx */ << 3) | reg_lmap[SLJIT_TEMPORARY_REG1];
+	*inst++ = MOD_REG | (0x1 /* rcx */ << 3) | reg_lmap[SLJIT_SCRATCH_REG1];
 #endif
 	return SLJIT_SUCCESS;
 }

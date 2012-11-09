@@ -100,9 +100,9 @@ of sljitConfigInternal.h */
 #define SLJIT_UNUSED		0
 
 /* Temporary (scratch) registers may not preserve their values across function calls. */
-#define SLJIT_TEMPORARY_REG1	1
-#define SLJIT_TEMPORARY_REG2	2
-#define SLJIT_TEMPORARY_REG3	3
+#define SLJIT_SCRATCH_REG1	1
+#define SLJIT_SCRATCH_REG2	2
+#define SLJIT_SCRATCH_REG3	3
 /* Note: Extra Registers cannot be used for memory addressing. */
 /* Note: on x86-32, these registers are emulated (using stack loads & stores). */
 #define SLJIT_TEMPORARY_EREG1	4
@@ -130,15 +130,15 @@ of sljitConfigInternal.h */
 
 /* Return with machine word. */
 
-#define SLJIT_RETURN_REG	SLJIT_TEMPORARY_REG1
+#define SLJIT_RETURN_REG	SLJIT_SCRATCH_REG1
 
 /* x86 prefers specific registers for special purposes. In case of shift
-   by register it supports only SLJIT_TEMPORARY_REG3 for shift argument
+   by register it supports only SLJIT_SCRATCH_REG3 for shift argument
    (which is the src2 argument of sljit_emit_op2). If another register is
    used, sljit must exchange data between registers which cause a minor
    slowdown. Other architectures has no such limitation. */
 
-#define SLJIT_PREF_SHIFT_REG	SLJIT_TEMPORARY_REG3
+#define SLJIT_PREF_SHIFT_REG	SLJIT_SCRATCH_REG3
 
 /* --------------------------------------------------------------------- */
 /*  Floating point registers                                             */
@@ -527,23 +527,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
          it can even decrease the runtime in a few cases. */
 #define SLJIT_NOP			1
 /* Flags: - (may destroy flags)
-   Unsigned multiplication of SLJIT_TEMPORARY_REG1 and SLJIT_TEMPORARY_REG2.
-   Result goes to SLJIT_TEMPORARY_REG2:SLJIT_TEMPORARY_REG1 (high:low) word */
+   Unsigned multiplication of SLJIT_SCRATCH_REG1 and SLJIT_SCRATCH_REG2.
+   Result goes to SLJIT_SCRATCH_REG2:SLJIT_SCRATCH_REG1 (high:low) word */
 #define SLJIT_UMUL			2
 /* Flags: - (may destroy flags)
-   Signed multiplication of SLJIT_TEMPORARY_REG1 and SLJIT_TEMPORARY_REG2.
-   Result goes to SLJIT_TEMPORARY_REG2:SLJIT_TEMPORARY_REG1 (high:low) word */
+   Signed multiplication of SLJIT_SCRATCH_REG1 and SLJIT_SCRATCH_REG2.
+   Result goes to SLJIT_SCRATCH_REG2:SLJIT_SCRATCH_REG1 (high:low) word */
 #define SLJIT_SMUL			3
 /* Flags: I - (may destroy flags)
-   Unsigned divide of the value in SLJIT_TEMPORARY_REG1 by the value in SLJIT_TEMPORARY_REG2.
-   The result is placed in SLJIT_TEMPORARY_REG1 and the remainder goes to SLJIT_TEMPORARY_REG2.
-   Note: if SLJIT_TEMPORARY_REG2 contains 0, the behaviour is undefined. */
+   Unsigned divide of the value in SLJIT_SCRATCH_REG1 by the value in SLJIT_SCRATCH_REG2.
+   The result is placed in SLJIT_SCRATCH_REG1 and the remainder goes to SLJIT_SCRATCH_REG2.
+   Note: if SLJIT_SCRATCH_REG2 contains 0, the behaviour is undefined. */
 #define SLJIT_UDIV			4
 #define SLJIT_IUDIV			(SLJIT_UDIV | SLJIT_INT_OP)
 /* Flags: I - (may destroy flags)
-   Signed divide of the value in SLJIT_TEMPORARY_REG1 by the value in SLJIT_TEMPORARY_REG2.
-   The result is placed in SLJIT_TEMPORARY_REG1 and the remainder goes to SLJIT_TEMPORARY_REG2.
-   Note: if SLJIT_TEMPORARY_REG2 contains 0, the behaviour is undefined. */
+   Signed divide of the value in SLJIT_SCRATCH_REG1 by the value in SLJIT_SCRATCH_REG2.
+   The result is placed in SLJIT_SCRATCH_REG1 and the remainder goes to SLJIT_SCRATCH_REG2.
+   Note: if SLJIT_SCRATCH_REG2 contains 0, the behaviour is undefined. */
 #define SLJIT_SDIV			5
 #define SLJIT_ISDIV			(SLJIT_SDIV | SLJIT_INT_OP)
 

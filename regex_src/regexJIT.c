@@ -117,11 +117,11 @@ struct regex_match
 /* String fragment length. */
 #define R_LENGTH	SLJIT_SAVED_EREG2
 /* 'struct regex_match*' */
-#define R_REGEX_MATCH	SLJIT_TEMPORARY_REG1
+#define R_REGEX_MATCH	SLJIT_SCRATCH_REG1
 /* Current character. */
-#define R_CURR_CHAR	SLJIT_TEMPORARY_REG2
+#define R_CURR_CHAR	SLJIT_SCRATCH_REG2
 /* Temporary register. */
-#define R_TEMP		SLJIT_TEMPORARY_REG3
+#define R_TEMP		SLJIT_SCRATCH_REG3
 /* Caches the regex_match->best_begin. */
 #define R_BEST_BEGIN	SLJIT_TEMPORARY_EREG1
 /* Current character index. */
