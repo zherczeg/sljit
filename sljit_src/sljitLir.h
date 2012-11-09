@@ -48,7 +48,7 @@
         (including memory allocators). See sljitConfig.h
     Disadvantages:
       - Limited number of registers (only 6+4 integer registers, max 3+2
-        temporary, max 3+2 saved and 4 floating point registers)
+        scratch, max 3+2 saved and 6 floating point registers)
     In practice:
       - This approach is very effective for interpreters
         - One of the saved registers typically points to a stack interface
@@ -99,11 +99,11 @@ of sljitConfigInternal.h */
 
 #define SLJIT_UNUSED		0
 
-/* Temporary (scratch) registers may not preserve their values across function calls. */
+/* Scratch (temporary) registers may not preserve their values across function calls. */
 #define SLJIT_SCRATCH_REG1	1
 #define SLJIT_SCRATCH_REG2	2
 #define SLJIT_SCRATCH_REG3	3
-/* Note: Extra Registers cannot be used for memory addressing. */
+/* Note: extra registers cannot be used for memory addressing. */
 /* Note: on x86-32, these registers are emulated (using stack loads & stores). */
 #define SLJIT_TEMPORARY_EREG1	4
 #define SLJIT_TEMPORARY_EREG2	5
@@ -112,7 +112,7 @@ of sljitConfigInternal.h */
 #define SLJIT_SAVED_REG1	6
 #define SLJIT_SAVED_REG2	7
 #define SLJIT_SAVED_REG3	8
-/* Note: Extra Registers cannot be used for memory addressing. */
+/* Note: extra registers cannot be used for memory addressing. */
 /* Note: on x86-32, these registers are emulated (using stack loads & stores). */
 #define SLJIT_SAVED_EREG1	9
 #define SLJIT_SAVED_EREG2	10
@@ -203,7 +203,7 @@ struct sljit_compiler {
 	struct sljit_memory_fragment *abuf;
 
 	/* Used local registers. */
-	sljit_si temporaries;
+	sljit_si scratches;
 	/* Used saved registers. */
 	sljit_si saveds;
 	/* Local stack size. */
@@ -216,7 +216,7 @@ struct sljit_compiler {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	sljit_si args;
 	sljit_si locals_offset;
-	sljit_si temporaries_start;
+	sljit_si scratches_start;
 	sljit_si saveds_start;
 #endif
 
@@ -335,8 +335,8 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    for the executable code and moves function arguments to the saved
    registers. The number of arguments are specified in the "args"
    parameter and the first argument goes to SLJIT_SAVED_REG1, the second
-   goes to SLJIT_SAVED_REG2 and so on. The number of temporary and
-   saved registers are passed in "temporaries" and "saveds" arguments
+   goes to SLJIT_SAVED_REG2 and so on. The number of scratch and
+   saved registers are passed in "scratches" and "saveds" arguments
    respectively. Since the saved registers contains the arguments,
    "args" must be less or equal than "saveds". The sljit_emit_enter
    is also capable of allocating a stack space for local variables. The
@@ -353,7 +353,7 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_MAX_LOCAL_SIZE	65536
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si temporaries, sljit_si saveds, sljit_si local_size);
+	sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size);
 
 /* The machine code has a context (which contains the local stack space size,
    number of used registers, etc.) which initialized by sljit_emit_enter. Several
@@ -368,7 +368,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 /* Note: multiple calls of this function overwrites the previous call. */
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si temporaries, sljit_si saveds, sljit_si local_size);
+	sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size);
 
 /* Return from machine code.  The op argument can be SLJIT_UNUSED which means the
    function does not return with anything or any opcode between SLJIT_MOV and
@@ -678,7 +678,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 	sljit_si src2, sljit_sw src2w);
 
 /* The following function is a helper function for sljit_emit_op_custom.
-   It returns with the real machine register index of any SLJIT_TEMPORARY
+   It returns with the real machine register index of any SLJIT_SCRATCH
    SLJIT_SAVED or SLJIT_LOCALS register.
    Note: it returns with -1 for virtual registers (all EREGs on x86-32).
    Note: register returned by SLJIT_LOCALS_REG is not necessary the real

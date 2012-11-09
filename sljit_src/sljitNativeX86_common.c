@@ -72,7 +72,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
 
 #define CHECK_EXTRA_REGS(p, w, do) \
 	if (p >= SLJIT_TEMPORARY_EREG1 && p <= SLJIT_TEMPORARY_EREG2) { \
-		w = compiler->temporaries_start + (p - SLJIT_TEMPORARY_EREG1) * sizeof(sljit_sw); \
+		w = compiler->scratches_start + (p - SLJIT_TEMPORARY_EREG1) * sizeof(sljit_sw); \
 		p = SLJIT_MEM1(SLJIT_LOCALS_REG); \
 		do; \
 	} \
