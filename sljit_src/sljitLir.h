@@ -34,12 +34,19 @@
 
    Short description
     Advantages:
-      - The execution can be continued from any LIR instruction
-        In other words, jump into and out of the code is safe
-      - Both target of (conditional) jump and call instructions
-        and constants can be dynamically modified during runtime
+      - The execution can be continued from any LIR instruction. In other
+        words, it is possible to jump to any label from anywhere, even from
+        a code fragment, which is compiled later, if both compiled code
+        shares the same context. See sljit_emit_enter for more details
+      - Supports self modifying code: target of (conditional) jump and call
+        instructions and some constant values can be dynamically modified
+        during runtime
         - although it is not suggested to do it frequently
-        - very effective to cache an important value once
+        - can be used for inline caching: save an important value once
+          in the instruction stream
+        - since this feature limits the optimization possibilities, a
+          special flag must be passed at compile time when these
+          instructions are emitted
       - A fixed stack space can be allocated for local variables
       - The compiler is thread-safe
       - The compiler is highly configurable through preprocessor macros.
@@ -47,19 +54,19 @@
         threaded applications), and you can use your own system functions
         (including memory allocators). See sljitConfig.h
     Disadvantages:
+      - No automatic register allocation, and temporary results are
+        not stored on the stack. (hence the name comes)
       - Limited number of registers (only 6+4 integer registers, max 3+2
         scratch, max 3+2 saved and 6 floating point registers)
     In practice:
       - This approach is very effective for interpreters
         - One of the saved registers typically points to a stack interface
-        - It can jump to any exception handler anytime (even for another
-          function. It is safe for SLJIT.)
-        - Fast paths can be modified during runtime reflecting the changes
+        - It can jump to any exception handler anytime (even if it belongs
+          to another function)
+        - Hot paths can be modified during runtime reflecting the changes
           of the fastest execution path of the dynamic language
         - SLJIT supports complex memory addressing modes
-        - mainly position independent code
-      - Optimizations (perhaps later)
-        - Only for basic blocks (when no labels inserted between LIR instructions)
+        - mainly position and context independent code (except some cases)
 
     For valgrind users:
       - pass --smc-check=all argument to valgrind, since JIT is a "self-modifying code"
@@ -99,12 +106,14 @@ of sljitConfigInternal.h */
 
 #define SLJIT_UNUSED		0
 
-/* Scratch (temporary) registers may not preserve their values across function calls. */
+/* Scratch (temporary) registers whose may not preserve their values
+   across function calls. */
 #define SLJIT_SCRATCH_REG1	1
 #define SLJIT_SCRATCH_REG2	2
 #define SLJIT_SCRATCH_REG3	3
 /* Note: extra registers cannot be used for memory addressing. */
-/* Note: on x86-32, these registers are emulated (using stack loads & stores). */
+/* Note: on x86-32, these registers are emulated (using stack
+   loads & stores). */
 #define SLJIT_TEMPORARY_EREG1	4
 #define SLJIT_TEMPORARY_EREG2	5
 
@@ -113,14 +122,16 @@ of sljitConfigInternal.h */
 #define SLJIT_SAVED_REG2	7
 #define SLJIT_SAVED_REG3	8
 /* Note: extra registers cannot be used for memory addressing. */
-/* Note: on x86-32, these registers are emulated (using stack loads & stores). */
+/* Note: on x86-32, these registers are emulated (using stack
+   loads & stores). */
 #define SLJIT_SAVED_EREG1	9
 #define SLJIT_SAVED_EREG2	10
 
 /* Read-only register (cannot be the destination of an operation).
    Only SLJIT_MEM1(SLJIT_LOCALS_REG) addressing mode is allowed since
    several ABIs has certain limitations about the stack layout. However
-   sljit_get_local_base() can be used to obtain the offset of a value. */
+   sljit_get_local_base() can be used to obtain the offset of a value
+   on the stack. */
 #define SLJIT_LOCALS_REG	11
 
 /* Number of registers. */
@@ -147,7 +158,8 @@ of sljitConfigInternal.h */
 /* Note: SLJIT_UNUSED as destination is not valid for floating point
      operations, since they cannot be used for setting flags. */
 
-/* Floating point operations are performed on double precision values. */
+/* Floating point operations are performed on double or
+   single precision values. */
 
 #define SLJIT_FLOAT_REG1	1
 #define SLJIT_FLOAT_REG2	2
@@ -290,20 +302,27 @@ struct sljit_compiler {
 /* Creates an sljit compiler.
    Returns NULL if failed. */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void);
-/* Free everything except the codes. */
+
+/* Free everything except the compiled machine code. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_compiler(struct sljit_compiler *compiler);
 
+/* Returns the current error code. If an error is occured, future sljit
+   calls which uses the same compiler argument returns early with the same
+   error code. Thus there is no need for checking the error after every
+   call, it is enough to do it before the code is compiled. Removing
+   these checks increases the performance of the compiling process. */
 static SLJIT_INLINE sljit_si sljit_get_compiler_error(struct sljit_compiler *compiler) { return compiler->error; }
 
 /*
    Allocate a small amount of memory. The size must be <= 64 bytes on 32 bit,
-   and <= 128 bytes on 64 bit architectures. The memory area is owned by the compiler,
-   and freed by sljit_free_compiler. The returned pointer is sizeof(sljit_sw) aligned.
-   Excellent for allocating small blocks during the compiling, and no need to worry
-   about freeing them. The size is enough to contain at most 16 pointers.
-   If the size is outside of the range, the function will return with NULL,
-   but this return value does not indicate that there is no more memory (does
-   not set the compiler to out-of-memory status).
+   and <= 128 bytes on 64 bit architectures. The memory area is owned by the
+   compiler, and freed by sljit_free_compiler. The returned pointer is
+   sizeof(sljit_sw) aligned. Excellent for allocating small blocks during
+   the compiling, and no need to worry about freeing them. The size is
+   enough to contain at most 16 pointers. If the size is outside of the range,
+   the function will return with NULL. However, this return value does not
+   indicate that there is no more memory (does not set the current error code
+   of the compiler to out-of-memory status).
 */
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_alloc_memory(struct sljit_compiler *compiler, sljit_si size);
 
@@ -316,15 +335,17 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code);
 
 /*
-   After the code generation we can retrieve the allocated executable memory size,
-   although this area may not be fully filled with instructions depending on some
-   optimizations. This function is useful only for statistical purposes.
+   After the machine code generation is finished we can retrieve the allocated
+   executable memory size, although this area may not be fully filled with
+   instructions depending on some optimizations. This function is useful only
+   for statistical purposes.
 
    Before a successful code generation, this function returns with 0.
 */
 static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler *compiler) { return compiler->executable_size; }
 
-/* Instruction generation. Returns with error code. */
+/* Instruction generation. Returns with any error code. If there is no
+   error, they return with SLJIT_SUCCESS. */
 
 /*
    The executable code is basically a function call from the viewpoint of
@@ -347,8 +368,8 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    SLJIT_LOCALS_REG + local_size (exclusive) can be modified freely
    until the function returns. The stack space is uninitialized.
 
-   Note: every call of sljit_emit_enter and sljit_set_context overwrites
-         the previous context. */
+   Note: every call of sljit_emit_enter and sljit_set_context
+         overwrites the previous context. */
 
 #define SLJIT_MAX_LOCAL_SIZE	65536
 
@@ -360,12 +381,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
    functions (like sljit_emit_return) requres this context to be able to generate
    the appropriate code. However, some code fragments (like inline cache) may have
    no normal entry point so their context is unknown for the compiler. Using the
-   function below we can specify thir context.
+   function below we can specify their context.
 
    Note: every call of sljit_emit_enter and sljit_set_context overwrites
          the previous context. */
-
-/* Note: multiple calls of this function overwrites the previous call. */
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size);
@@ -375,13 +394,14 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
    SLJIT_MOV_P (see sljit_emit_op1). As for src and srcw they must be 0 if op
    is SLJIT_UNUSED, otherwise see below the description about source and
    destination arguments. */
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si src, sljit_sw srcw);
 
-/* Really fast calling method for utility functions inside sljit (see SLJIT_FAST_CALL).
-   All registers and even the stack frame is passed to the callee. The return address is
-   preserved in dst/dstw by sljit_emit_fast_enter (the type of the value stored by this
-   function is sljit_p), and sljit_emit_fast_return can use this as a return value later. */
+/* Fast calling mechanism for utility functions (see SLJIT_FAST_CALL). All registers and
+   even the stack frame is passed to the callee. The return address is preserved in
+   dst/dstw by sljit_emit_fast_enter (the type of the value stored by this function
+   is sljit_p), and sljit_emit_fast_return can use this as a return value later. */
 
 /* Note: only for sljit specific, non ABI compilant calls. Fast, since only a few machine
    instructions are needed. Excellent for small uility functions, where saving registers
@@ -445,10 +465,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
            Write-back is supported except for one instruction: 32 bit signed
                 load with [reg+imm] addressing mode on 64 bit.
    mips:   [reg+imm], -65536 <= imm <= 65535
-           Nothing else is supported
    sparc:  [reg+imm], -4096 <= imm <= 4095
            [reg+reg] is supported
-           Nothing else is supported
 */
 
 /* Register output: simply the name of the register.
@@ -880,9 +898,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 #define SLJIT_MAJOR_VERSION	0
 #define SLJIT_MINOR_VERSION	90
 
-/* Get the human readable name of the platfrom.
-   Can be useful for debugging on platforms like ARM, where ARM and
-   Thumb2 functions can be mixed. */
+/* Get the human readable name of the platfrom. Can be useful on platforms
+   like ARM, where ARM and Thumb2 functions can be mixed, and
+   it is useful to know the type of the code generator. */
 SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void);
 
 /* Portble helper function to get an offset of a member. */

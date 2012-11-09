@@ -211,7 +211,10 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 
 	chunk_size = (size + sizeof(struct block_header) + CHUNK_SIZE - 1) & CHUNK_MASK;
 	header = (struct block_header*)alloc_chunk(chunk_size);
-	PTR_FAIL_IF(!header);
+	if (!header) {
+		allocator_release_lock();
+		return NULL;
+	}
 
 	chunk_size -= sizeof(struct block_header);
 	total_size += chunk_size;
