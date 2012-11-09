@@ -108,87 +108,87 @@
 /* SLJIT_REWRITABLE_JUMP is 0x1000. */
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	#define PATCH_MB	0x4
-	#define PATCH_MW	0x8
+#	define PATCH_MB	0x4
+#	define PATCH_MW	0x8
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	#define PATCH_MD	0x10
+#	define PATCH_MD	0x10
 #endif
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
-	#define IS_BL		0x4
-	#define PATCH_B		0x8
+#	define IS_BL		0x4
+#	define PATCH_B		0x8
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-	#define CPOOL_SIZE	512
+#	define CPOOL_SIZE	512
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
-	#define IS_COND		0x04
-	#define IS_BL		0x08
+#	define IS_COND		0x04
+#	define IS_BL		0x08
 	/* cannot be encoded as branch */
-	#define B_TYPE0		0x00
+#	define B_TYPE0		0x00
 	/* conditional + imm8 */
-	#define B_TYPE1		0x10
+#	define B_TYPE1		0x10
 	/* conditional + imm20 */
-	#define B_TYPE2		0x20
+#	define B_TYPE2		0x20
 	/* IT + imm24 */
-	#define B_TYPE3		0x30
+#	define B_TYPE3		0x30
 	/* imm11 */
-	#define B_TYPE4		0x40
+#	define B_TYPE4		0x40
 	/* imm24 */
-	#define B_TYPE5		0x50
+#	define B_TYPE5		0x50
 	/* BL + imm24 */
-	#define BL_TYPE6	0x60
+#	define BL_TYPE6	0x60
 	/* 0xf00 cc code for branches */
 #endif
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	#define UNCOND_B	0x04
-	#define PATCH_B		0x08
-	#define ABSOLUTE_B	0x10
+#	define UNCOND_B	0x04
+#	define PATCH_B		0x08
+#	define ABSOLUTE_B	0x10
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	#define IS_MOVABLE	0x04
-	#define IS_JAL		0x08
-	#define IS_BIT26_COND	0x10
-	#define IS_BIT16_COND	0x20
+#	define IS_MOVABLE	0x04
+#	define IS_JAL		0x08
+#	define IS_BIT26_COND	0x10
+#	define IS_BIT16_COND	0x20
 
-	#define IS_COND		(IS_BIT26_COND | IS_BIT16_COND)
+#	define IS_COND		(IS_BIT26_COND | IS_BIT16_COND)
 
-	#define PATCH_B		0x40
-	#define PATCH_J		0x80
+#	define PATCH_B		0x40
+#	define PATCH_J		0x80
 
 	/* instruction types */
-	#define MOVABLE_INS	0
+#	define MOVABLE_INS	0
 	/* 1 - 31 last destination register */
 	/* no destination (i.e: store) */
-	#define UNMOVABLE_INS	32
+#	define UNMOVABLE_INS	32
 	/* FPU status register */
-	#define FCSR_FCC	33
+#	define FCSR_FCC	33
 #endif
 
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-	#define IS_MOVABLE	0x04
-	#define IS_COND		0x08
-	#define IS_CALL		0x10
+#	define IS_MOVABLE	0x04
+#	define IS_COND		0x08
+#	define IS_CALL		0x10
 
-	#define PATCH_B		0x20
-	#define PATCH_CALL	0x40
+#	define PATCH_B		0x20
+#	define PATCH_CALL	0x40
 
 	/* instruction types */
-	#define MOVABLE_INS	0
+#	define MOVABLE_INS	0
 	/* 1 - 31 last destination register */
 	/* no destination (i.e: store) */
-	#define UNMOVABLE_INS	32
+#	define UNMOVABLE_INS	32
 
-	#define DST_INS_MASK	0xff
+#	define DST_INS_MASK	0xff
 
 	/* ICC_SET is the same as SET_FLAGS. */
-	#define ICC_IS_SET	(1 << 23)
-	#define FCC_IS_SET	(1 << 24)
+#	define ICC_IS_SET	(1 << 23)
+#	define FCC_IS_SET	(1 << 24)
 #endif
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
@@ -661,12 +661,12 @@ static char* freg_names[] = {
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #ifdef _WIN64
-	#define SLJIT_PRINT_D	"I64"
+#	define SLJIT_PRINT_D	"I64"
 #else
-	#define SLJIT_PRINT_D	"l"
+#	define SLJIT_PRINT_D	"l"
 #endif
 #else
-	#define SLJIT_PRINT_D	""
+#	define SLJIT_PRINT_D	""
 #endif
 
 #define sljit_verbose_param(p, i) \
@@ -1319,23 +1319,23 @@ static SLJIT_INLINE sljit_si emit_mov_before_return(struct sljit_compiler *compi
 #define SLJIT_CPUINFO SLJIT_CPUINFO_PART1 SLJIT_CPUINFO_PART2 SLJIT_CPUINFO_PART3
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	#include "sljitNativeX86_common.c"
+#	include "sljitNativeX86_common.c"
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	#include "sljitNativeX86_common.c"
+#	include "sljitNativeX86_common.c"
 #elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-	#include "sljitNativeARM_v5.c"
+#	include "sljitNativeARM_v5.c"
 #elif (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
-	#include "sljitNativeARM_v5.c"
+#	include "sljitNativeARM_v5.c"
 #elif (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
-	#include "sljitNativeARM_Thumb2.c"
+#	include "sljitNativeARM_Thumb2.c"
 #elif (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	#include "sljitNativePPC_common.c"
+#	include "sljitNativePPC_common.c"
 #elif (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	#include "sljitNativePPC_common.c"
+#	include "sljitNativePPC_common.c"
 #elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	#include "sljitNativeMIPS_common.c"
+#	include "sljitNativeMIPS_common.c"
 #elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-	#include "sljitNativeSPARC_common.c"
+#	include "sljitNativeSPARC_common.c"
 #endif
 
 #if !(defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
