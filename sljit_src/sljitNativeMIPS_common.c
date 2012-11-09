@@ -970,7 +970,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	sljit_si src, sljit_sw srcw)
 {
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	#define flags 0
+#	define flags 0
 #endif
 
 	CHECK_ERROR();
@@ -1035,7 +1035,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 
 	return SLJIT_SUCCESS;
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	#undef flags
+#	undef flags
 #endif
 }
 
@@ -1045,7 +1045,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 	sljit_si src2, sljit_sw src2w)
 {
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	#define flags 0
+#	define flags 0
 #endif
 
 	CHECK_ERROR();
@@ -1085,7 +1085,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 
 	return SLJIT_SUCCESS;
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	#undef flags
+#	undef flags
 #endif
 }
 

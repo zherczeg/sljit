@@ -277,7 +277,7 @@ static void get_cpu_features(void)
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__SUNPRO_C)
 	/* AT&T syntax. */
 	asm (
 		"pushl %%ebx\n"
@@ -299,12 +299,12 @@ static void get_cpu_features(void)
 		mov features, edx
 	}
 #else
-	#error "SLJIT_DETECT_SSE2 is not implemented for this C compiler"
+#	error "SLJIT_DETECT_SSE2 is not implemented for this C compiler"
 #endif
 
 #else /* SLJIT_CONFIG_X86_32 */
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__SUNPRO_C)
 	/* AT&T syntax. */
 	asm (
 		"pushq %%rbx\n"
@@ -322,7 +322,7 @@ static void get_cpu_features(void)
 	__cpuid(CPUInfo, 1);
 	features = (sljit_ui)CPUInfo[3];
 #else
-	#error "SLJIT_DETECT_SSE2 is not implemented for this C compiler"
+#	error "SLJIT_DETECT_SSE2 is not implemented for this C compiler"
 #endif
 
 #endif /* SLJIT_CONFIG_X86_32 */
@@ -1259,7 +1259,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	sljit_si dst_is_ereg = 0;
 	sljit_si src_is_ereg = 0;
 #else
-	#define src_is_ereg 0
+#	define src_is_ereg 0
 #endif
 
 	CHECK_ERROR();
@@ -1413,7 +1413,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	return SLJIT_SUCCESS;
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	#undef src_is_ereg
+#	undef src_is_ereg
 #endif
 }
 
