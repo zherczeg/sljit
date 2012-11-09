@@ -948,18 +948,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 		return push_inst(compiler, NOP, UNMOVABLE_INS);
 	case SLJIT_UMUL:
 	case SLJIT_SMUL:
-		FAIL_IF(push_inst(compiler, (op == SLJIT_UMUL ? MULTU : MULT) | S(SLJIT_TEMPORARY_REG1) | T(SLJIT_TEMPORARY_REG2), MOVABLE_INS));
-		FAIL_IF(push_inst(compiler, MFLO | D(SLJIT_TEMPORARY_REG1), DR(SLJIT_TEMPORARY_REG1)));
-		return push_inst(compiler, MFHI | D(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG2));
+		FAIL_IF(push_inst(compiler, (op == SLJIT_UMUL ? MULTU : MULT) | S(SLJIT_SCRATCH_REG1) | T(SLJIT_SCRATCH_REG2), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, MFLO | D(SLJIT_SCRATCH_REG1), DR(SLJIT_SCRATCH_REG1)));
+		return push_inst(compiler, MFHI | D(SLJIT_SCRATCH_REG2), DR(SLJIT_SCRATCH_REG2));
 	case SLJIT_UDIV:
 	case SLJIT_SDIV:
 #if !(defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
 		FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
 		FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
 #endif
-		FAIL_IF(push_inst(compiler, (op == SLJIT_UDIV ? DIVU : DIV) | S(SLJIT_TEMPORARY_REG1) | T(SLJIT_TEMPORARY_REG2), MOVABLE_INS));
-		FAIL_IF(push_inst(compiler, MFLO | D(SLJIT_TEMPORARY_REG1), DR(SLJIT_TEMPORARY_REG1)));
-		return push_inst(compiler, MFHI | D(SLJIT_TEMPORARY_REG2), DR(SLJIT_TEMPORARY_REG2));
+		FAIL_IF(push_inst(compiler, (op == SLJIT_UDIV ? DIVU : DIV) | S(SLJIT_SCRATCH_REG1) | T(SLJIT_SCRATCH_REG2), MOVABLE_INS));
+		FAIL_IF(push_inst(compiler, MFLO | D(SLJIT_SCRATCH_REG1), DR(SLJIT_SCRATCH_REG1)));
+		return push_inst(compiler, MFHI | D(SLJIT_SCRATCH_REG2), DR(SLJIT_SCRATCH_REG2));
 	}
 
 	return SLJIT_SUCCESS;
@@ -1461,7 +1461,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 		PTR_FAIL_IF(push_inst(compiler, JALR | S(TMP_REG2) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
 		jump->addr = compiler->size;
 		/* A NOP if type < CALL1. */
-		PTR_FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), UNMOVABLE_INS));
+		PTR_FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_SCRATCH_REG1) | TA(0) | DA(4), UNMOVABLE_INS));
 	}
 	return jump;
 }
@@ -1722,12 +1722,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 			}
 			FAIL_IF(push_inst(compiler, JALR | S(PIC_ADDR_REG) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
 			/* We need an extra instruction in any case. */
-			return push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), UNMOVABLE_INS);
+			return push_inst(compiler, ADDU_W | S(SLJIT_SCRATCH_REG1) | TA(0) | DA(4), UNMOVABLE_INS);
 		}
 
 		/* Register input. */
 		if (type >= SLJIT_CALL1)
-			FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_TEMPORARY_REG1) | TA(0) | DA(4), 4));
+			FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_SCRATCH_REG1) | TA(0) | DA(4), 4));
 		FAIL_IF(push_inst(compiler, JALR | S(src_r) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
 		return push_inst(compiler, ADDU_W | S(src_r) | TA(0) | D(PIC_ADDR_REG), UNMOVABLE_INS);
 	}

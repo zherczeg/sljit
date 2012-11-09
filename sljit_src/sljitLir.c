@@ -577,7 +577,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 
 #define FUNCTION_CHECK_IS_REG(r) \
 	((r) == SLJIT_UNUSED || \
-	((r) >= SLJIT_TEMPORARY_REG1 && (r) <= SLJIT_TEMPORARY_REG1 - 1 + compiler->temporaries) || \
+	((r) >= SLJIT_SCRATCH_REG1 && (r) <= SLJIT_SCRATCH_REG1 - 1 + compiler->temporaries) || \
 	((r) >= SLJIT_SAVED_REG1 && (r) <= SLJIT_SAVED_REG1 - 1 + compiler->saveds))
 
 #define FUNCTION_CHECK_SRC(p, i) \

@@ -1180,11 +1180,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	}
 
 	if (args >= 1)
-		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_SAVED_REG1, SLJIT_TEMPORARY_REG1)));
+		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_SAVED_REG1, SLJIT_SCRATCH_REG1)));
 	if (args >= 2)
-		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_SAVED_REG2, SLJIT_TEMPORARY_REG2)));
+		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_SAVED_REG2, SLJIT_SCRATCH_REG2)));
 	if (args >= 3)
-		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_SAVED_REG3, SLJIT_TEMPORARY_REG3)));
+		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_SAVED_REG3, SLJIT_SCRATCH_REG3)));
 
 	return SLJIT_SUCCESS;
 }
@@ -1278,10 +1278,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 	case SLJIT_UMUL:
 	case SLJIT_SMUL:
 		return push_inst32(compiler, (op == SLJIT_UMUL ? UMULL : SMULL)
-			| (reg_map[SLJIT_TEMPORARY_REG2] << 8)
-			| (reg_map[SLJIT_TEMPORARY_REG1] << 12)
-			| (reg_map[SLJIT_TEMPORARY_REG1] << 16)
-			| reg_map[SLJIT_TEMPORARY_REG2]);
+			| (reg_map[SLJIT_SCRATCH_REG2] << 8)
+			| (reg_map[SLJIT_SCRATCH_REG1] << 12)
+			| (reg_map[SLJIT_SCRATCH_REG1] << 16)
+			| reg_map[SLJIT_SCRATCH_REG2]);
 	case SLJIT_UDIV:
 	case SLJIT_SDIV:
 		if (compiler->temporaries >= 4) {
@@ -1321,7 +1321,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REG3) ? dst : TMP_REG1;
+	dst_r = (dst >= SLJIT_SCRATCH_REG1 && dst <= TMP_REG3) ? dst : TMP_REG1;
 
 	op = GET_OPCODE(op);
 	if (op >= SLJIT_MOV && op <= SLJIT_MOVU_P) {
@@ -1454,7 +1454,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_r = (dst >= SLJIT_TEMPORARY_REG1 && dst <= TMP_REG3) ? dst : TMP_REG1;
+	dst_r = (dst >= SLJIT_SCRATCH_REG1 && dst <= TMP_REG3) ? dst : TMP_REG1;
 	flags = (GET_FLAGS(op) ? SET_FLAGS : 0) | ((op & SLJIT_KEEP_FLAGS) ? KEEP_FLAGS : 0);
 
 	if ((dst & SLJIT_MEM) && !getput_arg_fast(compiler, WORD_SIZE | STORE | ARG_TEST, TMP_REG1, dst, dstw))
