@@ -881,7 +881,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_local_base(struct sljit_compiler *co
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_si dst, sljit_sw dstw, sljit_sw init_value);
 
 /* After the code generation the address for label, jump and const instructions
-   are computed. Since these structures are freed sljit_free_compiler, the
+   are computed. Since these structures are freed by sljit_free_compiler, the
    addresses must be preserved by the user program elsewere. */
 static SLJIT_INLINE sljit_uw sljit_get_label_addr(struct sljit_label *label) { return label->addr; }
 static SLJIT_INLINE sljit_uw sljit_get_jump_addr(struct sljit_jump *jump) { return jump->addr; }
@@ -898,12 +898,12 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 #define SLJIT_MAJOR_VERSION	0
 #define SLJIT_MINOR_VERSION	90
 
-/* Get the human readable name of the platfrom. Can be useful on platforms
+/* Get the human readable name of the platform. Can be useful on platforms
    like ARM, where ARM and Thumb2 functions can be mixed, and
    it is useful to know the type of the code generator. */
 SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void);
 
-/* Portble helper function to get an offset of a member. */
+/* Portable helper function to get an offset of a member. */
 #define SLJIT_OFFSETOF(base, member) ((sljit_sw)(&((base*)0x10)->member) - 0x10)
 
 #if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
@@ -966,7 +966,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw SLJIT_CALL sljit_stack_resize(struct sljit_sta
 
 /* All JIT related code should be placed in the same context (library, binary, etc.). */
 
-#define SLJIT_FUNC_OFFSET(func_name)	((sljit_sw)*(void**)func_name)
+#define SLJIT_FUNC_OFFSET(func_name)	(*(sljit_sw*)(void*)func_name)
 
 /* For powerpc64, the function pointers point to a context descriptor. */
 struct sljit_function_context {
