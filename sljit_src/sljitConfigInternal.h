@@ -309,20 +309,24 @@ typedef double sljit_d;
 #define SLJIT_CALL __attribute__ ((fastcall))
 #define SLJIT_X86_32_FASTCALL 1
 
-#elif defined(_WIN32)
+#elif defined(_MSC_VER)
 
-#ifdef __BORLANDC__
-#define SLJIT_CALL __msfastcall
-#else /* __BORLANDC__ */
 #define SLJIT_CALL __fastcall
-#endif /* __BORLANDC__ */
 #define SLJIT_X86_32_FASTCALL 1
 
-#else /* defined(_WIN32) */
-#define SLJIT_CALL __stdcall
+#elif defined(__BORLANDC__)
+
+#define SLJIT_CALL __msfastcall
+#define SLJIT_X86_32_FASTCALL 1
+
+#else /* Unknown compiler. */
+
+/* The cdecl attribute is the default. */
+#define SLJIT_CALL
+
 #endif
 
-#else /* Other architectures. */
+#else /* Non x86-32 architectures. */
 
 #define SLJIT_CALL
 

@@ -193,6 +193,9 @@
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 #define SLJIT_HAS_VARIABLE_LOCALS_OFFSET 1
+#if !(defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
+#define FIXED_LOCALS_OFFSET (3 * sizeof(sljit_sw))
+#endif
 #endif
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
