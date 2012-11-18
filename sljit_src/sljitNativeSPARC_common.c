@@ -153,10 +153,11 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 7] = {
    Useful for reordering instructions in the delay slot. */
 static sljit_si push_inst(struct sljit_compiler *compiler, sljit_ins ins, sljit_si delay_slot)
 {
+	sljit_ins *ptr;
 	SLJIT_ASSERT((delay_slot & DST_INS_MASK) == UNMOVABLE_INS
 		|| (delay_slot & DST_INS_MASK) == MOVABLE_INS
 		|| (delay_slot & DST_INS_MASK) == ((ins >> 25) & 0x1f));
-	sljit_ins *ptr = (sljit_ins*)ensure_buf(compiler, sizeof(sljit_ins));
+	ptr = (sljit_ins*)ensure_buf(compiler, sizeof(sljit_ins));
 	FAIL_IF(!ptr);
 	*ptr = ins;
 	compiler->size++;

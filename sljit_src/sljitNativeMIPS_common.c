@@ -24,13 +24,17 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* Latest MIPS architecture. */
+/* Automatically detect SLJIT_MIPS_32_64 */
+
 SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 {
+#if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
 	return "MIPS" SLJIT_CPUINFO;
+#else
+	return "MIPS III" SLJIT_CPUINFO;
+#endif
 }
-
-/* Latest MIPS architecture. */
-/* Detect SLJIT_MIPS_32_64 */
 
 /* Length of an instruction word
    Both for mips-32 and mips-64 */
