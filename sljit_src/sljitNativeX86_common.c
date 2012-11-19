@@ -326,7 +326,13 @@ static void get_cpu_features(void)
 	__cpuid(CPUInfo, 1);
 	features = (sljit_ui)CPUInfo[3];
 #else
-#	error "SLJIT_DETECT_SSE2 is not implemented for this C compiler"
+	__asm {
+		mov eax, 1
+		push rbx
+		cpuid
+		pop rbx
+		mov features, edx
+	}
 #endif
 
 #endif /* SLJIT_CONFIG_X86_32 */
