@@ -1,38 +1,37 @@
 This file is the short summary of the API changes:
 
-08.10.2012 - Non-backward compatible
+08.11.2012 - Non-backward compatible
     SLJIT_TEMPORARY_REGx registers are renamed to SLJIT_SCRATCH_REGx.
 
-07.10.2012 - Non-backward compatible
+07.11.2012 - Non-backward compatible
     sljit_emit_cond_value is renamed to sljit_emit_op_flags. An
     extra source argument is added which will be used in the future.
 
-05.10.2012 - Backward compatible
+05.11.2012 - Backward compatible
     sljit_emit_cond_value now supports SLJIT_AND and SLJIT_INT_OP
     flags, which makes this function complete.
 
-01.10.2012 - Non-backward compatible
+01.11.2012 - Non-backward compatible
     SLJIT_F* opcodes are renamed to SLJIT_*D to show that
     they are double precision operators. Furthermore
     SLJIT_*S single precision opcodes are added.
 
-01.10.2012 - Non-backward compatible
+01.11.2012 - Non-backward compatible
     Register arguments of operations with SLJIT_INT_OP flag
     must be computed by another operation with SLJIT_INT_OP flag.
     The same way as SLJIT_SINGLE_OP flag works with floating point
     numbers. See the description of SLJIT_INT_OP.
 
-01.10.2012 - Backward compatible
+01.11.2012 - Backward compatible
     All operations whose support the SLJIT_INT_OP flag, have an
     alternate name now, which includes the SLJIT_INT_OP. These
     names starting with I.
 
-31.09.2012 - Non-backward compatible
+31.10.2012 - Non-backward compatible
     Renaming sljit_w to sljit_sw, sljit_i to sljit_si, sljit_h
     to sljit_sh, and sljit_b to sljit_sb. Reason: their sign
     bit is part of the type now.
 
-20.09.2012 - Non-backward compatible
+20.10.2012 - Non-backward compatible
     Renaming SLJIT_C_FLOAT_NAN to SLJIT_C_FLOAT_UNORDERED.
     Reason: all architectures call these unordered comparions.
-
