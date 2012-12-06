@@ -267,75 +267,46 @@ static sljit_si cpu_has_sse2 = -1;
 #endif
 static sljit_si cpu_has_cmov = -1;
 
-#if defined(_MSC_VER) && (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-#if _MSC_VER >= 1400
+#if defined(_MSC_VER) && _MSC_VER >= 1400
 #include <intrin.h>
-#else
-#error "MSVC does not support inline assembly in 64 bit mode"
 #endif
-#endif /* _MSC_VER && SLJIT_CONFIG_X86_64 */
 
 static void get_cpu_features(void)
 {
 	sljit_ui features;
 
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+#if defined(_MSC_VER) && _MSC_VER >= 1400
 
-#if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C)
+	int CPUInfo[4];
+	__cpuid(CPUInfo, 1);
+	features = (sljit_ui)CPUInfo[3];
+
+#elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C)
+
 	/* AT&T syntax. */
 	__asm__ (
-		"pushl %%ebx\n"
 		"movl $0x1, %%eax\n"
 		"cpuid\n"
-		"popl %%ebx\n"
 		"movl %%edx, %0\n"
 		: "=g" (features)
 		:
-		: "%eax", "%ecx", "%edx"
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		: "%eax", "%ebx", "%ecx", "%edx"
+#else
+		: "%rax", "%rbx", "%rcx", "%rdx"
+#endif
 	);
-#elif defined(_MSC_VER) || defined(__BORLANDC__)
+
+#else /* _MSC_VER && _MSC_VER >= 1400 */
+
 	/* Intel syntax. */
 	__asm {
 		mov eax, 1
-		push ebx
 		cpuid
-		pop ebx
 		mov features, edx
 	}
-#else
-#	error "SLJIT_DETECT_SSE2 is not implemented for this C compiler"
-#endif
 
-#else /* SLJIT_CONFIG_X86_32 */
-
-#if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C)
-	/* AT&T syntax. */
-	__asm__ (
-		"pushq %%rbx\n"
-		"movl $0x1, %%eax\n"
-		"cpuid\n"
-		"popq %%rbx\n"
-		"movl %%edx, %0\n"
-		: "=g" (features)
-		:
-		: "%rax", "%rcx", "%rdx"
-	);
-#elif defined(_MSC_VER) && _MSC_VER >= 1400
-	int CPUInfo[4];
-
-	__cpuid(CPUInfo, 1);
-	features = (sljit_ui)CPUInfo[3];
-#else
-	__asm {
-		mov eax, 1
-		push rbx
-		cpuid
-		pop rbx
-		mov features, edx
-	}
-#endif
-
-#endif /* SLJIT_CONFIG_X86_32 */
+#endif /* _MSC_VER && _MSC_VER >= 1400 */
 
 #if (defined SLJIT_SSE2 && SLJIT_SSE2) && (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
 	cpu_has_sse2 = (features >> 26) & 0x1;
@@ -650,9 +621,10 @@ static void SLJIT_CALL sljit_grow_stack(sljit_sw local_size)
 	This function touches all 4k pages belongs to the requested stack space,
 	which size is passed in local_size. This is necessary on Windows where
 	the stack can only grow in 4k steps. However, this function just burn
-	CPU cycles if the stack is large enough, but you don't know it in advance.
-	I think this is a bad design even if it has some reasons. */
-	alloca(local_size);
+	CPU cycles if the stack is large enough. However, you don't know it in
+	advance, so it must always be called. I think this is a bad design in
+	general even if it has some reasons. */
+	*(sljit_si*)alloca(local_size) = 0;
 }
 
 #endif
