@@ -104,7 +104,7 @@
 #define SLJIT_CONFIG_PPC_64 1
 #elif defined(__ppc__) || defined(__powerpc__) || defined(_ARCH_PPC) || defined(_ARCH_PWR) || defined(_ARCH_PWR2) || defined(_POWER)
 #define SLJIT_CONFIG_PPC_32 1
-#elif defined(__mips__)
+#elif defined(__mips__) && !defined(_LP64)
 #define SLJIT_CONFIG_MIPS_32 1
 #elif defined(__sparc__) || defined(__sparc)
 #define SLJIT_CONFIG_SPARC_32 1
@@ -173,9 +173,13 @@
 #endif /* !defined(SLJIT_LIKELY) && !defined(SLJIT_UNLIKELY) */
 
 #ifndef SLJIT_INLINE
-/* Inline functions. */
+/* Inline functions. Some old compilers do not support them. */
+#if defined(__SUNPRO_C) && __SUNPRO_C <= 0x510
+#define SLJIT_INLINE
+#else
 #define SLJIT_INLINE __inline
 #endif
+#endif /* !SLJIT_INLINE */
 
 #ifndef SLJIT_CONST
 /* Const variables. */

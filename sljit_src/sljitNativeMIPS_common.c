@@ -30,7 +30,7 @@
 SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 {
 #if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
-	return "MIPS" SLJIT_CPUINFO;
+	return "MIPS(32)" SLJIT_CPUINFO;
 #else
 	return "MIPS III" SLJIT_CPUINFO;
 #endif
