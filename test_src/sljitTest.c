@@ -3337,7 +3337,7 @@ static void test40(void)
 	/* Test emit_cond_value. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_sw buf[9];
+	sljit_sw buf[10];
 
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = -100;
@@ -3349,6 +3349,7 @@ static void test40(void)
 	buf[6] = 0;
 	buf[7] = 0;
 	buf[8] = -100;
+	buf[9] = -100;
 
 	sljit_emit_enter(compiler, 1, 3, 4, sizeof(sljit_sw));
 
@@ -3394,6 +3395,11 @@ static void test40(void)
 	sljit_emit_op_flags(compiler, SLJIT_OR | SLJIT_SET_E, SLJIT_SCRATCH_REG1, 0, SLJIT_SCRATCH_REG1, 0, SLJIT_C_NOT_EQUAL);
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw) * 8, SLJIT_UNUSED, 0, SLJIT_C_NOT_EQUAL);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 0x123456);
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_U, SLJIT_UNUSED, 0, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 1);
+	sljit_emit_op_flags(compiler, SLJIT_OR, SLJIT_SCRATCH_REG1, 0, SLJIT_SCRATCH_REG1, 0, SLJIT_C_GREATER);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw) * 9, SLJIT_SCRATCH_REG1, 0);
+
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), 0, SLJIT_IMM, 0xbaddead);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), 0);
 
@@ -3411,6 +3417,7 @@ static void test40(void)
 	FAILED(buf[6] != 0, "test40 case 8 failed\n");
 	FAILED(buf[7] != 1, "test40 case 9 failed\n");
 	FAILED(buf[8] != 1, "test40 case 10 failed\n");
+	FAILED(buf[9] != 0x123457, "test40 case 11 failed\n");
 
 	printf("test40 ok\n");
 	successful_tests++;
