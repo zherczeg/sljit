@@ -550,7 +550,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	/* Maybe we waste some space because of short jumps. */
 	SLJIT_ASSERT(code_ptr <= code + compiler->size);
 	compiler->error = SLJIT_ERR_COMPILED;
-	compiler->executable_size = compiler->size;
+	compiler->executable_size = code_ptr - code;
 	return (void*)code;
 }
 
