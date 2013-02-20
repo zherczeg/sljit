@@ -308,7 +308,7 @@ typedef double sljit_d;
 /* ABI (Application Binary Interface) types. */
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) && !defined(__APPLE__)
 
 #define SLJIT_CALL __attribute__ ((fastcall))
 #define SLJIT_X86_32_FASTCALL 1
