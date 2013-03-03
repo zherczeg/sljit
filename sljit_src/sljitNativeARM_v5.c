@@ -405,7 +405,6 @@ static SLJIT_INLINE sljit_si detect_jump_type(struct sljit_jump *jump, sljit_uw 
 	if (diff & 0x3)
 		return 0;
 
-	diff >>= 2;
 	if (jump->flags & IS_BL) {
 		if (diff <= 0x01ffffff && diff >= -0x02000000) {
 			*code_ptr = (BL - CONDITIONAL) | (*(code_ptr + 1) & COND_MASK);
@@ -431,7 +430,6 @@ static SLJIT_INLINE sljit_si detect_jump_type(struct sljit_jump *jump, sljit_uw 
 	if (diff & 0x3)
 		return 0;
 
-	diff >>= 2;
 	if (diff <= 0x01ffffff && diff >= -0x02000000) {
 		code_ptr -= 2;
 		*code_ptr = ((jump->flags & IS_BL) ? (BL - CONDITIONAL) : (B - CONDITIONAL)) | (code_ptr[2] & COND_MASK);
