@@ -993,6 +993,12 @@ static SLJIT_INLINE void check_sljit_get_register_index(sljit_si reg)
 	SLJIT_ASSERT(reg > 0 && reg <= SLJIT_NO_REGISTERS);
 }
 
+static SLJIT_INLINE void check_sljit_get_float_register_index(sljit_si reg)
+{
+	SLJIT_UNUSED_ARG(reg);
+	SLJIT_ASSERT(reg > 0 && reg <= SLJIT_NO_FLOAT_REGISTERS);
+}
+
 static SLJIT_INLINE void check_sljit_emit_op_custom(struct sljit_compiler *compiler,
 	void *instruction, sljit_si size)
 {
