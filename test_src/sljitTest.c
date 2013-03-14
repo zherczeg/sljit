@@ -3429,6 +3429,7 @@ static void test41(void)
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_si i;
+	sljit_d buf[3];
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	sljit_ub inst[16];
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -3525,6 +3526,83 @@ static void test41(void)
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	FAILED(code.func2(SLJIT_W(0x20f0a04090c06070), SLJIT_W(0x020f0a04090c0607)) != SLJIT_W(0x22ffaa4499cc6677), "test41 case 3 failed\n");
 #endif
+
+	if (sljit_is_fpu_available()) {
+		buf[0] = 13.5;
+		buf[1] = -2.25;
+		buf[2] = 0.0;
+
+		compiler = sljit_create_compiler();
+		sljit_emit_enter(compiler, 1, 0, 1, 0);
+		sljit_emit_fop1(compiler, SLJIT_MOVD, SLJIT_FLOAT_REG1, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 0);
+		sljit_emit_fop1(compiler, SLJIT_MOVD, SLJIT_FLOAT_REG2, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_d));
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		/* addsd x, xm */
+		inst[0] = 0xf2;
+		inst[1] = 0x0f;
+		inst[2] = 0x58;
+		inst[3] = 0xc0 | (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 3)
+			| sljit_get_float_register_index(SLJIT_FLOAT_REG2);
+		sljit_emit_op_custom(compiler, inst, 4);
+#elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		/* addsd x, xm */
+		if (sljit_get_float_register_index(SLJIT_FLOAT_REG1) > 7 || sljit_get_float_register_index(SLJIT_FLOAT_REG2) > 7) {
+			inst[0] = 0;
+			if (sljit_get_float_register_index(SLJIT_FLOAT_REG1) > 7)
+				inst[0] |= 0x04; /* REX_R */
+			if (sljit_get_float_register_index(SLJIT_FLOAT_REG2) > 7)
+				inst[0] |= 0x01; /* REX_B */
+			inst[1] = 0xf2;
+			inst[2] = 0x0f;
+			inst[3] = 0x58;
+			inst[4] = 0xc0 | ((sljit_get_float_register_index(SLJIT_FLOAT_REG1) & 0x7) << 3)
+				| (sljit_get_float_register_index(SLJIT_FLOAT_REG2) & 0x7);
+			sljit_emit_op_custom(compiler, inst, 5);
+		}
+		else {
+			inst[0] = 0xf2;
+			inst[1] = 0x0f;
+			inst[2] = 0x58;
+			inst[3] = 0xc0 | (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 3)
+				| sljit_get_float_register_index(SLJIT_FLOAT_REG2);
+			sljit_emit_op_custom(compiler, inst, 4);
+		}
+#elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7) || (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
+		/* vadd.f64 dd, dn, dm */
+		inst = 0xee300b00 | (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 12)
+			| (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 16)
+			| sljit_get_float_register_index(SLJIT_FLOAT_REG2);
+		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#elif (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+		/* fadd frD, frA, frB */
+		inst = (63 << 26) | (21 << 1) | (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 21)
+			| (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 16)
+			| (sljit_get_float_register_index(SLJIT_FLOAT_REG2) << 11);
+		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+		/* add.d fd, fs, ft */
+		inst = (17 << 26) | (17 << 21) | (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 6)
+			| (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 11)
+			| (sljit_get_float_register_index(SLJIT_FLOAT_REG2) << 16);
+		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+		/* faddd rd, rs1, rs2 */
+		inst = (0x2 << 30) | (0x34 << 19) | (0x42 << 5)
+			| (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 25)
+			| (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 14)
+			| sljit_get_float_register_index(SLJIT_FLOAT_REG2);
+		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#endif
+		sljit_emit_fop1(compiler, SLJIT_MOVD, SLJIT_MEM1(SLJIT_SAVED_REG1), 2 * sizeof(sljit_d), SLJIT_FLOAT_REG1, 0);
+		sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+
+		code.code = sljit_generate_code(compiler);
+		CHECK(compiler);
+		sljit_free_compiler(compiler);
+
+		code.func1((sljit_sw)&buf);
+		FAILED(buf[2] != 11.25, "test41 case 3 failed\n");
+	}
 
 	printf("test41 ok\n");
 	successful_tests++;

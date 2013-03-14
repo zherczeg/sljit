@@ -161,12 +161,14 @@ of sljitConfigInternal.h */
 /* Floating point operations are performed on double or
    single precision values. */
 
-#define SLJIT_FLOAT_REG1	1
-#define SLJIT_FLOAT_REG2	2
-#define SLJIT_FLOAT_REG3	3
-#define SLJIT_FLOAT_REG4	4
-#define SLJIT_FLOAT_REG5	5
-#define SLJIT_FLOAT_REG6	6
+#define SLJIT_FLOAT_REG1		1
+#define SLJIT_FLOAT_REG2		2
+#define SLJIT_FLOAT_REG3		3
+#define SLJIT_FLOAT_REG4		4
+#define SLJIT_FLOAT_REG5		5
+#define SLJIT_FLOAT_REG6		6
+
+#define SLJIT_NO_FLOAT_REGISTERS	6
 
 /* --------------------------------------------------------------------- */
 /*  Main structures and functions                                        */
@@ -698,11 +700,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 /* The following function is a helper function for sljit_emit_op_custom.
    It returns with the real machine register index of any SLJIT_SCRATCH
    SLJIT_SAVED or SLJIT_LOCALS register.
-   Note: it returns with -1 for virtual registers (all EREGs on x86-32).
-   Note: register returned by SLJIT_LOCALS_REG is not necessary the real
-         stack pointer register of the target architecture. */
+   Note: it returns with -1 for virtual registers (all EREGs on x86-32). */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_register_index(sljit_si reg);
+
+/* The following function is a helper function for sljit_emit_op_custom.
+   It returns with the real machine register index of any SLJIT_FLOAT register.
+   Note: the index is divided by 2 on ARM 32 bit architectures. */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_float_register_index(sljit_si reg);
 
 /* Any instruction can be inserted into the instruction stream by
    sljit_emit_op_custom. It has a similar purpose as inline assembly.
