@@ -77,7 +77,7 @@
 #endif
 
 /* The following header file defines useful macros for fine tuning
-sljit based code generators. They are listed in the begining
+sljit based code generators. They are listed in the beginning
 of sljitConfigInternal.h */
 
 #include "sljitConfigInternal.h"
@@ -308,7 +308,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void);
 /* Free everything except the compiled machine code. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_compiler(struct sljit_compiler *compiler);
 
-/* Returns the current error code. If an error is occured, future sljit
+/* Returns the current error code. If an error is occurred, future sljit
    calls which uses the same compiler argument returns early with the same
    error code. Thus there is no need for checking the error after every
    call, it is enough to do it before the code is compiled. Removing
@@ -449,7 +449,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
            sequences. This information could help to improve those code
            generators which focuses only a few architectures.
 
-   x86:    [reg+imm], -2^32+1 <= imm <= 2^32-1 (full adress space on x86-32)
+   x86:    [reg+imm], -2^32+1 <= imm <= 2^32-1 (full address space on x86-32)
            [reg+(reg<<imm)] is supported
            [imm], -2^32+1 <= imm <= 2^32-1 is supported
            Write-back is not supported
