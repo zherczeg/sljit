@@ -101,6 +101,9 @@ static void test_exec_allocator(void)
 	MALLOC_EXEC(ptr3, 512);
 	SLJIT_FREE_EXEC(ptr2);
 	MALLOC_EXEC(ptr2, 512);
+#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
+	sljit_free_unused_memory_exec();
+#endif
 	SLJIT_FREE_EXEC(ptr3);
 	SLJIT_FREE_EXEC(ptr1);
 	SLJIT_FREE_EXEC(ptr2);
@@ -108,6 +111,10 @@ static void test_exec_allocator(void)
 	/* Just call the global locks. */
 	sljit_grab_lock();
 	sljit_release_lock();
+#endif
+
+#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
+	sljit_free_unused_memory_exec();
 #endif
 	printf("Executable allocator: ok\n");
 }
@@ -3419,6 +3426,7 @@ static void test40(void)
 	FAILED(buf[8] != 1, "test40 case 10 failed\n");
 	FAILED(buf[9] != 0x123457, "test40 case 11 failed\n");
 
+	sljit_free_code(code.code);
 	printf("test40 ok\n");
 	successful_tests++;
 }
@@ -3526,6 +3534,7 @@ static void test41(void)
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	FAILED(code.func2(SLJIT_W(0x20f0a04090c06070), SLJIT_W(0x020f0a04090c0607)) != SLJIT_W(0x22ffaa4499cc6677), "test41 case 3 failed\n");
 #endif
+	sljit_free_code(code.code);
 
 	if (sljit_is_fpu_available()) {
 		buf[0] = 13.5;
@@ -3602,6 +3611,7 @@ static void test41(void)
 
 		code.func1((sljit_sw)&buf);
 		FAILED(buf[2] != 11.25, "test41 case 3 failed\n");
+		sljit_free_code(code.code);
 	}
 
 	printf("test41 ok\n");
@@ -3757,6 +3767,8 @@ static void test42(void)
 	FAILED(buf[16] != SLJIT_W(58392872), "test42 case 17 failed\n");
 	FAILED(buf[17] != SLJIT_W(-47), "test42 case 18 failed\n");
 	FAILED(buf[18] != SLJIT_W(35949148), "test42 case 19 failed\n");
+
+	sljit_free_code(code.code);
 	printf("test42 ok\n");
 	successful_tests++;
 }
@@ -3828,6 +3840,7 @@ static void test43(void)
 	dbuf[2].value = 20;
 	FAILED(code.func1((sljit_sw)&dbuf) != -2, "test43 case 4 failed\n");
 
+	sljit_free_code(code.code);
 	printf("test43 ok\n");
 	successful_tests++;
 }
@@ -4142,6 +4155,11 @@ void sljit_test(void)
 	test44();
 	test45();
 	test46();
+
+#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
+	sljit_free_unused_memory_exec();
+#endif
+
 	printf("On %s%s: ", sljit_get_platform_name(), sljit_is_fpu_available() ? " (+fpu)" : "");
 	if (successful_tests == 46)
 		printf("All tests are passed!\n");
