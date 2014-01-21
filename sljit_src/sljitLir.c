@@ -217,7 +217,7 @@
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
 #define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
-#if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+#ifdef _AIX
 #define FIXED_LOCALS_OFFSET ((6 + 8) * sizeof(sljit_sw))
 #else
 #define FIXED_LOCALS_OFFSET (2 * sizeof(sljit_sw))

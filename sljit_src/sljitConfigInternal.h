@@ -353,11 +353,15 @@ typedef double sljit_d;
 
 #if !defined(SLJIT_BIG_ENDIAN) && !defined(SLJIT_LITTLE_ENDIAN)
 
-/* These macros are useful for the application. */
+/* These macros are useful for the applications. */
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) \
-	|| (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) \
-	|| (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+	|| (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+
+#ifdef __LITTLE_ENDIAN__
+#define SLJIT_LITTLE_ENDIAN 1
+#else
 #define SLJIT_BIG_ENDIAN 1
+#endif
 
 #elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 
@@ -366,6 +370,10 @@ typedef double sljit_d;
 #else
 #define SLJIT_BIG_ENDIAN 1
 #endif
+
+#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+
+#define SLJIT_BIG_ENDIAN 1
 
 #else
 #define SLJIT_LITTLE_ENDIAN 1
@@ -383,7 +391,8 @@ typedef double sljit_d;
 #endif
 
 #ifndef SLJIT_INDIRECT_CALL
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) || (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32 && defined _AIX)
+#if ((defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) && (defined SLJIT_BIG_ENDIAN && SLJIT_BIG_ENDIAN))  \
+	|| ((defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) && defined _AIX)
 /* It seems certain ppc compilers use an indirect addressing for functions
    which makes things complicated. */
 #define SLJIT_INDIRECT_CALL 1
