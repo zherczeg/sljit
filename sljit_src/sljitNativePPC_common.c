@@ -33,6 +33,11 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
    Both for ppc-32 and ppc-64. */
 typedef sljit_ui sljit_ins;
 
+#if ((defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) && (defined _AIX)) \
+	|| (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#define SLJIT_PPC_ABI_V2 1
+#endif
+
 #ifdef _AIX
 #include <sys/cache.h>
 #endif
@@ -509,7 +514,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_EREG1) | A(SLJIT_LOCALS_REG) | IMM(-5 * (sljit_si)(sizeof(sljit_sw))) ));
 	if (saveds >= 5)
 		FAIL_IF(push_inst(compiler, STACK_STORE | S(SLJIT_SAVED_EREG2) | A(SLJIT_LOCALS_REG) | IMM(-6 * (sljit_si)(sizeof(sljit_sw))) ));
+#if (defined SLJIT_PPC_ABI_V2 && SLJIT_PPC_ABI_V2)
+	FAIL_IF(push_inst(compiler, STACK_STORE | S(0) | A(SLJIT_LOCALS_REG) | IMM(2 * sizeof(sljit_sw)) ));
+#else
 	FAIL_IF(push_inst(compiler, STACK_STORE | S(0) | A(SLJIT_LOCALS_REG) | IMM(sizeof(sljit_sw)) ));
+#endif
 
 	FAIL_IF(push_inst(compiler, ADDI | D(ZERO_REG) | A(0) | 0));
 	if (args >= 1)
@@ -519,7 +528,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	if (args >= 3)
 		FAIL_IF(push_inst(compiler, OR | S(SLJIT_SCRATCH_REG3) | A(SLJIT_SAVED_REG3) | B(SLJIT_SCRATCH_REG3)));
 
-#if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+#if (defined SLJIT_PPC_ABI_V2 && SLJIT_PPC_ABI_V2)
 	compiler->local_size = (1 + saveds + 6 + 8) * sizeof(sljit_sw) + local_size;
 #else
 	compiler->local_size = (1 + saveds + 2) * sizeof(sljit_sw) + local_size;
@@ -556,7 +565,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->logical_local_size = local_size;
 #endif
 
-#if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+#if (defined SLJIT_PPC_ABI_V2 && SLJIT_PPC_ABI_V2)
 	compiler->local_size = (1 + saveds + 6 + 8) * sizeof(sljit_sw) + local_size;
 #else
 	compiler->local_size = (1 + saveds + 2) * sizeof(sljit_sw) + local_size;
@@ -578,7 +587,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 		FAIL_IF(push_inst(compiler, ADD | D(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | B(0)));
 	}
 
+#if (defined SLJIT_PPC_ABI_V2 && SLJIT_PPC_ABI_V2)
+	FAIL_IF(push_inst(compiler, STACK_LOAD | D(0) | A(SLJIT_LOCALS_REG) | IMM(2 * sizeof(sljit_sw))));
+#else
 	FAIL_IF(push_inst(compiler, STACK_LOAD | D(0) | A(SLJIT_LOCALS_REG) | IMM(sizeof(sljit_sw))));
+#endif
 	if (compiler->saveds >= 5)
 		FAIL_IF(push_inst(compiler, STACK_LOAD | D(SLJIT_SAVED_EREG2) | A(SLJIT_LOCALS_REG) | IMM(-6 * (sljit_si)(sizeof(sljit_sw))) ));
 	if (compiler->saveds >= 4)
