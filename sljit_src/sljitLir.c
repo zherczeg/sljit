@@ -144,6 +144,10 @@
 	/* 0xf00 cc code for branches */
 #endif
 
+#if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
+
+#endif
+
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #	define UNCOND_B	0x04
 #	define PATCH_B		0x08
@@ -213,6 +217,10 @@
 #else
 #define FIXED_LOCALS_OFFSET (sizeof(sljit_sw))
 #endif
+#endif
+
+#if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
+#define SLJIT_HAS_VARIABLE_LOCALS_OFFSET 1
 #endif
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
@@ -670,7 +678,9 @@ static char* freg_names[] = {
 	(char*)"f4", (char*)"f5", (char*)"f6"
 };
 
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) \
+	|| (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
+	|| (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #ifdef _WIN64
 #	define SLJIT_PRINT_D	"I64"
 #else
@@ -1345,6 +1355,8 @@ static SLJIT_INLINE sljit_si emit_mov_before_return(struct sljit_compiler *compi
 #	include "sljitNativeARM_v5.c"
 #elif (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
 #	include "sljitNativeARM_Thumb2.c"
+#elif (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
+#	include "sljitNativeARM_64.c"
 #elif (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
 #	include "sljitNativePPC_common.c"
 #elif (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)

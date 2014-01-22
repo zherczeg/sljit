@@ -633,7 +633,7 @@ static void SLJIT_CALL sljit_grow_stack(sljit_sw local_size)
 	CPU cycles if the stack is large enough. However, you don't know it in
 	advance, so it must always be called. I think this is a bad design in
 	general even if it has some reasons. */
-	*(sljit_si*)alloca(local_size) = 0;
+	*(volatile sljit_si*)alloca(local_size) = 0;
 }
 
 #endif

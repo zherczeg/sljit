@@ -335,7 +335,6 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				jump = jump->next;
 			}
 			if (const_ && const_->addr == word_count) {
-				/* Just recording the address. */
 				const_->addr = (sljit_uw)code_ptr;
 				const_ = const_->next;
 			}

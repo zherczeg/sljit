@@ -425,6 +425,10 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	return (void*)((sljit_uw)code | 0x1);
 }
 
+/* --------------------------------------------------------------------- */
+/*  Core code generator functions.                                       */
+/* --------------------------------------------------------------------- */
+
 #define INVALID_IMM	0x80000000
 static sljit_uw get_imm(sljit_uw imm)
 {
@@ -537,7 +541,7 @@ static sljit_si emit_op_imm(struct sljit_compiler *compiler, sljit_si flags, slj
 			if (!(flags & SET_FLAGS))
 				return load_immediate(compiler, dst, ~imm);
 			/* Since the flags should be set, we just fallback to the register mode.
-			   Although I could do some clever things here, "NOT IMM" does not worth the efforts. */
+			   Although some clever things could be done here, "NOT IMM" does not worth the efforts. */
 			break;
 		case SLJIT_CLZ:
 			/* No form with immediate operand. */
@@ -708,6 +712,8 @@ static sljit_si emit_op_imm(struct sljit_compiler *compiler, sljit_si flags, slj
 	case SLJIT_MOVU_SI:
 	case SLJIT_MOVU_P:
 		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
+		if (dst == arg2)
+			return SLJIT_SUCCESS;
 		return push_inst16(compiler, MOV | SET_REGS44(dst, arg2));
 	case SLJIT_MOV_UB:
 	case SLJIT_MOVU_UB:
