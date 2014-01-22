@@ -419,33 +419,39 @@ static sljit_si emit_op_imm(struct sljit_compiler *compiler, sljit_si flags, slj
 			if (flags & ARG1_IMM)
 				break;
 			imm = -imm;
+			/* Fall through. */
 		case SLJIT_ADD:
-			if (imm >= 0 && imm <= 0xfff) {
+			if (imm == 0) {
+				if (flags & SET_FLAGS)
+					inv_bits |= 1 << 29;
+				return push_inst(compiler, ((op == SLJIT_ADD ? ADDI : SUBI) ^ inv_bits) | RD(dst) | RN(reg) | (imm << 10));
+			}
+			if (imm > 0 && imm <= 0xfff) {
 				if (flags & SET_FLAGS)
 					inv_bits |= 1 << 29;
 				return push_inst(compiler, (ADDI ^ inv_bits) | RD(dst) | RN(reg) | (imm << 10));
 			}
 			nimm = -imm;
-			if (nimm >= 0 && nimm <= 0xfff) {
+			if (nimm > 0 && nimm <= 0xfff) {
 				if (flags & SET_FLAGS)
 					inv_bits |= 1 << 29;
 				return push_inst(compiler, (SUBI ^ inv_bits) | RD(dst) | RN(reg) | (nimm << 10));
 			}
-			if (imm >= 0 && imm <= 0xffffff && !(imm & 0xfff)) {
+			if (imm > 0 && imm <= 0xffffff && !(imm & 0xfff)) {
 				if (flags & SET_FLAGS)
 					inv_bits |= 1 << 29;
 				return push_inst(compiler, (ADDI ^ inv_bits) | RD(dst) | RN(reg) | (1 << 22) | ((imm >> 12) << 10));
 			}
-			if (nimm >= 0 && nimm <= 0xffffff && !(nimm & 0xfff)) {
+			if (nimm > 0 && nimm <= 0xffffff && !(nimm & 0xfff)) {
 				if (flags & SET_FLAGS)
 					inv_bits |= 1 << 29;
 				return push_inst(compiler, (SUBI ^ inv_bits) | RD(dst) | RN(reg) | (1 << 22) | ((nimm >> 12) << 10));
 			}
-			if (imm >= 0 && imm <= 0xffffff && !(flags & SET_FLAGS)) {
+			if (imm > 0 && imm <= 0xffffff && !(flags & SET_FLAGS)) {
 				FAIL_IF(push_inst(compiler, (ADDI ^ inv_bits) | RD(dst) | RN(reg) | (1 << 22) | ((imm >> 12) << 10)));
 				return push_inst(compiler, (ADDI ^ inv_bits) | RD(dst) | RN(dst) | ((imm & 0xfff) << 10));
 			}
-			if (nimm >= 0 && nimm <= 0xffffff && !(flags & SET_FLAGS)) {
+			if (nimm > 0 && nimm <= 0xffffff && !(flags & SET_FLAGS)) {
 				FAIL_IF(push_inst(compiler, (SUBI ^ inv_bits) | RD(dst) | RN(reg) | ((nimm >> 12) << 10)));
 				return push_inst(compiler, (SUBI ^ inv_bits) | RD(dst) | RN(dst) | ((nimm & 0xfff) << 10));
 			}
@@ -565,6 +571,7 @@ static sljit_si emit_op_imm(struct sljit_compiler *compiler, sljit_si flags, slj
 		FAIL_IF(push_inst(compiler, (ORN ^ inv_bits) | RD(dst) | RN(TMP_ZERO) | RM(arg2)));
 		goto set_flags;
 	case SLJIT_NEG:
+		SLJIT_ASSERT(arg1 == TMP_REG1);
 		if (flags & SET_FLAGS)
 			inv_bits |= 1 << 29;
 		return push_inst(compiler, (SUB ^ inv_bits) | RD(dst) | RN(TMP_ZERO) | RM(arg2));
@@ -593,12 +600,12 @@ static sljit_si emit_op_imm(struct sljit_compiler *compiler, sljit_si flags, slj
 			return push_inst(compiler, (MADD ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2) | (31 << 10));
 		if (flags & WORD_OP) {
 			FAIL_IF(push_inst(compiler, SMADDL | RD(dst) | RN(arg1) | RM(arg2) | (31 << 10)));
-			FAIL_IF(push_inst(compiler, SUBS | RD(TMP_REG4) | RN(TMP_ZERO) | RM(dst) | (2 << 22) | (32 << 10)));
+			FAIL_IF(push_inst(compiler, SUBS | RD(TMP_REG4) | RN(TMP_ZERO) | RM(dst) | (2 << 22) | (31 << 10)));
 			return push_inst(compiler, SUBS | RD(TMP_ZERO) | RN(TMP_REG4) | RM(dst) | (2 << 22) | (63 << 10));
 		}
 		FAIL_IF(push_inst(compiler, SMULH | RD(TMP_REG4) | RN(arg1) | RM(arg2) | (31 << 10)));
 		FAIL_IF(push_inst(compiler, MADD | RD(dst) | RN(arg1) | RM(arg2) | (31 << 10)));
-		return push_inst(compiler, SUBS | RD(TMP_ZERO) | RN(TMP_REG4) | RM(TMP_REG4) | (2 << 22) | (63 << 10));
+		return push_inst(compiler, SUBS | RD(TMP_ZERO) | RN(TMP_REG4) | RM(dst) | (2 << 22) | (63 << 10));
 	case SLJIT_AND:
 		if (flags & SET_FLAGS)
 			inv_bits |= 3 << 29;
