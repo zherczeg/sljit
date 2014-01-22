@@ -265,6 +265,12 @@ struct sljit_compiler {
 	sljit_sw cache_argw;
 #endif
 
+#if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
+	sljit_si locals_offset;
+	sljit_si cache_arg;
+	sljit_sw cache_argw;
+#endif
+
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	sljit_sw imm;
 	sljit_si cache_arg;
@@ -602,7 +608,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 /* Flags: I - (never set any flags)
    Note: see SLJIT_INT_OP for further details. */
 #define SLJIT_MOV_UI			11
-/* No SLJIT_INT_OP form, since it the same as SLJIT_IMOVU. */
+/* No SLJIT_INT_OP form, since it the same as SLJIT_IMOV. */
 /* Flags: I - (never set any flags)
    Note: see SLJIT_INT_OP for further details. */
 #define SLJIT_MOV_SI			12

@@ -44,6 +44,7 @@
 /* #define SLJIT_CONFIG_ARM_V5 1 */
 /* #define SLJIT_CONFIG_ARM_V7 1 */
 /* #define SLJIT_CONFIG_ARM_THUMB2 1 */
+/* #define SLJIT_CONFIG_ARM_64 1 */
 /* #define SLJIT_CONFIG_PPC_32 1 */
 /* #define SLJIT_CONFIG_PPC_64 1 */
 /* #define SLJIT_CONFIG_MIPS_32 1 */
