@@ -104,8 +104,8 @@
 
 /* Parameter parsing. */
 #define REG_MASK	0xf
-#define MEM_SHIFT	4
-#define OFFS_REG_MASK	(REG_MASK << MEM_SHIFT)
+#define OFFS_REG(reg)	(((reg) >> 4) & REG_MASK)
+#define OFFS_REG_MASK	(REG_MASK << 4)
 
 /* Jump flags. */
 #define JUMP_LABEL	0x1
