@@ -581,7 +581,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler, sljit_si op);
 
 /* Notes for MOV instructions:
-   U = Mov with update (post form). If source or destination defined as SLJIT_MEM1(r1)
+   U = Mov with update (pre form). If source or destination defined as SLJIT_MEM1(r1)
        or SLJIT_MEM2(r1, r2), r1 is increased by the sum of r2 and the constant argument
    UB = unsigned byte (8 bit)
    SB = signed byte (8 bit)
