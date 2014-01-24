@@ -102,6 +102,11 @@
 #define ABUF_SIZE	4096
 #endif
 
+/* Parameter parsing. */
+#define REG_MASK	0xf
+#define MEM_SHIFT	4
+#define OFFS_REG_MASK	(REG_MASK << MEM_SHIFT)
+
 /* Jump flags. */
 #define JUMP_LABEL	0x1
 #define JUMP_ADDR	0x2

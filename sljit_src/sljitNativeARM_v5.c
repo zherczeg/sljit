@@ -1379,7 +1379,7 @@ static sljit_si getput_arg_fast(struct sljit_compiler *compiler, sljit_si inp_fl
 			EMIT_INSTRUCTION(EMIT_DATA_PROCESS_INS(MVN_DP, 0, reg, SLJIT_UNUSED, imm));
 			return -1;
 		}
-		return (inp_flags & ARG_TEST) ? SLJIT_SUCCESS : 0;
+		return 0;
 	}
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
@@ -1426,7 +1426,7 @@ static sljit_si getput_arg_fast(struct sljit_compiler *compiler, sljit_si inp_fl
 		}
 	}
 
-	return (inp_flags & ARG_TEST) ? SLJIT_SUCCESS : 0;
+	return 0;
 }
 
 /* See getput_arg below.

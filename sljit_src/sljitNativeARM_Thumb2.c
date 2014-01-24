@@ -818,7 +818,7 @@ static sljit_si emit_op_imm(struct sljit_compiler *compiler, sljit_si flags, slj
   s = store
 */
 
-static SLJIT_CONST sljit_uw sljit_mem16[12] = {
+static SLJIT_CONST sljit_ins sljit_mem16[12] = {
 /* w u l */ 0x5800 /* ldr */,
 /* w u s */ 0x5000 /* str */,
 /* w s l */ 0x5800 /* ldr */,
@@ -835,7 +835,7 @@ static SLJIT_CONST sljit_uw sljit_mem16[12] = {
 /* h s s */ 0x5200 /* strh */,
 };
 
-static SLJIT_CONST sljit_uw sljit_mem16_imm5[12] = {
+static SLJIT_CONST sljit_ins sljit_mem16_imm5[12] = {
 /* w u l */ 0x6800 /* ldr imm5 */,
 /* w u s */ 0x6000 /* str imm5 */,
 /* w s l */ 0x6800 /* ldr imm5 */,
@@ -854,7 +854,7 @@ static SLJIT_CONST sljit_uw sljit_mem16_imm5[12] = {
 
 #define MEM_IMM8	0xc00
 #define MEM_IMM12	0x800000
-static SLJIT_CONST sljit_uw sljit_mem32[12] = {
+static SLJIT_CONST sljit_ins sljit_mem32[12] = {
 /* w u l */ 0xf8500000 /* ldr.w */,
 /* w u s */ 0xf8400000 /* str.w */,
 /* w s l */ 0xf8500000 /* ldr.w */,
@@ -895,69 +895,71 @@ static sljit_si emit_set_delta(struct sljit_compiler *compiler, sljit_si dst, sl
 /* Can perform an operation using at most 1 instruction. */
 static sljit_si getput_arg_fast(struct sljit_compiler *compiler, sljit_si flags, sljit_si reg, sljit_si arg, sljit_sw argw)
 {
-	sljit_si tmp;
+	sljit_si other_r, shift;
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
 	if (SLJIT_UNLIKELY(flags & UPDATE)) {
 		if ((arg & 0xf) && !(arg & 0xf0) && argw <= 0xff && argw >= -0xff) {
-			flags &= ~UPDATE;
-			arg &= 0xf;
 			if (SLJIT_UNLIKELY(flags & ARG_TEST))
 				return 1;
 
+			flags &= ~UPDATE;
+			arg &= 0xf;
 			if (argw >= 0)
 				argw |= 0x200;
 			else {
 				argw = -argw;
 			}
+
 			SLJIT_ASSERT(argw >= 0 && (argw & 0xff) <= 0xff);
 			FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | MEM_IMM8 | RT4(reg) | RN4(arg) | 0x100 | argw));
 			return -1;
 		}
-		return (flags & ARG_TEST) ? SLJIT_SUCCESS : 0;
+		return 0;
 	}
 
 	if (SLJIT_UNLIKELY(arg & 0xf0)) {
-		argw &= 0x3;
-		tmp = (arg >> 4) & 0xf;
-		arg &= 0xf;
 		if (SLJIT_UNLIKELY(flags & ARG_TEST))
 			return 1;
 
-		if (!argw && IS_3_LO_REGS(reg, arg, tmp))
-			FAIL_IF(push_inst16(compiler, sljit_mem16[flags] | RD3(reg) | RN3(arg) | RM3(tmp)));
+		argw &= 0x3;
+		other_r = (arg >> 4) & 0xf;
+		arg &= 0xf;
+
+		if (!argw && IS_3_LO_REGS(reg, arg, other_r))
+			FAIL_IF(push_inst16(compiler, sljit_mem16[flags] | RD3(reg) | RN3(arg) | RM3(other_r)));
 		else
-			FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | RT4(reg) | RN4(arg) | RM4(tmp) | (argw << 4)));
+			FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | RT4(reg) | RN4(arg) | RM4(other_r) | (argw << 4)));
 		return -1;
 	}
 
 	if (!(arg & 0xf) || argw > 0xfff || argw < -0xff)
-		return (flags & ARG_TEST) ? SLJIT_SUCCESS : 0;
+		return 0;
 
 	if (SLJIT_UNLIKELY(flags & ARG_TEST))
 		return 1;
 
 	arg &= 0xf;
 	if (IS_2_LO_REGS(reg, arg) && sljit_mem16_imm5[flags]) {
-		tmp = 3;
+		shift = 3;
 		if (IS_WORD_SIZE(flags)) {
 			if (OFFSET_CHECK(0x1f, 2))
-				tmp = 2;
+				shift = 2;
 		}
 		else if (flags & BYTE_SIZE)
 		{
 			if (OFFSET_CHECK(0x1f, 0))
-				tmp = 0;
+				shift = 0;
 		}
 		else {
 			SLJIT_ASSERT(flags & HALF_SIZE);
 			if (OFFSET_CHECK(0x1f, 1))
-				tmp = 1;
+				shift = 1;
 		}
 
-		if (tmp != 3) {
-			FAIL_IF(push_inst16(compiler, sljit_mem16_imm5[flags] | RD3(reg) | RN3(arg) | (argw << (6 - tmp))));
+		if (shift != 3) {
+			FAIL_IF(push_inst16(compiler, sljit_mem16_imm5[flags] | RD3(reg) | RN3(arg) | (argw << (6 - shift))));
 			return -1;
 		}
 	}
@@ -1002,8 +1004,8 @@ static sljit_si can_cache(sljit_si arg, sljit_sw argw, sljit_si next_arg, sljit_
 /* Emit the necessary instructions. See can_cache above. */
 static sljit_si getput_arg(struct sljit_compiler *compiler, sljit_si flags, sljit_si reg, sljit_si arg, sljit_sw argw, sljit_si next_arg, sljit_sw next_argw)
 {
-	sljit_si tmp_r;
-	sljit_sw tmp;
+	sljit_si tmp_r, other_r;
+	sljit_sw diff;
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 	if (!(next_arg & SLJIT_MEM)) {
@@ -1013,60 +1015,60 @@ static sljit_si getput_arg(struct sljit_compiler *compiler, sljit_si flags, slji
 
 	tmp_r = (flags & STORE) ? TMP_REG3 : reg;
 
-	if (SLJIT_UNLIKELY(flags & UPDATE)) {
-		flags &= ~UPDATE;
+	if (SLJIT_UNLIKELY((flags & UPDATE) && (arg & 0xf))) {
 		/* Update only applies if a base register exists. */
-		if (arg & 0xf) {
-			/* There is no caching here. */
-			tmp = (arg & 0xf0) >> 4;
-			arg &= 0xf;
+		/* There is no caching here. */
+		other_r = (arg & 0xf0) >> 4;
+		arg &= 0xf;
+		flags &= ~UPDATE;
 
-			if (!tmp) {
-				if (!(argw & ~0xfff)) {
-					FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | MEM_IMM12 | RT4(reg) | RN4(arg) | argw));
-					return push_inst32(compiler, ADDWI | RD4(arg) | RN4(arg) | IMM12(argw));
+		if (!other_r) {
+			if (!(argw & ~0xfff)) {
+				FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | MEM_IMM12 | RT4(reg) | RN4(arg) | argw));
+				return push_inst32(compiler, ADDWI | RD4(arg) | RN4(arg) | IMM12(argw));
+			}
+
+			if (compiler->cache_arg == SLJIT_MEM) {
+				if (argw == compiler->cache_argw) {
+					other_r = TMP_REG3;
+					argw = 0;
 				}
-
-				if (compiler->cache_arg == SLJIT_MEM) {
-					if (argw == compiler->cache_argw) {
-						tmp = TMP_REG3;
-						argw = 0;
-					}
-					else if (emit_set_delta(compiler, TMP_REG3, TMP_REG3, argw - compiler->cache_argw) != SLJIT_ERR_UNSUPPORTED) {
-						FAIL_IF(compiler->error);
-						compiler->cache_argw = argw;
-						tmp = TMP_REG3;
-						argw = 0;
-					}
-				}
-
-				if (argw) {
-					FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
-					compiler->cache_arg = SLJIT_MEM;
+				else if (emit_set_delta(compiler, TMP_REG3, TMP_REG3, argw - compiler->cache_argw) != SLJIT_ERR_UNSUPPORTED) {
+					FAIL_IF(compiler->error);
 					compiler->cache_argw = argw;
-					tmp = TMP_REG3;
+					other_r = TMP_REG3;
 					argw = 0;
 				}
 			}
 
-			argw &= 0x3;
-			if (!argw && IS_3_LO_REGS(reg, arg, tmp)) {
-				FAIL_IF(push_inst16(compiler, sljit_mem16[flags] | RD3(reg) | RN3(arg) | RM3(tmp)));
-				return push_inst16(compiler, ADD | SET_REGS44(arg, tmp));
+			if (argw) {
+				FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
+				compiler->cache_arg = SLJIT_MEM;
+				compiler->cache_argw = argw;
+				other_r = TMP_REG3;
+				argw = 0;
 			}
-			FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | RT4(reg) | RN4(arg) | RM4(tmp) | (argw << 4)));
-			return push_inst32(compiler, ADD_W | RD4(arg) | RN4(arg) | RM4(tmp) | (argw << 6));
 		}
+
+		argw &= 0x3;
+		if (!argw && IS_3_LO_REGS(reg, arg, other_r)) {
+			FAIL_IF(push_inst16(compiler, sljit_mem16[flags] | RD3(reg) | RN3(arg) | RM3(other_r)));
+			return push_inst16(compiler, ADD | SET_REGS44(arg, other_r));
+		}
+		FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | RT4(reg) | RN4(arg) | RM4(other_r) | (argw << 4)));
+		return push_inst32(compiler, ADD_W | RD4(arg) | RN4(arg) | RM4(other_r) | (argw << 6));
 	}
+	flags &= ~UPDATE;
 
 	SLJIT_ASSERT(!(arg & 0xf0));
 
 	if (compiler->cache_arg == arg) {
-		if (!((argw - compiler->cache_argw) & ~0xfff))
-			return push_inst32(compiler, sljit_mem32[flags] | MEM_IMM12 | RT4(reg) | RN4(TMP_REG3) | (argw - compiler->cache_argw));
+		diff = argw - compiler->cache_argw;
+		if (!(diff & ~0xfff))
+			return push_inst32(compiler, sljit_mem32[flags] | MEM_IMM12 | RT4(reg) | RN4(TMP_REG3) | diff);
 		if (!((compiler->cache_argw - argw) & ~0xff))
 			return push_inst32(compiler, sljit_mem32[flags] | MEM_IMM8 | RT4(reg) | RN4(TMP_REG3) | (compiler->cache_argw - argw));
-		if (emit_set_delta(compiler, TMP_REG3, TMP_REG3, argw - compiler->cache_argw) != SLJIT_ERR_UNSUPPORTED) {
+		if (emit_set_delta(compiler, TMP_REG3, TMP_REG3, diff) != SLJIT_ERR_UNSUPPORTED) {
 			FAIL_IF(compiler->error);
 			return push_inst32(compiler, sljit_mem32[flags] | MEM_IMM12 | RT4(reg) | RN4(TMP_REG3) | 0);
 		}
@@ -1074,8 +1076,15 @@ static sljit_si getput_arg(struct sljit_compiler *compiler, sljit_si flags, slji
 
 	next_arg = (arg & 0xf) && (arg == next_arg);
 	arg &= 0xf;
-	if (arg && compiler->cache_arg == SLJIT_MEM && compiler->cache_argw == argw)
-		return push_inst32(compiler, sljit_mem32[flags] | RT4(reg) | RN4(arg) | RM4(TMP_REG3));
+	if (arg && compiler->cache_arg == SLJIT_MEM) {
+		if (compiler->cache_argw == argw)
+			return push_inst32(compiler, sljit_mem32[flags] | RT4(reg) | RN4(arg) | RM4(TMP_REG3));
+		if (emit_set_delta(compiler, TMP_REG3, TMP_REG3, argw - compiler->cache_argw) != SLJIT_ERR_UNSUPPORTED) {
+			FAIL_IF(compiler->error);
+			compiler->cache_argw = argw;
+			return push_inst32(compiler, sljit_mem32[flags] | RT4(reg) | RN4(arg) | RM4(TMP_REG3));
+		}
+	}
 
 	compiler->cache_argw = argw;
 	if (next_arg && emit_set_delta(compiler, TMP_REG3, arg, argw) != SLJIT_ERR_UNSUPPORTED) {
@@ -1305,7 +1314,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_r = (dst >= SLJIT_SCRATCH_REG1 && dst <= TMP_REG3) ? dst : TMP_REG1;
+	dst_r = (dst >= SLJIT_SCRATCH_REG1 && dst <= REG_MASK) ? dst : TMP_REG1;
 
 	op = GET_OPCODE(op);
 	if (op >= SLJIT_MOV && op <= SLJIT_MOVU_P) {
@@ -1438,7 +1447,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_r = (dst >= SLJIT_SCRATCH_REG1 && dst <= TMP_REG3) ? dst : TMP_REG1;
+	dst_r = (dst >= SLJIT_SCRATCH_REG1 && dst <= REG_MASK) ? dst : TMP_REG1;
 	flags = (GET_FLAGS(op) ? SET_FLAGS : 0) | ((op & SLJIT_KEEP_FLAGS) ? KEEP_FLAGS : 0);
 
 	if ((dst & SLJIT_MEM) && !getput_arg_fast(compiler, WORD_SIZE | STORE | ARG_TEST, TMP_REG1, dst, dstw))
