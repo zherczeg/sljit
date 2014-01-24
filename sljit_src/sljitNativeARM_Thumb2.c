@@ -982,12 +982,13 @@ static sljit_si getput_arg_fast(struct sljit_compiler *compiler, sljit_si flags,
    operators always uses word arguments without write back. */
 static sljit_si can_cache(sljit_si arg, sljit_sw argw, sljit_si next_arg, sljit_sw next_argw)
 {
-	/* Simple operation except for updates. */
-	if ((arg & 0xf0) || !(next_arg & SLJIT_MEM))
+	sljit_sw diff;
+	if ((arg & OFFS_REG_MASK) || !(next_arg & SLJIT_MEM))
 		return 0;
 
-	if (!(arg & 0xf)) {
-		if ((sljit_uw)(argw - next_argw) <= 0xfff || (sljit_uw)(next_argw - argw) <= 0xfff)
+	if (!(arg & REG_MASK)) {
+		diff = argw - next_argw;
+		if (diff <= 0xfff && diff >= -0xfff)
 			return 1;
 		return 0;
 	}
@@ -995,7 +996,8 @@ static sljit_si can_cache(sljit_si arg, sljit_sw argw, sljit_si next_arg, sljit_
 	if (argw == next_argw)
 		return 1;
 
-	if (arg == next_arg && ((sljit_uw)(argw - next_argw) <= 0xfff || (sljit_uw)(next_argw - argw) <= 0xfff))
+	diff = argw - next_argw;
+	if (arg == next_arg && diff <= 0xfff && diff >= -0xfff)
 		return 1;
 
 	return 0;
@@ -1074,7 +1076,7 @@ static sljit_si getput_arg(struct sljit_compiler *compiler, sljit_si flags, slji
 		}
 	}
 
-	next_arg = (arg & 0xf) && (arg == next_arg);
+	next_arg = (arg & REG_MASK) && (arg == next_arg) && (argw != next_argw);
 	arg &= 0xf;
 	if (arg && compiler->cache_arg == SLJIT_MEM) {
 		if (compiler->cache_argw == argw)
@@ -1096,7 +1098,8 @@ static sljit_si getput_arg(struct sljit_compiler *compiler, sljit_si flags, slji
 		FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
 		compiler->cache_arg = SLJIT_MEM;
 
-		if (next_arg) {
+		diff = argw - next_argw;
+		if (next_arg && diff <= 0xfff && diff >= -0xfff) {
 			FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(TMP_REG3, arg)));
 			compiler->cache_arg = SLJIT_MEM | arg;
 			arg = 0;
@@ -1567,6 +1570,7 @@ static sljit_si emit_fop_mem(struct sljit_compiler *compiler, sljit_si flags, sl
 			return push_inst32(compiler, inst | RN4(arg & 0xf) | DD4(reg) | (-argw >> 2));
 	}
 
+	/* Slow cases */
 	SLJIT_ASSERT(!(arg & 0xf0));
 	if (compiler->cache_arg == arg) {
 		tmp = argw - compiler->cache_argw;
@@ -1602,13 +1606,9 @@ static sljit_si emit_fop_mem(struct sljit_compiler *compiler, sljit_si flags, sl
 	compiler->cache_arg = arg;
 	compiler->cache_argw = argw;
 
-	if (SLJIT_UNLIKELY(!(arg & 0xf)))
-		FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
-	else {
-		FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
-		if (arg & 0xf)
-			FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(TMP_REG3, (arg & 0xf))));
-	}
+	FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
+	if (arg & 0xf)
+		FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(TMP_REG3, (arg & 0xf))));
 	return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG3) | DD4(reg));
 }
 
@@ -1639,7 +1639,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 		return push_inst32(compiler, VMRS);
 	}
 
-	dst_r = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG1 : dst;
+	dst_r = (dst <= REG_MASK) ? dst : TMP_FREG1;
 	if (src & SLJIT_MEM) {
 		emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP) | FPU_LOAD, dst_r, src, srcw);
 		src = dst_r;
@@ -1677,7 +1677,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 	compiler->cache_argw = 0;
 	op ^= SLJIT_SINGLE_OP;
 
-	dst_r = (dst > SLJIT_FLOAT_REG6) ? TMP_FREG1 : dst;
+	dst_r = (dst <= REG_MASK) ? dst : TMP_FREG1;
 	if (src1 & SLJIT_MEM) {
 		emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP) | FPU_LOAD, TMP_FREG1, src1, src1w);
 		src1 = TMP_FREG1;
@@ -1902,8 +1902,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 	sljit_si type)
 {
 	sljit_si dst_r, flags = GET_ALL_FLAGS(op);
-	sljit_ins ins;
-	sljit_uw cc;
+	sljit_ins cc, ins;
 
 	CHECK_ERROR();
 	check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type);
@@ -1926,7 +1925,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 			FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 1));
 			FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 0));
 		}
-		return dst_r == TMP_REG2 ? emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG2, dst, dstw) : SLJIT_SUCCESS;
+		if (dst_r != TMP_REG2)
+			return SLJIT_SUCCESS;
+		return emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG2, dst, dstw);
 	}
 
 	ins = (op == SLJIT_AND ? ANDI : (op == SLJIT_OR ? ORRI : EORI));
