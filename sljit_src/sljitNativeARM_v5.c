@@ -2398,25 +2398,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	/* In ARM, we don't need to touch the arguments. */
-	if (src & SLJIT_IMM) {
-		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
-		FAIL_IF(!jump);
-		set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_FAST_CALL) ? IS_BL : 0));
-		jump->u.target = srcw;
-
-#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-		if (type >= SLJIT_FAST_CALL)
-			FAIL_IF(prepare_blx(compiler));
-		FAIL_IF(push_inst_with_unique_literal(compiler, EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0, type <= SLJIT_JUMP ? TMP_PC : TMP_REG1, TMP_PC, 0), 0));
-		if (type >= SLJIT_FAST_CALL)
-			FAIL_IF(emit_blx(compiler));
-#else
-		FAIL_IF(emit_imm(compiler, TMP_REG1, 0));
-		FAIL_IF(push_inst(compiler, (type <= SLJIT_JUMP ? BX : BLX) | RM(TMP_REG1)));
-#endif
-		jump->addr = compiler->size;
-	}
-	else {
+	if (!(src & SLJIT_IMM)) {
 		if (src <= TMP_REG3)
 			return push_inst(compiler, (type <= SLJIT_JUMP ? BX : BLX) | RM(src));
 
@@ -2425,6 +2407,22 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 		return push_inst(compiler, (type <= SLJIT_JUMP ? BX : BLX) | RM(TMP_REG2));
 	}
 
+	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+	FAIL_IF(!jump);
+	set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_FAST_CALL) ? IS_BL : 0));
+	jump->u.target = srcw;
+
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
+	if (type >= SLJIT_FAST_CALL)
+		FAIL_IF(prepare_blx(compiler));
+	FAIL_IF(push_inst_with_unique_literal(compiler, EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0, type <= SLJIT_JUMP ? TMP_PC : TMP_REG1, TMP_PC, 0), 0));
+	if (type >= SLJIT_FAST_CALL)
+		FAIL_IF(emit_blx(compiler));
+#else
+	FAIL_IF(emit_imm(compiler, TMP_REG1, 0));
+	FAIL_IF(push_inst(compiler, (type <= SLJIT_JUMP ? BX : BLX) | RM(TMP_REG1)));
+#endif
+	jump->addr = compiler->size;
 	return SLJIT_SUCCESS;
 }
 
