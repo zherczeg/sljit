@@ -132,29 +132,31 @@
 #if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
 #	define IS_COND		0x04
 #	define IS_BL		0x08
-	/* cannot be encoded as branch */
-#	define B_TYPE0		0x00
 	/* conditional + imm8 */
-#	define B_TYPE1		0x10
+#	define PATCH_TYPE1	0x10
 	/* conditional + imm20 */
-#	define B_TYPE2		0x20
+#	define PATCH_TYPE2	0x20
 	/* IT + imm24 */
-#	define B_TYPE3		0x30
+#	define PATCH_TYPE3	0x30
 	/* imm11 */
-#	define B_TYPE4		0x40
+#	define PATCH_TYPE4	0x40
 	/* imm24 */
-#	define B_TYPE5		0x50
+#	define PATCH_TYPE5	0x50
 	/* BL + imm24 */
-#	define BL_TYPE6	0x60
+#	define PATCH_BL		0x60
 	/* 0xf00 cc code for branches */
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
-
+#	define IS_COND		0x04
+#	define IS_BL		0x08
+#	define IS_CBZ		0x10
+#	define PATCH_B		0x20
+#	define PATCH_COND	0x40
 #endif
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-#	define UNCOND_B	0x04
+#	define UNCOND_B		0x04
 #	define PATCH_B		0x08
 #	define ABSOLUTE_B	0x10
 #endif
@@ -176,7 +178,7 @@
 	/* no destination (i.e: store) */
 #	define UNMOVABLE_INS	32
 	/* FPU status register */
-#	define FCSR_FCC	33
+#	define FCSR_FCC		33
 #endif
 
 #if (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
