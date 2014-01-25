@@ -1258,11 +1258,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 	op = GET_OPCODE(op);
 	switch (op) {
 	case SLJIT_BREAKPOINT:
-		push_inst16(compiler, BKPT);
-		break;
+		return push_inst16(compiler, BKPT);
 	case SLJIT_NOP:
-		push_inst16(compiler, NOP);
-		break;
+		return push_inst16(compiler, NOP);
 	case SLJIT_UMUL:
 	case SLJIT_SMUL:
 		return push_inst32(compiler, (op == SLJIT_UMUL ? UMULL : SMULL)
@@ -1650,9 +1648,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 		break;
 	}
 
-	if (dst & SLJIT_MEM)
-		return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), TMP_FREG1, dst, dstw);
-	return SLJIT_SUCCESS;
+	if (!(dst & SLJIT_MEM))
+		return SLJIT_SUCCESS;
+	return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), TMP_FREG1, dst, dstw);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compiler, sljit_si op,
@@ -1694,9 +1692,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 		break;
 	}
 
-	if (dst & SLJIT_MEM)
-		return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), TMP_FREG1, dst, dstw);
-	return SLJIT_SUCCESS;
+	if (!(dst & SLJIT_MEM))
+		return SLJIT_SUCCESS;
+	return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), TMP_FREG1, dst, dstw);
 }
 
 #undef FPU_LOAD
@@ -1715,7 +1713,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_enter(struct sljit_compiler *c
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;
 
-	if (dst <= TMP_REG3)
+	if (dst <= REG_MASK)
 		return push_inst16(compiler, MOV | SET_REGS44(dst, TMP_REG3));
 
 	/* Memory. */
@@ -1734,7 +1732,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 	check_sljit_emit_fast_return(compiler, src, srcw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	if (src <= TMP_REG3)
+	if (src <= REG_MASK)
 		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(TMP_REG3, src)));
 	else if (src & SLJIT_MEM) {
 		if (getput_arg_fast(compiler, WORD_SIZE, TMP_REG3, src, srcw))

@@ -3341,7 +3341,7 @@ static void test39(void)
 
 static void test40(void)
 {
-	/* Test emit_cond_value. */
+	/* Test emit_op_flags. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	sljit_sw buf[10];
