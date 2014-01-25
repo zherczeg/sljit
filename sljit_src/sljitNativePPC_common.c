@@ -1114,7 +1114,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 	case SLJIT_BREAKPOINT:
 	case SLJIT_NOP:
 		return push_inst(compiler, NOP);
-		break;
 	case SLJIT_UMUL:
 	case SLJIT_SMUL:
 		FAIL_IF(push_inst(compiler, OR | S(SLJIT_SCRATCH_REG1) | A(TMP_REG1) | B(SLJIT_SCRATCH_REG1)));
