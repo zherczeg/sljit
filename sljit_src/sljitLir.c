@@ -103,9 +103,14 @@
 #endif
 
 /* Parameter parsing. */
-#define REG_MASK	0xf
-#define OFFS_REG(reg)	(((reg) >> 4) & REG_MASK)
-#define OFFS_REG_MASK	(REG_MASK << 4)
+#define REG_MASK		0xf
+#define OFFS_REG(reg)		(((reg) >> 4) & REG_MASK)
+#define OFFS_REG_MASK		(REG_MASK << 4)
+#define TO_OFFS_REG(reg)	((reg) << 4)
+/* When reg cannot be unused. */
+#define FAST_IS_REG(reg)	((reg) <= REG_MASK)
+/* When reg can be unused. */
+#define SLOW_IS_REG(reg)	((reg) > 0 && (reg) <= REG_MASK)
 
 /* Jump flags. */
 #define JUMP_LABEL	0x1
@@ -549,7 +554,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 }
 
 #define ADDRESSING_DEPENDS_ON(exp, reg) \
-	(((exp) & SLJIT_MEM) && (((exp) & 0xf) == reg || (((exp) >> 4) & 0xf) == reg))
+	(((exp) & SLJIT_MEM) && (((exp) & REG_MASK) == reg || OFFS_REG(exp) == reg))
 
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 #define FUNCTION_CHECK_OP() \
@@ -615,12 +620,12 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	else if ((p) == (SLJIT_MEM1(SLJIT_LOCALS_REG))) \
 		SLJIT_ASSERT((i) >= 0 && (i) < compiler->logical_local_size); \
 	else if ((p) & SLJIT_MEM) { \
-		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
-		if ((p) & 0xf0) { \
-			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(((p) >> 4) & 0xf)); \
+		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & REG_MASK)); \
+		if ((p) & OFFS_REG_MASK) { \
+			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(OFFS_REG(p))); \
 			SLJIT_ASSERT(!((i) & ~0x3)); \
 		} \
-		SLJIT_ASSERT(((p) >> 9) == 0); \
+		SLJIT_ASSERT(!((p) & ~(SLJIT_MEM | SLJIT_IMM | REG_MASK | OFFS_REG_MASK))); \
 	} \
 	else \
 		SLJIT_ASSERT_STOP();
@@ -632,12 +637,12 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	else if ((p) == (SLJIT_MEM1(SLJIT_LOCALS_REG))) \
 		SLJIT_ASSERT((i) >= 0 && (i) < compiler->logical_local_size); \
 	else if ((p) & SLJIT_MEM) { \
-		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
-		if ((p) & 0xf0) { \
-			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(((p) >> 4) & 0xf)); \
+		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & REG_MASK)); \
+		if ((p) & OFFS_REG_MASK) { \
+			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(OFFS_REG(p))); \
 			SLJIT_ASSERT(!((i) & ~0x3)); \
 		} \
-		SLJIT_ASSERT(((p) >> 9) == 0); \
+		SLJIT_ASSERT(!((p) & ~(SLJIT_MEM | SLJIT_IMM | REG_MASK | OFFS_REG_MASK))); \
 	} \
 	else \
 		SLJIT_ASSERT_STOP();
@@ -646,23 +651,23 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG6) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) & SLJIT_MEM) { \
-		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & 0xf)); \
-		if ((p) & 0xf0) { \
-			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(((p) >> 4) & 0xf)); \
-			SLJIT_ASSERT(((p) & 0xf0) != (SLJIT_LOCALS_REG << 4) && !(i & ~0x3)); \
+		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & REG_MASK)); \
+		if ((p) & OFFS_REG_MASK) { \
+			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(OFFS_REG(p))); \
+			SLJIT_ASSERT(((p) & OFFS_REG_MASK) != TO_OFFS_REG(SLJIT_LOCALS_REG) && !(i & ~0x3)); \
 		} else \
-			SLJIT_ASSERT((((p) >> 4) & 0xf) == 0); \
-		SLJIT_ASSERT(((p) >> 9) == 0); \
+			SLJIT_ASSERT(OFFS_REG(p) == 0); \
+		SLJIT_ASSERT(!((p) & ~(SLJIT_MEM | SLJIT_IMM | REG_MASK | OFFS_REG_MASK))); \
 	} \
 	else \
 		SLJIT_ASSERT_STOP();
 
 #define FUNCTION_CHECK_OP1() \
 	if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_P) { \
-		SLJIT_ASSERT(!(src & SLJIT_MEM) || (src & 0xf) != SLJIT_LOCALS_REG); \
-		SLJIT_ASSERT(!(dst & SLJIT_MEM) || (dst & 0xf) != SLJIT_LOCALS_REG); \
-		if ((src & SLJIT_MEM) && (src & 0xf)) \
-			SLJIT_ASSERT((dst & 0xf) != (src & 0xf) && ((dst >> 4) & 0xf) != (src & 0xf)); \
+		SLJIT_ASSERT(!(src & SLJIT_MEM) || (src & REG_MASK) != SLJIT_LOCALS_REG); \
+		SLJIT_ASSERT(!(dst & SLJIT_MEM) || (dst & REG_MASK) != SLJIT_LOCALS_REG); \
+		if ((src & SLJIT_MEM) && (src & REG_MASK)) \
+			SLJIT_ASSERT((dst & REG_MASK) != (src & REG_MASK) && OFFS_REG(dst) != (src & REG_MASK)); \
 	}
 
 #endif
@@ -701,18 +706,18 @@ static char* freg_names[] = {
 	if ((p) & SLJIT_IMM) \
 		fprintf(compiler->verbose, "#%" SLJIT_PRINT_D "d", (i)); \
 	else if ((p) & SLJIT_MEM) { \
-		if ((p) & 0xf) { \
+		if ((p) & REG_MASK) { \
 			if (i) { \
-				if (((p) >> 4) & 0xf) \
-					fprintf(compiler->verbose, "[%s + %s * %d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], 1 << (i)); \
+				if ((p) & OFFS_REG_MASK) \
+					fprintf(compiler->verbose, "[%s + %s * %d]", reg_names[(p) & REG_MASK], reg_names[OFFS_REG(p)], 1 << (i)); \
 				else \
-					fprintf(compiler->verbose, "[%s + #%" SLJIT_PRINT_D "d]", reg_names[(p) & 0xF], (i)); \
+					fprintf(compiler->verbose, "[%s + #%" SLJIT_PRINT_D "d]", reg_names[(p) & REG_MASK], (i)); \
 			} \
 			else { \
-				if (((p) >> 4) & 0xf) \
-					fprintf(compiler->verbose, "[%s + %s]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF]); \
+				if ((p) & OFFS_REG_MASK) \
+					fprintf(compiler->verbose, "[%s + %s]", reg_names[(p) & REG_MASK], reg_names[OFFS_REG(p)]); \
 				else \
-					fprintf(compiler->verbose, "[%s]", reg_names[(p) & 0xF]); \
+					fprintf(compiler->verbose, "[%s]", reg_names[(p) & REG_MASK]); \
 			} \
 		} \
 		else \
@@ -721,18 +726,18 @@ static char* freg_names[] = {
 		fprintf(compiler->verbose, "%s", reg_names[p]);
 #define sljit_verbose_fparam(p, i) \
 	if ((p) & SLJIT_MEM) { \
-		if ((p) & 0xf) { \
+		if ((p) & REG_MASK) { \
 			if (i) { \
-				if (((p) >> 4) & 0xf) \
-					fprintf(compiler->verbose, "[%s + %s * %d]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF], 1 << (i)); \
+				if ((p) & OFFS_REG_MASK) \
+					fprintf(compiler->verbose, "[%s + %s * %d]", reg_names[(p) & REG_MASK], reg_names[OFFS_REG(p)], 1 << (i)); \
 				else \
-					fprintf(compiler->verbose, "[%s + #%" SLJIT_PRINT_D "d]", reg_names[(p) & 0xF], (i)); \
+					fprintf(compiler->verbose, "[%s + #%" SLJIT_PRINT_D "d]", reg_names[(p) & REG_MASK], (i)); \
 			} \
 			else { \
-				if (((p) >> 4) & 0xF) \
-					fprintf(compiler->verbose, "[%s + %s]", reg_names[(p) & 0xF], reg_names[((p) >> 4)& 0xF]); \
+				if ((p) & OFFS_REG_MASK) \
+					fprintf(compiler->verbose, "[%s + %s]", reg_names[(p) & REG_MASK], reg_names[OFFS_REG(p)]); \
 				else \
-					fprintf(compiler->verbose, "[%s]", reg_names[(p) & 0xF]); \
+					fprintf(compiler->verbose, "[%s]", reg_names[(p) & REG_MASK]); \
 			} \
 		} \
 		else \
