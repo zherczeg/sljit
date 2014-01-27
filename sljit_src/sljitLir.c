@@ -161,9 +161,10 @@
 #endif
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-#	define UNCOND_B		0x04
+#	define COND_B		0x04
 #	define PATCH_B		0x08
 #	define ABSOLUTE_B	0x10
+#	define REMOVE_COND	0x20
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
@@ -187,11 +188,11 @@
 #endif
 
 #if (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
-#	define IS_JAL           0x04
-#	define IS_COND          0x08
+#	define IS_JAL		0x04
+#	define IS_COND		0x08
 
-#	define PATCH_B          0x10
-#	define PATCH_J          0x20
+#	define PATCH_B		0x10
+#	define PATCH_J		0x20
 #endif
 
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)

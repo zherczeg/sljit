@@ -1174,7 +1174,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_r = (dst >= SLJIT_SCRATCH_REG1 && dst <= REG_MASK) ? dst : TMP_REG1;
+	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 
 	op = GET_OPCODE(op);
 	if (op >= SLJIT_MOV && op <= SLJIT_MOVU_P) {
@@ -1327,7 +1327,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_r = (dst >= SLJIT_SCRATCH_REG1 && dst <= REG_MASK) ? dst : TMP_REG1;
+	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 	flags = GET_FLAGS(op) ? SET_FLAGS : 0;
 	mem_flags = WORD_SIZE;
 	if (op & SLJIT_INT_OP) {
@@ -1475,7 +1475,7 @@ static sljit_si emit_fop_mem(struct sljit_compiler *compiler, sljit_si flags, sl
 		FAIL_IF(load_immediate(compiler, TMP_REG3, argw));
 	}
 
-	if (arg & 0xf)
+	if (arg & REG_MASK)
 		return push_inst(compiler, STR_FR | ins_bits | VT(reg) | RN(arg) | RM(TMP_REG3));
 	return push_inst(compiler, STR_F | ins_bits | VT(reg) | RN(TMP_REG3));
 }
@@ -1801,7 +1801,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	PTR_FAIL_IF(!const_);
 	set_const(const_, compiler);
 
-	dst_r = (dst >= SLJIT_SCRATCH_REG1 && dst <= REG_MASK) ? dst : TMP_REG1;
+	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 	PTR_FAIL_IF(emit_imm64_const(compiler, dst_r, init_value));
 
 	if (dst & SLJIT_MEM)
