@@ -75,6 +75,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 7] = {
 #define BLR 0xd63f0000
 #define BR 0xd61f0000
 #define BRK 0xd4200000
+#define CBZ 0xb4000000
 #define CLZ 0xdac01000
 #define CSINC 0x9a800400
 #define EOR 0xca000000
@@ -825,7 +826,7 @@ static sljit_si getput_arg_fast(struct sljit_compiler *compiler, sljit_si flags,
 	}
 
 	arg &= REG_MASK;
-	if (argw >= 0 && ((argw >> shift) <= 0xfff) && (argw & ((1 << shift) - 1)) == 0) {
+	if (argw >= 0 && (argw >> shift) <= 0xfff && (argw & ((1 << shift) - 1)) == 0) {
 		if (SLJIT_UNLIKELY(flags & ARG_TEST))
 			return 1;
 
@@ -964,9 +965,16 @@ static sljit_si getput_arg(struct sljit_compiler *compiler, sljit_si flags, slji
 		}
 	}
 
+	if (argw >= 0 && argw <= 0xffffff && (argw & ((1 << shift) - 1)) == 0) {
+		FAIL_IF(push_inst(compiler, ADDI | (1 << 22) | RD(tmp_r) | RN(arg & REG_MASK) | ((argw >> 12) << 10)));
+		return push_inst(compiler, sljit_mem_imm[flags & 0x3] | (shift << 30)
+			| RT(reg) | RN(tmp_r) | ((argw & 0xfff) << (10 - shift)));
+	}
+
 	diff = argw - next_argw;
 	next_arg = (arg & REG_MASK) && (arg == next_arg) && diff <= 0xfff && diff >= -0xfff && diff != 0;
 	arg &= REG_MASK;
+
 	if (arg && compiler->cache_arg == SLJIT_MEM) {
 		if (compiler->cache_argw == argw)
 			return push_inst(compiler, sljit_mem_reg[flags & 0x3] | (shift << 30) | RT(reg) | RN(arg) | RM(TMP_REG3));
@@ -1708,6 +1716,39 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	jump->addr = compiler->size;
 	PTR_FAIL_IF(push_inst(compiler, ((type >= SLJIT_FAST_CALL) ? BLR : BR) | RN(TMP_REG1)));
 
+	return jump;
+}
+
+static SLJIT_INLINE struct sljit_jump* emit_cmp_to0(struct sljit_compiler *compiler, sljit_si type,
+	sljit_si src, sljit_sw srcw)
+{
+	struct sljit_jump *jump;
+	sljit_ins inv_bits = (type & SLJIT_INT_OP) ? (1 << 31) : 0;
+
+	SLJIT_ASSERT((type & 0xff) == SLJIT_C_EQUAL || (type & 0xff) == SLJIT_C_NOT_EQUAL);
+
+	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+	PTR_FAIL_IF(!jump);
+	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
+	jump->flags |= IS_CBZ | IS_COND;
+
+	if (src & SLJIT_MEM) {
+		PTR_FAIL_IF(emit_op_mem(compiler, inv_bits ? INT_SIZE : WORD_SIZE, TMP_REG1, src, srcw));
+		src = TMP_REG1;
+	}
+	else if (src & SLJIT_IMM) {
+		PTR_FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
+		src = TMP_REG1;
+	}
+	SLJIT_ASSERT(FAST_IS_REG(src));
+
+	if ((type & 0xff) == SLJIT_C_EQUAL)
+		inv_bits |= 1 << 24;
+
+	PTR_FAIL_IF(push_inst(compiler, (CBZ ^ inv_bits) | (6 << 5) | RT(src)));
+	PTR_FAIL_IF(emit_imm64_const(compiler, TMP_REG1, 0));
+	jump->addr = compiler->size;
+	PTR_FAIL_IF(push_inst(compiler, BR | RN(TMP_REG1)));
 	return jump;
 }
 
