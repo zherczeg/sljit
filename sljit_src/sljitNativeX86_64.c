@@ -662,7 +662,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_enter(struct sljit_compiler *c
 
 	/* For UNUSED dst. Uncommon, but possible. */
 	if (dst == SLJIT_UNUSED)
-		dst = TMP_REGISTER;
+		dst = TMP_REG1;
 
 	if (FAST_IS_REG(dst)) {
 		if (reg_map[dst] < 8) {
@@ -698,8 +698,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	if ((src & SLJIT_IMM) && NOT_HALFWORD(srcw)) {
-		FAIL_IF(emit_load_imm64(compiler, TMP_REGISTER, srcw));
-		src = TMP_REGISTER;
+		FAIL_IF(emit_load_imm64(compiler, TMP_REG1, srcw));
+		src = TMP_REG1;
 	}
 
 	if (FAST_IS_REG(src)) {
@@ -782,7 +782,7 @@ static sljit_si emit_mov_int(struct sljit_compiler *compiler, sljit_si sign,
 		return SLJIT_SUCCESS;
 	}
 
-	dst_r = FAST_IS_REG(dst) ? dst : TMP_REGISTER;
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 
 	if ((dst & SLJIT_MEM) && FAST_IS_REG(src))
 		dst_r = src;
