@@ -89,11 +89,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	FAIL_IF(!inst);
 
 	INC_SIZE(size);
-	PUSH_REG(reg_map[TMP_REGISTER]);
+	PUSH_REG(reg_map[TMP_REG1]);
 #if !(defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 	if (args > 0) {
 		*inst++ = MOV_r_rm;
-		*inst++ = MOD_REG | (reg_map[TMP_REGISTER] << 3) | 0x4 /* esp */;
+		*inst++ = MOD_REG | (reg_map[TMP_REG1] << 3) | 0x4 /* esp */;
 	}
 #endif
 	if (saveds > 2)
@@ -121,17 +121,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 #else
 	if (args > 0) {
 		*inst++ = MOV_r_rm;
-		*inst++ = MOD_DISP8 | (reg_map[SLJIT_SAVED_REG1] << 3) | reg_map[TMP_REGISTER];
+		*inst++ = MOD_DISP8 | (reg_map[SLJIT_SAVED_REG1] << 3) | reg_map[TMP_REG1];
 		*inst++ = sizeof(sljit_sw) * 2;
 	}
 	if (args > 1) {
 		*inst++ = MOV_r_rm;
-		*inst++ = MOD_DISP8 | (reg_map[SLJIT_SAVED_REG2] << 3) | reg_map[TMP_REGISTER];
+		*inst++ = MOD_DISP8 | (reg_map[SLJIT_SAVED_REG2] << 3) | reg_map[TMP_REG1];
 		*inst++ = sizeof(sljit_sw) * 3;
 	}
 	if (args > 2) {
 		*inst++ = MOV_r_rm;
-		*inst++ = MOD_DISP8 | (reg_map[SLJIT_SAVED_REG3] << 3) | reg_map[TMP_REGISTER];
+		*inst++ = MOD_DISP8 | (reg_map[SLJIT_SAVED_REG3] << 3) | reg_map[TMP_REG1];
 		*inst++ = sizeof(sljit_sw) * 4;
 	}
 #endif
@@ -245,7 +245,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 		POP_REG(reg_map[SLJIT_SAVED_REG2]);
 	if (compiler->saveds > 2)
 		POP_REG(reg_map[SLJIT_SAVED_REG3]);
-	POP_REG(reg_map[TMP_REGISTER]);
+	POP_REG(reg_map[TMP_REG1]);
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 	if (compiler->args > 2)
 		RET_I16(sizeof(sljit_sw));
@@ -495,7 +495,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_enter(struct sljit_compiler *c
 
 	/* For UNUSED dst. Uncommon, but possible. */
 	if (dst == SLJIT_UNUSED)
-		dst = TMP_REGISTER;
+		dst = TMP_REG1;
 
 	if (FAST_IS_REG(dst)) {
 		/* Unused dest is possible here. */
