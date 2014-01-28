@@ -154,8 +154,8 @@
 
 #if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
 #	define IS_COND		0x04
-#	define IS_BL		0x08
-#	define IS_CBZ		0x10
+#	define IS_CBZ		0x08
+#	define IS_BL		0x10
 #	define PATCH_B		0x20
 #	define PATCH_COND	0x40
 #endif
@@ -1396,6 +1396,19 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 	check_sljit_emit_cmp(compiler, type, src1, src1w, src2, src2w);
 
 	condition = type & 0xff;
+#if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
+	if ((condition == SLJIT_C_EQUAL || condition == SLJIT_C_NOT_EQUAL)) {
+		if ((src1 & SLJIT_IMM) && !src1w) {
+			src1 = src2;
+			src1w = src2w;
+			src2 = SLJIT_IMM;
+			src2w = 0;
+		}
+		if ((src2 & SLJIT_IMM) && !src2w)
+			return emit_cmp_to0(compiler, type, src1, src1w);
+	}
+#endif
+
 	if (SLJIT_UNLIKELY((src1 & SLJIT_IMM) && !(src2 & SLJIT_IMM))) {
 		/* Immediate is prefered as second argument by most architectures. */
 		switch (condition) {
