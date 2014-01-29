@@ -484,11 +484,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 
 /* Register output: simply the name of the register.
    For destination, you can use SLJIT_UNUSED as well. */
-#define SLJIT_MEM		0x100
+#define SLJIT_MEM		0x80
 #define SLJIT_MEM0()		(SLJIT_MEM)
 #define SLJIT_MEM1(r1)		(SLJIT_MEM | (r1))
-#define SLJIT_MEM2(r1, r2)	(SLJIT_MEM | (r1) | ((r2) << 4))
-#define SLJIT_IMM		0x200
+#define SLJIT_MEM2(r1, r2)	(SLJIT_MEM | (r1) | ((r2) << 8))
+#define SLJIT_IMM		0x40
 
 /* Set 32 bit operation mode (I) on 64 bit CPUs. The flag is totally ignored on
    32 bit CPUs. If this flag is set for an arithmetic operation, it uses only the

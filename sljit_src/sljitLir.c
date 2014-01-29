@@ -103,10 +103,10 @@
 #endif
 
 /* Parameter parsing. */
-#define REG_MASK		0xf
-#define OFFS_REG(reg)		(((reg) >> 4) & REG_MASK)
-#define OFFS_REG_MASK		(REG_MASK << 4)
-#define TO_OFFS_REG(reg)	((reg) << 4)
+#define REG_MASK		0x3f
+#define OFFS_REG(reg)		(((reg) >> 8) & REG_MASK)
+#define OFFS_REG_MASK		(REG_MASK << 8)
+#define TO_OFFS_REG(reg)	((reg) << 8)
 /* When reg cannot be unused. */
 #define FAST_IS_REG(reg)	((reg) <= REG_MASK)
 /* When reg can be unused. */
