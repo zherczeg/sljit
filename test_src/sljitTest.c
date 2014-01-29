@@ -1782,9 +1782,9 @@ static void test24(void)
 	/* Some complicated addressing modes. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_sw buf[6];
+	sljit_sw buf[9];
 	sljit_sh sbuf[5];
-	sljit_sb bbuf[4];
+	sljit_sb bbuf[7];
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -1794,6 +1794,9 @@ static void test24(void)
 	buf[3] = -8;
 	buf[4] = -50;
 	buf[5] = 0;
+	buf[6] = 0;
+	buf[7] = 0;
+	buf[8] = 0;
 
 	sbuf[0] = 30000;
 	sbuf[1] = 0;
@@ -1805,6 +1808,9 @@ static void test24(void)
 	bbuf[1] = 0;
 	bbuf[2] = 0;
 	bbuf[3] = 99;
+	bbuf[4] = 0;
+	bbuf[5] = 0;
+	bbuf[6] = 0;
 
 	sljit_emit_enter(compiler, 3, 3, 3, 0);
 
@@ -1864,6 +1870,23 @@ static void test24(void)
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_sw), SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_sw), SLJIT_SCRATCH_REG1, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_sw), SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_sw), SLJIT_SCRATCH_REG2, 0);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, (sljit_sw)&buf - 0x7fff8000 + 6 * sizeof(sljit_sw));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG2, 0, SLJIT_IMM, 952467);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SCRATCH_REG1), 0x7fff8000, SLJIT_SCRATCH_REG2, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SCRATCH_REG1), 0x7fff8000 + sizeof(sljit_sw), SLJIT_MEM1(SLJIT_SCRATCH_REG1), 0x7fff8000);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, (sljit_sw)&buf + 0x7fff7fff + 6 * sizeof(sljit_sw));
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_SCRATCH_REG1), -0x7fff7fff + 2 * sizeof(sljit_sw), SLJIT_MEM1(SLJIT_SCRATCH_REG1), -0x7fff7fff + sizeof(sljit_sw), SLJIT_MEM1(SLJIT_SCRATCH_REG1), -0x7fff7fff);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, (sljit_sw)&bbuf - 0x7fff7ffe + 3 * sizeof(sljit_sb));
+	sljit_emit_op1(compiler, SLJIT_MOV_SB, SLJIT_MEM1(SLJIT_SCRATCH_REG1), 0x7fff7fff, SLJIT_MEM1(SLJIT_SCRATCH_REG1), 0x7fff7ffe);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, (sljit_sw)&bbuf + 0x7fff7fff + 5 * sizeof(sljit_sb));
+	sljit_emit_op1(compiler, SLJIT_MOV_SB, SLJIT_MEM1(SLJIT_SCRATCH_REG1), -0x7fff7fff, SLJIT_MEM1(SLJIT_SCRATCH_REG1), -0x7fff8000);
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, (sljit_sw)&bbuf - SLJIT_W(0x123456123456));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG2, 0, SLJIT_IMM, (sljit_sw)&bbuf - SLJIT_W(0x123456123456));
+	sljit_emit_op1(compiler, SLJIT_MOV_SB, SLJIT_MEM1(SLJIT_SCRATCH_REG1), SLJIT_W(0x123456123456) + 6 * sizeof(sljit_sb), SLJIT_MEM1(SLJIT_SCRATCH_REG2), SLJIT_W(0x123456123456));
+#endif
+
 	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
 
 	code.code = sljit_generate_code(compiler);
@@ -1875,13 +1898,21 @@ static void test24(void)
 	FAILED(buf[3] != 64, "test24 case 2 failed\n");
 	FAILED(buf[4] != -100, "test24 case 3 failed\n");
 	FAILED(buf[5] != -100 + (sljit_sw)&buf[5] + (sljit_sw)&buf[4], "test24 case 4 failed\n");
+	FAILED(buf[6] != 952467, "test24 case 5 failed\n");
+	FAILED(buf[7] != 952467, "test24 case 6 failed\n");
+	FAILED(buf[8] != 952467 * 2, "test24 case 7 failed\n");
 
-	FAILED(sbuf[1] != 30000, "test24 case 5 failed\n");
-	FAILED(sbuf[2] != -12345, "test24 case 6 failed\n");
-	FAILED(sbuf[4] != sizeof(sljit_sh), "test24 case 7 failed\n");
+	FAILED(sbuf[1] != 30000, "test24 case 8 failed\n");
+	FAILED(sbuf[2] != -12345, "test24 case 9 failed\n");
+	FAILED(sbuf[4] != sizeof(sljit_sh), "test24 case 10 failed\n");
 
-	FAILED(bbuf[1] != -128, "test24 case 8 failed\n");
-	FAILED(bbuf[2] != 99, "test24 case 9 failed\n");
+	FAILED(bbuf[1] != -128, "test24 case 11 failed\n");
+	FAILED(bbuf[2] != 99, "test24 case 12 failed\n");
+	FAILED(bbuf[4] != 99, "test24 case 13 failed\n");
+	FAILED(bbuf[5] != 99, "test24 case 14 failed\n");
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	FAILED(bbuf[6] != -128, "test24 case 15 failed\n");
+#endif
 
 	sljit_free_code(code.code);
 	printf("test24 ok\n");
