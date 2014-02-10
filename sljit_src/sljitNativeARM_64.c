@@ -108,11 +108,11 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 7] = {
 #define SMADDL 0x9b200000
 #define SMULH 0x9b403c00
 #define STP 0xa9000000
-#define STRI 0xf9000000
-#define STR_F 0x3d000000
-#define STR_FR 0x3c206800
 #define STP_PRE 0xa9800000
-#define STUR_F 0x3c000000
+#define STRI 0xf9000000
+#define STR_FI 0x3d000000
+#define STR_FR 0x3c206800
+#define STUR_FI 0x3c000000
 #define SUB 0xcb000000
 #define SUBI 0xd1000000
 #define SUBS 0xeb000000
@@ -1461,16 +1461,16 @@ static sljit_si emit_fop_mem(struct sljit_compiler *compiler, sljit_si flags, sl
 
 	arg &= REG_MASK;
 	if (arg && argw >= 0 && ((argw >> shift) <= 0xfff) && (argw & ((1 << shift) - 1)) == 0)
-		return push_inst(compiler, STR_F | ins_bits | VT(reg) | RN(arg) | (argw << (10 - shift)));
+		return push_inst(compiler, STR_FI | ins_bits | VT(reg) | RN(arg) | (argw << (10 - shift)));
 
 	if (arg && argw <= 255 && argw >= -256)
-		return push_inst(compiler, STUR_F | ins_bits | VT(reg) | RN(arg) | ((argw & 0x1ff) << 12));
+		return push_inst(compiler, STUR_FI | ins_bits | VT(reg) | RN(arg) | ((argw & 0x1ff) << 12));
 
 	/* Slow cases */
 	if (compiler->cache_arg == SLJIT_MEM && argw != compiler->cache_argw) {
 		diff = argw - compiler->cache_argw;
 		if (!arg && diff <= 255 && diff >= -256)
-			return push_inst(compiler, STUR_F | ins_bits | VT(reg) | RN(TMP_REG3) | ((diff & 0x1ff) << 12));
+			return push_inst(compiler, STUR_FI | ins_bits | VT(reg) | RN(TMP_REG3) | ((diff & 0x1ff) << 12));
 		if (emit_set_delta(compiler, TMP_REG3, TMP_REG3, argw - compiler->cache_argw) != SLJIT_ERR_UNSUPPORTED) {
 			FAIL_IF(compiler->error);
 			compiler->cache_argw = argw;
@@ -1485,7 +1485,7 @@ static sljit_si emit_fop_mem(struct sljit_compiler *compiler, sljit_si flags, sl
 
 	if (arg & REG_MASK)
 		return push_inst(compiler, STR_FR | ins_bits | VT(reg) | RN(arg) | RM(TMP_REG3));
-	return push_inst(compiler, STR_F | ins_bits | VT(reg) | RN(TMP_REG3));
+	return push_inst(compiler, STR_FI | ins_bits | VT(reg) | RN(TMP_REG3));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compiler, sljit_si op,
