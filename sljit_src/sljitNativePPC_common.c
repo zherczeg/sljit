@@ -836,7 +836,7 @@ static sljit_si can_cache(sljit_si arg, sljit_sw argw, sljit_si next_arg, sljit_
 	next_high_short = (next_argw + ((next_argw & 0x8000) << 1)) & ~0xffff;
 	return high_short == next_high_short;
 #else
-	if (argw <= SLJIT_W(0x7fffffff) && argw >= SLJIT_W(-0x80000000)) {
+	if (argw <= 0x7fffffffl && argw >= -0x80000000l) {
 		high_short = (argw + ((argw & 0x8000) << 1)) & ~0xffff;
 		next_high_short = (next_argw + ((next_argw & 0x8000) << 1)) & ~0xffff;
 		if (high_short == next_high_short)
@@ -912,7 +912,7 @@ static sljit_si getput_arg(struct sljit_compiler *compiler, sljit_si inp_flags, 
 	SLJIT_ASSERT((arg & REG_MASK) || !(inst & UPDATE_REQ));
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	if (argw <= SLJIT_W(0x7fff7fff) && argw >= SLJIT_W(-0x80000000)
+	if (argw <= 0x7fff7fffl && argw >= -0x80000000l
 			&& (!(inst & INT_ALIGNED) || !(argw & 0x3)) && !(inst & UPDATE_REQ)) {
 #endif
 
@@ -920,7 +920,7 @@ static sljit_si getput_arg(struct sljit_compiler *compiler, sljit_si inp_flags, 
 		high_short = (sljit_si)(argw + ((argw & 0x8000) << 1)) & ~0xffff;
 		/* The getput_arg_fast should handle this otherwise. */
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-		SLJIT_ASSERT(high_short && high_short <= SLJIT_W(0x7fffffff) && high_short >= SLJIT_W(-0x80000000));
+		SLJIT_ASSERT(high_short && high_short <= 0x7fffffffl && high_short >= -0x80000000l);
 #else
 		SLJIT_ASSERT(high_short && !(inst & (INT_ALIGNED | UPDATE_REQ)));
 #endif
@@ -1342,7 +1342,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define TEST_SH_IMM(src, srcw) \
-	(((src) & SLJIT_IMM) && !((srcw) & 0xffff) && (srcw) <= SLJIT_W(0x7fffffff) && (srcw) >= SLJIT_W(-0x80000000))
+	(((src) & SLJIT_IMM) && !((srcw) & 0xffff) && (srcw) <= 0x7fffffffl && (srcw) >= -0x80000000l)
 #else
 #define TEST_SH_IMM(src, srcw) \
 	(((src) & SLJIT_IMM) && !((srcw) & 0xffff))
@@ -1353,7 +1353,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define TEST_ADD_IMM(src, srcw) \
-	(((src) & SLJIT_IMM) && (srcw) <= SLJIT_W(0x7fff7fff) && (srcw) >= SLJIT_W(-0x80000000))
+	(((src) & SLJIT_IMM) && (srcw) <= 0x7fff7fffl && (srcw) >= -0x80000000l)
 #else
 #define TEST_ADD_IMM(src, srcw) \
 	((src) & SLJIT_IMM)

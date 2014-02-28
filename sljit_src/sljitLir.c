@@ -1363,11 +1363,11 @@ static SLJIT_INLINE sljit_si emit_mov_before_return(struct sljit_compiler *compi
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 #	include "sljitNativeX86_common.c"
 #elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-#	include "sljitNativeARM_v5.c"
+#	include "sljitNativeARM_32.c"
 #elif (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
-#	include "sljitNativeARM_v5.c"
+#	include "sljitNativeARM_32.c"
 #elif (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
-#	include "sljitNativeARM_Thumb2.c"
+#	include "sljitNativeARM_T2_32.c"
 #elif (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
 #	include "sljitNativeARM_64.c"
 #elif (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
