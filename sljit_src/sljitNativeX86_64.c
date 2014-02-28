@@ -69,7 +69,7 @@ static sljit_ub* generate_fixed_jump(sljit_ub *code_ptr, sljit_sw addr, sljit_si
 {
 	sljit_sw delta = addr - ((sljit_sw)code_ptr + 1 + sizeof(sljit_si));
 
-	if (delta <= SLJIT_W(0x7fffffff) && delta >= SLJIT_W(-0x80000000)) {
+	if (delta <= 0x7fffffffl && delta >= -0x80000000l) {
 		*code_ptr++ = (type == 2) ? CALL_i32 : JMP_i32;
 		*(sljit_sw*)code_ptr = delta;
 	}

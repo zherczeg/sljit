@@ -54,7 +54,7 @@ static sljit_si load_immediate(struct sljit_compiler *compiler, sljit_si reg, sl
 	if (!(imm & ~0xffff))
 		return push_inst(compiler, ORI | S(TMP_ZERO) | A(reg) | IMM(imm));
 
-	if (imm <= SLJIT_W(0x7fffffff) && imm >= SLJIT_W(-0x80000000)) {
+	if (imm <= 0x7fffffffl && imm >= -0x80000000l) {
 		FAIL_IF(push_inst(compiler, ADDIS | D(reg) | A(0) | IMM(imm >> 16)));
 		return (imm & 0xffff) ? push_inst(compiler, ORI | S(reg) | A(reg) | IMM(imm)) : SLJIT_SUCCESS;
 	}
