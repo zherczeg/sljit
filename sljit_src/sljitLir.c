@@ -1379,7 +1379,7 @@ static SLJIT_INLINE sljit_si emit_mov_before_return(struct sljit_compiler *compi
 #elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 #	include "sljitNativeSPARC_common.c"
 #elif (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
-#	include "sljitNativeTILEGX.c"
+#	include "sljitNativeTILEGX_64.c"
 #endif
 
 #if !(defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
