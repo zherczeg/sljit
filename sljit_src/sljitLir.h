@@ -277,7 +277,7 @@ struct sljit_compiler {
 	sljit_sw cache_argw;
 #endif
 
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) || (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 	sljit_si delay_slot;
 	sljit_si cache_arg;
 	sljit_sw cache_argw;
@@ -608,7 +608,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 /* Flags: I - (never set any flags)
    Note: see SLJIT_INT_OP for further details. */
 #define SLJIT_MOV_UI			11
-/* No SLJIT_INT_OP form, since it the same as SLJIT_IMOV. */
+/* No SLJIT_INT_OP form, since it is the same as SLJIT_IMOV. */
 /* Flags: I - (never set any flags)
    Note: see SLJIT_INT_OP for further details. */
 #define SLJIT_MOV_SI			12
@@ -632,7 +632,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 /* Flags: I - (never set any flags)
    Note: see SLJIT_INT_OP for further details. */
 #define SLJIT_MOVU_UI			19
-/* No SLJIT_INT_OP form, since it the same as SLJIT_IMOVU. */
+/* No SLJIT_INT_OP form, since it is the same as SLJIT_IMOVU. */
 /* Flags: I - (never set any flags)
    Note: see SLJIT_INT_OP for further details. */
 #define SLJIT_MOVU_SI			20
