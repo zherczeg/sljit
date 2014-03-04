@@ -500,12 +500,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
    is specified, all register arguments must be the result of other operations with
    the same SLJIT_INT_OP flag. In other words, although a register can hold either
    a 64 or 32 bit value, these values cannot be mixed. The only exceptions are
-   SLJIT_IMOV and SLJIT_IMOVU (SLJIT_MOV_SI/SLJIT_MOV_UI/SLJIT_MOVU_SI/SLJIT_MOV_UI
-   with SLJIT_INT_OP flag) which can convert any source argument to SLJIT_INT_OP
-   compatible result. This conversion might be unnecessary on some CPUs like x86-64,
-   since the upper 32 bit is always ignored. In this case SLJIT is clever enough
-   to not generate any instructions if the source and destination operands are the
-   same registers. Affects sljit_emit_op0, sljit_emit_op1 and sljit_emit_op2. */
+   SLJIT_IMOV and SLJIT_IMOVU (SLJIT_MOV_SI/SLJIT_MOVU_SI with SLJIT_INT_OP flag)
+   which can convert any source argument to SLJIT_INT_OP compatible result. This
+   conversion might be unnecessary on some CPUs like x86-64, since the upper 32
+   bit is always ignored. In this case SLJIT is clever enough to not generate any
+   instructions if the source and destination operands are the same registers.
+   Affects sljit_emit_op0, sljit_emit_op1 and sljit_emit_op2. */
 #define SLJIT_INT_OP		0x100
 
 /* Single precision mode (SP). This flag is similar to SLJIT_INT_OP, just

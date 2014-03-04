@@ -168,15 +168,19 @@
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) || (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
-#	define IS_MOVABLE	0x04
-#	define IS_JAL		0x08
-#	define IS_BIT26_COND	0x10
-#	define IS_BIT16_COND	0x20
+#	define IS_MOVABLE	0x004
+#	define IS_JAL		0x008
+#	define IS_BIT26_COND	0x010
+#	define IS_BIT16_COND	0x020
 
 #	define IS_COND		(IS_BIT26_COND | IS_BIT16_COND)
 
-#	define PATCH_B		0x40
-#	define PATCH_J		0x80
+#	define PATCH_B		0x040
+#	define PATCH_J		0x080
+
+#if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+#	define PATCH_ABS32	0x100
+#endif
 
 	/* instruction types */
 #	define MOVABLE_INS	0

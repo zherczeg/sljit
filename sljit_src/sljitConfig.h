@@ -108,6 +108,13 @@
 #define SLJIT_VERBOSE 1
 #endif
 
-/* See the beginning of sljitConfigInternal.h */
+/*
+  SLJIT_IS_FPU_AVAILABLE
+    The availability of the FPU can be controlled by SLJIT_IS_FPU_AVAILABLE.
+      zero value - FPU is NOT present.
+      nonzero value - FPU is present.
+*/
+
+/* For further configurations, see the beginning of sljitConfigInternal.h */
 
 #endif
