@@ -483,7 +483,7 @@ static void test8(void)
 	/* Test flags (neg, cmp, test). */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-	sljit_sw buf[20];
+	sljit_sw buf[13];
 
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 100;
@@ -496,6 +496,9 @@ static void test8(void)
 	buf[7] = 3;
 	buf[8] = 3;
 	buf[9] = 3;
+	buf[10] = 3;
+	buf[11] = 3;
+	buf[12] = 3;
 
 	sljit_emit_enter(compiler, 1, 3, 2, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 20);
@@ -530,6 +533,12 @@ static void test8(void)
 	sljit_emit_op2(compiler, SLJIT_AND | SLJIT_SET_E, SLJIT_UNUSED, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 0);
 	sljit_emit_op2(compiler, SLJIT_AND | SLJIT_SET_E, SLJIT_UNUSED, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 0, SLJIT_IMM, 0x1);
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw) * 10, SLJIT_UNUSED, 0, SLJIT_C_NOT_ZERO);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, (sljit_sw)1 << ((sizeof(sljit_sw) << 3) - 1));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG2, 0, SLJIT_IMM, 0);
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_O, SLJIT_UNUSED, 0, SLJIT_SCRATCH_REG2, 0, SLJIT_SCRATCH_REG1, 0);
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw) * 11, SLJIT_UNUSED, 0, SLJIT_C_OVERFLOW);
+	sljit_emit_op2(compiler, SLJIT_ADD | SLJIT_SET_O, SLJIT_UNUSED, 0, SLJIT_SCRATCH_REG2, 0, SLJIT_SCRATCH_REG1, 0);
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw) * 12, SLJIT_UNUSED, 0, SLJIT_C_OVERFLOW);
 	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
 
 	code.code = sljit_generate_code(compiler);
@@ -547,6 +556,8 @@ static void test8(void)
 	FAILED(buf[8] != 0, "test8 case 8 failed\n");
 	FAILED(buf[9] != 1, "test8 case 9 failed\n");
 	FAILED(buf[10] != 0, "test8 case 10 failed\n");
+	FAILED(buf[11] != 1, "test8 case 11 failed\n");
+	FAILED(buf[12] != 0, "test8 case 12 failed\n");
 
 	sljit_free_code(code.code);
 	printf("test8 ok\n");

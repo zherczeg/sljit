@@ -47,7 +47,7 @@ typedef sljit_ui sljit_ins;
 /* For position independent code, t9 must contain the function address. */
 #define PIC_ADDR_REG	TMP_REG2
 
-/* TMP_EREG1 is used mainly for literal encoding on 64 bit. */
+/* TMP_EREGs are used mainly for arithmetic operations. */
 #define TMP_EREG1	15
 #define TMP_EREG2	24
 /* Floating point status register. */
@@ -145,8 +145,6 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
 #define MFHI		(HI(0) | LO(16))
 #define MFLO		(HI(0) | LO(18))
 #define MOV_fmt		(HI(17) | FMT_SD | LO(6))
-#define MOVN		(HI(0) | LO(11))
-#define MOVZ		(HI(0) | LO(10))
 #define MUL_fmt		(HI(17) | FMT_SD | LO(2))
 #define MULT		(HI(0) | LO(24))
 #define MULTU		(HI(0) | LO(25))
