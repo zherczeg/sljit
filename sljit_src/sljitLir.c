@@ -165,6 +165,10 @@
 #	define PATCH_B		0x08
 #	define ABSOLUTE_B	0x10
 #	define REMOVE_COND	0x20
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#	define PATCH_ABS32	0x40
+#	define PATCH_ABS48	0x80
+#endif
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) || (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
