@@ -172,6 +172,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
 
 #if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
 #define CLZ		(HI(28) | LO(32))
+#define DCLZ		(HI(28) | LO(36))
 #define MUL		(HI(28) | LO(2))
 #define SEB		(HI(31) | (16 << 6) | LO(32))
 #define SEH		(HI(31) | (24 << 6) | LO(32))
@@ -306,6 +307,15 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 		return inst + 1;
 	}
 
+#if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+	if (target_addr <= 0x7fffffff) {
+		jump->flags |= PATCH_ABS32;
+		inst[2] = inst[6];
+		inst[3] = inst[7];
+		return inst + 3;
+	}
+#endif
+
 	return code_ptr;
 }
 
@@ -362,7 +372,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 				jump->addr = (sljit_uw)(code_ptr - 3);
 #else
-				SLJIT_ASSERT_STOP();
+				jump->addr = (sljit_uw)(code_ptr - 7);
 #endif
 				code_ptr = detect_jump_type(jump, code_ptr, code);
 				jump = jump->next;
@@ -413,7 +423,17 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 			buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 16) & 0xffff);
 			buf_ptr[1] = (buf_ptr[1] & 0xffff0000) | (addr & 0xffff);
 #else
-			SLJIT_ASSERT_STOP();
+			if (jump->flags & PATCH_ABS32) {
+				SLJIT_ASSERT(addr <= 0x7fffffff);
+				buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 16) & 0xffff);
+				buf_ptr[1] = (buf_ptr[1] & 0xffff0000) | (addr & 0xffff);
+			}
+			else {
+				buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 48) & 0xffff);
+				buf_ptr[1] = (buf_ptr[1] & 0xffff0000) | ((addr >> 32) & 0xffff);
+				buf_ptr[3] = (buf_ptr[3] & 0xffff0000) | ((addr >> 16) & 0xffff);
+				buf_ptr[5] = (buf_ptr[5] & 0xffff0000) | (addr & 0xffff);
+			}
 #endif
 		} while (0);
 		jump = jump->next;
@@ -1111,6 +1131,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 	}
 
 	return SLJIT_SUCCESS;
+
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 #	undef flags
 #endif
@@ -1178,6 +1199,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 	}
 
 	return SLJIT_SUCCESS;
+
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 #	undef flags
 #endif
@@ -1211,9 +1233,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_custom(struct sljit_compiler *co
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_is_fpu_available(void)
 {
-#if (defined SLJIT_QEMU && SLJIT_QEMU)
-	/* Qemu says fir is 0 by default. */
-	return 1;
+#ifdef SLJIT_IS_FPU_AVAILABLE
+	return SLJIT_IS_FPU_AVAILABLE;
 #elif defined(__GNUC__)
 	sljit_sw fir;
 	asm ("cfc1 %0, $0" : "=r"(fir));
@@ -1860,6 +1881,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 {
 	sljit_si sugg_dst_ar, dst_ar;
 	sljit_si flags = GET_ALL_FLAGS(op);
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+#	define mem_type WORD_DATA
+#else
+	sljit_si mem_type = (op & SLJIT_INT_OP) ? (INT_DATA | SIGNED_DATA) : WORD_DATA;
+#endif
 
 	CHECK_ERROR();
 	check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type);
@@ -1869,13 +1895,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 		return SLJIT_SUCCESS;
 
 	op = GET_OPCODE(op);
+#if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+	if (op == SLJIT_MOV_SI || op == SLJIT_MOV_UI)
+		mem_type = INT_DATA | SIGNED_DATA;
+#endif
 	sugg_dst_ar = DR((op < SLJIT_ADD && FAST_IS_REG(dst)) ? dst : TMP_REG2);
 
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 	if (op >= SLJIT_ADD && (src & SLJIT_MEM)) {
 		ADJUST_LOCAL_OFFSET(src, srcw);
-		FAIL_IF(emit_op_mem2(compiler, WORD_DATA | LOAD_DATA, DR(TMP_REG1), src, srcw, dst, dstw));
+		FAIL_IF(emit_op_mem2(compiler, mem_type | LOAD_DATA, DR(TMP_REG1), src, srcw, dst, dstw));
 		src = TMP_REG1;
 		srcw = 0;
 	}
@@ -1943,15 +1973,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 	if (op >= SLJIT_ADD) {
 		if (DR(TMP_REG2) != dst_ar)
 			FAIL_IF(push_inst(compiler, ADDU_W | SA(dst_ar) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
-		return emit_op(compiler, op | flags, CUMULATIVE_OP | LOGICAL_OP | IMM_OP | ALT_KEEP_CACHE, dst, dstw, src, srcw, TMP_REG2, 0);
+		return emit_op(compiler, op | flags, mem_type | CUMULATIVE_OP | LOGICAL_OP | IMM_OP | ALT_KEEP_CACHE, dst, dstw, src, srcw, TMP_REG2, 0);
 	}
 
 	if (dst & SLJIT_MEM)
-		return emit_op_mem(compiler, WORD_DATA, dst_ar, dst, dstw);
+		return emit_op_mem(compiler, mem_type, dst_ar, dst, dstw);
 
 	if (sugg_dst_ar != dst_ar)
 		return push_inst(compiler, ADDU_W | SA(dst_ar) | TA(0) | DA(sugg_dst_ar), sugg_dst_ar);
 	return SLJIT_SUCCESS;
+
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+#	undef mem_type
+#endif
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_si dst, sljit_sw dstw, sljit_sw init_value)

@@ -3569,6 +3569,12 @@ static void test41(void)
 		| (sljit_get_register_index(SLJIT_SAVED_REG1) << 21)
 		| (sljit_get_register_index(SLJIT_SAVED_REG2) << 16);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
+#elif (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+	/* daddu rd, rs, rt */
+	inst = 45 | (sljit_get_register_index(SLJIT_RETURN_REG) << 11)
+		| (sljit_get_register_index(SLJIT_SAVED_REG1) << 21)
+		| (sljit_get_register_index(SLJIT_SAVED_REG2) << 16);
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
 #elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 	/* add rd, rs1, rs2 */
 	inst = (0x2 << 30) | (sljit_get_register_index(SLJIT_RETURN_REG) << 25)
@@ -3651,7 +3657,7 @@ static void test41(void)
 			| (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 16)
 			| (sljit_get_float_register_index(SLJIT_FLOAT_REG2) << 11);
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
-#elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+#elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) || (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 		/* add.d fd, fs, ft */
 		inst = (17 << 26) | (17 << 21) | (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 6)
 			| (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 11)
@@ -4065,7 +4071,7 @@ static void test45(void)
 
 static void test46(void)
 {
-	/* Test sljit_emit_op_flags with SLJIT_AND and SLJIT_INT_OP. */
+	/* Test sljit_emit_op_flags with 32 bit operations. */
 
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
