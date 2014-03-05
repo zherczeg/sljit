@@ -4173,6 +4173,49 @@ static void test46(void)
 	successful_tests++;
 }
 
+static void test47(void)
+{
+	/* Test jump optimizations. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	sljit_sw buf[3];
+
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 0;
+	buf[1] = 0;
+	buf[2] = 0;
+
+	sljit_emit_enter(compiler, 1, 3, 1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 0x3a5c6f);
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_U, SLJIT_UNUSED, 0, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 3);
+	sljit_set_target(sljit_emit_jump(compiler, SLJIT_C_LESS), 0x11223344);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), 0, SLJIT_SCRATCH_REG1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 0xd37c10);
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	sljit_set_target(sljit_emit_jump(compiler, SLJIT_C_LESS), SLJIT_W(0x112233445566));
+#endif
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw), SLJIT_SCRATCH_REG1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 0x59b48e);
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	sljit_set_target(sljit_emit_jump(compiler, SLJIT_C_LESS), SLJIT_W(0x1122334455667788));
+#endif
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), 2 * sizeof(sljit_sw), SLJIT_SCRATCH_REG1, 0);
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)&buf);
+	FAILED(buf[0] != 0x3a5c6f, "test47 case 1 failed\n");
+	FAILED(buf[1] != 0xd37c10, "test47 case 2 failed\n");
+	FAILED(buf[2] != 0x59b48e, "test47 case 3 failed\n");
+
+	sljit_free_code(code.code);
+	printf("test47 ok\n");
+	successful_tests++;
+}
+
 void sljit_test(void)
 {
 #if !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
@@ -4224,14 +4267,15 @@ void sljit_test(void)
 	test44();
 	test45();
 	test46();
+	test47();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
 	printf("On %s%s: ", sljit_get_platform_name(), sljit_is_fpu_available() ? " (+fpu)" : "");
-	if (successful_tests == 46)
+	if (successful_tests == 47)
 		printf("All tests are passed!\n");
 	else
-		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 46);
+		printf("Successful test ratio: %d%%.\n", successful_tests * 100 / 47);
 }

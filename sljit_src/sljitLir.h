@@ -531,10 +531,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 
 /* Set Equal (Zero) status flag (E). */
 #define SLJIT_SET_E			0x0200
+/* Set unsigned status flag (U). */
+#define SLJIT_SET_U			0x0400
 /* Set signed status flag (S). */
-#define SLJIT_SET_S			0x0400
-/* Set unsgined status flag (U). */
-#define SLJIT_SET_U			0x0800
+#define SLJIT_SET_S			0x0800
 /* Set signed overflow flag (O). */
 #define SLJIT_SET_O			0x1000
 /* Set carry flag (C).
@@ -662,7 +662,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 /* Flags: I | C | K */
 #define SLJIT_ADDC			26
 #define SLJIT_IADDC			(SLJIT_ADDC | SLJIT_INT_OP)
-/* Flags: I | E | S | U | O | C | K */
+/* Flags: I | E | U | S | O | C | K */
 #define SLJIT_SUB			27
 #define SLJIT_ISUB			(SLJIT_SUB | SLJIT_INT_OP)
 /* Flags: I | C | K */
@@ -857,8 +857,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 
 /* Set the destination of the jump to this label. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label);
-/* Only for jumps defined with SLJIT_REWRITABLE_JUMP flag.
-   Note: use sljit_emit_ijump for fixed jumps. */
+/* Set the destination address of the jump to this label. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw target);
 
 /* Call function or jump anywhere. Both direct and indirect form

@@ -2029,9 +2029,13 @@ static void init_compiler(void)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_is_fpu_available(void)
 {
+#ifdef SLJIT_IS_FPU_AVAILABLE
+	return SLJIT_IS_FPU_AVAILABLE;
+#else
 	if (arm_fpu_type == -1)
 		init_compiler();
 	return arm_fpu_type;
+#endif
 }
 
 #else
