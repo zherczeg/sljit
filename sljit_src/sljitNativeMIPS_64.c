@@ -316,7 +316,7 @@ static SLJIT_INLINE sljit_si emit_single_op(struct sljit_compiler *compiler, slj
 		return push_inst(compiler, OR | SA(ULESS_FLAG) | TA(TMP_EREG1) | DA(ULESS_FLAG), ULESS_FLAG);
 
 	case SLJIT_SUB:
-		if ((flags & SRC2_IMM) && ((op & (SLJIT_SET_S | SLJIT_SET_U)) || src2 == SIMM_MIN)) {
+		if ((flags & SRC2_IMM) && ((op & (SLJIT_SET_U | SLJIT_SET_S)) || src2 == SIMM_MIN)) {
 			FAIL_IF(push_inst(compiler, ADDIU | SA(0) | T(TMP_REG2) | IMM(src2), DR(TMP_REG2)));
 			src2 = TMP_REG2;
 			flags &= ~SRC2_IMM;
@@ -351,7 +351,7 @@ static SLJIT_INLINE sljit_si emit_single_op(struct sljit_compiler *compiler, slj
 				FAIL_IF(push_inst(compiler, SLT | S(src2) | T(src1) | DA(GREATER_FLAG), GREATER_FLAG));
 			}
 			/* dst may be the same as src1 or src2. */
-			if (CHECK_FLAGS(SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_C))
+			if (CHECK_FLAGS(SLJIT_SET_E | SLJIT_SET_U | SLJIT_SET_S | SLJIT_SET_C))
 				FAIL_IF(push_inst(compiler, SELECT_OP(DSUBU, SUBU) | S(src1) | T(src2) | D(dst), DR(dst)));
 		}
 
@@ -454,7 +454,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ad
 	inst[1] = (inst[1] & 0xffff0000) | ((new_addr >> 32) & 0xffff);
 	inst[3] = (inst[3] & 0xffff0000) | ((new_addr >> 16) & 0xffff);
 	inst[5] = (inst[5] & 0xffff0000) | (new_addr & 0xffff);
-	SLJIT_CACHE_FLUSH(inst, inst + 5);
+	SLJIT_CACHE_FLUSH(inst, inst + 6);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant)
@@ -465,5 +465,5 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 	inst[1] = (inst[1] & 0xffff0000) | ((new_constant >> 32) & 0xffff);
 	inst[3] = (inst[3] & 0xffff0000) | ((new_constant >> 16) & 0xffff);
 	inst[5] = (inst[5] & 0xffff0000) | (new_constant & 0xffff);
-	SLJIT_CACHE_FLUSH(inst, inst + 2);
+	SLJIT_CACHE_FLUSH(inst, inst + 6);
 }

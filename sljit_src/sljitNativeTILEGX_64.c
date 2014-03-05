@@ -1799,7 +1799,7 @@ static SLJIT_INLINE sljit_si emit_single_op(struct sljit_compiler *compiler, slj
 		return OR(ULESS_FLAG, TMP_EREG2, TMP_EREG1);
 
 	case SLJIT_SUB:
-		if ((flags & SRC2_IMM) && ((op & (SLJIT_SET_S | SLJIT_SET_U)) || src2 == SIMM_16BIT_MIN)) {
+		if ((flags & SRC2_IMM) && ((op & (SLJIT_SET_U | SLJIT_SET_S)) || src2 == SIMM_16BIT_MIN)) {
 			FAIL_IF(ADDLI(TMP_REG2_mapped, ZERO, src2));
 			src2 = TMP_REG2;
 			flags &= ~SRC2_IMM;
@@ -1864,7 +1864,7 @@ static SLJIT_INLINE sljit_si emit_single_op(struct sljit_compiler *compiler, slj
 			}
 
 			/* dst may be the same as src1 or src2. */
-			if (CHECK_FLAGS(SLJIT_SET_E | SLJIT_SET_S | SLJIT_SET_U | SLJIT_SET_C))
+			if (CHECK_FLAGS(SLJIT_SET_E | SLJIT_SET_U | SLJIT_SET_S | SLJIT_SET_C))
 				FAIL_IF(SUB(reg_map[dst], reg_map[src1], reg_map[src2]));
 		}
 
