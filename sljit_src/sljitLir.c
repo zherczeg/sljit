@@ -153,11 +153,13 @@
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
-#	define IS_COND		0x04
-#	define IS_CBZ		0x08
-#	define IS_BL		0x10
-#	define PATCH_B		0x20
-#	define PATCH_COND	0x40
+#	define IS_COND		0x004
+#	define IS_CBZ		0x008
+#	define IS_BL		0x010
+#	define PATCH_B		0x020
+#	define PATCH_COND	0x040
+#	define PATCH_ABS48	0x080
+#	define PATCH_ABS64	0x100
 #endif
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
