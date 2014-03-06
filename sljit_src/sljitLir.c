@@ -186,6 +186,7 @@
 
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 #	define PATCH_ABS32	0x100
+#	define PATCH_ABS48	0x200
 #endif
 
 	/* instruction types */

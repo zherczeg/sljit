@@ -118,8 +118,16 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
 #define REX_B		0x41
 #define REX		0x40
 
-#define IS_HALFWORD(x)		((x) <= 0x7fffffffl && (x) >= -0x80000000l)
-#define NOT_HALFWORD(x)		((x) > 0x7fffffffl || (x) < -0x80000000l)
+#ifndef _WIN64
+#define HALFWORD_MAX 0x7fffffffl
+#define HALFWORD_MIN -0x80000000l
+#else
+#define HALFWORD_MAX 0x7fffffffll
+#define HALFWORD_MIN -0x80000000ll
+#endif
+
+#define IS_HALFWORD(x)		((x) <= HALFWORD_MAX && (x) >= HALFWORD_MIN)
+#define NOT_HALFWORD(x)		((x) > HALFWORD_MAX || (x) < HALFWORD_MIN)
 
 #define CHECK_EXTRA_REGS(p, w, do)
 
@@ -397,7 +405,7 @@ static sljit_ub* generate_near_jump_code(struct sljit_jump *jump, sljit_ub *code
 	short_jump = (sljit_sw)(label_addr - (jump->addr + 2)) >= -128 && (sljit_sw)(label_addr - (jump->addr + 2)) <= 127;
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	if ((sljit_sw)(label_addr - (jump->addr + 1)) > 0x7fffffffl || (sljit_sw)(label_addr - (jump->addr + 1)) < -0x80000000l)
+	if ((sljit_sw)(label_addr - (jump->addr + 1)) > HALFWORD_MAX || (sljit_sw)(label_addr - (jump->addr + 1)) < HALFWORD_MIN)
 		return generate_far_jump_code(jump, code_ptr, type);
 #endif
 
@@ -526,7 +534,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 				*(sljit_sw*)jump->addr = (sljit_sw)(jump->u.label->addr - (jump->addr + sizeof(sljit_sw)));
 #else
-				SLJIT_ASSERT((sljit_sw)(jump->u.label->addr - (jump->addr + sizeof(sljit_si))) >= -0x80000000l && (sljit_sw)(jump->u.label->addr - (jump->addr + sizeof(sljit_si))) <= 0x7fffffffl);
+				SLJIT_ASSERT((sljit_sw)(jump->u.label->addr - (jump->addr + sizeof(sljit_si))) >= HALFWORD_MIN && (sljit_sw)(jump->u.label->addr - (jump->addr + sizeof(sljit_si))) <= HALFWORD_MAX);
 				*(sljit_si*)jump->addr = (sljit_si)(jump->u.label->addr - (jump->addr + sizeof(sljit_si)));
 #endif
 			}
@@ -534,7 +542,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 				*(sljit_sw*)jump->addr = (sljit_sw)(jump->u.target - (jump->addr + sizeof(sljit_sw)));
 #else
-				SLJIT_ASSERT((sljit_sw)(jump->u.target - (jump->addr + sizeof(sljit_si))) >= -0x80000000l && (sljit_sw)(jump->u.target - (jump->addr + sizeof(sljit_si))) <= 0x7fffffffl);
+				SLJIT_ASSERT((sljit_sw)(jump->u.target - (jump->addr + sizeof(sljit_si))) >= HALFWORD_MIN && (sljit_sw)(jump->u.target - (jump->addr + sizeof(sljit_si))) <= HALFWORD_MAX);
 				*(sljit_si*)jump->addr = (sljit_si)(jump->u.target - (jump->addr + sizeof(sljit_si)));
 #endif
 			}
