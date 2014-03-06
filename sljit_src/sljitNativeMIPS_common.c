@@ -288,31 +288,45 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 			jump->addr += sizeof(sljit_ins);
 			return inst + 3;
 		}
-		return code_ptr;
 	}
+	else {
+		/* J instuctions. */
+		if ((jump->flags & IS_MOVABLE) && (target_addr & ~0xfffffff) == (jump->addr & ~0xfffffff)) {
+			jump->flags |= PATCH_J;
+			inst[0] = inst[-1];
+			inst[-1] = (jump->flags & IS_JAL) ? JAL : J;
+			jump->addr -= sizeof(sljit_ins);
+			return inst;
+		}
 
-	/* J instuctions. */
-	if ((jump->flags & IS_MOVABLE) && (target_addr & ~0xfffffff) == (jump->addr & ~0xfffffff)) {
-		jump->flags |= PATCH_J;
-		inst[0] = inst[-1];
-		inst[-1] = (jump->flags & IS_JAL) ? JAL : J;
-		jump->addr -= sizeof(sljit_ins);
-		return inst;
-	}
-
-	if ((target_addr & ~0xfffffff) == ((jump->addr + sizeof(sljit_ins)) & ~0xfffffff)) {
-		jump->flags |= PATCH_J;
-		inst[0] = (jump->flags & IS_JAL) ? JAL : J;
-		inst[1] = NOP;
-		return inst + 1;
+		if ((target_addr & ~0xfffffff) == ((jump->addr + sizeof(sljit_ins)) & ~0xfffffff)) {
+			jump->flags |= PATCH_J;
+			inst[0] = (jump->flags & IS_JAL) ? JAL : J;
+			inst[1] = NOP;
+			return inst + 1;
+		}
 	}
 
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 	if (target_addr <= 0x7fffffff) {
 		jump->flags |= PATCH_ABS32;
+		if (jump->flags & IS_COND) {
+			inst[0] -= 4;
+			inst++;
+		}
 		inst[2] = inst[6];
 		inst[3] = inst[7];
 		return inst + 3;
+	}
+	if (target_addr <= 0x7fffffffffffl) {
+		jump->flags |= PATCH_ABS48;
+		if (jump->flags & IS_COND) {
+			inst[0] -= 2;
+			inst++;
+		}
+		inst[4] = inst[6];
+		inst[5] = inst[7];
+		return inst + 5;
 	}
 #endif
 
@@ -427,6 +441,12 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				SLJIT_ASSERT(addr <= 0x7fffffff);
 				buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 16) & 0xffff);
 				buf_ptr[1] = (buf_ptr[1] & 0xffff0000) | (addr & 0xffff);
+			}
+			else if (jump->flags & PATCH_ABS48) {
+				SLJIT_ASSERT(addr <= 0x7fffffffffffl);
+				buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 32) & 0xffff);
+				buf_ptr[1] = (buf_ptr[1] & 0xffff0000) | ((addr >> 16) & 0xffff);
+				buf_ptr[3] = (buf_ptr[3] & 0xffff0000) | (addr & 0xffff);
 			}
 			else {
 				buf_ptr[0] = (buf_ptr[0] & 0xffff0000) | ((addr >> 48) & 0xffff);

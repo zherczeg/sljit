@@ -1996,12 +1996,12 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ad
 {
 	sljit_uh *inst = (sljit_uh*)addr;
 	modify_imm32_const(inst, new_addr);
-	SLJIT_CACHE_FLUSH(inst, inst + 3);
+	SLJIT_CACHE_FLUSH(inst, inst + 4);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant)
 {
 	sljit_uh *inst = (sljit_uh*)addr;
 	modify_imm32_const(inst, new_constant);
-	SLJIT_CACHE_FLUSH(inst, inst + 3);
+	SLJIT_CACHE_FLUSH(inst, inst + 4);
 }

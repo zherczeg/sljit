@@ -1,5 +1,21 @@
 This file is the short summary of the API changes:
 
+05.03.2014 - Backward compatible
+    The sljit_set_target now supports those jumps, which
+    does not created with SLJIT_REWRITABLE_JUMP flag.
+    Reason: sljit_emit_ijump does not support conditional
+    jumps.
+
+03.03.2014 - Non-backward compatible
+    SLJIT_MOV_UI cannot be combined with SLJIT_INT_OP.
+    Reason: SLJIT_INT_OP flag is not recommended to use
+    directly, and SLJIT_IMOV has no sign bit.
+
+29.01.2014 - Backward compatible
+    Bits assigned to SLJIT_MEM and SLJIT_IMM flags are changed.
+    Reason: the most common cases are fits into one byte now,
+    and more registers can be supported in the future.
+
 08.11.2012 - Non-backward compatible
     SLJIT_TEMPORARY_REGx registers are renamed to SLJIT_SCRATCH_REGx.
 

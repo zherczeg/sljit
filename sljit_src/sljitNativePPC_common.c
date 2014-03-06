@@ -354,6 +354,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 						code_ptr[-1] = code_ptr[0];
 						code_ptr[0] = code_ptr[1];
 						/* rldicr rX,rX,32,31 -> rX,rX,16,47 */
+						SLJIT_ASSERT((code_ptr[-3] & 0xfc00ffff) == 0x780007c6);
 						code_ptr[-3] ^= 0x8422;
 						/* oris -> ori */
 						code_ptr[-2] ^= 0x4000000;
