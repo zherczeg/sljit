@@ -220,8 +220,13 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 	sljit_ins *inst;
 	sljit_ins saved_inst;
 
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	if (jump->flags & (SLJIT_REWRITABLE_JUMP | IS_CALL))
+		return code_ptr;
+#else
 	if (jump->flags & SLJIT_REWRITABLE_JUMP)
 		return code_ptr;
+#endif
 
 	if (jump->flags & JUMP_ADDR)
 		target_addr = jump->u.target;
@@ -232,6 +237,11 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 	inst = (sljit_ins*)jump->addr;
 	if (jump->flags & IS_COND)
 		inst--;
+
+#if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+	if (jump->flags & IS_CALL)
+		goto keep_address;
+#endif
 
 	/* B instructions. */
 	if (jump->flags & IS_MOVABLE) {
@@ -308,6 +318,7 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 	}
 
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+keep_address:
 	if (target_addr <= 0x7fffffff) {
 		jump->flags |= PATCH_ABS32;
 		if (jump->flags & IS_COND) {
@@ -1598,7 +1609,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	} else {
 		SLJIT_ASSERT(DR(PIC_ADDR_REG) == 25 && PIC_ADDR_REG == TMP_REG2);
 		/* Cannot be optimized out if type is >= CALL0. */
-		jump->flags |= IS_JAL | (type >= SLJIT_CALL0 ? SLJIT_REWRITABLE_JUMP : 0);
+		jump->flags |= IS_JAL | (type >= SLJIT_CALL0 ? IS_CALL : 0);
 		PTR_FAIL_IF(push_inst(compiler, JALR | S(TMP_REG2) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
 		jump->addr = compiler->size;
 		/* A NOP if type < CALL1. */
