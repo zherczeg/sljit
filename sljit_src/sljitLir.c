@@ -163,14 +163,15 @@
 #endif
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-#	define COND_B		0x04
-#	define PATCH_B		0x08
-#	define ABSOLUTE_B	0x10
-#	define REMOVE_COND	0x20
+#	define IS_COND		0x004
+#	define IS_CALL		0x008
+#	define PATCH_B		0x010
+#	define PATCH_ABS_B	0x020
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-#	define PATCH_ABS32	0x40
-#	define PATCH_ABS48	0x80
+#	define PATCH_ABS32	0x040
+#	define PATCH_ABS48	0x080
 #endif
+#	define REMOVE_COND	0x100
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) || (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
