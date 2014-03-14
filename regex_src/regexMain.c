@@ -24,9 +24,22 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* Must be the first one. Must not depend on any other include. */
 #include "regexJIT.h"
 
 #include <stdio.h>
+
+#if defined _WIN32 || defined _WIN64
+#define COLOR_RED
+#define COLOR_GREEN
+#define COLOR_ARCH
+#define COLOR_DEFAULT
+#else
+#define COLOR_RED "\33[31m"
+#define COLOR_GREEN "\33[32m"
+#define COLOR_ARCH "\33[33m"
+#define COLOR_DEFAULT "\33[0m"
+#endif
 
 #ifdef REGEX_USE_8BIT_CHARS
 #define S(str)	str
@@ -100,7 +113,7 @@ void run_tests(struct test_case* test, int verbose)
 	int success = 0, fail = 0;
 
 	if (!verbose)
-		printf("\nSilent mode (report errors only).\nPass -v to enable verbose.\n\n");
+		printf("Pass -v to enable verbose.\n\n");
 
 	for ( ; test->string ; test++) {
 		if (verbose)
@@ -195,11 +208,11 @@ void run_tests(struct test_case* test, int verbose)
 	if (machine)
 		regex_free_machine(machine);
 
-	printf("On %s: ", regex_get_platform_name());
+	printf("On " COLOR_ARCH "%s" COLOR_DEFAULT ": ", regex_get_platform_name());
 	if (fail == 0)
-		printf("All tests are passed!\n");
+		printf("All tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT "!\n");
 	else
-		printf("Successful test ratio: %d%%.\n", success * 100 / (success + fail));
+		printf("Successful test ratio: " COLOR_RED "%d%%" COLOR_DEFAULT ".\n", success * 100 / (success + fail));
 }
 
 /* Testing. */
@@ -308,6 +321,6 @@ int main(int argc, char* argv[])
 /*	verbose_test("^a({2!})*b+(a|{1!}b)+d$"); */
 /*	verbose_test("((a|b|c)*(xy)+)+", "asbcxyxy"); */
 
-	run_tests(tests, argv[1] && argv[1][0] == '-' && argv[1][1] == 'v' && argv[1][2] == '\0');
+	run_tests(tests, argc >= 2 && argv[1][0] == '-' && argv[1][1] == 'v' && argv[1][2] == '\0');
 	return 0;
 }
