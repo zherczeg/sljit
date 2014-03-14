@@ -1,19 +1,22 @@
+ifndef CROSS_COMPILER
 # default compier
 CC = gcc
+else
+CC = $(CROSS_COMPILER)
+endif
 
-# Cross compiler for ARM
-#CC = arm-linux-gcc
+ifndef EXTRA_CPPFLAGS
+EXTRA_CPPFLAGS=
+endif
 
-# Cross compiler for PPC
-#CC = powerpc-linux-gnu-gcc
+ifndef EXTRA_LDFLAGS
+EXTRA_LDFLAGS=
+endif
 
-# Cross compiler for PPC-64
-#CC = powerpc64-unknown-linux-gnu-gcc
-
-CPPFLAGS = -DSLJIT_CONFIG_AUTO=1 -Isljit_src
+CPPFLAGS = $(EXTRA_CPPFLAGS) -DSLJIT_CONFIG_AUTO=1 -Isljit_src
 CFLAGS = -O2 -Wall
 REGEX_CFLAGS = -fshort-wchar
-LDFLAGS =
+LDFLAGS = $(EXTRA_LDFLAGS)
 
 TARGET = sljit_test regex_test
 
