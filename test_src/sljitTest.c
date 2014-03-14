@@ -54,6 +54,7 @@ typedef union executable_code executable_code;
 
 static sljit_si successful_tests = 0;
 static sljit_si verbose = 0;
+static sljit_si silent = 0;
 
 #define FAILED(cond, text) \
 	if (SLJIT_UNLIKELY(cond)) { \
@@ -4333,10 +4334,12 @@ static void test47(void)
 
 void sljit_test(int argc, char* argv[])
 {
-	if (argc >= 2 && argv[1][0] == '-' && argv[1][1] == 'v' && argv[1][2] == '\0')
-		verbose = 1;
-	else
-		printf("Pass -v to enable verbose.\n\n");
+	sljit_si has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
+	verbose = has_arg && argv[1][1] == 'v';
+	silent = has_arg && argv[1][1] == 's';
+
+	if (!verbose && !silent)
+		printf("Pass -v to enable verbose, -s to disable this hint.\n\n");
 
 #if !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 	test_exec_allocator();
@@ -4393,7 +4396,7 @@ void sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif
 
-	printf("On " COLOR_ARCH "%s" COLOR_DEFAULT "%s: ", sljit_get_platform_name(), sljit_is_fpu_available() ? " (+fpu)" : "");
+	printf("SLJIT tests: On " COLOR_ARCH "%s" COLOR_DEFAULT "%s: ", sljit_get_platform_name(), sljit_is_fpu_available() ? " (+fpu)" : "");
 	if (successful_tests == 47)
 		printf("All tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT "!\n");
 	else

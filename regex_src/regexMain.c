@@ -103,7 +103,7 @@ struct test_case {
 	const regex_char_t *string;	/* NULL : end of tests. */
 };
 
-void run_tests(struct test_case* test, int verbose)
+void run_tests(struct test_case* test, int verbose, int silent)
 {
 	int error;
 	const regex_char_t *ptr;
@@ -112,8 +112,8 @@ void run_tests(struct test_case* test, int verbose)
 	int begin, end, id, finished;
 	int success = 0, fail = 0;
 
-	if (!verbose)
-		printf("Pass -v to enable verbose.\n\n");
+	if (!verbose && !silent)
+		printf("Pass -v to enable verbose, -s to disable this hint.\n\n");
 
 	for ( ; test->string ; test++) {
 		if (verbose)
@@ -208,7 +208,7 @@ void run_tests(struct test_case* test, int verbose)
 	if (machine)
 		regex_free_machine(machine);
 
-	printf("On " COLOR_ARCH "%s" COLOR_DEFAULT ": ", regex_get_platform_name());
+	printf("REGEX tests: On " COLOR_ARCH "%s" COLOR_DEFAULT ": ", regex_get_platform_name());
 	if (fail == 0)
 		printf("All tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT "!\n");
 	else
@@ -314,6 +314,8 @@ static struct test_case tests[] = {
 
 int main(int argc, char* argv[])
 {
+	int has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
+
 /*	verbose_test("a((b)((c|d))|)c|"); */
 /*	verbose_test("Xa{009,0010}Xb{,7}Xc{5,}Xd{,}Xe{1,}Xf{,1}X"); */
 /*	verbose_test("{3!}({3})({0!}){,"); */
@@ -321,6 +323,6 @@ int main(int argc, char* argv[])
 /*	verbose_test("^a({2!})*b+(a|{1!}b)+d$"); */
 /*	verbose_test("((a|b|c)*(xy)+)+", "asbcxyxy"); */
 
-	run_tests(tests, argc >= 2 && argv[1][0] == '-' && argv[1][1] == 'v' && argv[1][2] == '\0');
+	run_tests(tests, has_arg && argv[1][1] == 'v', has_arg && argv[1][1] == 's');
 	return 0;
 }
