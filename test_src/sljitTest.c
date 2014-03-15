@@ -2411,11 +2411,11 @@ static void test29(void)
 	/* Test signed/unsigned bytes and halfs. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
+	sljit_sw buf[25];
 
 	if (verbose)
 		printf("Run test29\n");
 
-	sljit_sw buf[25];
 	buf[0] = 0;
 	buf[1] = 0;
 	buf[2] = 0;
@@ -2637,7 +2637,7 @@ static void test31(void)
 	/* Integer mul and set flags. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-
+	sljit_sw buf[12];
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	sljit_sw big_word = SLJIT_W(0x7fffffff00000000);
 	sljit_sw big_word2 = SLJIT_W(0x7fffffff00000012);
@@ -2649,7 +2649,6 @@ static void test31(void)
 	if (verbose)
 		printf("Run test31\n");
 
-	sljit_sw buf[12];
 	buf[0] = 3;
 	buf[1] = 3;
 	buf[2] = 3;
@@ -2843,7 +2842,7 @@ static void test33(void)
 	/* Test keep flags. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-
+	sljit_sw buf[7];
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	sljit_sw big_word = SLJIT_W(0x8000000000000003);
 #else
@@ -2853,7 +2852,6 @@ static void test33(void)
 	if (verbose)
 		printf("Run test33\n");
 
-	sljit_sw buf[7];
 	buf[0] = 3;
 	buf[1] = 3;
 	buf[2] = 3;
