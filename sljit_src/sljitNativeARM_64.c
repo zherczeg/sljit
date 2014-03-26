@@ -307,7 +307,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 	compiler->error = SLJIT_ERR_COMPILED;
 	compiler->executable_size = (code_ptr - code) * sizeof(sljit_ins);
-	/* SLJIT_CACHE_FLUSH(code, code_ptr); */
+	SLJIT_CACHE_FLUSH(code, code_ptr);
 	return code;
 }
 
@@ -1762,6 +1762,7 @@ static SLJIT_INLINE struct sljit_jump* emit_cmp_to0(struct sljit_compiler *compi
 	sljit_ins inv_bits = (type & SLJIT_INT_OP) ? (1 << 31) : 0;
 
 	SLJIT_ASSERT((type & 0xff) == SLJIT_C_EQUAL || (type & 0xff) == SLJIT_C_NOT_EQUAL);
+	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	PTR_FAIL_IF(!jump);
@@ -1890,12 +1891,12 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ad
 {
 	sljit_ins* inst = (sljit_ins*)addr;
 	modify_imm64_const(inst, new_addr);
-	/* SLJIT_CACHE_FLUSH(inst, inst + 4); */
+	SLJIT_CACHE_FLUSH(inst, inst + 4);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant)
 {
 	sljit_ins* inst = (sljit_ins*)addr;
 	modify_imm64_const(inst, new_constant);
-	/* SLJIT_CACHE_FLUSH(inst, inst + 4); */
+	SLJIT_CACHE_FLUSH(inst, inst + 4);
 }
