@@ -777,7 +777,9 @@ static SLJIT_CONST char* op_names[] = {
 	(char*)"mul", (char*)"and", (char*)"or", (char*)"xor",
 	(char*)"shl", (char*)"lshr", (char*)"ashr",
 	/* fop1 */
-	(char*)"cmp", (char*)"mov", (char*)"neg", (char*)"abs",
+	(char*)"mov", (char*)"neg", (char*)"abs", (char*)"conv",
+	(char*)"conv", (char*)"conv", (char*)"conv", (char*)"conv",
+	(char*)"cmp",
 	/* fop2 */
 	(char*)"add", (char*)"sub", (char*)"mul", (char*)"div"
 };
@@ -1055,6 +1057,25 @@ static SLJIT_INLINE void check_sljit_emit_op_custom(struct sljit_compiler *compi
 	SLJIT_ASSERT(instruction);
 }
 
+#define SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw) \
+	SLJIT_ASSERT(sljit_is_fpu_available()); \
+	SLJIT_COMPILE_ASSERT(!(SLJIT_CONVW_FROMD & 0x1) && !(SLJIT_CONVD_FROMW & 0x1) && (SLJIT_MOVD < SLJIT_CONVW_FROMD), \
+		invalid_float_opcodes); \
+	FUNCTION_CHECK_OP(); \
+	if (GET_OPCODE(op) >= SLJIT_CONVW_FROMD) { \
+		if (GET_OPCODE(op) == SLJIT_CMPD) { \
+			check_sljit_emit_fop1_cmp(compiler, op, dst, dstw, src, srcw); \
+			return sljit_emit_fop1_cmp(compiler, op, dst, dstw, src, srcw); \
+		} \
+		if ((GET_OPCODE(op) | 0x1) == SLJIT_CONVI_FROMD) { \
+			check_sljit_emit_fop1_convw_fromd(compiler, op, dst, dstw, src, srcw); \
+			return sljit_emit_fop1_convw_fromd(compiler, op, dst, dstw, src, srcw); \
+		} \
+		check_sljit_emit_fop1_convd_fromw(compiler, op, dst, dstw, src, srcw); \
+		return sljit_emit_fop1_convd_fromw(compiler, op, dst, dstw, src, srcw); \
+	} \
+	check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw);
+
 static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw)
@@ -1074,20 +1095,130 @@ static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, 
 	}
 #endif
 
-	SLJIT_ASSERT(sljit_is_fpu_available());
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_CMPD && GET_OPCODE(op) <= SLJIT_ABSD);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOVD && GET_OPCODE(op) <= SLJIT_CONVD_FROMS);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	FUNCTION_CHECK_OP();
 	FUNCTION_FCHECK(src, srcw);
 	FUNCTION_FCHECK(dst, dstw);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s%s%s%s ", op_names[GET_OPCODE(op)], (op & SLJIT_SINGLE_OP) ? "s" : "d",
-			!(op & SLJIT_SET_E) ? "" : ".e", !(op & SLJIT_SET_S) ? "" : ".s");
+		fprintf(compiler->verbose, "  %s%s ", op_names[GET_OPCODE(op)],
+			(GET_OPCODE(op) == SLJIT_CONVD_FROMS)
+			? ((op & SLJIT_SINGLE_OP) ? "s.fromd" : "d.froms")
+			: ((op & SLJIT_SINGLE_OP) ? "s" : "d"));
 		sljit_verbose_fparam(dst, dstw);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_fparam(src, srcw);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+}
+
+static SLJIT_INLINE void check_sljit_emit_fop1_cmp(struct sljit_compiler *compiler, sljit_si op,
+	sljit_si src1, sljit_sw src1w,
+	sljit_si src2, sljit_sw src2w)
+{
+	/* If debug and verbose are disabled, all arguments are unused. */
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(op);
+	SLJIT_UNUSED_ARG(src1);
+	SLJIT_UNUSED_ARG(src1w);
+	SLJIT_UNUSED_ARG(src2);
+	SLJIT_UNUSED_ARG(src2w);
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		return;
+	}
+#endif
+
+	SLJIT_ASSERT(GET_OPCODE(op) == SLJIT_CMPD);
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	FUNCTION_FCHECK(src1, src1w);
+	FUNCTION_FCHECK(src2, src2w);
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  %s%s%s%s ", op_names[GET_OPCODE(op)], (op & SLJIT_SINGLE_OP) ? "s" : "d",
+			!(op & SLJIT_SET_E) ? "" : ".e", !(op & SLJIT_SET_S) ? "" : ".s");
+		sljit_verbose_fparam(src1, src1w);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_fparam(src2, src2w);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+}
+
+static SLJIT_INLINE void check_sljit_emit_fop1_convw_fromd(struct sljit_compiler *compiler, sljit_si op,
+	sljit_si dst, sljit_sw dstw,
+	sljit_si src, sljit_sw srcw)
+{
+	/* If debug and verbose are disabled, all arguments are unused. */
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(op);
+	SLJIT_UNUSED_ARG(dst);
+	SLJIT_UNUSED_ARG(dstw);
+	SLJIT_UNUSED_ARG(src);
+	SLJIT_UNUSED_ARG(srcw);
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		return;
+	}
+#endif
+
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_CONVW_FROMD && GET_OPCODE(op) <= SLJIT_CONVI_FROMD);
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	FUNCTION_FCHECK(src, srcw);
+	FUNCTION_CHECK_DST(dst, dstw);
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  %s%s.from%s ", op_names[GET_OPCODE(op)],
+			(GET_OPCODE(op) == SLJIT_CONVI_FROMD) ? "i" : "w",
+			(op & SLJIT_SINGLE_OP) ? "s" : "d");
+		sljit_verbose_param(dst, dstw);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_fparam(src, srcw);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+}
+
+static SLJIT_INLINE void check_sljit_emit_fop1_convd_fromw(struct sljit_compiler *compiler, sljit_si op,
+	sljit_si dst, sljit_sw dstw,
+	sljit_si src, sljit_sw srcw)
+{
+	/* If debug and verbose are disabled, all arguments are unused. */
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(op);
+	SLJIT_UNUSED_ARG(dst);
+	SLJIT_UNUSED_ARG(dstw);
+	SLJIT_UNUSED_ARG(src);
+	SLJIT_UNUSED_ARG(srcw);
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		return;
+	}
+#endif
+
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_CONVD_FROMW && GET_OPCODE(op) <= SLJIT_CONVD_FROMI);
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	FUNCTION_CHECK_SRC(src, srcw);
+	FUNCTION_FCHECK(dst, dstw);
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  %s%s.from%s ", op_names[GET_OPCODE(op)],
+			(op & SLJIT_SINGLE_OP) ? "s" : "d",
+			(GET_OPCODE(op) == SLJIT_CONVD_FROMI) ? "i" : "w");
+		sljit_verbose_fparam(dst, dstw);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_param(src, srcw);
 		fprintf(compiler->verbose, "\n");
 	}
 #endif
