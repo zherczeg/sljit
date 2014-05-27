@@ -147,9 +147,11 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
 #define EX86_PREF_66		0x0400
 
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
-#define EX86_SSE2		0x0800
-#define EX86_PREF_F2		0x1000
-#define EX86_PREF_F3		0x2000
+#define EX86_SSE2_OP1		0x0800
+#define EX86_SSE2_OP2		0x1000
+#define EX86_PREF_F2		0x2000
+#define EX86_PREF_F3		0x4000
+#define EX86_SSE2		(EX86_SSE2_OP1 | EX86_SSE2_OP2)
 #endif
 
 /* --------------------------------------------------------------------- */
@@ -179,6 +181,9 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
 #define CMP_EAX_i32	0x3d
 #define CMP_r_rm	0x3b
 #define CMP_rm_r	0x39
+#define CVTPD2PS_x_xm	0x5a
+#define CVTSI2SD_x_rm	0x2a
+#define CVTTSD2SI_r_xm	0x2c
 #define DIV		(/* GROUP_F7 */ 6 << 3)
 #define DIVSD_x_xm	0x5e
 #define INT3		0xcc
@@ -239,6 +244,7 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
 #define TEST_EAX_i32	0xa9
 #define TEST_rm_r	0x85
 #define UCOMISD_x_xm	0x2e
+#define UNPCKLPD_x_xm	0x14
 #define XCHG_EAX_r	0x90
 #define XCHG_r_rm	0x87
 #define XOR		(/* BINARY */ 6 << 3)
@@ -2328,6 +2334,21 @@ static SLJIT_INLINE sljit_si sljit_emit_fop1_convw_fromd(struct sljit_compiler *
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw)
 {
+	sljit_si dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
+	sljit_ub *inst;
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	if (GET_OPCODE(op) == SLJIT_CONVW_FROMD)
+		compiler->mode32 = 0;
+#endif
+
+	inst = emit_x86_instruction(compiler, 2 | ((op & SLJIT_SINGLE_OP) ? EX86_PREF_F3 : EX86_PREF_F2) | EX86_SSE2_OP2, dst_r, 0, src, srcw);
+	FAIL_IF(!inst);
+	*inst++ = GROUP_0F;
+	*inst = CVTTSD2SI_r_xm;
+
+	if (dst_r == TMP_REG1)
+		return emit_mov(compiler, dst, dstw, TMP_REG1, 0);
 	return SLJIT_SUCCESS;
 }
 
@@ -2335,6 +2356,30 @@ static SLJIT_INLINE sljit_si sljit_emit_fop1_convd_fromw(struct sljit_compiler *
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw)
 {
+	sljit_si dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG;
+	sljit_ub *inst;
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	if (GET_OPCODE(op) == SLJIT_CONVD_FROMW)
+		compiler->mode32 = 0;
+#endif
+
+	if (src & SLJIT_IMM) {
+		EMIT_MOV(compiler, TMP_REG1, 0, src, srcw);
+		src = TMP_REG1;
+		srcw = 0;
+	}
+
+	inst = emit_x86_instruction(compiler, 2 | ((op & SLJIT_SINGLE_OP) ? EX86_PREF_F3 : EX86_PREF_F2) | EX86_SSE2_OP1, dst_r, 0, src, srcw);
+	FAIL_IF(!inst);
+	*inst++ = GROUP_0F;
+	*inst = CVTSI2SD_x_rm;
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	compiler->mode32 = 1;
+#endif
+	if (dst_r == TMP_FREG)
+		return emit_sse2_store(compiler, op & SLJIT_SINGLE_OP, dst, dstw, TMP_FREG);
 	return SLJIT_SUCCESS;
 }
 
@@ -2370,6 +2415,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 			return emit_sse2_store(compiler, op & SLJIT_SINGLE_OP, dst, dstw, src);
 		FAIL_IF(emit_sse2_load(compiler, op & SLJIT_SINGLE_OP, TMP_FREG, src, srcw));
 		return emit_sse2_store(compiler, op & SLJIT_SINGLE_OP, dst, dstw, TMP_FREG);
+	}
+
+	if (GET_OPCODE(op) == SLJIT_CONVD_FROMS) {
+		dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG;
+		if (FAST_IS_REG(src)) {
+			/* We overwrite the high bits of source. From SLJIT point of view,
+			   this is not an issue.
+			   Note: In SSE3, we could also use MOVDDUP and MOVSLDUP. */
+			FAIL_IF(emit_sse2_logic(compiler, UNPCKLPD_x_xm, op & SLJIT_SINGLE_OP, src, src, 0));
+		}
+		else {
+			FAIL_IF(emit_sse2_load(compiler, !(op & SLJIT_SINGLE_OP), TMP_FREG, src, srcw));
+			src = TMP_FREG;
+		}
+
+		FAIL_IF(emit_sse2_logic(compiler, CVTPD2PS_x_xm, op & SLJIT_SINGLE_OP, dst_r, src, 0));
+		if (dst_r == TMP_FREG)
+			return emit_sse2_store(compiler, op & SLJIT_SINGLE_OP, dst, dstw, TMP_FREG);
+		return SLJIT_SUCCESS;
 	}
 
 	if (SLOW_IS_REG(dst)) {

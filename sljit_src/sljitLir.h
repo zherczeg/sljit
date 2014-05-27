@@ -748,7 +748,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_is_fpu_available(void);
 #define SLJIT_ABSD			38
 #define SLJIT_ABSS			(SLJIT_ABSD | SLJIT_SINGLE_OP)
 /* Convert opcodes: CONV[DST_TYPE].FROM[SRC_TYPE]
-   SRC/DST TYPE can be: D - double, S - single, W - word, I - int */
+   SRC/DST TYPE can be: D - double, S - single, W - signed word, I - signed int
+   Rounding mode when the destination is W or I: round towards zero. */
 /* Flags: SP - (never set any flags) */
 #define SLJIT_CONVD_FROMS		39
 #define SLJIT_CONVS_FROMD		(SLJIT_CONVD_FROMS | SLJIT_SINGLE_OP)

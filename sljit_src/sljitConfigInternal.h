@@ -34,7 +34,8 @@
    SLJIT_32BIT_ARCHITECTURE : 32 bit architecture
    SLJIT_64BIT_ARCHITECTURE : 64 bit architecture
    SLJIT_WORD_SHIFT : the shift required to apply when accessing a sljit_sw/sljit_uw array by index
-   SLJIT_DOUBLE_SHIFT : the shift required to apply when accessing a double array by index
+   SLJIT_DOUBLE_SHIFT : the shift required to apply when accessing a double precision floating point array by index
+   SLJIT_SINGLE_SHIFT : the shift required to apply when accessing a single precision floating point array by index
    SLJIT_LITTLE_ENDIAN : little endian architecture
    SLJIT_BIG_ENDIAN : big endian architecture
    SLJIT_UNALIGNED : allows unaligned memory accesses for non-fpu operations (only!)
@@ -314,6 +315,7 @@ typedef double sljit_d;
 
 /* Shift for double precision sized data. */
 #define SLJIT_DOUBLE_SHIFT 3
+#define SLJIT_SINGLE_SHIFT 2
 
 #ifndef SLJIT_W
 

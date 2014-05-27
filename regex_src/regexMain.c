@@ -208,11 +208,12 @@ void run_tests(struct test_case* test, int verbose, int silent)
 	if (machine)
 		regex_free_machine(machine);
 
-	printf("REGEX tests: On " COLOR_ARCH "%s" COLOR_DEFAULT ": ", regex_get_platform_name());
+	printf("REGEX tests: ");
 	if (fail == 0)
-		printf("All tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT "!\n");
+		printf("All tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT " ");
 	else
-		printf("Successful test ratio: " COLOR_RED "%d%%" COLOR_DEFAULT ".\n", success * 100 / (success + fail));
+		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests are failed ", fail, fail * 100 / (success + fail));
+	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "\n", regex_get_platform_name());
 }
 
 /* Testing. */

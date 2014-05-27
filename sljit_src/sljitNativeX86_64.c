@@ -469,7 +469,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_si 
 		}
 	}
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
-	else if (!(flags & EX86_SSE2) && reg_map[b] >= 8)
+	else if (!(flags & EX86_SSE2_OP2) && reg_map[b] >= 8)
 		rex |= REX_B;
 #else
 	else if (reg_map[b] >= 8)
@@ -501,7 +501,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_si 
 		SLJIT_ASSERT(!(flags & EX86_SHIFT_INS) || a == SLJIT_PREF_SHIFT_REG);
 		/* reg_map[SLJIT_PREF_SHIFT_REG] is less than 8. */
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
-		if (!(flags & EX86_SSE2) && reg_map[a] >= 8)
+		if (!(flags & EX86_SSE2_OP1) && reg_map[a] >= 8)
 			rex |= REX_R;
 #else
 		if (reg_map[a] >= 8)
@@ -537,7 +537,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_si 
 		if ((a & SLJIT_IMM) || (a == 0))
 			*buf_ptr = 0;
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
-		else if (!(flags & EX86_SSE2))
+		else if (!(flags & EX86_SSE2_OP1))
 			*buf_ptr = reg_lmap[a] << 3;
 		else
 			*buf_ptr = a << 3;
@@ -559,7 +559,7 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_si 
 
 	if (!(b & SLJIT_MEM))
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
-		*buf_ptr++ |= MOD_REG + ((!(flags & EX86_SSE2)) ? reg_lmap[b] : b);
+		*buf_ptr++ |= MOD_REG + ((!(flags & EX86_SSE2_OP2)) ? reg_lmap[b] : b);
 #else
 		*buf_ptr++ |= MOD_REG + reg_lmap[b];
 #endif
