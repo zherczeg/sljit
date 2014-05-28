@@ -2334,7 +2334,7 @@ static SLJIT_INLINE sljit_si sljit_emit_fop1_convw_fromd(struct sljit_compiler *
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw)
 {
-	sljit_si dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
+	sljit_si dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 	sljit_ub *inst;
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -2347,7 +2347,7 @@ static SLJIT_INLINE sljit_si sljit_emit_fop1_convw_fromd(struct sljit_compiler *
 	*inst++ = GROUP_0F;
 	*inst = CVTTSD2SI_r_xm;
 
-	if (dst_r == TMP_REG1)
+	if (dst_r == TMP_REG1 && dst != SLJIT_UNUSED)
 		return emit_mov(compiler, dst, dstw, TMP_REG1, 0);
 	return SLJIT_SUCCESS;
 }

@@ -169,8 +169,12 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define VABS_F32	0xeeb00ac0
 #define VADD_F32	0xee300a00
 #define VCMP_F32	0xeeb40a40
+#define VCVT_F32_S32	0xeeb80ac0
+#define VCVT_F64_F32	0xeeb70ac0
+#define VCVT_S32_F32	0xeebd0ac0
 #define VDIV_F32	0xee800a00
 #define VMOV_F32	0xeeb00a40
+#define VMOV		0xee000a10
 #define VMRS		0xeef1fa10
 #define VMUL_F32	0xee200a00
 #define VNEG_F32	0xeeb10a40
@@ -1611,13 +1615,45 @@ static SLJIT_INLINE sljit_si sljit_emit_fop1_convw_fromd(struct sljit_compiler *
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw)
 {
-	return SLJIT_SUCCESS;
+	if (src & SLJIT_MEM) {
+		FAIL_IF(emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP) | FPU_LOAD, TMP_FREG1, src, srcw));
+		src = TMP_FREG1;
+	}
+
+	FAIL_IF(push_inst32(compiler, VCVT_S32_F32 | (op & SLJIT_SINGLE_OP) | DD4(TMP_FREG1) | DM4(src)));
+
+	if (dst == SLJIT_UNUSED)
+		return SLJIT_SUCCESS;
+
+	if (FAST_IS_REG(dst))
+		return push_inst32(compiler, VMOV | (1 << 20) | RT4(dst) | DN4(TMP_FREG1));
+
+	/* Store the integer value from a VFP register. */
+	return emit_fop_mem(compiler, 0, TMP_FREG1, dst, dstw);
 }
 
 static SLJIT_INLINE sljit_si sljit_emit_fop1_convd_fromw(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw)
 {
+	sljit_si dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
+
+	if (FAST_IS_REG(src))
+		FAIL_IF(push_inst32(compiler, VMOV | RT4(src) | DN4(TMP_FREG1)));
+	else if (src & SLJIT_MEM) {
+		/* Load the integer value into a VFP register. */
+		FAIL_IF(emit_fop_mem(compiler, FPU_LOAD, TMP_FREG1, src, srcw));
+	}
+	else {
+		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
+		FAIL_IF(push_inst32(compiler, VMOV | RT4(TMP_REG1) | DN4(TMP_FREG1)));
+	}
+	src = TMP_FREG1;
+
+	FAIL_IF(push_inst32(compiler, VCVT_F32_S32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(src)));
+
+	if (dst & SLJIT_MEM)
+		return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), TMP_FREG1, dst, dstw);
 	return SLJIT_SUCCESS;
 }
 
@@ -1648,12 +1684,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	CHECK_ERROR();
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
-	op ^= SLJIT_SINGLE_OP;
+	if (GET_OPCODE(op) != SLJIT_CONVD_FROMS)
+		op ^= SLJIT_SINGLE_OP;
 
 	SLJIT_COMPILE_ASSERT((SLJIT_SINGLE_OP == 0x100), float_transfer_bit_error);
 	SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw);
 
-	dst_r = (dst <= REG_MASK) ? dst : TMP_FREG1;
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 	if (src & SLJIT_MEM) {
 		emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP) | FPU_LOAD, dst_r, src, srcw);
 		src = dst_r;
@@ -1670,11 +1707,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	case SLJIT_ABSD:
 		FAIL_IF(push_inst32(compiler, VABS_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(src)));
 		break;
+	case SLJIT_CONVD_FROMS:
+		FAIL_IF(push_inst32(compiler, VCVT_F64_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(src)));
+		op ^= SLJIT_SINGLE_OP;
+		break;
 	}
 
-	if (!(dst & SLJIT_MEM))
-		return SLJIT_SUCCESS;
-	return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), TMP_FREG1, dst, dstw);
+	if (dst & SLJIT_MEM)
+		return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), TMP_FREG1, dst, dstw);
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compiler, sljit_si op,
@@ -1691,7 +1732,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 	compiler->cache_argw = 0;
 	op ^= SLJIT_SINGLE_OP;
 
-	dst_r = (dst <= REG_MASK) ? dst : TMP_FREG1;
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 	if (src1 & SLJIT_MEM) {
 		emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP) | FPU_LOAD, TMP_FREG1, src1, src1w);
 		src1 = TMP_FREG1;
