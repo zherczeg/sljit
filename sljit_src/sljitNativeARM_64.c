@@ -1599,16 +1599,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	sljit_si src, sljit_sw srcw)
 {
 	sljit_si dst_r, mem_flags = (op & SLJIT_SINGLE_OP) ? INT_SIZE : WORD_SIZE;
-	sljit_ins inv_bits = (op & SLJIT_SINGLE_OP) ? (1 << 22) : 0;
+	sljit_ins inv_bits;
 
 	CHECK_ERROR();
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
+	SLJIT_COMPILE_ASSERT((INT_SIZE ^ 0x100) == WORD_SIZE, must_be_one_bit_difference);
 	SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw);
 
+	inv_bits = (op & SLJIT_SINGLE_OP) ? (1 << 22) : 0;
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
-	SLJIT_COMPILE_ASSERT((INT_SIZE ^ 0x100) == WORD_SIZE, must_be_one_bit_difference);
+
 	if (src & SLJIT_MEM) {
 		emit_fop_mem(compiler, (GET_OPCODE(op) == SLJIT_CONVD_FROMS) ? (mem_flags ^ 0x100) : mem_flags, dst_r, src, srcw);
 		src = dst_r;
