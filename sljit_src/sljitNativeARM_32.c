@@ -2161,9 +2161,8 @@ static SLJIT_INLINE sljit_si sljit_emit_fop1_convd_fromw(struct sljit_compiler *
 		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
 		EMIT_INSTRUCTION(VMOV | RD(TMP_REG1) | (TMP_FREG1 << 16));
 	}
-	src = TMP_FREG1;
 
-	EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VCVT_F32_S32, op & SLJIT_SINGLE_OP, dst_r, src, 0));
+	EMIT_INSTRUCTION(EMIT_FPU_OPERATION(VCVT_F32_S32, op & SLJIT_SINGLE_OP, dst_r, TMP_FREG1, 0));
 
 	if (dst & SLJIT_MEM)
 		return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), TMP_FREG1, dst, dstw);

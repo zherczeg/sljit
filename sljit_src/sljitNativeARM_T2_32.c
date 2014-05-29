@@ -1648,9 +1648,8 @@ static SLJIT_INLINE sljit_si sljit_emit_fop1_convd_fromw(struct sljit_compiler *
 		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
 		FAIL_IF(push_inst32(compiler, VMOV | RT4(TMP_REG1) | DN4(TMP_FREG1)));
 	}
-	src = TMP_FREG1;
 
-	FAIL_IF(push_inst32(compiler, VCVT_F32_S32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(src)));
+	FAIL_IF(push_inst32(compiler, VCVT_F32_S32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(TMP_FREG1)));
 
 	if (dst & SLJIT_MEM)
 		return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), TMP_FREG1, dst, dstw);
@@ -1691,6 +1690,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw);
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
+
 	if (src & SLJIT_MEM) {
 		emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP) | FPU_LOAD, dst_r, src, srcw);
 		src = dst_r;
