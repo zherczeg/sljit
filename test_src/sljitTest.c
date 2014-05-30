@@ -4483,7 +4483,7 @@ static void test49(void)
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	int i;
-	sljit_d dbuf[9];
+	sljit_d dbuf[10];
 	sljit_s sbuf[9];
 	sljit_sw wbuf[9];
 	sljit_si ibuf[9];
@@ -4538,6 +4538,8 @@ static void test49(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, SLJIT_W(0x4455667788));
 	/* dbuf[0] */
 	sljit_emit_fop1(compiler, SLJIT_CONVD_FROMW, SLJIT_MEM1(SLJIT_SAVED_REG1), 0, SLJIT_SCRATCH_REG1, 0);
+	/* dbuf[10] */
+	sljit_emit_fop1(compiler, SLJIT_CONVD_FROMI, SLJIT_MEM1(SLJIT_SAVED_REG1), 9 * sizeof(sljit_d), SLJIT_IMM, SLJIT_W(0x7766554433));
 #endif
 
 	/* dbuf[3] */
@@ -4571,40 +4573,41 @@ static void test49(void)
 
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	FAILED(dbuf[0] != (sljit_d)SLJIT_W(0x4455667788), "test49 case 1 failed\n");
-	FAILED(wbuf[0] != SLJIT_W(0x1122334455), "test48 case 2 failed\n");
-	FAILED(ibuf[0] == 0x4455, "test48 case 3 failed\n");
+	FAILED(dbuf[9] != (sljit_d)SLJIT_W(0x66554433), "test49 case 2 failed\n");
+	FAILED(wbuf[0] != SLJIT_W(0x1122334455), "test48 case 3 failed\n");
+	FAILED(ibuf[0] == 0x4455, "test48 case 4 failed\n");
 #endif
-	FAILED(dbuf_ptr[(2 * 2) + 0] != -1, "test49 case 4 failed\n");
-	FAILED(dbuf_ptr[(2 * 2) + 1] != -1, "test49 case 5 failed\n");
-	FAILED(dbuf[3] != -879.75, "test49 case 6 failed\n");
-	FAILED(dbuf_ptr[(4 * 2) + 0] != -1, "test49 case 7 failed\n");
-	FAILED(dbuf_ptr[(4 * 2) + 1] != -1, "test49 case 8 failed\n");
-	FAILED(dbuf[5] != 345, "test49 case 9 failed\n");
-	FAILED(dbuf_ptr[(6 * 2) + 0] != -1, "test49 case 10 failed\n");
-	FAILED(dbuf_ptr[(6 * 2) + 1] != -1, "test49 case 11 failed\n");
-	FAILED(dbuf[7] != -249, "test49 case 12 failed\n");
-	FAILED(dbuf_ptr[(8 * 2) + 0] != -1, "test49 case 13 failed\n");
-	FAILED(dbuf_ptr[(8 * 2) + 1] != -1, "test49 case 14 failed\n");
+	FAILED(dbuf_ptr[(2 * 2) + 0] != -1, "test49 case 5 failed\n");
+	FAILED(dbuf_ptr[(2 * 2) + 1] != -1, "test49 case 6 failed\n");
+	FAILED(dbuf[3] != -879.75, "test49 case 7 failed\n");
+	FAILED(dbuf_ptr[(4 * 2) + 0] != -1, "test49 case 8 failed\n");
+	FAILED(dbuf_ptr[(4 * 2) + 1] != -1, "test49 case 9 failed\n");
+	FAILED(dbuf[5] != 345, "test49 case 10 failed\n");
+	FAILED(dbuf_ptr[(6 * 2) + 0] != -1, "test49 case 11 failed\n");
+	FAILED(dbuf_ptr[(6 * 2) + 1] != -1, "test49 case 12 failed\n");
+	FAILED(dbuf[7] != -249, "test49 case 13 failed\n");
+	FAILED(dbuf_ptr[(8 * 2) + 0] != -1, "test49 case 14 failed\n");
+	FAILED(dbuf_ptr[(8 * 2) + 1] != -1, "test49 case 15 failed\n");
 
-	FAILED(sbuf_ptr[2] != -1, "test49 case 15 failed\n");
-	FAILED(sbuf[3] != 673.75, "test49 case 16 failed\n");
-	FAILED(sbuf_ptr[4] != -1, "test49 case 17 failed\n");
-	FAILED(sbuf[5] != 345, "test49 case 18 failed\n");
-	FAILED(sbuf_ptr[6] != -1, "test49 case 19 failed\n");
-	FAILED(sbuf[7] != -249, "test49 case 20 failed\n");
-	FAILED(sbuf_ptr[8] != -1, "test49 case 21 failed\n");
+	FAILED(sbuf_ptr[2] != -1, "test49 case 16 failed\n");
+	FAILED(sbuf[3] != 673.75, "test49 case 17 failed\n");
+	FAILED(sbuf_ptr[4] != -1, "test49 case 18 failed\n");
+	FAILED(sbuf[5] != 345, "test49 case 19 failed\n");
+	FAILED(sbuf_ptr[6] != -1, "test49 case 20 failed\n");
+	FAILED(sbuf[7] != -249, "test49 case 21 failed\n");
+	FAILED(sbuf_ptr[8] != -1, "test49 case 22 failed\n");
 
-	FAILED(wbuf[2] != -1, "test49 case 22 failed\n");
-	FAILED(wbuf[3] != 673, "test49 case 23 failed\n");
-	FAILED(wbuf[4] != -1, "test49 case 24 failed\n");
-	FAILED(wbuf[5] != -879, "test49 case 25 failed\n");
-	FAILED(wbuf[6] != -1, "test49 case 26 failed\n");
+	FAILED(wbuf[2] != -1, "test49 case 23 failed\n");
+	FAILED(wbuf[3] != 673, "test49 case 24 failed\n");
+	FAILED(wbuf[4] != -1, "test49 case 25 failed\n");
+	FAILED(wbuf[5] != -879, "test49 case 26 failed\n");
+	FAILED(wbuf[6] != -1, "test49 case 27 failed\n");
 
-	FAILED(ibuf[2] != -1, "test49 case 27 failed\n");
-	FAILED(ibuf[3] != 673, "test49 case 28 failed\n");
-	FAILED(ibuf[4] != -1, "test49 case 29 failed\n");
-	FAILED(ibuf[5] != -879, "test49 case 30 failed\n");
-	FAILED(ibuf[6] != -1, "test49 case 31 failed\n");
+	FAILED(ibuf[2] != -1, "test49 case 28 failed\n");
+	FAILED(ibuf[3] != 673, "test49 case 29 failed\n");
+	FAILED(ibuf[4] != -1, "test49 case 30 failed\n");
+	FAILED(ibuf[5] != -879, "test49 case 31 failed\n");
+	FAILED(ibuf[6] != -1, "test49 case 32 failed\n");
 
 	sljit_free_code(code.code);
 	successful_tests++;
@@ -4676,7 +4679,7 @@ void sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif
 
-#define TEST_COUNT 49
+#	define TEST_COUNT 49
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
@@ -4684,4 +4687,6 @@ void sljit_test(int argc, char* argv[])
 	else
 		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests are failed ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / 47);
 	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), sljit_is_fpu_available() ? " (+fpu)" : "");
+
+#	undef TEST_COUNT
 }

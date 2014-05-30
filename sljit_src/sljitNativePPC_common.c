@@ -1720,7 +1720,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw)
 {
-	sljit_si dst_fr;
+	sljit_si dst_r;
 
 	CHECK_ERROR();
 	SLJIT_COMPILE_ASSERT((SLJIT_SINGLE_OP == 0x100) && !(DOUBLE_DATA & 0x4), float_transfer_bit_error);
@@ -1729,30 +1729,30 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_fr = FAST_IS_REG(dst) ? dst : TMP_FREG1;
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 
 	if (src & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op) | LOAD_DATA, dst_fr, src, srcw, dst, dstw));
-		src = dst_fr;
+		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op) | LOAD_DATA, dst_r, src, srcw, dst, dstw));
+		src = dst_r;
 	}
 
 	switch (GET_OPCODE(op)) {
 		case SLJIT_MOVD:
-			if (src != dst_fr && dst_fr != TMP_FREG1)
-				FAIL_IF(push_inst(compiler, FMR | FD(dst_fr) | FB(src)));
+			if (src != dst_r && dst_r != TMP_FREG1)
+				FAIL_IF(push_inst(compiler, FMR | FD(dst_r) | FB(src)));
 			break;
 		case SLJIT_NEGD:
-			FAIL_IF(push_inst(compiler, FNEG | FD(dst_fr) | FB(src)));
+			FAIL_IF(push_inst(compiler, FNEG | FD(dst_r) | FB(src)));
 			break;
 		case SLJIT_ABSD:
-			FAIL_IF(push_inst(compiler, FABS | FD(dst_fr) | FB(src)));
+			FAIL_IF(push_inst(compiler, FABS | FD(dst_r) | FB(src)));
 			break;
 	}
 
-	if (dst_fr == TMP_FREG1) {
+	if (dst_r == TMP_FREG1) {
 		if (GET_OPCODE(op) == SLJIT_MOVD)
-			dst_fr = src;
-		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op), dst_fr, dst, dstw, 0, 0));
+			dst_r = src;
+		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op), dst_r, dst, dstw, 0, 0));
 	}
 
 	return SLJIT_SUCCESS;
@@ -1763,7 +1763,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 	sljit_si src1, sljit_sw src1w,
 	sljit_si src2, sljit_sw src2w)
 {
-	sljit_si dst_fr, flags = 0;
+	sljit_si dst_r, flags = 0;
 
 	CHECK_ERROR();
 	check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
@@ -1771,7 +1771,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	dst_fr = FAST_IS_REG(dst) ? dst : TMP_FREG2;
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG2;
 
 	if (src1 & SLJIT_MEM) {
 		if (getput_arg_fast(compiler, FLOAT_DATA(op) | LOAD_DATA, TMP_FREG1, src1, src1w)) {
@@ -1811,23 +1811,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADDD:
-		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FADDS, FADD) | FD(dst_fr) | FA(src1) | FB(src2)));
+		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FADDS, FADD) | FD(dst_r) | FA(src1) | FB(src2)));
 		break;
 
 	case SLJIT_SUBD:
-		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FSUBS, FSUB) | FD(dst_fr) | FA(src1) | FB(src2)));
+		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FSUBS, FSUB) | FD(dst_r) | FA(src1) | FB(src2)));
 		break;
 
 	case SLJIT_MULD:
-		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FMULS, FMUL) | FD(dst_fr) | FA(src1) | FC(src2) /* FMUL use FC as src2 */));
+		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FMULS, FMUL) | FD(dst_r) | FA(src1) | FC(src2) /* FMUL use FC as src2 */));
 		break;
 
 	case SLJIT_DIVD:
-		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FDIVS, FDIV) | FD(dst_fr) | FA(src1) | FB(src2)));
+		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FDIVS, FDIV) | FD(dst_r) | FA(src1) | FB(src2)));
 		break;
 	}
 
-	if (dst_fr == TMP_FREG2)
+	if (dst_r == TMP_FREG2)
 		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op), TMP_FREG2, dst, dstw, 0, 0));
 
 	return SLJIT_SUCCESS;
