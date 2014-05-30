@@ -1335,6 +1335,10 @@ static SLJIT_INLINE sljit_si sljit_emit_fop1_convd_fromw(struct sljit_compiler *
 		FAIL_IF(emit_op_mem2(compiler, ((flags) ? DOUBLE_DATA : SINGLE_DATA) | LOAD_DATA, TMP_FREG1, src, srcw, dst, dstw));
 	}
 	else {
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		if (GET_OPCODE(op) == SLJIT_CONVD_FROMI)
+			srcw = (sljit_si)srcw;
+#endif
 		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), srcw));
 		FAIL_IF(push_inst(compiler, MTC1 | flags | T(TMP_REG1) | FS(TMP_FREG1), MOVABLE_INS));
 	}

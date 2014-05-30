@@ -2365,6 +2365,10 @@ static SLJIT_INLINE sljit_si sljit_emit_fop1_convd_fromw(struct sljit_compiler *
 #endif
 
 	if (src & SLJIT_IMM) {
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		if (GET_OPCODE(op) == SLJIT_CONVD_FROMI)
+			srcw = (sljit_si)srcw;
+#endif
 		EMIT_MOV(compiler, TMP_REG1, 0, src, srcw);
 		src = TMP_REG1;
 		srcw = 0;
