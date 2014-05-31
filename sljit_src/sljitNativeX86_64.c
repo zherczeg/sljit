@@ -420,16 +420,6 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_si 
 	size &= 0xf;
 	inst_size = size;
 
-	if ((b & SLJIT_MEM) && !(b & OFFS_REG_MASK) && NOT_HALFWORD(immb)) {
-		if (emit_load_imm64(compiler, TMP_REG3, immb))
-			return NULL;
-		immb = 0;
-		if (b & REG_MASK)
-			b |= TO_OFFS_REG(TMP_REG3);
-		else
-			b |= TMP_REG3;
-	}
-
 	if (!compiler->mode32 && !(flags & EX86_NO_REXW))
 		rex |= REX_W;
 	else if (flags & EX86_REX)
@@ -445,27 +435,38 @@ static sljit_ub* emit_x86_instruction(struct sljit_compiler *compiler, sljit_si 
 	/* Calculate size of b. */
 	inst_size += 1; /* mod r/m byte. */
 	if (b & SLJIT_MEM) {
+		if (!(b & OFFS_REG_MASK)) {
+			if (NOT_HALFWORD(immb)) {
+				if (emit_load_imm64(compiler, TMP_REG3, immb))
+					return NULL;
+				immb = 0;
+				if (b & REG_MASK)
+					b |= TO_OFFS_REG(TMP_REG3);
+				else
+					b |= TMP_REG3;
+			}
+			else if (reg_lmap[b & REG_MASK] == 4)
+				b |= TO_OFFS_REG(SLJIT_LOCALS_REG);
+		}
+
 		if ((b & REG_MASK) == SLJIT_UNUSED)
 			inst_size += 1 + sizeof(sljit_si); /* SIB byte required to avoid RIP based addressing. */
 		else {
 			if (reg_map[b & REG_MASK] >= 8)
 				rex |= REX_B;
-			if (immb != 0 && !(b & OFFS_REG_MASK)) {
+			if (immb != 0 && (!(b & OFFS_REG_MASK) || (b & OFFS_REG_MASK) == TO_OFFS_REG(SLJIT_LOCALS_REG))) {
 				/* Immediate operand. */
 				if (immb <= 127 && immb >= -128)
 					inst_size += sizeof(sljit_sb);
 				else
 					inst_size += sizeof(sljit_si);
 			}
-		}
 
-		if ((b & REG_MASK) == SLJIT_LOCALS_REG && !(b & OFFS_REG_MASK))
-			b |= TO_OFFS_REG(SLJIT_LOCALS_REG);
-
-		if ((b & OFFS_REG_MASK) != SLJIT_UNUSED) {
-			inst_size += 1; /* SIB byte. */
-			if (reg_map[OFFS_REG(b)] >= 8)
-				rex |= REX_X;
+			if ((b & OFFS_REG_MASK) != SLJIT_UNUSED) {
+				inst_size += 1; /* SIB byte. */
+				if (reg_map[OFFS_REG(b)] >= 8)
+					rex |= REX_X;
+			}
 		}
 	}
 #if (defined SLJIT_SSE2 && SLJIT_SSE2)
