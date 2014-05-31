@@ -166,6 +166,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
 #define FMUL		(HI(63) | LO(25))
 #define FMULS		(HI(59) | LO(25))
 #define FNEG		(HI(63) | LO(40))
+#define FRSP		(HI(63) | LO(12))
 #define FSUB		(HI(63) | LO(20))
 #define FSUBS		(HI(59) | LO(20))
 #define LD		(HI(58) | 0)
@@ -1723,11 +1724,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	sljit_si dst_r;
 
 	CHECK_ERROR();
+	compiler->cache_arg = 0;
+	compiler->cache_argw = 0;
+
 	SLJIT_COMPILE_ASSERT((SLJIT_SINGLE_OP == 0x100) && !(DOUBLE_DATA & 0x4), float_transfer_bit_error);
 	SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw);
 
-	compiler->cache_arg = 0;
-	compiler->cache_argw = 0;
+	if (GET_OPCODE(op) == SLJIT_CONVD_FROMS)
+		op ^= SLJIT_SINGLE_OP;
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 
@@ -1737,6 +1741,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
+		case SLJIT_CONVD_FROMS:
+			op ^= SLJIT_SINGLE_OP;
+			if (op & SLJIT_SINGLE_OP) {
+				FAIL_IF(push_inst(compiler, FRSP | FD(dst_r) | FB(src)));
+				break;
+			}
 		case SLJIT_MOVD:
 			if (src != dst_r && dst_r != TMP_FREG1)
 				FAIL_IF(push_inst(compiler, FMR | FD(dst_r) | FB(src)));
