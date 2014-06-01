@@ -71,8 +71,8 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
 };
 
 #define CHECK_EXTRA_REGS(p, w, do) \
-	if (p >= SLJIT_TEMPORARY_EREG1 && p <= SLJIT_TEMPORARY_EREG2) { \
-		w = compiler->scratches_start + (p - SLJIT_TEMPORARY_EREG1) * sizeof(sljit_sw); \
+	if (p >= SLJIT_SCRATCH_EREG1 && p <= SLJIT_SCRATCH_EREG2) { \
+		w = compiler->scratches_start + (p - SLJIT_SCRATCH_EREG1) * sizeof(sljit_sw); \
 		p = SLJIT_MEM1(SLJIT_LOCALS_REG); \
 		do; \
 	} \
@@ -2221,7 +2221,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_register_index(sljit_si reg)
 {
 	check_sljit_get_register_index(reg);
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	if (reg == SLJIT_TEMPORARY_EREG1 || reg == SLJIT_TEMPORARY_EREG2
+	if (reg == SLJIT_SCRATCH_EREG1 || reg == SLJIT_SCRATCH_EREG2
 			|| reg == SLJIT_SAVED_EREG1 || reg == SLJIT_SAVED_EREG2)
 		return -1;
 #endif

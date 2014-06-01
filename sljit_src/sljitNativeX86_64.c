@@ -156,9 +156,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 		}
 #ifdef _WIN64
 		if (scratches >= 5) {
-			SLJIT_COMPILE_ASSERT(reg_map[SLJIT_TEMPORARY_EREG2] >= 8, temporary_ereg2_is_hireg);
+			SLJIT_COMPILE_ASSERT(reg_map[SLJIT_SCRATCH_EREG2] >= 8, temporary_ereg2_is_hireg);
 			*inst++ = REX_B;
-			PUSH_REG(reg_lmap[SLJIT_TEMPORARY_EREG2]);
+			PUSH_REG(reg_lmap[SLJIT_SCRATCH_EREG2]);
 		}
 #endif
 
@@ -340,7 +340,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 #ifdef _WIN64
 	if (compiler->scratches >= 5) {
 		*inst++ = REX_B;
-		POP_REG(reg_lmap[SLJIT_TEMPORARY_EREG2]);
+		POP_REG(reg_lmap[SLJIT_SCRATCH_EREG2]);
 	}
 #endif
 	if (compiler->saveds >= 1)
