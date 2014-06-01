@@ -1064,35 +1064,35 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 		src <<= 1;
 
 	switch (GET_OPCODE(op)) {
-		case SLJIT_MOVD:
-			if (src != dst_r && dst_r != TMP_FREG1) {
+	case SLJIT_MOVD:
+		if (src != dst_r) {
+			if (dst_r != TMP_FREG1) {
 				FAIL_IF(push_inst(compiler, FMOVS | DA(dst_r) | S2A(src), MOVABLE_INS));
 				if (!(op & SLJIT_SINGLE_OP))
 					FAIL_IF(push_inst(compiler, FMOVS | DA(dst_r | 1) | S2A(src | 1), MOVABLE_INS));
 			}
-			break;
-		case SLJIT_NEGD:
-			FAIL_IF(push_inst(compiler, FNEGS | DA(dst_r) | S2A(src), MOVABLE_INS));
-			if (dst_r != src && !(op & SLJIT_SINGLE_OP))
-				FAIL_IF(push_inst(compiler, FMOVS | DA(dst_r | 1) | S2A(src | 1), MOVABLE_INS));
-			break;
-		case SLJIT_ABSD:
-			FAIL_IF(push_inst(compiler, FABSS | DA(dst_r) | S2A(src), MOVABLE_INS));
-			if (dst_r != src && !(op & SLJIT_SINGLE_OP))
-				FAIL_IF(push_inst(compiler, FMOVS | DA(dst_r | 1) | S2A(src | 1), MOVABLE_INS));
-			break;
-		case SLJIT_CONVD_FROMS:
-			FAIL_IF(push_inst(compiler, SELECT_FOP(op, FSTOD, FDTOS) | DA(dst_r) | S2A(src), MOVABLE_INS));
-			op ^= SLJIT_SINGLE_OP;
-			break;
+			else
+				dst_r = src;
+		}
+		break;
+	case SLJIT_NEGD:
+		FAIL_IF(push_inst(compiler, FNEGS | DA(dst_r) | S2A(src), MOVABLE_INS));
+		if (dst_r != src && !(op & SLJIT_SINGLE_OP))
+			FAIL_IF(push_inst(compiler, FMOVS | DA(dst_r | 1) | S2A(src | 1), MOVABLE_INS));
+		break;
+	case SLJIT_ABSD:
+		FAIL_IF(push_inst(compiler, FABSS | DA(dst_r) | S2A(src), MOVABLE_INS));
+		if (dst_r != src && !(op & SLJIT_SINGLE_OP))
+			FAIL_IF(push_inst(compiler, FMOVS | DA(dst_r | 1) | S2A(src | 1), MOVABLE_INS));
+		break;
+	case SLJIT_CONVD_FROMS:
+		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FSTOD, FDTOS) | DA(dst_r) | S2A(src), MOVABLE_INS));
+		op ^= SLJIT_SINGLE_OP;
+		break;
 	}
 
-	if (dst_r == TMP_FREG1) {
-		if (GET_OPCODE(op) == SLJIT_MOVD)
-			dst_r = src;
+	if (dst & SLJIT_MEM)
 		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op), dst_r, dst, dstw, 0, 0));
-	}
-
 	return SLJIT_SUCCESS;
 }
 

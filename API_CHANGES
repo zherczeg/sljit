@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+31.05.2012 - Non-backward compatible
+    SLJIT_TEMPORARY_EREGx registers were not renamed to
+    SLJIT_SCRATCH_EREGx when the change was done on 08.11.2012
+
 05.03.2014 - Backward compatible
     The sljit_set_target now supports those jumps, which
     does not created with SLJIT_REWRITABLE_JUMP flag.

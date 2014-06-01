@@ -1741,30 +1741,31 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-		case SLJIT_CONVD_FROMS:
-			op ^= SLJIT_SINGLE_OP;
-			if (op & SLJIT_SINGLE_OP) {
-				FAIL_IF(push_inst(compiler, FRSP | FD(dst_r) | FB(src)));
-				break;
-			}
-		case SLJIT_MOVD:
-			if (src != dst_r && dst_r != TMP_FREG1)
+	case SLJIT_CONVD_FROMS:
+		op ^= SLJIT_SINGLE_OP;
+		if (op & SLJIT_SINGLE_OP) {
+			FAIL_IF(push_inst(compiler, FRSP | FD(dst_r) | FB(src)));
+			break;
+		}
+		/* Fall through. */
+	case SLJIT_MOVD:
+		if (src != dst_r) {
+			if (dst_r != TMP_FREG1)
 				FAIL_IF(push_inst(compiler, FMR | FD(dst_r) | FB(src)));
-			break;
-		case SLJIT_NEGD:
-			FAIL_IF(push_inst(compiler, FNEG | FD(dst_r) | FB(src)));
-			break;
-		case SLJIT_ABSD:
-			FAIL_IF(push_inst(compiler, FABS | FD(dst_r) | FB(src)));
-			break;
+			else
+				dst_r = src;
+		}
+		break;
+	case SLJIT_NEGD:
+		FAIL_IF(push_inst(compiler, FNEG | FD(dst_r) | FB(src)));
+		break;
+	case SLJIT_ABSD:
+		FAIL_IF(push_inst(compiler, FABS | FD(dst_r) | FB(src)));
+		break;
 	}
 
-	if (dst_r == TMP_FREG1) {
-		if (GET_OPCODE(op) == SLJIT_MOVD)
-			dst_r = src;
+	if (dst & SLJIT_MEM)
 		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op), dst_r, dst, dstw, 0, 0));
-	}
-
 	return SLJIT_SUCCESS;
 }
 

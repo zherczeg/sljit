@@ -1698,8 +1698,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOVD:
-		if (src != dst_r)
-			FAIL_IF(push_inst32(compiler, VMOV_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(src)));
+		if (src != dst_r) {
+			if (dst_r != TMP_FREG1)
+				FAIL_IF(push_inst32(compiler, VMOV_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(src)));
+			else
+				dst_r = src;
+		}
 		break;
 	case SLJIT_NEGD:
 		FAIL_IF(push_inst32(compiler, VNEG_F32 | (op & SLJIT_SINGLE_OP) | DD4(dst_r) | DM4(src)));
@@ -1714,7 +1718,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	}
 
 	if (dst & SLJIT_MEM)
-		return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), TMP_FREG1, dst, dstw);
+		return emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP), dst_r, dst, dstw);
 	return SLJIT_SUCCESS;
 }
 

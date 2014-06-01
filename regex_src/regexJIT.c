@@ -123,9 +123,9 @@ struct regex_match
 /* Temporary register. */
 #define R_TEMP		SLJIT_SCRATCH_REG3
 /* Caches the regex_match->best_begin. */
-#define R_BEST_BEGIN	SLJIT_TEMPORARY_EREG1
+#define R_BEST_BEGIN	SLJIT_SCRATCH_EREG1
 /* Current character index. */
-#define R_CURR_INDEX	SLJIT_TEMPORARY_EREG2
+#define R_CURR_INDEX	SLJIT_SCRATCH_EREG2
 
 /* --------------------------------------------------------------------- */
 /*  Stack management                                                     */

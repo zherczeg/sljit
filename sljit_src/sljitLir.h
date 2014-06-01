@@ -114,8 +114,8 @@ of sljitConfigInternal.h */
 /* Note: extra registers cannot be used for memory addressing. */
 /* Note: on x86-32, these registers are emulated (using stack
    loads & stores). */
-#define SLJIT_TEMPORARY_EREG1	4
-#define SLJIT_TEMPORARY_EREG2	5
+#define SLJIT_SCRATCH_EREG1	4
+#define SLJIT_SCRATCH_EREG2	5
 
 /* Saved registers whose preserve their values across function calls. */
 #define SLJIT_SAVED_REG1	6

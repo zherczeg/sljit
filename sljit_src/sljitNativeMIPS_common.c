@@ -1419,28 +1419,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 		src <<= 1;
 
 	switch (GET_OPCODE(op)) {
-		case SLJIT_MOVD:
-			if (src != dst_r && dst_r != TMP_FREG1)
+	case SLJIT_MOVD:
+		if (src != dst_r) {
+			if (dst_r != TMP_FREG1)
 				FAIL_IF(push_inst(compiler, MOV_S | FMT(op) | FS(src) | FD(dst_r), MOVABLE_INS));
-			break;
-		case SLJIT_NEGD:
-			FAIL_IF(push_inst(compiler, NEG_S | FMT(op) | FS(src) | FD(dst_r), MOVABLE_INS));
-			break;
-		case SLJIT_ABSD:
-			FAIL_IF(push_inst(compiler, ABS_S | FMT(op) | FS(src) | FD(dst_r), MOVABLE_INS));
-			break;
-		case SLJIT_CONVD_FROMS:
-			FAIL_IF(push_inst(compiler, CVT_S_S | ((op & SLJIT_SINGLE_OP) ? 1 : (1 << 21)) | FS(src) | FD(dst_r), MOVABLE_INS));
-			op ^= SLJIT_SINGLE_OP;
-			break;
+			else
+				dst_r = src;
+		}
+		break;
+	case SLJIT_NEGD:
+		FAIL_IF(push_inst(compiler, NEG_S | FMT(op) | FS(src) | FD(dst_r), MOVABLE_INS));
+		break;
+	case SLJIT_ABSD:
+		FAIL_IF(push_inst(compiler, ABS_S | FMT(op) | FS(src) | FD(dst_r), MOVABLE_INS));
+		break;
+	case SLJIT_CONVD_FROMS:
+		FAIL_IF(push_inst(compiler, CVT_S_S | ((op & SLJIT_SINGLE_OP) ? 1 : (1 << 21)) | FS(src) | FD(dst_r), MOVABLE_INS));
+		op ^= SLJIT_SINGLE_OP;
+		break;
 	}
 
-	if (dst_r == TMP_FREG1) {
-		if (GET_OPCODE(op) == SLJIT_MOVD)
-			dst_r = src;
-		FAIL_IF(emit_op_mem2(compiler, FLOAT_DATA(op), dst_r, dst, dstw, 0, 0));
-	}
-
+	if (dst & SLJIT_MEM)
+		return emit_op_mem2(compiler, FLOAT_DATA(op), dst_r, dst, dstw, 0, 0);
 	return SLJIT_SUCCESS;
 }
 
