@@ -254,7 +254,7 @@
 #ifdef _AIX
 #define FIXED_LOCALS_OFFSET ((6 + 8) * sizeof(sljit_sw))
 #else
-#define FIXED_LOCALS_OFFSET (2 * sizeof(sljit_sw))
+#define FIXED_LOCALS_OFFSET (3 * sizeof(sljit_sw))
 #endif
 #endif
 
@@ -669,6 +669,8 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 #define FUNCTION_FCHECK(p, i) \
 	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG6) \
 		SLJIT_ASSERT(i == 0); \
+	else if ((p) == (SLJIT_MEM1(SLJIT_LOCALS_REG))) \
+		SLJIT_ASSERT((i) >= 0 && (i) < compiler->logical_local_size); \
 	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & REG_MASK)); \
 		if ((p) & OFFS_REG_MASK) { \
@@ -1065,16 +1067,24 @@ static SLJIT_INLINE void check_sljit_emit_op_custom(struct sljit_compiler *compi
 	if (GET_OPCODE(op) >= SLJIT_CONVW_FROMD) { \
 		if (GET_OPCODE(op) == SLJIT_CMPD) { \
 			check_sljit_emit_fop1_cmp(compiler, op, dst, dstw, src, srcw); \
+			ADJUST_LOCAL_OFFSET(dst, dstw); \
+			ADJUST_LOCAL_OFFSET(src, srcw); \
 			return sljit_emit_fop1_cmp(compiler, op, dst, dstw, src, srcw); \
 		} \
 		if ((GET_OPCODE(op) | 0x1) == SLJIT_CONVI_FROMD) { \
 			check_sljit_emit_fop1_convw_fromd(compiler, op, dst, dstw, src, srcw); \
+			ADJUST_LOCAL_OFFSET(dst, dstw); \
+			ADJUST_LOCAL_OFFSET(src, srcw); \
 			return sljit_emit_fop1_convw_fromd(compiler, op, dst, dstw, src, srcw); \
 		} \
 		check_sljit_emit_fop1_convd_fromw(compiler, op, dst, dstw, src, srcw); \
+		ADJUST_LOCAL_OFFSET(dst, dstw); \
+		ADJUST_LOCAL_OFFSET(src, srcw); \
 		return sljit_emit_fop1_convd_fromw(compiler, op, dst, dstw, src, srcw); \
 	} \
-	check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw);
+	check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw); \
+	ADJUST_LOCAL_OFFSET(dst, dstw); \
+	ADJUST_LOCAL_OFFSET(src, srcw);
 
 static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si dst, sljit_sw dstw,

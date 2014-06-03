@@ -1105,6 +1105,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 
 	CHECK_ERROR();
 	check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
+	ADJUST_LOCAL_OFFSET(dst, dstw);
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+	ADJUST_LOCAL_OFFSET(src2, src2w);
 
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;

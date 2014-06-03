@@ -4614,6 +4614,82 @@ static void test49(void)
 	successful_tests++;
 }
 
+static void test50(void)
+{
+	/* Test stack and floating point operations. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	sljit_uw size1, size2, size3;
+#endif
+	sljit_s sbuf[7];
+
+	if (verbose)
+		printf("Run test50\n");
+
+	if (!sljit_is_fpu_available()) {
+		printf("no fpu available, test50 skipped\n");
+		successful_tests++;
+		if (compiler)
+			sljit_free_compiler(compiler);
+		return;
+	}
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sbuf[0] = 245.5;
+	sbuf[1] = -100.25;
+	sbuf[2] = 713.75;
+
+	sljit_emit_enter(compiler, 1, 3, 3, 8 * sizeof(sljit_s));
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 0);
+	sljit_emit_fop1(compiler, SLJIT_MOVS, SLJIT_MEM1(SLJIT_LOCALS_REG), sizeof(sljit_s), SLJIT_MEM1(SLJIT_LOCALS_REG), 0);
+	/* sbuf[3] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), 3 * sizeof(sljit_s), SLJIT_MEM1(SLJIT_LOCALS_REG), sizeof(sljit_s));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), sizeof(sljit_s), SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_s));
+	sljit_emit_fop2(compiler, SLJIT_ADDS, SLJIT_MEM1(SLJIT_LOCALS_REG), 2 * sizeof(sljit_s), SLJIT_MEM1(SLJIT_LOCALS_REG), 0, SLJIT_MEM1(SLJIT_LOCALS_REG), sizeof(sljit_s));
+	/* sbuf[4] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), 4 * sizeof(sljit_s), SLJIT_MEM1(SLJIT_LOCALS_REG), 2 * sizeof(sljit_s));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_LOCALS_REG), 2 * sizeof(sljit_s), SLJIT_IMM, 5934);
+	sljit_emit_fop1(compiler, SLJIT_CONVS_FROMW, SLJIT_MEM1(SLJIT_LOCALS_REG), 3 * sizeof(sljit_s), SLJIT_MEM1(SLJIT_LOCALS_REG), 2 * sizeof(sljit_s));
+	/* sbuf[5] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_s), SLJIT_MEM1(SLJIT_LOCALS_REG), 3 * sizeof(sljit_s));
+
+#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	size1 = compiler->size;
+#endif
+	sljit_emit_fop1(compiler, SLJIT_MOVS, SLJIT_FLOAT_REG3, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 2 * sizeof(sljit_s));
+#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	size2 = compiler->size;
+#endif
+	sljit_emit_fop1(compiler, SLJIT_MOVS, SLJIT_FLOAT_REG6, 0, SLJIT_FLOAT_REG3, 0);
+#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	size3 = compiler->size;
+#endif
+	/* sbuf[6] */
+	sljit_emit_fop1(compiler, SLJIT_MOVS, SLJIT_MEM1(SLJIT_SAVED_REG1), 6 * sizeof(sljit_s), SLJIT_FLOAT_REG6, 0);
+#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	SLJIT_ASSERT((compiler->size - size3) == (size3 - size2) && (size3 - size2) == (size2 - size1));
+#endif
+
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)&sbuf);
+
+	FAILED(sbuf[3] != 245.5, "test50 case 1 failed\n");
+	FAILED(sbuf[4] != 145.25, "test50 case 2 failed\n");
+	FAILED(sbuf[5] != 5934, "test50 case 3 failed\n");
+	FAILED(sbuf[6] != 713.75, "test50 case 4 failed\n");
+
+	sljit_free_code(code.code);
+	successful_tests++;
+}
+
 void sljit_test(int argc, char* argv[])
 {
 	sljit_si has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -4675,12 +4751,13 @@ void sljit_test(int argc, char* argv[])
 	test47();
 	test48();
 	test49();
+	test50();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 49
+#	define TEST_COUNT 50
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
