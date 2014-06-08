@@ -160,6 +160,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 6] = {
 #define FABS		(HI(63) | LO(264))
 #define FADD		(HI(63) | LO(21))
 #define FADDS		(HI(59) | LO(21))
+#define FCFID		(HI(63) | LO(846))
 #define FCMPU		(HI(63) | LO(0))
 #define FCTIDZ		(HI(63) | LO(815))
 #define FCTIWZ		(HI(63) | LO(15))
@@ -607,25 +608,22 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	if (args >= 3)
 		FAIL_IF(push_inst(compiler, OR | S(SLJIT_SCRATCH_REG3) | A(SLJIT_SAVED_REG3) | B(SLJIT_SCRATCH_REG3)));
 
-#if (defined SLJIT_PPC_STACK_FRAME_V2 && SLJIT_PPC_STACK_FRAME_V2)
-	compiler->local_size = (1 + saveds + 6 + 8) * sizeof(sljit_sw) + local_size;
-#else
-	compiler->local_size = (1 + saveds + 3) * sizeof(sljit_sw) + local_size;
-#endif
-	compiler->local_size = (compiler->local_size + 15) & ~0xf;
+	local_size += ((1 + saveds) * sizeof(sljit_sw)) + FIXED_LOCALS_OFFSET;
+	local_size = (local_size + 15) & ~0xf;
+	compiler->local_size = local_size;
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	if (compiler->local_size <= SIMM_MAX)
-		FAIL_IF(push_inst(compiler, STWU | S(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | IMM(-compiler->local_size)));
+	if (local_size <= SIMM_MAX)
+		FAIL_IF(push_inst(compiler, STWU | S(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | IMM(-local_size)));
 	else {
-		FAIL_IF(load_immediate(compiler, 0, -compiler->local_size));
+		FAIL_IF(load_immediate(compiler, 0, -local_size));
 		FAIL_IF(push_inst(compiler, STWUX | S(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | B(0)));
 	}
 #else
-	if (compiler->local_size <= SIMM_MAX)
-		FAIL_IF(push_inst(compiler, STDU | S(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | IMM(-compiler->local_size)));
+	if (local_size <= SIMM_MAX)
+		FAIL_IF(push_inst(compiler, STDU | S(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | IMM(-local_size)));
 	else {
-		FAIL_IF(load_immediate(compiler, 0, -compiler->local_size));
+		FAIL_IF(load_immediate(compiler, 0, -local_size));
 		FAIL_IF(push_inst(compiler, STDUX | S(SLJIT_LOCALS_REG) | A(SLJIT_LOCALS_REG) | B(0)));
 	}
 #endif
@@ -644,12 +642,8 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->logical_local_size = local_size;
 #endif
 
-#if (defined SLJIT_PPC_STACK_FRAME_V2 && SLJIT_PPC_STACK_FRAME_V2)
-	compiler->local_size = (1 + saveds + 6 + 8) * sizeof(sljit_sw) + local_size;
-#else
-	compiler->local_size = (1 + saveds + 3) * sizeof(sljit_sw) + local_size;
-#endif
-	compiler->local_size = (compiler->local_size + 15) & ~0xf;
+	local_size += ((1 + saveds) * sizeof(sljit_sw)) + FIXED_LOCALS_OFFSET;
+	compiler->local_size = (local_size + 15) & ~0xf;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compiler, sljit_si op, sljit_si src, sljit_sw srcw)
@@ -1694,7 +1688,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_is_fpu_available(void)
 #define FLOAT_TMP_MEM_OFFSET (6 * sizeof(sljit_sw))
 #else
 #define FLOAT_TMP_MEM_OFFSET (2 * sizeof(sljit_sw))
+
+#if (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
+#define FLOAT_TMP_MEM_OFFSET_LOW (2 * sizeof(sljit_sw))
+#define FLOAT_TMP_MEM_OFFSET_HI (3 * sizeof(sljit_sw))
+#else
+#define FLOAT_TMP_MEM_OFFSET_LOW (3 * sizeof(sljit_sw))
+#define FLOAT_TMP_MEM_OFFSET_HI (2 * sizeof(sljit_sw))
 #endif
+
+#endif /* SLJIT_CONFIG_PPC_64 */
 
 static SLJIT_INLINE sljit_si sljit_emit_fop1_convw_fromd(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si dst, sljit_sw dstw,
@@ -1768,7 +1771,78 @@ static SLJIT_INLINE sljit_si sljit_emit_fop1_convd_fromw(struct sljit_compiler *
 	sljit_si dst, sljit_sw dstw,
 	sljit_si src, sljit_sw srcw)
 {
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+
+	sljit_si dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
+
+	if (src & SLJIT_IMM) {
+		if (GET_OPCODE(op) == SLJIT_CONVD_FROMI)
+			srcw = (sljit_si)srcw;
+		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
+		src = TMP_REG1;
+	}
+	else if (GET_OPCODE(op) == SLJIT_CONVD_FROMI) {
+		if (FAST_IS_REG(src))
+			FAIL_IF(push_inst(compiler, EXTSW | S(src) | A(TMP_REG1)));
+		else
+			FAIL_IF(emit_op_mem2(compiler, INT_DATA | SIGNED_DATA | LOAD_DATA, TMP_REG1, src, srcw, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET));
+		src = TMP_REG1;
+	}
+
+	if (FAST_IS_REG(src)) {
+		FAIL_IF(emit_op_mem2(compiler, WORD_DATA, src, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET));
+		FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET, dst, dstw));
+	}
+	else
+		FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src, srcw, dst, dstw));
+
+	FAIL_IF(push_inst(compiler, FCFID | FD(dst_r) | FB(TMP_FREG1)));
+
+	if (dst & SLJIT_MEM)
+		return emit_op_mem2(compiler, FLOAT_DATA(op), TMP_FREG1, dst, dstw, 0, 0);
+	if (op & SLJIT_SINGLE_OP)
+		return push_inst(compiler, FRSP | FD(dst_r) | FB(dst_r));
 	return SLJIT_SUCCESS;
+
+#else
+
+	sljit_si dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
+	sljit_si invert_sign = 1;
+
+	if (src & SLJIT_IMM) {
+		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw ^ 0x80000000));
+		src = TMP_REG1;
+		invert_sign = 0;
+	}
+	else if (!FAST_IS_REG(src)) {
+		FAIL_IF(emit_op_mem2(compiler, WORD_DATA | SIGNED_DATA | LOAD_DATA, TMP_REG1, src, srcw, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET_LOW));
+		src = TMP_REG1;
+	}
+
+	/* First, a special double floating point value is constructed: (2^53 + (input xor (2^31)))
+	   The double precision format has exactly 53 bit precision, so the lower 32 bit represents
+	   the lower 32 bit of such value. The result of xor 2^31 is the same as adding 0x80000000
+	   to the input, which shifts it into the 0 - 0xffffffff range. To get the converted floating
+	   point value, we need to substract 2^53 + 2^31 from the constructed value. */
+	FAIL_IF(push_inst(compiler, ADDIS | D(TMP_REG2) | A(0) | 0x4330));
+	if (invert_sign)
+		FAIL_IF(push_inst(compiler, XORIS | S(src) | A(TMP_REG1) | 0x8000));
+	FAIL_IF(emit_op_mem2(compiler, WORD_DATA, TMP_REG2, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET_HI, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET));
+	FAIL_IF(emit_op_mem2(compiler, WORD_DATA, TMP_REG1, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET_LOW, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET_HI));
+	FAIL_IF(push_inst(compiler, ADDIS | D(TMP_REG1) | A(0) | 0x8000));
+	FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET_LOW));
+	FAIL_IF(emit_op_mem2(compiler, WORD_DATA, TMP_REG1, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET_LOW, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET));
+	FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG2, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET, SLJIT_MEM1(SLJIT_LOCALS_REG), FLOAT_TMP_MEM_OFFSET_LOW));
+
+	FAIL_IF(push_inst(compiler, FSUB | FD(dst_r) | FA(TMP_FREG1) | FB(TMP_FREG2)));
+
+	if (dst & SLJIT_MEM)
+		return emit_op_mem2(compiler, FLOAT_DATA(op), TMP_FREG1, dst, dstw, 0, 0);
+	if (op & SLJIT_SINGLE_OP)
+		return push_inst(compiler, FRSP | FD(dst_r) | FB(dst_r));
+	return SLJIT_SUCCESS;
+
+#endif
 }
 
 static SLJIT_INLINE sljit_si sljit_emit_fop1_cmp(struct sljit_compiler *compiler, sljit_si op,
