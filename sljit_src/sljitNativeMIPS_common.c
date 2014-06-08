@@ -550,7 +550,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	compiler->logical_local_size = local_size;
 #endif
 
-	local_size += (saveds + 1 + 4) * sizeof(sljit_sw);
+	local_size += ((saveds + 1) * sizeof(sljit_sw)) + FIXED_LOCALS_OFFSET;
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 	local_size = (local_size + 15) & ~0xf;
 #else
@@ -604,7 +604,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->logical_local_size = local_size;
 #endif
 
-	local_size += (saveds + 1 + 4) * sizeof(sljit_sw);
+	local_size += ((saveds + 1) * sizeof(sljit_sw)) + FIXED_LOCALS_OFFSET;
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 	compiler->local_size = (local_size + 15) & ~0xf;
 #else
