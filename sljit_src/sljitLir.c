@@ -117,7 +117,7 @@
 #define JUMP_ADDR	0x2
 /* SLJIT_REWRITABLE_JUMP is 0x1000. */
 
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 #	define PATCH_MB	0x4
 #	define PATCH_MW	0x8
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -162,7 +162,7 @@
 #	define PATCH_ABS64	0x100
 #endif
 
-#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 #	define IS_COND		0x004
 #	define IS_CALL		0x008
 #	define PATCH_B		0x010
@@ -174,7 +174,7 @@
 #	define REMOVE_COND	0x100
 #endif
 
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) || (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+#if (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 #	define IS_MOVABLE	0x004
 #	define IS_JAL		0x008
 #	define IS_CALL		0x010
@@ -307,15 +307,11 @@
 #include "sljitExecAllocator.c"
 #endif
 
-#if (defined SLJIT_SSE2_AUTO && SLJIT_SSE2_AUTO) && !(defined SLJIT_SSE2 && SLJIT_SSE2)
-#error SLJIT_SSE2_AUTO cannot be enabled without SLJIT_SSE2
-#endif
-
 /* --------------------------------------------------------------------- */
 /*  Public functions                                                     */
 /* --------------------------------------------------------------------- */
 
-#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || ((defined SLJIT_SSE2 && SLJIT_SSE2) && ((defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)))
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 #define SLJIT_NEEDS_COMPILER_INIT 1
 static sljit_si compiler_initialized = 0;
 /* A thread safe initialization. */
@@ -382,7 +378,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 	compiler->cpool_diff = 0xffffffff;
 #endif
 
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) || (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+#if (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 	compiler->delay_slot = UNMOVABLE_INS;
 #endif
 
@@ -1515,9 +1511,7 @@ static SLJIT_INLINE sljit_si emit_mov_before_return(struct sljit_compiler *compi
 
 #define SLJIT_CPUINFO SLJIT_CPUINFO_PART1 SLJIT_CPUINFO_PART2 SLJIT_CPUINFO_PART3
 
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-#	include "sljitNativeX86_common.c"
-#elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 #	include "sljitNativeX86_common.c"
 #elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 #	include "sljitNativeARM_32.c"
@@ -1527,21 +1521,17 @@ static SLJIT_INLINE sljit_si emit_mov_before_return(struct sljit_compiler *compi
 #	include "sljitNativeARM_T2_32.c"
 #elif (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
 #	include "sljitNativeARM_64.c"
-#elif (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
+#elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 #	include "sljitNativePPC_common.c"
-#elif (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-#	include "sljitNativePPC_common.c"
-#elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+#elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 #	include "sljitNativeMIPS_common.c"
-#elif (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
-#	include "sljitNativeMIPS_common.c"
-#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+#elif (defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC)
 #	include "sljitNativeSPARC_common.c"
 #elif (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
 #	include "sljitNativeTILEGX_64.c"
 #endif
 
-#if !(defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) && !(defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+#if !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_si type,
 	sljit_si src1, sljit_sw src1w,
@@ -1649,7 +1639,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 
 #endif
 
-#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_local_base(struct sljit_compiler *compiler, sljit_si dst, sljit_sw dstw, sljit_sw offset)
 {

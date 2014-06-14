@@ -238,7 +238,7 @@ struct sljit_compiler {
 	sljit_si mode32;
 #endif
 
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	sljit_si flags_saved;
 #endif
 
@@ -271,13 +271,13 @@ struct sljit_compiler {
 	sljit_sw cache_argw;
 #endif
 
-#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 	sljit_sw imm;
 	sljit_si cache_arg;
 	sljit_sw cache_argw;
 #endif
 
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) || (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+#if (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 	sljit_si delay_slot;
 	sljit_si cache_arg;
 	sljit_sw cache_argw;

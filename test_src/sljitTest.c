@@ -1446,33 +1446,15 @@ static void test19(void)
 
 	sljit_emit_enter(compiler, 1, 3, 1, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_SAVED_REG1), 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 0, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw));
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg == 0);
-#endif
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM0(), (sljit_sw)&buf[2], SLJIT_MEM0(), (sljit_sw)&buf[1], SLJIT_MEM0(), (sljit_sw)&buf[0]);
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG2, 0, SLJIT_IMM, sizeof(sljit_sw));
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw) * 3, SLJIT_MEM1(SLJIT_SCRATCH_REG1), (sljit_sw)&buf[0], SLJIT_MEM1(SLJIT_SCRATCH_REG2), (sljit_sw)&buf[0]);
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw) * 4, SLJIT_MEM0(), (sljit_sw)&buf[0], SLJIT_IMM, 2);
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw) * 5, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw) * 2, SLJIT_MEM1(SLJIT_SCRATCH_REG1), (sljit_sw)&buf[0] + 4 * sizeof(sljit_sw));
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), sizeof(sljit_sw) * 7, SLJIT_IMM, 10);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 7);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_SCRATCH_REG2), (sljit_sw)&buf[5], SLJIT_MEM2(SLJIT_SAVED_REG1, SLJIT_SCRATCH_REG1), SLJIT_WORD_SHIFT, SLJIT_MEM1(SLJIT_SCRATCH_REG2), (sljit_sw)&buf[5]);
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 
 	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
 
@@ -1896,57 +1878,30 @@ static void test24(void)
 
 	/* Nothing should be updated. */
 	sljit_emit_op1(compiler, SLJIT_MOVU_SH, SLJIT_MEM0(), (sljit_sw)&sbuf[1], SLJIT_MEM0(), (sljit_sw)&sbuf[0]);
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op1(compiler, SLJIT_MOVU_SB, SLJIT_MEM0(), (sljit_sw)&bbuf[1], SLJIT_MEM0(), (sljit_sw)&bbuf[0]);
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 2);
 	sljit_emit_op1(compiler, SLJIT_MOV_UH, SLJIT_MEM2(SLJIT_SAVED_REG2, SLJIT_SCRATCH_REG1), 1, SLJIT_MEM0(), (sljit_sw)&sbuf[3]);
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, (sljit_sw)&buf[0]);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG2, 0, SLJIT_IMM, sizeof(sljit_sw));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG3, 0, SLJIT_IMM, 2);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM2(SLJIT_SCRATCH_REG1, SLJIT_SCRATCH_REG3), SLJIT_WORD_SHIFT, SLJIT_MEM0(), (sljit_sw)&buf[0], SLJIT_MEM2(SLJIT_SCRATCH_REG2, SLJIT_SCRATCH_REG1), 0);
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, sizeof(sljit_sb));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG2, 0, SLJIT_IMM, sizeof(sljit_sb));
 	sljit_emit_op1(compiler, SLJIT_MOVU_UB, SLJIT_MEM1(SLJIT_SCRATCH_REG1), (sljit_sw)&bbuf[1], SLJIT_MEM1(SLJIT_SCRATCH_REG2), (sljit_sw)&bbuf[0]);
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op1(compiler, SLJIT_MOVU_UB, SLJIT_MEM1(SLJIT_SCRATCH_REG1), 0, SLJIT_MEM1(SLJIT_SCRATCH_REG2), 2 * sizeof(sljit_sb));
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG2, 0, SLJIT_IMM, sizeof(sljit_sh));
 	sljit_emit_op1(compiler, SLJIT_MOV_SH, SLJIT_MEM1(SLJIT_SCRATCH_REG2), (sljit_sw)&sbuf[3], SLJIT_SCRATCH_REG2, 0);
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-	SLJIT_ASSERT(compiler->cache_arg == 0);
-#endif
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 3);
 	sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_MEM2(SLJIT_SAVED_REG1, SLJIT_SCRATCH_REG1), SLJIT_WORD_SHIFT, SLJIT_MEM2(SLJIT_SAVED_REG1, SLJIT_SCRATCH_REG1), SLJIT_WORD_SHIFT, SLJIT_MEM2(SLJIT_SAVED_REG1, SLJIT_SCRATCH_REG1), SLJIT_WORD_SHIFT);
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_IMM, 4);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG2, 0, SLJIT_SAVED_REG1, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM2(SLJIT_SAVED_REG1, SLJIT_SCRATCH_REG1), SLJIT_WORD_SHIFT, SLJIT_MEM2(SLJIT_SCRATCH_REG2, SLJIT_SCRATCH_REG1), SLJIT_WORD_SHIFT, SLJIT_MEM2(SLJIT_SAVED_REG1, SLJIT_SCRATCH_REG1), SLJIT_WORD_SHIFT);
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG1, 0, SLJIT_SAVED_REG1, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_SCRATCH_REG2, 0, SLJIT_SAVED_REG1, 0, SLJIT_IMM, sizeof(sljit_sw));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_SCRATCH_REG3, 0, SLJIT_IMM, 4);
 	sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM2(SLJIT_SCRATCH_REG2, SLJIT_SCRATCH_REG3), SLJIT_WORD_SHIFT, SLJIT_MEM2(SLJIT_SCRATCH_REG1, SLJIT_SCRATCH_REG3), SLJIT_WORD_SHIFT);
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	SLJIT_ASSERT(compiler->cache_arg > 0);
-#endif
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_sw), SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_sw), SLJIT_SCRATCH_REG1, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_sw), SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_sw), SLJIT_SCRATCH_REG2, 0);
 
@@ -3658,7 +3613,7 @@ static void test41(void)
 		| (sljit_get_register_index(SLJIT_SAVED_REG1) << 5)
 		| (sljit_get_register_index(SLJIT_SAVED_REG2) << 16);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
-#elif (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 	/* add rD, rA, rB */
 	inst = (31 << 26) | (266 << 1) | (sljit_get_register_index(SLJIT_RETURN_REG) << 21)
 		| (sljit_get_register_index(SLJIT_SAVED_REG1) << 16)
@@ -3753,13 +3708,13 @@ static void test41(void)
 			| (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 5)
 			| (sljit_get_float_register_index(SLJIT_FLOAT_REG2) << 16);
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
-#elif (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) || (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 		/* fadd frD, frA, frB */
 		inst = (63 << 26) | (21 << 1) | (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 21)
 			| (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 16)
 			| (sljit_get_float_register_index(SLJIT_FLOAT_REG2) << 11);
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
-#elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) || (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+#elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 		/* add.d fd, fs, ft */
 		inst = (17 << 26) | (17 << 21) | (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 6)
 			| (sljit_get_float_register_index(SLJIT_FLOAT_REG1) << 11)
@@ -4619,7 +4574,7 @@ static void test50(void)
 	/* Test stack and floating point operations. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
-#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	sljit_uw size1, size2, size3;
 #endif
 	sljit_s sbuf[7];
@@ -4656,20 +4611,20 @@ static void test50(void)
 	/* sbuf[5] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG1), 5 * sizeof(sljit_s), SLJIT_MEM1(SLJIT_LOCALS_REG), 3 * sizeof(sljit_s));
 
-#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	size1 = compiler->size;
 #endif
 	sljit_emit_fop1(compiler, SLJIT_MOVS, SLJIT_FLOAT_REG3, 0, SLJIT_MEM1(SLJIT_SAVED_REG1), 2 * sizeof(sljit_s));
-#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	size2 = compiler->size;
 #endif
 	sljit_emit_fop1(compiler, SLJIT_MOVS, SLJIT_FLOAT_REG6, 0, SLJIT_FLOAT_REG3, 0);
-#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	size3 = compiler->size;
 #endif
 	/* sbuf[6] */
 	sljit_emit_fop1(compiler, SLJIT_MOVS, SLJIT_MEM1(SLJIT_SAVED_REG1), 6 * sizeof(sljit_s), SLJIT_FLOAT_REG6, 0);
-#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) && !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	SLJIT_ASSERT((compiler->size - size3) == (size3 - size2) && (size3 - size2) == (size2 - size1));
 #endif
 
