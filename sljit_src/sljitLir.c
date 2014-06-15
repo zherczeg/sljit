@@ -589,10 +589,6 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	case SLJIT_MUL: \
 		SLJIT_ASSERT(!(op & (SLJIT_SET_E | SLJIT_SET_U | SLJIT_SET_S | SLJIT_SET_C))); \
 		break; \
-	case SLJIT_CMPD: \
-		SLJIT_ASSERT(!(op & (SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
-		SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_SET_S))); \
-		break; \
 	case SLJIT_ADD: \
 		SLJIT_ASSERT(!(op & (SLJIT_SET_U | SLJIT_SET_S))); \
 		break; \
@@ -614,6 +610,19 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	case SLJIT_MOVU_P: \
 		/* Nothing allowed */ \
 		SLJIT_ASSERT(!(op & (SLJIT_INT_OP | SLJIT_SET_E | SLJIT_SET_U | SLJIT_SET_S | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
+		break; \
+	default: \
+		/* Only SLJIT_INT_OP or SLJIT_SINGLE_OP is allowed. */ \
+		SLJIT_ASSERT(!(op & (SLJIT_SET_E | SLJIT_SET_U | SLJIT_SET_S | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
+		break; \
+	}
+
+#define FUNCTION_CHECK_FOP() \
+	SLJIT_ASSERT(!GET_FLAGS(op) || !(op & SLJIT_KEEP_FLAGS)); \
+	switch (GET_OPCODE(op)) { \
+	case SLJIT_CMPD: \
+		SLJIT_ASSERT(!(op & (SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
+		SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_SET_S))); \
 		break; \
 	default: \
 		/* Only SLJIT_INT_OP or SLJIT_SINGLE_OP is allowed. */ \
@@ -1059,7 +1068,6 @@ static SLJIT_INLINE void check_sljit_emit_op_custom(struct sljit_compiler *compi
 	SLJIT_ASSERT(sljit_is_fpu_available()); \
 	SLJIT_COMPILE_ASSERT(!(SLJIT_CONVW_FROMD & 0x1) && !(SLJIT_CONVD_FROMW & 0x1) && (SLJIT_MOVD < SLJIT_CONVW_FROMD), \
 		invalid_float_opcodes); \
-	FUNCTION_CHECK_OP(); \
 	if (GET_OPCODE(op) >= SLJIT_CONVW_FROMD) { \
 		if (GET_OPCODE(op) == SLJIT_CMPD) { \
 			check_sljit_emit_fop1_cmp(compiler, op, dst, dstw, src, srcw); \
@@ -1103,6 +1111,7 @@ static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, 
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOVD && GET_OPCODE(op) <= SLJIT_CONVD_FROMS);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src, srcw);
 	FUNCTION_FCHECK(dst, dstw);
 #endif
@@ -1141,6 +1150,7 @@ static SLJIT_INLINE void check_sljit_emit_fop1_cmp(struct sljit_compiler *compil
 
 	SLJIT_ASSERT(GET_OPCODE(op) == SLJIT_CMPD);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src1, src1w);
 	FUNCTION_FCHECK(src2, src2w);
 #endif
@@ -1177,6 +1187,7 @@ static SLJIT_INLINE void check_sljit_emit_fop1_convw_fromd(struct sljit_compiler
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_CONVW_FROMD && GET_OPCODE(op) <= SLJIT_CONVI_FROMD);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src, srcw);
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
@@ -1214,6 +1225,7 @@ static SLJIT_INLINE void check_sljit_emit_fop1_convd_fromw(struct sljit_compiler
 
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_CONVD_FROMW && GET_OPCODE(op) <= SLJIT_CONVD_FROMI);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	FUNCTION_CHECK_FOP();
 	FUNCTION_CHECK_SRC(src, srcw);
 	FUNCTION_FCHECK(dst, dstw);
 #endif
@@ -1248,7 +1260,7 @@ static SLJIT_INLINE void check_sljit_emit_fop2(struct sljit_compiler *compiler, 
 	SLJIT_ASSERT(sljit_is_fpu_available());
 	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_ADDD && GET_OPCODE(op) <= SLJIT_DIVD);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	FUNCTION_CHECK_OP();
+	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src1, src1w);
 	FUNCTION_FCHECK(src2, src2w);
 	FUNCTION_FCHECK(dst, dstw);

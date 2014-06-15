@@ -3436,7 +3436,8 @@ static void test39(void)
 	SLJIT_ASSERT(!compiler->abuf->next && !compiler->abuf->used_size);
 
 	code.code = sljit_generate_code(compiler);
-	SLJIT_ASSERT(!code.code && sljit_get_compiler_error(compiler) == -3967);
+	FAILED(sljit_get_compiler_error(compiler) != -3967, "test39 case 1 failed\n");
+	FAILED(!!code.code, "test39 case 2 failed\n");
 	sljit_free_compiler(compiler);
 	successful_tests++;
 }
@@ -4576,6 +4577,7 @@ static void test50(void)
 	struct sljit_compiler* compiler = sljit_create_compiler();
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	sljit_uw size1, size2, size3;
+	int result;
 #endif
 	sljit_s sbuf[7];
 
@@ -4625,7 +4627,7 @@ static void test50(void)
 	/* sbuf[6] */
 	sljit_emit_fop1(compiler, SLJIT_MOVS, SLJIT_MEM1(SLJIT_SAVED_REG1), 6 * sizeof(sljit_s), SLJIT_FLOAT_REG6, 0);
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
-	SLJIT_ASSERT((compiler->size - size3) == (size3 - size2) && (size3 - size2) == (size2 - size1));
+	result = (compiler->size - size3) == (size3 - size2) && (size3 - size2) == (size2 - size1);
 #endif
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
@@ -4640,6 +4642,9 @@ static void test50(void)
 	FAILED(sbuf[4] != 145.25, "test50 case 2 failed\n");
 	FAILED(sbuf[5] != 5934, "test50 case 3 failed\n");
 	FAILED(sbuf[6] != 713.75, "test50 case 4 failed\n");
+#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+	FAILED(!result, "test50 case 5 failed\n");
+#endif
 
 	sljit_free_code(code.code);
 	successful_tests++;
