@@ -108,31 +108,31 @@ of sljitConfigInternal.h */
 
 /* Scratch (temporary) registers whose may not preserve their values
    across function calls. */
-#define SLJIT_SCRATCH_REG1	1
-#define SLJIT_SCRATCH_REG2	2
-#define SLJIT_SCRATCH_REG3	3
+#define SLJIT_R0	1
+#define SLJIT_R1	2
+#define SLJIT_R2	3
 /* Note: extra registers cannot be used for memory addressing. */
 /* Note: on x86-32, these registers are emulated (using stack
    loads & stores). */
-#define SLJIT_SCRATCH_EREG1	4
-#define SLJIT_SCRATCH_EREG2	5
+#define SLJIT_R3	4
+#define SLJIT_R4	5
 
 /* Saved registers whose preserve their values across function calls. */
-#define SLJIT_SAVED_REG1	6
-#define SLJIT_SAVED_REG2	7
-#define SLJIT_SAVED_REG3	8
+#define SLJIT_S0	6
+#define SLJIT_S1	7
+#define SLJIT_S2	8
 /* Note: extra registers cannot be used for memory addressing. */
 /* Note: on x86-32, these registers are emulated (using stack
    loads & stores). */
-#define SLJIT_SAVED_EREG1	9
-#define SLJIT_SAVED_EREG2	10
+#define SLJIT_S3	9
+#define SLJIT_S4	10
 
 /* Read-only register (cannot be the destination of an operation).
-   Only SLJIT_MEM1(SLJIT_LOCALS_REG) addressing mode is allowed since
+   Only SLJIT_MEM1(SLJIT_SP) addressing mode is allowed since
    several ABIs has certain limitations about the stack layout. However
    sljit_get_local_base() can be used to obtain the offset of a value
    on the stack. */
-#define SLJIT_LOCALS_REG	11
+#define SLJIT_SP	11
 
 /* Number of registers. */
 #define SLJIT_NO_TMP_REGISTERS	5
@@ -141,15 +141,15 @@ of sljitConfigInternal.h */
 
 /* Return with machine word. */
 
-#define SLJIT_RETURN_REG	SLJIT_SCRATCH_REG1
+#define SLJIT_RETURN_REG	SLJIT_R0
 
 /* x86 prefers specific registers for special purposes. In case of shift
-   by register it supports only SLJIT_SCRATCH_REG3 for shift argument
+   by register it supports only SLJIT_R2 for shift argument
    (which is the src2 argument of sljit_emit_op2). If another register is
    used, sljit must exchange data between registers which cause a minor
    slowdown. Other architectures has no such limitation. */
 
-#define SLJIT_PREF_SHIFT_REG	SLJIT_SCRATCH_REG3
+#define SLJIT_PREF_SHIFT_REG	SLJIT_R2
 
 /* --------------------------------------------------------------------- */
 /*  Floating point registers                                             */
@@ -368,17 +368,17 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    function emits the necessary instructions for setting up a new context
    for the executable code and moves function arguments to the saved
    registers. The number of arguments are specified in the "args"
-   parameter and the first argument goes to SLJIT_SAVED_REG1, the second
-   goes to SLJIT_SAVED_REG2 and so on. The number of scratch and
+   parameter and the first argument goes to SLJIT_S0, the second
+   goes to SLJIT_S1 and so on. The number of scratch and
    saved registers are passed in "scratches" and "saveds" arguments
    respectively. Since the saved registers contains the arguments,
    "args" must be less or equal than "saveds". The sljit_emit_enter
    is also capable of allocating a stack space for local variables. The
    "local_size" argument contains the size in bytes of this local area
-   and its staring address is stored in SLJIT_LOCALS_REG. However
-   the SLJIT_LOCALS_REG is not necessary the machine stack pointer.
-   The memory bytes between SLJIT_LOCALS_REG (inclusive) and
-   SLJIT_LOCALS_REG + local_size (exclusive) can be modified freely
+   and its staring address is stored in SLJIT_SP. However
+   the SLJIT_SP is not necessary the machine stack pointer.
+   The memory bytes between SLJIT_SP (inclusive) and
+   SLJIT_SP + local_size (exclusive) can be modified freely
    until the function returns. The stack space is uninitialized.
 
    Note: every call of sljit_emit_enter and sljit_set_context
@@ -558,23 +558,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
          it can even decrease the runtime in a few cases. */
 #define SLJIT_NOP			1
 /* Flags: - (may destroy flags)
-   Unsigned multiplication of SLJIT_SCRATCH_REG1 and SLJIT_SCRATCH_REG2.
-   Result goes to SLJIT_SCRATCH_REG2:SLJIT_SCRATCH_REG1 (high:low) word */
+   Unsigned multiplication of SLJIT_R0 and SLJIT_R1.
+   Result goes to SLJIT_R1:SLJIT_R0 (high:low) word */
 #define SLJIT_UMUL			2
 /* Flags: - (may destroy flags)
-   Signed multiplication of SLJIT_SCRATCH_REG1 and SLJIT_SCRATCH_REG2.
-   Result goes to SLJIT_SCRATCH_REG2:SLJIT_SCRATCH_REG1 (high:low) word */
+   Signed multiplication of SLJIT_R0 and SLJIT_R1.
+   Result goes to SLJIT_R1:SLJIT_R0 (high:low) word */
 #define SLJIT_SMUL			3
 /* Flags: I - (may destroy flags)
-   Unsigned divide of the value in SLJIT_SCRATCH_REG1 by the value in SLJIT_SCRATCH_REG2.
-   The result is placed in SLJIT_SCRATCH_REG1 and the remainder goes to SLJIT_SCRATCH_REG2.
-   Note: if SLJIT_SCRATCH_REG2 contains 0, the behaviour is undefined. */
+   Unsigned divide of the value in SLJIT_R0 by the value in SLJIT_R1.
+   The result is placed in SLJIT_R0 and the remainder goes to SLJIT_R1.
+   Note: if SLJIT_R1 contains 0, the behaviour is undefined. */
 #define SLJIT_UDIV			4
 #define SLJIT_IUDIV			(SLJIT_UDIV | SLJIT_INT_OP)
 /* Flags: I - (may destroy flags)
-   Signed divide of the value in SLJIT_SCRATCH_REG1 by the value in SLJIT_SCRATCH_REG2.
-   The result is placed in SLJIT_SCRATCH_REG1 and the remainder goes to SLJIT_SCRATCH_REG2.
-   Note: if SLJIT_SCRATCH_REG2 contains 0, the behaviour is undefined. */
+   Signed divide of the value in SLJIT_R0 by the value in SLJIT_R1.
+   The result is placed in SLJIT_R0 and the remainder goes to SLJIT_R1.
+   Note: if SLJIT_R1 contains 0, the behaviour is undefined. */
 #define SLJIT_SDIV			5
 #define SLJIT_ISDIV			(SLJIT_SDIV | SLJIT_INT_OP)
 
@@ -906,7 +906,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 	sljit_si src, sljit_sw srcw,
 	sljit_si type);
 
-/* Copies the base address of SLJIT_LOCALS_REG+offset to dst.
+/* Copies the base address of SLJIT_SP+offset to dst.
    Flags: - (never set any flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_local_base(struct sljit_compiler *compiler, sljit_si dst, sljit_sw dstw, sljit_sw offset);
 

@@ -107,25 +107,25 @@ struct regex_match
 
 /* Register allocation. */
 /* Current state array (loaded & stored: regex_match->current). */
-#define R_CURR_STATE	SLJIT_SAVED_REG1
+#define R_CURR_STATE	SLJIT_S0
 /* Next state array (loaded & stored: regex_match->next). */
-#define R_NEXT_STATE	SLJIT_SAVED_REG2
+#define R_NEXT_STATE	SLJIT_S1
 /* Head (loaded & stored: regex_match->head). */
-#define R_NEXT_HEAD	SLJIT_SAVED_REG3
+#define R_NEXT_HEAD	SLJIT_S2
 /* String fragment pointer. */
-#define R_STRING	SLJIT_SAVED_EREG1
+#define R_STRING	SLJIT_S3
 /* String fragment length. */
-#define R_LENGTH	SLJIT_SAVED_EREG2
+#define R_LENGTH	SLJIT_S4
 /* 'struct regex_match*' */
-#define R_REGEX_MATCH	SLJIT_SCRATCH_REG1
+#define R_REGEX_MATCH	SLJIT_R0
 /* Current character. */
-#define R_CURR_CHAR	SLJIT_SCRATCH_REG2
+#define R_CURR_CHAR	SLJIT_R1
 /* Temporary register. */
-#define R_TEMP		SLJIT_SCRATCH_REG3
+#define R_TEMP		SLJIT_R2
 /* Caches the regex_match->best_begin. */
-#define R_BEST_BEGIN	SLJIT_SCRATCH_EREG1
+#define R_BEST_BEGIN	SLJIT_R3
 /* Current character index. */
-#define R_CURR_INDEX	SLJIT_SCRATCH_EREG2
+#define R_CURR_INDEX	SLJIT_R4
 
 /* --------------------------------------------------------------------- */
 /*  Stack management                                                     */
@@ -1965,9 +1965,9 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 	CHECK(sljit_emit_enter(compiler_common.compiler, 3, 5, 5, 0));
 
 	/* Copy arguments to their place. */
-	EMIT_OP1(SLJIT_MOV, R_REGEX_MATCH, 0, SLJIT_SAVED_REG1, 0);
-	EMIT_OP1(SLJIT_MOV, R_STRING, 0, SLJIT_SAVED_REG2, 0);
-	EMIT_OP2(SLJIT_ADD, R_LENGTH, 0, SLJIT_SAVED_REG3, 0, SLJIT_IMM, 1);
+	EMIT_OP1(SLJIT_MOV, R_REGEX_MATCH, 0, SLJIT_S0, 0);
+	EMIT_OP1(SLJIT_MOV, R_STRING, 0, SLJIT_S1, 0);
+	EMIT_OP2(SLJIT_ADD, R_LENGTH, 0, SLJIT_S2, 0, SLJIT_IMM, 1);
 
 	/* Init global registers. */
 	EMIT_OP1(SLJIT_MOV, R_CURR_STATE, 0, SLJIT_MEM1(R_REGEX_MATCH), SLJIT_OFFSETOF(struct regex_match, current));
@@ -2237,19 +2237,19 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 		CHECK(sljit_emit_enter(compiler_common.compiler, 2, 3, 3, 0));
 
 		if (empty_match_id == -1) {
-			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG2), SLJIT_OFFSETOF(struct regex_match, best_begin), SLJIT_IMM, -1);
-			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG2), SLJIT_OFFSETOF(struct regex_match, best_id), SLJIT_IMM, 0);
+			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), SLJIT_OFFSETOF(struct regex_match, best_begin), SLJIT_IMM, -1);
+			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), SLJIT_OFFSETOF(struct regex_match, best_id), SLJIT_IMM, 0);
 		}
 		else {
-			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG2), SLJIT_OFFSETOF(struct regex_match, best_begin), SLJIT_IMM, 0);
-			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG2), SLJIT_OFFSETOF(struct regex_match, best_id), SLJIT_IMM, empty_match_id);
+			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), SLJIT_OFFSETOF(struct regex_match, best_begin), SLJIT_IMM, 0);
+			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), SLJIT_OFFSETOF(struct regex_match, best_id), SLJIT_IMM, empty_match_id);
 		}
 
-		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_SAVED_REG2), SLJIT_OFFSETOF(struct regex_match, index), SLJIT_IMM, !(compiler_common.flags & REGEX_FAKE_MATCH_BEGIN) ? 1 : 2);
+		EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), SLJIT_OFFSETOF(struct regex_match, index), SLJIT_IMM, !(compiler_common.flags & REGEX_FAKE_MATCH_BEGIN) ? 1 : 2);
 
 		if (!(compiler_common.flags & REGEX_MATCH_NON_GREEDY) || empty_match_id == -1) {
 			/* The else is a really rare event, so we still generate an empty function instead of a runtime pointer check. */
-			SLJIT_ASSERT(R_CURR_STATE == SLJIT_SAVED_REG1);
+			SLJIT_ASSERT(R_CURR_STATE == SLJIT_S0);
 			if (!(compiler_common.flags & REGEX_MATCH_BEGIN)) {
 				/* R_CURR_INDEX (put to R_TEMP) is zero. */
 				EMIT_OP1(SLJIT_MOV, R_TEMP, 0, SLJIT_IMM, 0);

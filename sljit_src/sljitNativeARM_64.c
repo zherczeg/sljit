@@ -1089,25 +1089,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 		FAIL_IF(push_inst(compiler, STP_PRE | 29 | RT2(TMP_LR) | RN(TMP_SP) | (0x40 << 15)));
 	}
 
-	FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_LOCALS_REG) | RN(TMP_SP)));
+	FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_SP) | RN(TMP_SP)));
 
 	if (saveds >= 2)
-		FAIL_IF(push_inst(compiler, STP | RT(SLJIT_SAVED_REG1) | RT2(SLJIT_SAVED_REG2) | RN(TMP_SP) | (2 << 15)));
+		FAIL_IF(push_inst(compiler, STP | RT(SLJIT_S0) | RT2(SLJIT_S1) | RN(TMP_SP) | (2 << 15)));
 	if (saveds >= 4)
-		FAIL_IF(push_inst(compiler, STP | RT(SLJIT_SAVED_REG3) | RT2(SLJIT_SAVED_EREG1) | RN(TMP_SP) | (4 << 15)));
+		FAIL_IF(push_inst(compiler, STP | RT(SLJIT_S2) | RT2(SLJIT_S3) | RN(TMP_SP) | (4 << 15)));
 	if (saveds == 1)
-		FAIL_IF(push_inst(compiler, STRI | RT(SLJIT_SAVED_REG1) | RN(TMP_SP) | (2 << 10)));
+		FAIL_IF(push_inst(compiler, STRI | RT(SLJIT_S0) | RN(TMP_SP) | (2 << 10)));
 	if (saveds == 3)
-		FAIL_IF(push_inst(compiler, STRI | RT(SLJIT_SAVED_REG3) | RN(TMP_SP) | (4 << 10)));
+		FAIL_IF(push_inst(compiler, STRI | RT(SLJIT_S2) | RN(TMP_SP) | (4 << 10)));
 	if (saveds == 5)
-		FAIL_IF(push_inst(compiler, STRI | RT(SLJIT_SAVED_EREG2) | RN(TMP_SP) | (6 << 10)));
+		FAIL_IF(push_inst(compiler, STRI | RT(SLJIT_S4) | RN(TMP_SP) | (6 << 10)));
 
 	if (args >= 1)
-		FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_SAVED_REG1) | RN(TMP_ZERO) | RM(SLJIT_SCRATCH_REG1)));
+		FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0) | RN(TMP_ZERO) | RM(SLJIT_R0)));
 	if (args >= 2)
-		FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_SAVED_REG2) | RN(TMP_ZERO) | RM(SLJIT_SCRATCH_REG2)));
+		FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S1) | RN(TMP_ZERO) | RM(SLJIT_R1)));
 	if (args >= 3)
-		FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_SAVED_REG3) | RN(TMP_ZERO) | RM(SLJIT_SCRATCH_REG3)));
+		FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S2) | RN(TMP_ZERO) | RM(SLJIT_R2)));
 
 	return SLJIT_SUCCESS;
 }
@@ -1138,15 +1138,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 	saveds = compiler->saveds;
 
 	if (saveds >= 2)
-		FAIL_IF(push_inst(compiler, LDP | RT(SLJIT_SAVED_REG1) | RT2(SLJIT_SAVED_REG2) | RN(TMP_SP) | (2 << 15)));
+		FAIL_IF(push_inst(compiler, LDP | RT(SLJIT_S0) | RT2(SLJIT_S1) | RN(TMP_SP) | (2 << 15)));
 	if (saveds >= 4)
-		FAIL_IF(push_inst(compiler, LDP | RT(SLJIT_SAVED_REG3) | RT2(SLJIT_SAVED_EREG1) | RN(TMP_SP) | (4 << 15)));
+		FAIL_IF(push_inst(compiler, LDP | RT(SLJIT_S2) | RT2(SLJIT_S3) | RN(TMP_SP) | (4 << 15)));
 	if (saveds == 1)
-		FAIL_IF(push_inst(compiler, LDRI | RT(SLJIT_SAVED_REG1) | RN(TMP_SP) | (2 << 10)));
+		FAIL_IF(push_inst(compiler, LDRI | RT(SLJIT_S0) | RN(TMP_SP) | (2 << 10)));
 	if (saveds == 3)
-		FAIL_IF(push_inst(compiler, LDRI | RT(SLJIT_SAVED_REG3) | RN(TMP_SP) | (4 << 10)));
+		FAIL_IF(push_inst(compiler, LDRI | RT(SLJIT_S2) | RN(TMP_SP) | (4 << 10)));
 	if (saveds == 5)
-		FAIL_IF(push_inst(compiler, LDRI | RT(SLJIT_SAVED_EREG2) | RN(TMP_SP) | (6 << 10)));
+		FAIL_IF(push_inst(compiler, LDRI | RT(SLJIT_S4) | RN(TMP_SP) | (6 << 10)));
 
 	local_size = compiler->local_size;
 
@@ -1187,15 +1187,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 		return push_inst(compiler, NOP);
 	case SLJIT_UMUL:
 	case SLJIT_SMUL:
-		FAIL_IF(push_inst(compiler, ORR | RD(TMP_REG1) | RN(TMP_ZERO) | RM(SLJIT_SCRATCH_REG1)));
-		FAIL_IF(push_inst(compiler, MADD | RD(SLJIT_SCRATCH_REG1) | RN(SLJIT_SCRATCH_REG1) | RM(SLJIT_SCRATCH_REG2) | RT2(TMP_ZERO)));
-		return push_inst(compiler, (op == SLJIT_SMUL ? SMULH : UMULH) | RD(SLJIT_SCRATCH_REG2) | RN(TMP_REG1) | RM(SLJIT_SCRATCH_REG2));
+		FAIL_IF(push_inst(compiler, ORR | RD(TMP_REG1) | RN(TMP_ZERO) | RM(SLJIT_R0)));
+		FAIL_IF(push_inst(compiler, MADD | RD(SLJIT_R0) | RN(SLJIT_R0) | RM(SLJIT_R1) | RT2(TMP_ZERO)));
+		return push_inst(compiler, (op == SLJIT_SMUL ? SMULH : UMULH) | RD(SLJIT_R1) | RN(TMP_REG1) | RM(SLJIT_R1));
 	case SLJIT_UDIV:
 	case SLJIT_SDIV:
-		FAIL_IF(push_inst(compiler, (ORR ^ inv_bits) | RD(TMP_REG1) | RN(TMP_ZERO) | RM(SLJIT_SCRATCH_REG1)));
-		FAIL_IF(push_inst(compiler, ((op == SLJIT_SDIV ? SDIV : UDIV) ^ inv_bits) | RD(SLJIT_SCRATCH_REG1) | RN(SLJIT_SCRATCH_REG1) | RM(SLJIT_SCRATCH_REG2)));
-		FAIL_IF(push_inst(compiler, (MADD ^ inv_bits) | RD(SLJIT_SCRATCH_REG2) | RN(SLJIT_SCRATCH_REG1) | RM(SLJIT_SCRATCH_REG2) | RT2(TMP_ZERO)));
-		return push_inst(compiler, (SUB ^ inv_bits) | RD(SLJIT_SCRATCH_REG2) | RN(TMP_REG1) | RM(SLJIT_SCRATCH_REG2));
+		FAIL_IF(push_inst(compiler, (ORR ^ inv_bits) | RD(TMP_REG1) | RN(TMP_ZERO) | RM(SLJIT_R0)));
+		FAIL_IF(push_inst(compiler, ((op == SLJIT_SDIV ? SDIV : UDIV) ^ inv_bits) | RD(SLJIT_R0) | RN(SLJIT_R0) | RM(SLJIT_R1)));
+		FAIL_IF(push_inst(compiler, (MADD ^ inv_bits) | RD(SLJIT_R1) | RN(SLJIT_R0) | RM(SLJIT_R1) | RT2(TMP_ZERO)));
+		return push_inst(compiler, (SUB ^ inv_bits) | RD(SLJIT_R1) | RN(TMP_REG1) | RM(SLJIT_R1));
 	}
 
 	return SLJIT_SUCCESS;
