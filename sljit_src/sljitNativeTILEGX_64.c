@@ -2370,7 +2370,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 				FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, TMP_REG2, 0, TMP_REG1, 0, src, srcw));
 			}
 
-			FAIL_IF(ADD_SOLO(0, reg_map[SLJIT_SCRATCH_REG1], ZERO));
+			FAIL_IF(ADD_SOLO(0, reg_map[SLJIT_R0], ZERO));
 
 			FAIL_IF(ADDI_SOLO(54, 54, -16));
 
@@ -2381,7 +2381,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 
 		/* Register input. */
 		if (type >= SLJIT_CALL1)
-			FAIL_IF(ADD_SOLO(0, reg_map[SLJIT_SCRATCH_REG1], ZERO));
+			FAIL_IF(ADD_SOLO(0, reg_map[SLJIT_R0], ZERO));
 
 		FAIL_IF(ADD_SOLO(reg_map[PIC_ADDR_REG], reg_map[src_r], ZERO));
 
@@ -2511,7 +2511,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump * sljit_emit_jump(struct sljit_compil
 		SLJIT_ASSERT(reg_map[PIC_ADDR_REG] == 16 && PIC_ADDR_REG == TMP_REG2);
 		/* Cannot be optimized out if type is >= CALL0. */
 		jump->flags |= IS_JAL | (type >= SLJIT_CALL0 ? SLJIT_REWRITABLE_JUMP : 0);
-		PTR_FAIL_IF(ADD_SOLO(0, reg_map[SLJIT_SCRATCH_REG1], ZERO));
+		PTR_FAIL_IF(ADD_SOLO(0, reg_map[SLJIT_R0], ZERO));
 		jump->addr = compiler->size;
 		PTR_FAIL_IF(JALR_SOLO(TMP_REG2_mapped));
 	}

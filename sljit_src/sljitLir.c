@@ -281,13 +281,13 @@
 #if (defined SLJIT_HAS_VARIABLE_LOCALS_OFFSET && SLJIT_HAS_VARIABLE_LOCALS_OFFSET)
 
 #define ADJUST_LOCAL_OFFSET(p, i) \
-	if ((p) == (SLJIT_MEM1(SLJIT_LOCALS_REG))) \
+	if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
 		(i) += compiler->locals_offset;
 
 #elif (defined SLJIT_HAS_FIXED_LOCALS_OFFSET && SLJIT_HAS_FIXED_LOCALS_OFFSET)
 
 #define ADJUST_LOCAL_OFFSET(p, i) \
-	if ((p) == (SLJIT_MEM1(SLJIT_LOCALS_REG))) \
+	if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
 		(i) += FIXED_LOCALS_OFFSET;
 
 #else
@@ -632,8 +632,8 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 
 #define FUNCTION_CHECK_IS_REG(r) \
 	((r) == SLJIT_UNUSED || \
-	((r) >= SLJIT_SCRATCH_REG1 && (r) <= SLJIT_SCRATCH_REG1 - 1 + compiler->scratches) || \
-	((r) >= SLJIT_SAVED_REG1 && (r) <= SLJIT_SAVED_REG1 - 1 + compiler->saveds))
+	((r) >= SLJIT_R0 && (r) <= SLJIT_R0 - 1 + compiler->scratches) || \
+	((r) >= SLJIT_S0 && (r) <= SLJIT_S0 - 1 + compiler->saveds))
 
 #define FUNCTION_CHECK_SRC(p, i) \
 	SLJIT_ASSERT(compiler->scratches != -1 && compiler->saveds != -1); \
@@ -641,7 +641,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		SLJIT_ASSERT((i) == 0 && (p) != SLJIT_UNUSED); \
 	else if ((p) == SLJIT_IMM) \
 		; \
-	else if ((p) == (SLJIT_MEM1(SLJIT_LOCALS_REG))) \
+	else if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
 		SLJIT_ASSERT((i) >= 0 && (i) < compiler->logical_local_size); \
 	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & REG_MASK)); \
@@ -658,7 +658,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	SLJIT_ASSERT(compiler->scratches != -1 && compiler->saveds != -1); \
 	if (FUNCTION_CHECK_IS_REG(p)) \
 		SLJIT_ASSERT((i) == 0); \
-	else if ((p) == (SLJIT_MEM1(SLJIT_LOCALS_REG))) \
+	else if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
 		SLJIT_ASSERT((i) >= 0 && (i) < compiler->logical_local_size); \
 	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & REG_MASK)); \
@@ -674,13 +674,13 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 #define FUNCTION_FCHECK(p, i) \
 	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG6) \
 		SLJIT_ASSERT(i == 0); \
-	else if ((p) == (SLJIT_MEM1(SLJIT_LOCALS_REG))) \
+	else if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
 		SLJIT_ASSERT((i) >= 0 && (i) < compiler->logical_local_size); \
 	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & REG_MASK)); \
 		if ((p) & OFFS_REG_MASK) { \
 			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(OFFS_REG(p))); \
-			SLJIT_ASSERT(((p) & OFFS_REG_MASK) != TO_OFFS_REG(SLJIT_LOCALS_REG) && !(i & ~0x3)); \
+			SLJIT_ASSERT(((p) & OFFS_REG_MASK) != TO_OFFS_REG(SLJIT_SP) && !(i & ~0x3)); \
 		} else \
 			SLJIT_ASSERT(OFFS_REG(p) == 0); \
 		SLJIT_ASSERT(!((p) & ~(SLJIT_MEM | SLJIT_IMM | REG_MASK | OFFS_REG_MASK))); \
@@ -690,8 +690,8 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 
 #define FUNCTION_CHECK_OP1() \
 	if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_P) { \
-		SLJIT_ASSERT(!(src & SLJIT_MEM) || (src & REG_MASK) != SLJIT_LOCALS_REG); \
-		SLJIT_ASSERT(!(dst & SLJIT_MEM) || (dst & REG_MASK) != SLJIT_LOCALS_REG); \
+		SLJIT_ASSERT(!(src & SLJIT_MEM) || (src & REG_MASK) != SLJIT_SP); \
+		SLJIT_ASSERT(!(dst & SLJIT_MEM) || (dst & REG_MASK) != SLJIT_SP); \
 		if ((src & SLJIT_MEM) && (src & REG_MASK)) \
 			SLJIT_ASSERT((dst & REG_MASK) != (src & REG_MASK) && OFFS_REG(dst) != (src & REG_MASK)); \
 	}
@@ -1658,13 +1658,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_local_base(struct sljit_compiler *co
 	CHECK_ERROR();
 	check_sljit_get_local_base(compiler, dst, dstw, offset);
 
-	ADJUST_LOCAL_OFFSET(SLJIT_MEM1(SLJIT_LOCALS_REG), offset);
+	ADJUST_LOCAL_OFFSET(SLJIT_MEM1(SLJIT_SP), offset);
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->skip_checks = 1;
 #endif
 	if (offset != 0)
-		return sljit_emit_op2(compiler, SLJIT_ADD | SLJIT_KEEP_FLAGS, dst, dstw, SLJIT_LOCALS_REG, 0, SLJIT_IMM, offset);
-	return sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, SLJIT_LOCALS_REG, 0);
+		return sljit_emit_op2(compiler, SLJIT_ADD | SLJIT_KEEP_FLAGS, dst, dstw, SLJIT_SP, 0, SLJIT_IMM, offset);
+	return sljit_emit_op1(compiler, SLJIT_MOV, dst, dstw, SLJIT_SP, 0);
 }
 
 #endif
