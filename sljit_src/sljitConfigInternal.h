@@ -33,6 +33,8 @@
    Feature detection (boolean) macros:
    SLJIT_32BIT_ARCHITECTURE : 32 bit architecture
    SLJIT_64BIT_ARCHITECTURE : 64 bit architecture
+   SLJIT_NUMBER_OF_REGISTERS : number of registers ( >= 10 ) provided by the SLJIT on this architecture
+   SLJIT_NUMBER_OF_SAVED_REGISTERS : number of saved registers ( >= 5 ) provided by the SLJIT on this architecture
    SLJIT_WORD_SHIFT : the shift required to apply when accessing a sljit_sw/sljit_uw array by index
    SLJIT_DOUBLE_SHIFT : the shift required to apply when accessing a double precision floating point array by index
    SLJIT_SINGLE_SHIFT : the shift required to apply when accessing a single precision floating point array by index
@@ -154,6 +156,19 @@
 #define SLJIT_CONFIG_MIPS 1
 #elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) || (defined SLJIT_CONFIG_SPARC_64 && SLJIT_CONFIG_SPARC_64)
 #define SLJIT_CONFIG_SPARC 1
+#endif
+
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+#define SLJIT_NUMBER_OF_REGISTERS 10
+#define SLJIT_NUMBER_OF_SAVED_REGISTERS 7
+#elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#ifndef _WIN64
+#define SLJIT_NUMBER_OF_REGISTERS 12
+#define SLJIT_NUMBER_OF_SAVED_REGISTERS 6
+#else
+#define SLJIT_NUMBER_OF_REGISTERS 12
+#define SLJIT_NUMBER_OF_SAVED_REGISTERS 8
+#endif /* _WIN64 */
 #endif
 
 #if !(defined SLJIT_STD_MACROS_DEFINED && SLJIT_STD_MACROS_DEFINED)

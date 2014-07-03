@@ -66,7 +66,6 @@ static sljit_ub* generate_far_jump_code(struct sljit_jump *jump, sljit_ub *code_
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
 {
 	sljit_si size;
-	sljit_si locals_offset;
 	sljit_ub *inst;
 
 	CHECK_ERROR();
@@ -80,10 +79,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	compiler->logical_local_size = local_size;
 #endif
 
+	size = 1 + (scratches > 7 ? (scratches - 7) : 0) + (saveds <= 3 ? saveds : 3);
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-	size = 1 + (saveds <= 3 ? saveds : 3) + (args > 0 ? (args * 2) : 0) + (args > 2 ? 2 : 0);
+	size += (args > 0 ? (args * 2) : 0) + (args > 2 ? 2 : 0);
 #else
-	size = 1 + (saveds <= 3 ? saveds : 3) + (args > 0 ? (2 + args * 3) : 0);
+	size += (args > 0 ? (2 + args * 3) : 0);
 #endif
 	inst = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	FAIL_IF(!inst);
@@ -96,11 +96,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 		*inst++ = MOD_REG | (reg_map[TMP_REG1] << 3) | 0x4 /* esp */;
 	}
 #endif
-	if (saveds > 2)
+	if (saveds > 2 || scratches > 7)
 		PUSH_REG(reg_map[SLJIT_S2]);
-	if (saveds > 1)
+	if (saveds > 1 || scratches > 8)
 		PUSH_REG(reg_map[SLJIT_S1]);
-	if (saveds > 0)
+	if (saveds > 0 || scratches > 9)
 		PUSH_REG(reg_map[SLJIT_S0]);
 
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
@@ -136,24 +136,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	}
 #endif
 
-#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-	locals_offset = 2 * sizeof(sljit_uw);
-#else
-	SLJIT_COMPILE_ASSERT(FIXED_LOCALS_OFFSET >= 2 * sizeof(sljit_uw), require_at_least_two_words);
-	locals_offset = FIXED_LOCALS_OFFSET;
-#endif
-	compiler->scratches_start = locals_offset;
-	if (scratches > 3)
-		locals_offset += (scratches - 3) * sizeof(sljit_uw);
-	compiler->saveds_start = locals_offset;
-	if (saveds > 3)
-		locals_offset += (saveds - 3) * sizeof(sljit_uw);
-	compiler->locals_offset = locals_offset;
+	SLJIT_COMPILE_ASSERT(FIXED_LOCALS_OFFSET >= (2 + 4) * sizeof(sljit_uw), require_at_least_two_words);
 #if defined(__APPLE__)
-	saveds = (2 + (saveds <= 3 ? saveds : 3)) * sizeof(sljit_uw);
-	local_size = ((locals_offset + saveds + local_size + 15) & ~15) - saveds;
+	/* Ignore pushed registers and FIXED_LOCALS_OFFSET when
+	computing the aligned local size. */
+	saveds = (2 + (scratches > 7 ? (scratches - 7) : 0) + (saveds <= 3 ? saveds : 3)) * sizeof(sljit_uw);
+	local_size = ((FIXED_LOCALS_OFFSET + saveds + local_size + 15) & ~15) - saveds;
 #else
-	local_size = locals_offset + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
+	local_size = FIXED_LOCALS_OFFSET + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
 #endif
 
 	compiler->local_size = local_size;
@@ -178,8 +168,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
 {
-	sljit_si locals_offset;
-
 	CHECK_ERROR_VOID();
 	check_sljit_set_context(compiler, args, scratches, saveds, local_size);
 
@@ -190,23 +178,11 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->logical_local_size = local_size;
 #endif
 
-#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-	locals_offset = 2 * sizeof(sljit_uw);
-#else
-	locals_offset = FIXED_LOCALS_OFFSET;
-#endif
-	compiler->scratches_start = locals_offset;
-	if (scratches > 3)
-		locals_offset += (scratches - 3) * sizeof(sljit_uw);
-	compiler->saveds_start = locals_offset;
-	if (saveds > 3)
-		locals_offset += (saveds - 3) * sizeof(sljit_uw);
-	compiler->locals_offset = locals_offset;
 #if defined(__APPLE__)
-	saveds = (2 + (saveds <= 3 ? saveds : 3)) * sizeof(sljit_uw);
-	compiler->local_size = ((locals_offset + saveds + local_size + 15) & ~15) - saveds;
+	saveds = (2 + (scratches > 7 ? (scratches - 7) : 0) + (saveds <= 3 ? saveds : 3)) * sizeof(sljit_uw);
+	compiler->local_size = ((FIXED_LOCALS_OFFSET + saveds + local_size + 15) & ~15) - saveds;
 #else
-	compiler->local_size = locals_offset + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
+	compiler->local_size = FIXED_LOCALS_OFFSET + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
 #endif
 }
 
@@ -226,7 +202,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 	FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
 		SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, compiler->local_size));
 
-	size = 2 + (compiler->saveds <= 3 ? compiler->saveds : 3);
+	size = 2 + (compiler->scratches > 7 ? (compiler->scratches - 7) : 0) +
+		(compiler->saveds <= 3 ? compiler->saveds : 3);
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 	if (compiler->args > 2)
 		size += 2;
@@ -239,11 +216,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 
 	INC_SIZE(size);
 
-	if (compiler->saveds > 0)
+	if (compiler->saveds > 0 || compiler->scratches > 9)
 		POP_REG(reg_map[SLJIT_S0]);
-	if (compiler->saveds > 1)
+	if (compiler->saveds > 1 || compiler->scratches > 8)
 		POP_REG(reg_map[SLJIT_S1]);
-	if (compiler->saveds > 2)
+	if (compiler->saveds > 2 || compiler->scratches > 7)
 		POP_REG(reg_map[SLJIT_S2]);
 	POP_REG(reg_map[TMP_REG1]);
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)

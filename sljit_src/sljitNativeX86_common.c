@@ -64,20 +64,15 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 
 /* Last register + 1. */
-#define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
+#define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
 
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
-	0, 0, 2, 1, 0, 0, 3, 6, 7, 0, 0, 4, 5
+static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 3] = {
+	0, 0, 2, 1, 0, 0, 0, 0, 7, 6, 3, 4, 5
 };
 
 #define CHECK_EXTRA_REGS(p, w, do) \
-	if (p >= SLJIT_R3 && p <= SLJIT_R4) { \
-		w = compiler->scratches_start + (p - SLJIT_R3) * sizeof(sljit_sw); \
-		p = SLJIT_MEM1(SLJIT_SP); \
-		do; \
-	} \
-	else if (p >= SLJIT_S3 && p <= SLJIT_S4) { \
-		w = compiler->saveds_start + (p - SLJIT_S3) * sizeof(sljit_sw); \
+	if (p >= SLJIT_R3 && p <= SLJIT_R6) { \
+		w = FIXED_LOCALS_OFFSET + ((p) - (SLJIT_R3 + 4)) * sizeof(sljit_sw); \
 		p = SLJIT_MEM1(SLJIT_SP); \
 		do; \
 	}
@@ -85,30 +80,30 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 2] = {
 #else /* SLJIT_CONFIG_X86_32 */
 
 /* Last register + 1. */
-#define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
-#define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
-#define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
+#define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
+#define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
+#define TMP_REG3	(SLJIT_NUMBER_OF_REGISTERS + 4)
 
 /* Note: r12 & 0x7 == 0b100, which decoded as SIB byte present
    Note: avoid to use r12 and r13 for memory addessing
    therefore r12 is better for SAVED_EREG than SAVED_REG. */
 #ifndef _WIN64
 /* 1st passed in rdi, 2nd argument passed in rsi, 3rd in rdx. */
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
-	0, 0, 6, 1, 8, 11, 3, 15, 14, 13, 12, 4, 2, 7, 9
+static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
+	0, 0, 6, 1, 8, 11, 10, 12, 5, 13, 14, 15, 3, 4, 2, 7, 9
 };
 /* low-map. reg_map & 0x7. */
-static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
-	0, 0, 6, 1, 0, 3,  3, 7,  6,  5,  4,  4, 2, 7, 1
+static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 5] = {
+	0, 0, 6, 1, 0, 3,  2,  4,  5,  5,  6,  7, 3, 4, 2, 7, 1
 };
 #else
 /* 1st passed in rcx, 2nd argument passed in rdx, 3rd in r8. */
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 4] = {
-	0, 0, 2, 1, 11, 13, 3, 6, 7, 14, 15, 4, 10, 8, 9
+static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
+	0, 0, 2, 1, 11, 12, 5, 13, 14, 15, 7, 6, 3, 4, 10, 8, 9
 };
 /* low-map. reg_map & 0x7. */
-static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NO_REGISTERS + 4] = {
-	0, 0, 2, 1, 3,  5,  3, 6, 7,  6,  7, 4, 2,  0, 1
+static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 5] = {
+	0, 0, 2, 1, 3,  4,  5,  5, 6,  7,  7, 6, 3, 4, 2,  0, 1
 };
 #endif
 
@@ -2216,8 +2211,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_register_index(sljit_si reg)
 {
 	check_sljit_get_register_index(reg);
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	if (reg == SLJIT_R3 || reg == SLJIT_R4
-			|| reg == SLJIT_S3 || reg == SLJIT_S4)
+	if (reg >= SLJIT_R3 && reg <= SLJIT_R6)
 		return -1;
 #endif
 	return reg_map[reg];
