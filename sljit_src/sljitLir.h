@@ -56,8 +56,6 @@
     Disadvantages:
       - No automatic register allocation, and temporary results are
         not stored on the stack. (hence the name comes)
-      - Limited number of registers (only 6+4 integer registers, max 3+2
-        scratch, max 3+2 saved and 6 floating point registers)
     In practice:
       - This approach is very effective for interpreters
         - One of the saved registers typically points to a stack interface
@@ -104,40 +102,88 @@ of sljitConfigInternal.h */
 /*  Registers                                                            */
 /* --------------------------------------------------------------------- */
 
+/*
+  Scratch (R) registers: registers whose may not preserve their values
+  across function calls.
+
+  Saved (S) registers: registers whose preserve their values across function calls.
+
+  The scratch and saved register sets are overlap. The last scratch register
+  is the first saved register, the one before the last is the second saved
+  register, and so on.
+
+  For example, if the architecture provides 5 registers and 3 of them are saved:
+
+    R0 |    |
+    R1 |    |
+    R2 | S2 | Note: R2 and S2 are the same register
+    R3 | S1 | Note: R3 and S1 are the same register
+    R4 | S0 | Note: R4 and S0 are the same register
+
+  Note: SLJIT_NUMBER_OF_REGISTERS would be 5 and SLJIT_NUMBER_OF_SAVED_REGISTERS
+  would be 3 for this architecture.
+
+  Note: SLJIT_NUMBER_OF_REGISTERS >= 10 and SLJIT_NUMBER_OF_SAVED_REGISTERS >= 5
+  on all CPU architectures supported by SLJIT. However, 4 registers are virtual
+  on x86-32. See below.
+
+  The purpose of this assignment: saved registers can be used as scratch registers
+  for convenience. For example, on the architecture above we can use four scratch
+  registers and one saved register. Of course two scratch registers (R2 and R3)
+  will be saved on the stack, because they are defined as saved registers in the
+  application binary interface. Still we can use R2 and R3 for referencing to these
+  registers instead of S2 and S1, which makes easier to write platform independent code.
+
+  Note: sljit_emit_enter and sljit_set_context defines whether a register is
+  S or R register. E.g: when 3 scratches and 1 saved is mapped by sljit_emit_enter,
+  the allowed register set will be: R0-R2 and S0. Although S2 is mapped to the
+  same position as R2, it does not exist in the configuration above. Furthermore
+  the R3 (S1) register does not exist as well.
+*/
+
+/* When SLJIT_UNUSED is specified as destination, the result is discarded. */
 #define SLJIT_UNUSED		0
 
-/* Scratch (temporary) registers whose may not preserve their values
-   across function calls. */
+/* Scratch registers. */
 #define SLJIT_R0	1
 #define SLJIT_R1	2
 #define SLJIT_R2	3
-/* Note: extra registers cannot be used for memory addressing. */
-/* Note: on x86-32, these registers are emulated (using stack
-   loads & stores). */
+/* Note: on x86-32, R3 - R6 are emulated (using stack loads & stores),
+   so they cannot be used for memory addressing. There is no such
+   limitation on other CPUs. */
 #define SLJIT_R3	4
 #define SLJIT_R4	5
+#define SLJIT_R5	6
+#define SLJIT_R6	7
+#define SLJIT_R7	8
+#define SLJIT_R8	9
+#define SLJIT_R9	10
+/* All R registers provided by the architecture can be accessed by SLJIT_R(i)
+   The i parameter must be >= 0 and  <= SLJIT_NUMBER_OF_REGISTERS. */
+#define SLJIT_R(i)	(1 + (i))
 
-/* Saved registers whose preserve their values across function calls. */
-#define SLJIT_S0	6
-#define SLJIT_S1	7
-#define SLJIT_S2	8
-/* Note: extra registers cannot be used for memory addressing. */
-/* Note: on x86-32, these registers are emulated (using stack
-   loads & stores). */
-#define SLJIT_S3	9
-#define SLJIT_S4	10
+/* Saved registers. */
+#define SLJIT_S0	(SLJIT_NUMBER_OF_REGISTERS)
+#define SLJIT_S1	(SLJIT_NUMBER_OF_REGISTERS - 1)
+#define SLJIT_S2	(SLJIT_NUMBER_OF_REGISTERS - 2)
+/* Note: on x86-32, S3 - S6 are emulated (using stack loads & stores),
+   so they cannot be used for memory addressing. There is no such
+   limitation on other CPUs. */
+#define SLJIT_S3	(SLJIT_NUMBER_OF_REGISTERS - 3)
+#define SLJIT_S4	(SLJIT_NUMBER_OF_REGISTERS - 4)
+/* All S registers provided by the architecture can be accessed by SLJIT_S(i)
+   The i parameter must be >= 0 and  <= SLJIT_NUMBER_OF_SAVED_REGISTERS. */
+#define SLJIT_S(i)	(SLJIT_NUMBER_OF_REGISTERS - (i))
 
-/* Read-only register (cannot be the destination of an operation).
-   Only SLJIT_MEM1(SLJIT_SP) addressing mode is allowed since
-   several ABIs has certain limitations about the stack layout. However
-   sljit_get_local_base() can be used to obtain the offset of a value
-   on the stack. */
-#define SLJIT_SP	11
+/* Determines whether a register is saved or not. */
+#define SLJIT_IS_SAVED(i) \
+	((i) <= SLJIT_NUMBER_OF_REGISTERS && (i) > (SLJIT_NUMBER_OF_REGISTERS - SLJIT_NUMBER_OF_SAVED_REGISTERS))
 
-/* Number of registers. */
-#define SLJIT_NO_TMP_REGISTERS	5
-#define SLJIT_NO_GEN_REGISTERS	5
-#define SLJIT_NO_REGISTERS	11
+/* The SLJIT_SP provides direct access to the linear stack space allocated by
+   sljit_emit_enter. It can only be used in the following form: SLJIT_MEM1(SLJIT_SP).
+   The immediate offset is extended by the relative stack offset automatically.
+   The sljit_get_local_base can be used to obtain the absolute offset. */
+#define SLJIT_SP	(SLJIT_NUMBER_OF_REGISTERS + 1)
 
 /* Return with machine word. */
 
@@ -229,9 +275,6 @@ struct sljit_compiler {
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	sljit_si args;
-	sljit_si locals_offset;
-	sljit_si scratches_start;
-	sljit_si saveds_start;
 #endif
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -906,7 +949,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 	sljit_si src, sljit_sw srcw,
 	sljit_si type);
 
-/* Copies the base address of SLJIT_SP+offset to dst.
+/* Copies the base address of SLJIT_SP + offset to dst.
    Flags: - (never set any flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_local_base(struct sljit_compiler *compiler, sljit_si dst, sljit_sw dstw, sljit_sw offset);
 
