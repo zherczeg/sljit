@@ -91,7 +91,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
-	sljit_si i, size, allocated_size;
+	sljit_si i, tmp, size, allocated_size;
 	sljit_ub *inst;
 
 	CHECK_ERROR();
@@ -109,7 +109,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	/* Including the return address saved by the call instruction. */
 	allocated_size = ((scratches >= SLJIT_FIRST_SAVED_REG ? scratches + 1 - SLJIT_FIRST_SAVED_REG : 0) + saveds + 1) * sizeof(sljit_sw);
 
-	for (i = SLJIT_FIRST_SAVED_REG; i <= scratches; i++) {
+	tmp = saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - saveds) : SLJIT_FIRST_SAVED_REG;
+	for (i = SLJIT_S0; i >= tmp; i--) {
 		size = reg_map[i] >= 8 ? 2 : 1;
 		inst = (sljit_ub*)ensure_buf(compiler, 1 + size);
 		FAIL_IF(!inst);
@@ -119,7 +120,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 		PUSH_REG(reg_lmap[i]);
 	}
 
-	for (i = SLJIT_S0 + 1 - saveds; i <= SLJIT_S0; i++) {
+	for (i = scratches; i >= SLJIT_FIRST_SAVED_REG; i--) {
 		size = reg_map[i] >= 8 ? 2 : 1;
 		inst = (sljit_ub*)ensure_buf(compiler, 1 + size);
 		FAIL_IF(!inst);
@@ -263,7 +264,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compiler, sljit_si op, sljit_si src, sljit_sw srcw)
 {
-	sljit_si i, size;
+	sljit_si i, tmp, size;
 	sljit_ub *inst;
 
 	CHECK_ERROR();
@@ -301,7 +302,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 		*(sljit_si*)inst = compiler->local_size;
 	}
 
-	for (i = SLJIT_S0; i >= SLJIT_S0 + 1 - compiler->saveds; i--) {
+	for (i = SLJIT_FIRST_SAVED_REG; i <= compiler->scratches; i++) {
 		size = reg_map[i] >= 8 ? 2 : 1;
 		inst = (sljit_ub*)ensure_buf(compiler, 1 + size);
 		FAIL_IF(!inst);
@@ -311,7 +312,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 		POP_REG(reg_lmap[i]);
 	}
 
-	for (i = compiler->scratches; i >= SLJIT_FIRST_SAVED_REG; i--) {
+	tmp = compiler->saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - compiler->saveds) : SLJIT_FIRST_SAVED_REG;
+	for (i = tmp; i <= SLJIT_S0; i++) {
 		size = reg_map[i] >= 8 ? 2 : 1;
 		inst = (sljit_ub*)ensure_buf(compiler, 1 + size);
 		FAIL_IF(!inst);

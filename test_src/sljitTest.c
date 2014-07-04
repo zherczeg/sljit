@@ -4655,7 +4655,7 @@ static void test51(void)
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler();
 	struct sljit_jump* jump;
-	sljit_sw buf[5];
+	sljit_sw buf[2];
 	sljit_si i;
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -4718,8 +4718,7 @@ static void test51(void)
 
 	FAILED(!compiler, "cannot create compiler\n");
 
-	sljit_emit_enter(compiler, 0, SLJIT_NUMBER_OF_REGISTERS - SLJIT_NUMBER_OF_SAVED_REGISTERS,
-		SLJIT_NUMBER_OF_SAVED_REGISTERS, 0, 0, 0);
+	sljit_emit_enter(compiler, 0, SLJIT_NUMBER_OF_SCRATCH_REGISTERS, SLJIT_NUMBER_OF_SAVED_REGISTERS, 0, 0, 0);
 
 	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++)
 		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, 17);
@@ -4741,7 +4740,128 @@ static void test51(void)
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
-	FAILED(code.func0() != ((SLJIT_NUMBER_OF_REGISTERS - SLJIT_NUMBER_OF_SAVED_REGISTERS) * 35 + SLJIT_NUMBER_OF_SAVED_REGISTERS * 17), "test51 case 2 failed\n");
+	FAILED(code.func0() != (SLJIT_NUMBER_OF_SCRATCH_REGISTERS * 35 + SLJIT_NUMBER_OF_SAVED_REGISTERS * 17), "test51 case 2 failed\n");
+
+	sljit_free_code(code.code);
+
+	/* Next test. */
+
+	compiler = sljit_create_compiler();
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_NUMBER_OF_SCRATCH_REGISTERS, SLJIT_NUMBER_OF_SAVED_REGISTERS, 0, 0, 0);
+
+	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++)
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, 68);
+
+	jump = sljit_emit_jump(compiler, SLJIT_CALL0);
+	/* SLJIT_R0 contains the first value. */
+	for (i = 1; i < SLJIT_NUMBER_OF_REGISTERS; i++)
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R(i), 0);
+
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_enter(compiler, 0, 0, SLJIT_NUMBER_OF_REGISTERS, 0, 0, 0);
+	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++)
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S(i), 0, SLJIT_IMM, 43);
+	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	FAILED(code.func0() != (SLJIT_NUMBER_OF_SCRATCH_REGISTERS * 43 + SLJIT_NUMBER_OF_SAVED_REGISTERS * 68), "test51 case 3 failed\n");
+
+	sljit_free_code(code.code);
+	successful_tests++;
+}
+
+static void test52(void)
+{
+	/* Test all registers provided by the CPU. */
+	executable_code code;
+	struct sljit_compiler* compiler;
+	struct sljit_jump* jump;
+	sljit_d buf[3];
+	sljit_si i;
+
+	if (!sljit_is_fpu_available()) {
+		printf("no fpu available, test52 skipped\n");
+		successful_tests++;
+		return;
+	}
+
+	/* Next test. */
+
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 6.25;
+	buf[1] = 17.75;
+
+	sljit_emit_enter(compiler, 1, 0, 1, SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS, SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS, 0);
+
+	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
+		sljit_emit_fop1(compiler, SLJIT_MOVD, SLJIT_FR(i), 0, SLJIT_MEM1(SLJIT_S0), 0);
+
+	jump = sljit_emit_jump(compiler, SLJIT_CALL0);
+	/* SLJIT_FR0 contains the first value. */
+	for (i = 1; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
+		sljit_emit_fop2(compiler, SLJIT_ADDD, SLJIT_FR0, 0, SLJIT_FR0, 0, SLJIT_FR(i), 0);
+	sljit_emit_fop1(compiler, SLJIT_MOVD, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_d), SLJIT_FR0, 0);
+
+	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_enter(compiler, 0, 1, 0, SLJIT_NUMBER_OF_FLOAT_REGISTERS, 0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)&buf[1]);
+	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
+		sljit_emit_fop1(compiler, SLJIT_MOVD, SLJIT_FR(i), 0, SLJIT_MEM1(SLJIT_R0), 0);
+	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)&buf);
+	FAILED(buf[2] != (SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS * 17.75 + SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS * 6.25), "test52 case 1 failed\n");
+
+	sljit_free_code(code.code);
+
+	/* Next test. */
+
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = -32.5;
+	buf[1] = -11.25;
+
+	sljit_emit_enter(compiler, 1, 0, 1, SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS, SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS, 0);
+
+	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
+		sljit_emit_fop1(compiler, SLJIT_MOVD, SLJIT_FR(i), 0, SLJIT_MEM1(SLJIT_S0), 0);
+
+	jump = sljit_emit_jump(compiler, SLJIT_CALL0);
+	/* SLJIT_FR0 contains the first value. */
+	for (i = 1; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
+		sljit_emit_fop2(compiler, SLJIT_ADDD, SLJIT_FR0, 0, SLJIT_FR0, 0, SLJIT_FR(i), 0);
+	sljit_emit_fop1(compiler, SLJIT_MOVD, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_d), SLJIT_FR0, 0);
+
+	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_enter(compiler, 0, 1, 0, 0, SLJIT_NUMBER_OF_FLOAT_REGISTERS, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)&buf[1]);
+	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
+		sljit_emit_fop1(compiler, SLJIT_MOVD, SLJIT_FS(i), 0, SLJIT_MEM1(SLJIT_R0), 0);
+	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)&buf);
+	FAILED(buf[2] != (SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS * -11.25 + SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS * -32.5), "test52 case 2 failed\n");
 
 	sljit_free_code(code.code);
 	successful_tests++;
@@ -4810,12 +4930,13 @@ void sljit_test(int argc, char* argv[])
 	test49();
 	test50();
 	test51();
+	test52();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 51
+#	define TEST_COUNT 52
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
