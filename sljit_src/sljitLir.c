@@ -229,6 +229,13 @@
 #	define FCC_IS_SET	(1 << 24)
 #endif
 
+/* Stack management. */
+
+#define GET_SAVED_REGISTERS_SIZE(scratches, saveds, extra) \
+	(((scratches < SLJIT_NUMBER_OF_SCRATCH_REGISTERS ? 0 : (scratches - SLJIT_NUMBER_OF_SCRATCH_REGISTERS)) + \
+		(saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? saveds : SLJIT_NUMBER_OF_SAVED_REGISTERS) + \
+		extra) * sizeof(sljit_sw))
+
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 #define SLJIT_HAS_FIXED_LOCALS_OFFSET 1
 

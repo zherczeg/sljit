@@ -83,17 +83,16 @@ static void sparc_cache_flush(sljit_ins *from, sljit_ins *to)
 }
 
 /* TMP_REG2 is not used by getput_arg */
-#define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
-#define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
-#define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
-#define TMP_REG4	(SLJIT_NO_REGISTERS + 4)
-#define TMP_LINK	(SLJIT_NO_REGISTERS + 5)
+#define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
+#define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
+#define TMP_REG3	(SLJIT_NUMBER_OF_REGISTERS + 4)
+#define TMP_LINK	(SLJIT_NUMBER_OF_REGISTERS + 5)
 
 #define TMP_FREG1	(0)
 #define TMP_FREG2	((SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1) << 1)
 
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 7] = {
-	0, 8, 9, 10, 11, 12, 16, 17, 18, 19, 20, 14, 1, 24, 25, 26, 15
+static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
+	0, 8, 9, 10, 13, 29, 28, 27, 23, 22, 21, 20, 19, 18, 17, 16, 26, 25, 24, 14, 1, 11, 12, 15
 };
 
 /* --------------------------------------------------------------------- */
@@ -445,12 +444,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 		FAIL_IF(push_inst(compiler, SAVE | D(SLJIT_SP) | S1(SLJIT_SP) | S2(TMP_REG1), UNMOVABLE_INS));
 	}
 
-	if (args >= 1)
-		FAIL_IF(push_inst(compiler, OR | D(SLJIT_S0) | S1(0) | S2A(24), DR(SLJIT_S0)));
-	if (args >= 2)
-		FAIL_IF(push_inst(compiler, OR | D(SLJIT_S1) | S1(0) | S2A(25), DR(SLJIT_S1)));
-	if (args >= 3)
-		FAIL_IF(push_inst(compiler, OR | D(SLJIT_S2) | S1(0) | S2A(26), DR(SLJIT_S2)));
+	/* Arguments are in their appropriate registers. */
 
 	return SLJIT_SUCCESS;
 }
