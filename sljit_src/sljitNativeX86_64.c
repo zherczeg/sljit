@@ -87,27 +87,29 @@ static sljit_ub* generate_fixed_jump(sljit_ub *code_ptr, sljit_sw addr, sljit_si
 	return code_ptr;
 }
 
-#define LAST_SCRATCH_REG (SLJIT_S0 - SLJIT_NUMBER_OF_SAVED_REGISTERS)
-
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler,
+	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	sljit_si i, size, allocated_size;
 	sljit_ub *inst;
 
 	CHECK_ERROR();
-	check_sljit_emit_enter(compiler, args, scratches, saveds, local_size);
+	check_sljit_emit_enter(compiler, args, scratches, saveds, fscratches, fsaveds, local_size);
 
 	compiler->scratches = scratches;
 	compiler->saveds = saveds;
+	compiler->fscratches = fscratches;
+	compiler->fsaveds = fsaveds;
 	compiler->flags_saved = 0;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->logical_local_size = local_size;
 #endif
 
 	/* Including the return address saved by the call instruction. */
-	allocated_size = ((scratches > LAST_SCRATCH_REG ? scratches - LAST_SCRATCH_REG : 0) + saveds + 1) * sizeof(sljit_sw);
+	allocated_size = ((scratches >= SLJIT_FIRST_SAVED_REG ? scratches + 1 - SLJIT_FIRST_SAVED_REG : 0) + saveds + 1) * sizeof(sljit_sw);
 
-	for (i = LAST_SCRATCH_REG + 1; i <= scratches; i++) {
+	for (i = SLJIT_FIRST_SAVED_REG; i <= scratches; i++) {
 		size = reg_map[i] >= 8 ? 2 : 1;
 		inst = (sljit_ub*)ensure_buf(compiler, 1 + size);
 		FAIL_IF(!inst);
@@ -237,21 +239,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
+	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	sljit_si allocated_size;
 
 	CHECK_ERROR_VOID();
-	check_sljit_set_context(compiler, args, scratches, saveds, local_size);
+	check_sljit_set_context(compiler, args, scratches, saveds, fscratches, fsaveds, local_size);
 
 	compiler->scratches = scratches;
 	compiler->saveds = saveds;
+	compiler->fscratches = fscratches;
+	compiler->fsaveds = fsaveds;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->logical_local_size = local_size;
 #endif
 
 	/* Including the return address saved by the call instruction. */
-	allocated_size = ((scratches > LAST_SCRATCH_REG ? scratches - LAST_SCRATCH_REG : 0) + saveds + 1) * sizeof(sljit_sw);
+	allocated_size = ((scratches >= SLJIT_FIRST_SAVED_REG ? scratches + 1 - SLJIT_FIRST_SAVED_REG : 0) + saveds + 1) * sizeof(sljit_sw);
 	compiler->local_size = ((local_size + FIXED_LOCALS_OFFSET + allocated_size + 16 - 1) & ~(16 - 1)) - allocated_size;
 }
 
@@ -305,7 +311,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 		POP_REG(reg_lmap[i]);
 	}
 
-	for (i = compiler->scratches; i > LAST_SCRATCH_REG; i--) {
+	for (i = compiler->scratches; i >= SLJIT_FIRST_SAVED_REG; i--) {
 		size = reg_map[i] >= 8 ? 2 : 1;
 		inst = (sljit_ub*)ensure_buf(compiler, 1 + size);
 		FAIL_IF(!inst);

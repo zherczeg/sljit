@@ -171,6 +171,9 @@
 #endif /* _WIN64 */
 #endif
 
+#define SLJIT_NUMBER_OF_FLOAT_REGISTERS 6
+#define SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS 0
+
 #if !(defined SLJIT_STD_MACROS_DEFINED && SLJIT_STD_MACROS_DEFINED)
 
 /* These libraries are needed for the macros below. */

@@ -366,6 +366,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void)
 
 	compiler->scratches = -1;
 	compiler->saveds = -1;
+	compiler->fscratches = -1;
+	compiler->fsaveds = -1;
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	compiler->args = -1;
@@ -677,7 +679,9 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		SLJIT_ASSERT_STOP();
 
 #define FUNCTION_FCHECK(p, i) \
-	if ((p) >= SLJIT_FLOAT_REG1 && (p) <= SLJIT_FLOAT_REG6) \
+	SLJIT_ASSERT(compiler->fscratches != -1 && compiler->fsaveds != -1); \
+	if (((p) >= SLJIT_FR0 && (p) < (SLJIT_FR0 + compiler->fscratches)) || \
+			((p) > (SLJIT_FS0 - compiler->fsaveds) && (p) <= SLJIT_FS0)) \
 		SLJIT_ASSERT(i == 0); \
 	else if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
 		SLJIT_ASSERT((i) >= 0 && (i) < compiler->logical_local_size); \
@@ -709,11 +713,6 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *comp
 {
 	compiler->verbose = verbose;
 }
-
-static char* freg_names[] = {
-	(char*)"unused", (char*)"f1", (char*)"f2", (char*)"f3",
-	(char*)"f4", (char*)"f5", (char*)"f6"
-};
 
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 #ifdef _WIN64
@@ -774,8 +773,13 @@ static char* freg_names[] = {
 		} \
 		else \
 			fprintf(compiler->verbose, "[#%" SLJIT_PRINT_D "d]", (i)); \
-	} else \
-		fprintf(compiler->verbose, "%s", freg_names[p]);
+	} \
+	else { \
+		if ((p) < (SLJIT_FR0 + compiler->fscratches)) \
+			fprintf(compiler->verbose, "fr%d", (p) - SLJIT_FR0); \
+		else \
+			fprintf(compiler->verbose, "fs%d", SLJIT_NUMBER_OF_FLOAT_REGISTERS - (p)); \
+	}
 
 static SLJIT_CONST char* op_names[] = {
 	/* op0 */
@@ -840,7 +844,9 @@ static SLJIT_INLINE void check_sljit_generate_code(struct sljit_compiler *compil
 #endif
 }
 
-static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
+static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler,
+	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	/* If debug and verbose are disabled, all arguments are unused. */
 	SLJIT_UNUSED_ARG(compiler);
@@ -854,14 +860,20 @@ static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler,
 	SLJIT_ASSERT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	SLJIT_ASSERT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
 	SLJIT_ASSERT(args <= saveds);
+	SLJIT_ASSERT(fscratches >= 0 && fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
+	SLJIT_ASSERT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
+	SLJIT_ASSERT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
-		fprintf(compiler->verbose, "  enter args=%d scratches=%d saveds=%d local_size=%d\n", args, scratches, saveds, local_size);
+		fprintf(compiler->verbose, "  enter args:%d scratches:%d saveds:%d fscratches:%d fsaveds:%d local_size:%d\n",
+			args, scratches, saveds, fscratches, fsaveds, local_size);
 #endif
 }
 
-static SLJIT_INLINE void check_sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
+static SLJIT_INLINE void check_sljit_set_context(struct sljit_compiler *compiler,
+	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	/* If debug and verbose are disabled, all arguments are unused. */
 	SLJIT_UNUSED_ARG(compiler);
@@ -882,10 +894,14 @@ static SLJIT_INLINE void check_sljit_set_context(struct sljit_compiler *compiler
 	SLJIT_ASSERT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	SLJIT_ASSERT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
 	SLJIT_ASSERT(args <= saveds);
+	SLJIT_ASSERT(fscratches >= 0 && fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
+	SLJIT_ASSERT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
+	SLJIT_ASSERT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
-		fprintf(compiler->verbose, "  set_context args=%d scratches=%d saveds=%d local_size=%d\n", args, scratches, saveds, local_size);
+		fprintf(compiler->verbose, "  set_context args:%d scratches:%d saveds:%d fscratches:%d fsaveds:%d local_size:%d\n",
+			args, scratches, saveds, fscratches, fsaveds, local_size);
 #endif
 }
 
@@ -1063,7 +1079,7 @@ static SLJIT_INLINE void check_sljit_get_register_index(sljit_si reg)
 static SLJIT_INLINE void check_sljit_get_float_register_index(sljit_si reg)
 {
 	SLJIT_UNUSED_ARG(reg);
-	SLJIT_ASSERT(reg > 0 && reg <= SLJIT_NO_FLOAT_REGISTERS);
+	SLJIT_ASSERT(reg > 0 && reg <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 }
 
 static SLJIT_INLINE void check_sljit_emit_op_custom(struct sljit_compiler *compiler,
@@ -1731,7 +1747,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code)
 	SLJIT_ASSERT_STOP();
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler,
+	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(args);
@@ -1742,7 +1760,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
+	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(args);

@@ -159,7 +159,7 @@ of sljitConfigInternal.h */
 #define SLJIT_R8	9
 #define SLJIT_R9	10
 /* All R registers provided by the architecture can be accessed by SLJIT_R(i)
-   The i parameter must be >= 0 and  <= SLJIT_NUMBER_OF_REGISTERS. */
+   The i parameter must be >= 0 and < SLJIT_NUMBER_OF_REGISTERS. */
 #define SLJIT_R(i)	(1 + (i))
 
 /* Saved registers. */
@@ -172,12 +172,11 @@ of sljitConfigInternal.h */
 #define SLJIT_S3	(SLJIT_NUMBER_OF_REGISTERS - 3)
 #define SLJIT_S4	(SLJIT_NUMBER_OF_REGISTERS - 4)
 /* All S registers provided by the architecture can be accessed by SLJIT_S(i)
-   The i parameter must be >= 0 and  <= SLJIT_NUMBER_OF_SAVED_REGISTERS. */
+   The i parameter must be >= 0 and < SLJIT_NUMBER_OF_SAVED_REGISTERS. */
 #define SLJIT_S(i)	(SLJIT_NUMBER_OF_REGISTERS - (i))
 
-/* Determines whether a register is saved or not. */
-#define SLJIT_IS_SAVED(i) \
-	((i) <= SLJIT_NUMBER_OF_REGISTERS && (i) > (SLJIT_NUMBER_OF_REGISTERS - SLJIT_NUMBER_OF_SAVED_REGISTERS))
+/* Registers >= SLJIT_FIRST_SAVED_REG are saved registers. */
+#define SLJIT_FIRST_SAVED_REG (SLJIT_S0 - SLJIT_NUMBER_OF_SAVED_REGISTERS + 1)
 
 /* The SLJIT_SP provides direct access to the linear stack space allocated by
    sljit_emit_enter. It can only be used in the following form: SLJIT_MEM1(SLJIT_SP).
@@ -201,20 +200,32 @@ of sljitConfigInternal.h */
 /*  Floating point registers                                             */
 /* --------------------------------------------------------------------- */
 
+/* Each floating point register can store a double or single precision
+   value. The FR and FS register sets are overlap in the same way as R
+   and S register sets. See above. */
+
 /* Note: SLJIT_UNUSED as destination is not valid for floating point
-     operations, since they cannot be used for setting flags. */
+   operations, since they cannot be used for setting flags. */
 
-/* Floating point operations are performed on double or
-   single precision values. */
+/* Floating point scratch registers. */
+#define SLJIT_FR0	1
+#define SLJIT_FR1	2
+#define SLJIT_FR2	3
+#define SLJIT_FR3	4
+#define SLJIT_FR4	5
+#define SLJIT_FR5	6
+/* All FR registers provided by the architecture can be accessed by SLJIT_FR(i)
+   The i parameter must be >= 0 and < SLJIT_NUMBER_OF_FLOAT_REGISTERS. */
+#define SLJIT_FR(i)	(1 + (i))
 
-#define SLJIT_FLOAT_REG1		1
-#define SLJIT_FLOAT_REG2		2
-#define SLJIT_FLOAT_REG3		3
-#define SLJIT_FLOAT_REG4		4
-#define SLJIT_FLOAT_REG5		5
-#define SLJIT_FLOAT_REG6		6
+/* Floating point saved registers. */
+#define SLJIT_FS0	(SLJIT_NUMBER_OF_FLOAT_REGISTERS)
+/* All S registers provided by the architecture can be accessed by SLJIT_FS(i)
+   The i parameter must be >= 0 and < SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS. */
+#define SLJIT_FS(i)	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - (i))
 
-#define SLJIT_NO_FLOAT_REGISTERS	6
+/* Float registers >= SLJIT_FIRST_SAVED_FLOAT_REG are saved registers. */
+#define SLJIT_FIRST_SAVED_FLOAT_REG (SLJIT_FS0 - SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS + 1)
 
 /* --------------------------------------------------------------------- */
 /*  Main structures and functions                                        */
@@ -262,10 +273,14 @@ struct sljit_compiler {
 	struct sljit_memory_fragment *buf;
 	struct sljit_memory_fragment *abuf;
 
-	/* Used local registers. */
+	/* Used scratch registers. */
 	sljit_si scratches;
 	/* Used saved registers. */
 	sljit_si saveds;
+	/* Used float scratch registers. */
+	sljit_si fscratches;
+	/* Used float saved registers. */
+	sljit_si fsaveds;
 	/* Local stack size. */
 	sljit_si local_size;
 	/* Code size. */
@@ -404,25 +419,29 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    error, they return with SLJIT_SUCCESS. */
 
 /*
-   The executable code is basically a function call from the viewpoint of
-   the C language. The function calls must obey to the ABI (Application
-   Binary Interface) of the platform, which specify the purpose of machine
-   registers and stack handling among other things. The sljit_emit_enter
-   function emits the necessary instructions for setting up a new context
-   for the executable code and moves function arguments to the saved
-   registers. The number of arguments are specified in the "args"
-   parameter and the first argument goes to SLJIT_S0, the second
-   goes to SLJIT_S1 and so on. The number of scratch and
-   saved registers are passed in "scratches" and "saveds" arguments
-   respectively. Since the saved registers contains the arguments,
-   "args" must be less or equal than "saveds". The sljit_emit_enter
-   is also capable of allocating a stack space for local variables. The
-   "local_size" argument contains the size in bytes of this local area
-   and its staring address is stored in SLJIT_SP. However
-   the SLJIT_SP is not necessary the machine stack pointer.
-   The memory bytes between SLJIT_SP (inclusive) and
-   SLJIT_SP + local_size (exclusive) can be modified freely
-   until the function returns. The stack space is uninitialized.
+   The executable code is a function call from the viewpoint of the C
+   language. The function calls must obey to the ABI (Application
+   Binary Interface) of the platform, which specify the purpose of
+   all machine registers and stack handling among other things. The
+   sljit_emit_enter function emits the necessary instructions for
+   setting up a new context for the executable code and moves function
+   arguments to the saved registers. The number of sljit_sw arguments
+   passed to the function are specified in the "args" parameter. The
+   number of arguments must be less than or equal to 3. The first
+   argument goes to SLJIT_S0, the second goes to SLJIT_S1 and so on.
+   The register set used by the function must be declared as well.
+   The number of scratch and saved registers used by the function must
+   be passed to sljit_emit_enter. Only R registers between R0 and
+   "scratches" argument can be used later. E.g. if "scratches" is set
+   to 2, the register set will be limited to R0 and R1. The S registers
+   and the floating point registers ("fscratches" and "fsaveds")
+   are specified in a similar way. The sljit_emit_enter is also capable
+   of allocating a stack space for local variables. The "local_size"
+   argument contains the size in bytes of this local area and its
+   staring address is stored in SLJIT_SP. The memory area between
+   SLJIT_SP (inclusive) and SLJIT_SP + local_size (exclusive) can be
+   modified freely until the function returns. The stack space is not
+   initialized.
 
    Note: every call of sljit_emit_enter and sljit_set_context
          overwrites the previous context. */
@@ -430,20 +449,22 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_MAX_LOCAL_SIZE	65536
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size);
+	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size);
 
 /* The machine code has a context (which contains the local stack space size,
    number of used registers, etc.) which initialized by sljit_emit_enter. Several
    functions (like sljit_emit_return) requres this context to be able to generate
    the appropriate code. However, some code fragments (like inline cache) may have
-   no normal entry point so their context is unknown for the compiler. Using the
-   function below we can specify their context.
+   no normal entry point so their context is unknown for the compiler. Their context
+   can be provided to the compiler by the sljit_set_context function.
 
    Note: every call of sljit_emit_enter and sljit_set_context overwrites
          the previous context. */
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size);
+	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size);
 
 /* Return from machine code.  The op argument can be SLJIT_UNUSED which means the
    function does not return with anything or any opcode between SLJIT_MOV and
