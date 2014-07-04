@@ -42,7 +42,7 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 #define TMP_PC		(SLJIT_NO_REGISTERS + 4)
 
 #define TMP_FREG1	(0)
-#define TMP_FREG2	(SLJIT_FLOAT_REG6 + 1)
+#define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
 
 /* In ARM instruction words.
    Cache lines are usually 32 byte aligned. */
@@ -823,16 +823,20 @@ static sljit_si emit_op(struct sljit_compiler *compiler, sljit_si op, sljit_si i
 	sljit_si src1, sljit_sw src1w,
 	sljit_si src2, sljit_sw src2w);
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler,
+	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	sljit_si size;
 	sljit_uw push;
 
 	CHECK_ERROR();
-	check_sljit_emit_enter(compiler, args, scratches, saveds, local_size);
+	check_sljit_emit_enter(compiler, args, scratches, saveds, fscratches, fsaveds, local_size);
 
 	compiler->scratches = scratches;
 	compiler->saveds = saveds;
+	compiler->fscratches = fscratches;
+	compiler->fsaveds = fsaveds;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->logical_local_size = local_size;
 #endif
@@ -877,15 +881,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler, sljit_si args, sljit_si scratches, sljit_si saveds, sljit_si local_size)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
+	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	sljit_si size;
 
 	CHECK_ERROR_VOID();
-	check_sljit_set_context(compiler, args, scratches, saveds, local_size);
+	check_sljit_set_context(compiler, args, scratches, saveds, fscratches, fsaveds, local_size);
 
 	compiler->scratches = scratches;
 	compiler->saveds = saveds;
+	compiler->fscratches = fscratches;
+	compiler->fsaveds = fsaveds;
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->logical_local_size = local_size;
 #endif
