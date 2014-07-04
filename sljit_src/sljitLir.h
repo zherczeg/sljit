@@ -106,39 +106,54 @@ of sljitConfigInternal.h */
   Scratch (R) registers: registers whose may not preserve their values
   across function calls.
 
-  Saved (S) registers: registers whose preserve their values across function calls.
+  Saved (S) registers: registers whose preserve their values across
+  function calls.
 
   The scratch and saved register sets are overlap. The last scratch register
   is the first saved register, the one before the last is the second saved
   register, and so on.
 
-  For example, if the architecture provides 5 registers and 3 of them are saved:
+  If an architecture provides two scratch and three saved registers,
+  its scratch and saved register sets are the following:
 
-    R0 |    |
-    R1 |    |
-    R2 | S2 | Note: R2 and S2 are the same register
-    R3 | S1 | Note: R3 and S1 are the same register
-    R4 | S0 | Note: R4 and S0 are the same register
+     R0   |  [S4]  |   R0 and S4 represent the same physical register
+     R1   |  [S3]  |   R1 and S3 represent the same physical register
+    [R2]  |   S2   |   R2 and S2 represent the same physical register
+    [R3]  |   S1   |   R3 and S1 represent the same physical register
+    [R4]  |   S0   |   R4 and S0 represent the same physical register
 
-  Note: SLJIT_NUMBER_OF_REGISTERS would be 5 and SLJIT_NUMBER_OF_SAVED_REGISTERS
-  would be 3 for this architecture.
+  Note: SLJIT_NUMBER_OF_SCRATCH_REGISTERS would be 2 and
+        SLJIT_NUMBER_OF_SAVED_REGISTERS would be 3 for this architecture.
 
-  Note: SLJIT_NUMBER_OF_REGISTERS >= 10 and SLJIT_NUMBER_OF_SAVED_REGISTERS >= 5
-  on all CPU architectures supported by SLJIT. However, 4 registers are virtual
-  on x86-32. See below.
+  Note: On all supported architectures SLJIT_NUMBER_OF_REGISTERS >= 10
+        and SLJIT_NUMBER_OF_SAVED_REGISTERS >= 5. However, 4 registers
+        are virtual on x86-32. See below.
 
-  The purpose of this assignment: saved registers can be used as scratch registers
-  for convenience. For example, on the architecture above we can use four scratch
-  registers and one saved register. Of course two scratch registers (R2 and R3)
-  will be saved on the stack, because they are defined as saved registers in the
-  application binary interface. Still we can use R2 and R3 for referencing to these
-  registers instead of S2 and S1, which makes easier to write platform independent code.
+  The purpose of this definition is convenience. Although a register
+  is either scratch register or saved register, SLJIT allows accessing
+  them from the other set. For example, four registers can be used as
+  scratch registers and the fifth one as saved register on the architecture
+  above. Of course the last two scratch registers (R2 and R3) from this
+  four will be saved on the stack, because they are defined as saved
+  registers in the application binary interface. Still R2 and R3 can be
+  used for referencing to these registers instead of S2 and S1, which
+  makes easier to write platform independent code. Scratch registers
+  can be saved registers in a similar way, but these extra saved
+  registers will not be preserved across function calls! Hence the
+  application must save them on those platforms, where the number of
+  saved registers is too low. This can be done by copy them onto
+  the stack and restore them after a function call.
 
-  Note: sljit_emit_enter and sljit_set_context defines whether a register is
-  S or R register. E.g: when 3 scratches and 1 saved is mapped by sljit_emit_enter,
-  the allowed register set will be: R0-R2 and S0. Although S2 is mapped to the
-  same position as R2, it does not exist in the configuration above. Furthermore
-  the R3 (S1) register does not exist as well.
+  Note: To emphasize that registers assigned to R2-R4 are saved
+        registers, they are enclosed by square brackets. S3-S4
+        are marked in a similar way.
+
+  Note: sljit_emit_enter and sljit_set_context defines whether a register
+        is S or R register. E.g: when 3 scratches and 1 saved is mapped
+        by sljit_emit_enter, the allowed register set will be: R0-R2 and
+        S0. Although S2 is mapped to the same position as R2, it does not
+        available in the current configuration. Furthermore the R3 (S1)
+        register does not available as well.
 */
 
 /* When SLJIT_UNUSED is specified as destination, the result is discarded. */
@@ -171,6 +186,11 @@ of sljitConfigInternal.h */
    limitation on other CPUs. */
 #define SLJIT_S3	(SLJIT_NUMBER_OF_REGISTERS - 3)
 #define SLJIT_S4	(SLJIT_NUMBER_OF_REGISTERS - 4)
+#define SLJIT_S5	(SLJIT_NUMBER_OF_REGISTERS - 5)
+#define SLJIT_S6	(SLJIT_NUMBER_OF_REGISTERS - 6)
+#define SLJIT_S7	(SLJIT_NUMBER_OF_REGISTERS - 7)
+#define SLJIT_S8	(SLJIT_NUMBER_OF_REGISTERS - 8)
+#define SLJIT_S9	(SLJIT_NUMBER_OF_REGISTERS - 9)
 /* All S registers provided by the architecture can be accessed by SLJIT_S(i)
    The i parameter must be >= 0 and < SLJIT_NUMBER_OF_SAVED_REGISTERS. */
 #define SLJIT_S(i)	(SLJIT_NUMBER_OF_REGISTERS - (i))
@@ -220,6 +240,11 @@ of sljitConfigInternal.h */
 
 /* Floating point saved registers. */
 #define SLJIT_FS0	(SLJIT_NUMBER_OF_FLOAT_REGISTERS)
+#define SLJIT_FS1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - 1)
+#define SLJIT_FS2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - 2)
+#define SLJIT_FS3	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - 3)
+#define SLJIT_FS4	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - 4)
+#define SLJIT_FS5	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - 5)
 /* All S registers provided by the architecture can be accessed by SLJIT_FS(i)
    The i parameter must be >= 0 and < SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS. */
 #define SLJIT_FS(i)	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - (i))

@@ -642,6 +642,13 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	((r) >= SLJIT_R0 && (r) < (SLJIT_R0 + compiler->scratches)) || \
 	((r) > (SLJIT_S0 - compiler->saveds) && (r) <= SLJIT_S0))
 
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+#define FUNCTION_ASSERT_IF_VIRTUAL(p) \
+	SLJIT_ASSERT((p) < SLJIT_R3 || (p) > SLJIT_R6);
+#else
+#define FUNCTION_ASSERT_IF_VIRTUAL(p)
+#endif
+
 #define FUNCTION_CHECK_SRC(p, i) \
 	SLJIT_ASSERT(compiler->scratches != -1 && compiler->saveds != -1); \
 	if (FUNCTION_CHECK_IS_REG(p)) \
@@ -652,8 +659,10 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		SLJIT_ASSERT((i) >= 0 && (i) < compiler->logical_local_size); \
 	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & REG_MASK)); \
+		FUNCTION_ASSERT_IF_VIRTUAL((p) & REG_MASK); \
 		if ((p) & OFFS_REG_MASK) { \
 			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(OFFS_REG(p))); \
+			FUNCTION_ASSERT_IF_VIRTUAL(OFFS_REG(p)); \
 			SLJIT_ASSERT(!((i) & ~0x3)); \
 		} \
 		SLJIT_ASSERT(!((p) & ~(SLJIT_MEM | SLJIT_IMM | REG_MASK | OFFS_REG_MASK))); \
@@ -669,8 +678,10 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		SLJIT_ASSERT((i) >= 0 && (i) < compiler->logical_local_size); \
 	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & REG_MASK)); \
+		FUNCTION_ASSERT_IF_VIRTUAL((p) & REG_MASK); \
 		if ((p) & OFFS_REG_MASK) { \
 			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(OFFS_REG(p))); \
+			FUNCTION_ASSERT_IF_VIRTUAL(OFFS_REG(p)); \
 			SLJIT_ASSERT(!((i) & ~0x3)); \
 		} \
 		SLJIT_ASSERT(!((p) & ~(SLJIT_MEM | SLJIT_IMM | REG_MASK | OFFS_REG_MASK))); \
@@ -687,8 +698,10 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		SLJIT_ASSERT((i) >= 0 && (i) < compiler->logical_local_size); \
 	else if ((p) & SLJIT_MEM) { \
 		SLJIT_ASSERT(FUNCTION_CHECK_IS_REG((p) & REG_MASK)); \
+		FUNCTION_ASSERT_IF_VIRTUAL((p) & REG_MASK); \
 		if ((p) & OFFS_REG_MASK) { \
 			SLJIT_ASSERT(FUNCTION_CHECK_IS_REG(OFFS_REG(p))); \
+			FUNCTION_ASSERT_IF_VIRTUAL(OFFS_REG(p)); \
 			SLJIT_ASSERT(((p) & OFFS_REG_MASK) != TO_OFFS_REG(SLJIT_SP) && !(i & ~0x3)); \
 		} else \
 			SLJIT_ASSERT(OFFS_REG(p) == 0); \
@@ -857,11 +870,11 @@ static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler,
 
 	SLJIT_ASSERT(args >= 0 && args <= 3);
 	SLJIT_ASSERT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
-	SLJIT_ASSERT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
+	SLJIT_ASSERT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_REGISTERS);
 	SLJIT_ASSERT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
 	SLJIT_ASSERT(args <= saveds);
 	SLJIT_ASSERT(fscratches >= 0 && fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
-	SLJIT_ASSERT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
+	SLJIT_ASSERT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	SLJIT_ASSERT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -891,11 +904,11 @@ static SLJIT_INLINE void check_sljit_set_context(struct sljit_compiler *compiler
 
 	SLJIT_ASSERT(args >= 0 && args <= 3);
 	SLJIT_ASSERT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
-	SLJIT_ASSERT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
+	SLJIT_ASSERT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_REGISTERS);
 	SLJIT_ASSERT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
 	SLJIT_ASSERT(args <= saveds);
 	SLJIT_ASSERT(fscratches >= 0 && fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
-	SLJIT_ASSERT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
+	SLJIT_ASSERT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	SLJIT_ASSERT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -1755,6 +1768,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	SLJIT_UNUSED_ARG(args);
 	SLJIT_UNUSED_ARG(scratches);
 	SLJIT_UNUSED_ARG(saveds);
+	SLJIT_UNUSED_ARG(fscratches);
+	SLJIT_UNUSED_ARG(fsaveds);
 	SLJIT_UNUSED_ARG(local_size);
 	SLJIT_ASSERT_STOP();
 	return SLJIT_ERR_UNSUPPORTED;
@@ -1768,6 +1783,8 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	SLJIT_UNUSED_ARG(args);
 	SLJIT_UNUSED_ARG(scratches);
 	SLJIT_UNUSED_ARG(saveds);
+	SLJIT_UNUSED_ARG(fscratches);
+	SLJIT_UNUSED_ARG(fsaveds);
 	SLJIT_UNUSED_ARG(local_size);
 	SLJIT_ASSERT_STOP();
 }
