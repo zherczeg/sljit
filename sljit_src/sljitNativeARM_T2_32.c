@@ -33,17 +33,17 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 typedef sljit_ui sljit_ins;
 
 /* Last register + 1. */
-#define TMP_REG1	(SLJIT_NO_REGISTERS + 1)
-#define TMP_REG2	(SLJIT_NO_REGISTERS + 2)
-#define TMP_REG3	(SLJIT_NO_REGISTERS + 3)
-#define TMP_PC		(SLJIT_NO_REGISTERS + 4)
+#define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
+#define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
+#define TMP_REG3	(SLJIT_NUMBER_OF_REGISTERS + 4)
+#define TMP_PC		(SLJIT_NUMBER_OF_REGISTERS + 5)
 
 #define TMP_FREG1	(0)
 #define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
 
 /* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
-	0, 0, 1, 2, 12, 5, 6, 7, 8, 10, 11, 13, 3, 4, 14, 15
+static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
+	0, 0, 1, 2, 12, 11, 10, 9, 8, 7, 6, 5, 13, 3, 4, 14, 15
 };
 
 #define COPY_BITS(src, from, to, bits) \
@@ -138,9 +138,9 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NO_REGISTERS + 5] = {
 #define ORRI		0xf0400000
 #define ORRS		0x4300
 #define ORR_W		0xea400000
-#define POP		0xbd00
+#define POP		0xbc00
 #define POP_W		0xe8bd0000
-#define PUSH		0xb500
+#define PUSH		0xb400
 #define PUSH_W		0xe92d0000
 #define RSB_WI		0xf1c00000
 #define RSBSI		0x4240
@@ -1131,7 +1131,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
-	sljit_si size;
+	sljit_si size, i, tmp;
 	sljit_ins push;
 
 	CHECK_ERROR();
@@ -1146,27 +1146,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 #endif
 
 	push = (1 << 4);
-	if (saveds >= 5)
-		push |= 1 << 11;
-	if (saveds >= 4)
-		push |= 1 << 10;
-	if (saveds >= 3)
-		push |= 1 << 8;
-	if (saveds >= 2)
-		push |= 1 << 7;
-	if (saveds >= 1)
-		push |= 1 << 6;
-        if (scratches >= 5)
-		push |= 1 << 5;
-	FAIL_IF(saveds >= 3
-		? push_inst32(compiler, PUSH_W | (1 << 14) | push)
-		: push_inst16(compiler, PUSH | push));
 
-	/* Stack must be aligned to 8 bytes: */
-	size = (3 + saveds) * sizeof(sljit_uw);
-	local_size += size;
-	local_size = (local_size + 7) & ~7;
-	local_size -= size;
+	tmp = saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - saveds) : SLJIT_FIRST_SAVED_REG;
+	for (i = SLJIT_S0; i >= tmp; i--)
+		push |= 1 << reg_map[i];
+
+	for (i = scratches; i >= SLJIT_FIRST_SAVED_REG; i--)
+		push |= 1 << reg_map[i];
+
+	FAIL_IF((push & 0xff00)
+		? push_inst32(compiler, PUSH_W | (1 << 14) | push)
+		: push_inst16(compiler, PUSH | (1 << 8) | push));
+
+	/* Stack must be aligned to 8 bytes: (LR, R4) */
+	size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 2);
+	local_size = ((size + local_size + 7) & ~7) - size;
 	compiler->local_size = local_size;
 	if (local_size > 0) {
 		if (local_size <= (127 << 2))
@@ -1202,15 +1196,13 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->logical_local_size = local_size;
 #endif
 
-	size = (3 + saveds) * sizeof(sljit_uw);
-	local_size += size;
-	local_size = (local_size + 7) & ~7;
-	local_size -= size;
-	compiler->local_size = local_size;
+	size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 2);
+	compiler->local_size = ((size + local_size + 7) & ~7) - size;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compiler, sljit_si op, sljit_si src, sljit_sw srcw)
 {
+	sljit_si i, tmp;
 	sljit_ins pop;
 
 	CHECK_ERROR();
@@ -1226,21 +1218,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 	}
 
 	pop = (1 << 4);
-	if (compiler->saveds >= 5)
-		pop |= 1 << 11;
-	if (compiler->saveds >= 4)
-		pop |= 1 << 10;
-	if (compiler->saveds >= 3)
-		pop |= 1 << 8;
-	if (compiler->saveds >= 2)
-		pop |= 1 << 7;
-	if (compiler->saveds >= 1)
-		pop |= 1 << 6;
-        if (compiler->scratches >= 5)
-		pop |= 1 << 5;
-	return compiler->saveds >= 3
+
+	tmp = compiler->saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - compiler->saveds) : SLJIT_FIRST_SAVED_REG;
+	for (i = SLJIT_S0; i >= tmp; i--)
+		pop |= 1 << reg_map[i];
+
+	for (i = compiler->scratches; i >= SLJIT_FIRST_SAVED_REG; i--)
+		pop |= 1 << reg_map[i];
+
+	return (pop & 0xff00)
 		? push_inst32(compiler, POP_W | (1 << 15) | pop)
-		: push_inst16(compiler, POP | pop);
+		: push_inst16(compiler, POP | (1 << 8) | pop);
 }
 
 /* --------------------------------------------------------------------- */
