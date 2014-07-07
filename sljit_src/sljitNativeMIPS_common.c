@@ -47,28 +47,25 @@ typedef sljit_ui sljit_ins;
 /* For position independent code, t9 must contain the function address. */
 #define PIC_ADDR_REG	TMP_REG2
 
-/* TMP_EREGs are used mainly for arithmetic operations. */
-#define TMP_EREG1	31
-#define TMP_EREG2	1
 /* Floating point status register. */
 #define FCSR_REG	31
 /* Return address register. */
 #define RETURN_ADDR_REG	31
 
 /* Flags are kept in volatile registers. */
-#define EQUAL_FLAG	10
+#define EQUAL_FLAG	12
 /* And carry flag as well. */
-#define ULESS_FLAG	11
-#define UGREATER_FLAG	12
-#define LESS_FLAG	13
-#define GREATER_FLAG	14
-#define OVERFLOW_FLAG	15
+#define ULESS_FLAG	13
+#define UGREATER_FLAG	14
+#define LESS_FLAG	15
+#define GREATER_FLAG	31
+#define OVERFLOW_FLAG	1
 
 #define TMP_FREG1	(0)
 #define TMP_FREG2	((SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1) << 1)
 
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
-	0, 2, 5, 6, 7, 8, 9, 24, 23, 22, 21, 20, 19, 18, 17, 16, 29, 3, 25, 4
+	0, 2, 5, 6, 7, 8, 9, 10, 11, 24, 23, 22, 21, 20, 19, 18, 17, 16, 29, 3, 25, 4
 };
 
 /* --------------------------------------------------------------------- */
