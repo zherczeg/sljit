@@ -468,8 +468,17 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    modified freely until the function returns. The stack space is not
    initialized.
 
+   Note: the following conditions must met:
+         0 <= scratches <= SLJIT_NUMBER_OF_REGISTERS
+         0 <= saveds <= SLJIT_NUMBER_OF_REGISTERS
+         scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS
+         0 <= fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS
+         0 <= fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS
+         fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS
+
    Note: every call of sljit_emit_enter and sljit_set_context
-         overwrites the previous context. */
+         overwrites the previous context.
+*/
 
 #define SLJIT_MAX_LOCAL_SIZE	65536
 

@@ -229,12 +229,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	}
 
 #ifdef _WIN64
-	/* Save xmm6 with MOVAPS instruction. */
-	inst = (sljit_ub*)ensure_buf(compiler, 1 + 5);
-	FAIL_IF(!inst);
-	INC_SIZE(5);
-	*inst++ = GROUP_0F;
-	*(sljit_si*)inst = 0x20247429;
+	/* Save xmm6 register: movaps [rsp + 0x20], xmm6 */
+	if (fscratches >= 6 || fsaveds >= 1) {
+		inst = (sljit_ub*)ensure_buf(compiler, 1 + 5);
+		FAIL_IF(!inst);
+		INC_SIZE(5);
+		*inst++ = GROUP_0F;
+		*(sljit_si*)inst = 0x20247429;
+	}
 #endif
 
 	return SLJIT_SUCCESS;
@@ -274,12 +276,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
 
 #ifdef _WIN64
-	/* Restore xmm6 with MOVAPS instruction. */
-	inst = (sljit_ub*)ensure_buf(compiler, 1 + 5);
-	FAIL_IF(!inst);
-	INC_SIZE(5);
-	*inst++ = GROUP_0F;
-	*(sljit_si*)inst = 0x20247428;
+	/* Restore xmm6 register: movaps xmm6, [rsp + 0x20] */
+	if (compiler->fscratches >= 6 || compiler->fsaveds >= 1) {
+		inst = (sljit_ub*)ensure_buf(compiler, 1 + 5);
+		FAIL_IF(!inst);
+		INC_SIZE(5);
+		*inst++ = GROUP_0F;
+		*(sljit_si*)inst = 0x20247428;
+	}
 #endif
 
 	SLJIT_ASSERT(compiler->local_size > 0);

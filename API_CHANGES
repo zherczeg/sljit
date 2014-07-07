@@ -1,6 +1,11 @@
 This file is the short summary of the API changes:
 
-31.05.2012 - Non-backward compatible
+06.07.2014 - Non-backward compatible
+    SCRATCH registers are renamed to Rx and SAVED registers
+    are renamed to Sx. See the explanation of these registers
+    in sljitLir.h.
+
+31.05.2014 - Non-backward compatible
     SLJIT_TEMPORARY_EREGx registers were not renamed to
     SLJIT_SCRATCH_EREGx when the change was done on 08.11.2012
 
