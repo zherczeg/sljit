@@ -873,6 +873,8 @@ static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler,
 	SLJIT_UNUSED_ARG(args);
 	SLJIT_UNUSED_ARG(scratches);
 	SLJIT_UNUSED_ARG(saveds);
+	SLJIT_UNUSED_ARG(fscratches);
+	SLJIT_UNUSED_ARG(fsaveds);
 	SLJIT_UNUSED_ARG(local_size);
 
 	SLJIT_ASSERT(args >= 0 && args <= 3);
@@ -900,6 +902,8 @@ static SLJIT_INLINE void check_sljit_set_context(struct sljit_compiler *compiler
 	SLJIT_UNUSED_ARG(args);
 	SLJIT_UNUSED_ARG(scratches);
 	SLJIT_UNUSED_ARG(saveds);
+	SLJIT_UNUSED_ARG(fscratches);
+	SLJIT_UNUSED_ARG(fsaveds);
 	SLJIT_UNUSED_ARG(local_size);
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)

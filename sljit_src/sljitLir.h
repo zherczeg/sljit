@@ -163,9 +163,11 @@ of sljitConfigInternal.h */
 #define SLJIT_R0	1
 #define SLJIT_R1	2
 #define SLJIT_R2	3
-/* Note: on x86-32, R3 - R6 are emulated (using stack loads & stores),
-   so they cannot be used for memory addressing. There is no such
-   limitation on other CPUs. */
+/* Note: on x86-32, R3 - R6 (same as S3 - S6) are emulated (they
+   are allocated on the stack). These registers are called virtual
+   and cannot be used for memory addressing (cannot be part of
+   any SLJIT_MEM1, SLJIT_MEM2 construct). There is no such
+   limitation on other CPUs. See sljit_get_register_index(). */
 #define SLJIT_R3	4
 #define SLJIT_R4	5
 #define SLJIT_R5	6
@@ -181,9 +183,11 @@ of sljitConfigInternal.h */
 #define SLJIT_S0	(SLJIT_NUMBER_OF_REGISTERS)
 #define SLJIT_S1	(SLJIT_NUMBER_OF_REGISTERS - 1)
 #define SLJIT_S2	(SLJIT_NUMBER_OF_REGISTERS - 2)
-/* Note: on x86-32, S3 - S6 are emulated (using stack loads & stores),
-   so they cannot be used for memory addressing. There is no such
-   limitation on other CPUs. */
+/* Note: on x86-32, S3 - S6 (same as R3 - R6) are emulated (they
+   are allocated on the stack). These registers are called virtual
+   and cannot be used for memory addressing (cannot be part of
+   any SLJIT_MEM1, SLJIT_MEM2 construct). There is no such
+   limitation on other CPUs. See sljit_get_register_index(). */
 #define SLJIT_S3	(SLJIT_NUMBER_OF_REGISTERS - 3)
 #define SLJIT_S4	(SLJIT_NUMBER_OF_REGISTERS - 4)
 #define SLJIT_S5	(SLJIT_NUMBER_OF_REGISTERS - 5)
@@ -807,15 +811,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 	sljit_si src2, sljit_sw src2w);
 
 /* The following function is a helper function for sljit_emit_op_custom.
-   It returns with the real machine register index of any SLJIT_SCRATCH
-   SLJIT_SAVED or SLJIT_LOCALS register.
-   Note: it returns with -1 for virtual registers (all EREGs on x86-32). */
+   It returns with the real machine register index ( >=0 ) of any SLJIT_R,
+   SLJIT_S and SLJIT_SP registers.
+
+   Note: it returns with -1 for virtual registers (only on x86-32). */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_register_index(sljit_si reg);
 
 /* The following function is a helper function for sljit_emit_op_custom.
    It returns with the real machine register index of any SLJIT_FLOAT register.
-   Note: the index is divided by 2 on ARM 32 bit architectures. */
+   
+   Note: the index is always an even number on ARM (except ARM-64), MIPS, and SPARC. */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_float_register_index(sljit_si reg);
 
