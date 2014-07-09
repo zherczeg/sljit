@@ -3696,11 +3696,11 @@ static void test41(void)
 				| sljit_get_float_register_index(SLJIT_FR1);
 			sljit_emit_op_custom(compiler, inst, 4);
 		}
-#elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7) || (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
+#elif (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
 		/* vadd.f64 dd, dn, dm */
-		inst = 0xee300b00 | (sljit_get_float_register_index(SLJIT_FR0) << 12)
-			| (sljit_get_float_register_index(SLJIT_FR0) << 16)
-			| sljit_get_float_register_index(SLJIT_FR1);
+		inst = 0xee300b00 | ((sljit_get_float_register_index(SLJIT_FR0) >> 1) << 12)
+			| ((sljit_get_float_register_index(SLJIT_FR0) >> 1) << 16)
+			| (sljit_get_float_register_index(SLJIT_FR1) >> 1);
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_ui));
 #elif (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
 		/* fadd rd, rn, rm */
