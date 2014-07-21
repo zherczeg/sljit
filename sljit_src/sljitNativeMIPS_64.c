@@ -217,7 +217,7 @@ static SLJIT_INLINE sljit_si emit_single_op(struct sljit_compiler *compiler, slj
 
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
-#if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
+#if (defined SLJIT_MIPS_R1 && SLJIT_MIPS_R1)
 		if (op & SLJIT_SET_E)
 			FAIL_IF(push_inst(compiler, SELECT_OP(DCLZ, CLZ) | S(src2) | TA(EQUAL_FLAG) | DA(EQUAL_FLAG), EQUAL_FLAG));
 		if (CHECK_FLAGS(SLJIT_SET_E))
@@ -391,7 +391,7 @@ static SLJIT_INLINE sljit_si emit_single_op(struct sljit_compiler *compiler, slj
 	case SLJIT_MUL:
 		SLJIT_ASSERT(!(flags & SRC2_IMM));
 		if (!(op & SLJIT_SET_O)) {
-#if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
+#if (defined SLJIT_MIPS_R1 && SLJIT_MIPS_R1)
 			if (op & SLJIT_INT_OP)
 				return push_inst(compiler, MUL | S(src1) | T(src2) | D(dst), DR(dst));
 			FAIL_IF(push_inst(compiler, DMULT | S(src1) | T(src2), MOVABLE_INS));
