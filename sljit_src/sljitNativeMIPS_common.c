@@ -25,13 +25,17 @@
  */
 
 /* Latest MIPS architecture. */
-/* Automatically detect SLJIT_MIPS_32_64 */
+/* Automatically detect SLJIT_MIPS_R1 */
 
 SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 {
-#if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
-	return "MIPS V" SLJIT_CPUINFO;
+#if (defined SLJIT_MIPS_R1 && SLJIT_MIPS_R1)
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	return "MIPS32-R1" SLJIT_CPUINFO;
 #else
+	return "MIPS64-R1" SLJIT_CPUINFO;
+#endif
+#else /* SLJIT_MIPS_R1 */
 	return "MIPS III" SLJIT_CPUINFO;
 #endif
 }
@@ -171,7 +175,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 #define XOR		(HI(0) | LO(38))
 #define XORI		(HI(14))
 
-#if (defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
+#if (defined SLJIT_MIPS_R1 && SLJIT_MIPS_R1)
 #define CLZ		(HI(28) | LO(32))
 #define DCLZ		(HI(28) | LO(36))
 #define MUL		(HI(28) | LO(2))
@@ -1064,7 +1068,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 		return push_inst(compiler, MFHI | D(SLJIT_R1), DR(SLJIT_R1));
 	case SLJIT_UDIV:
 	case SLJIT_SDIV:
-#if !(defined SLJIT_MIPS_32_64 && SLJIT_MIPS_32_64)
+#if !(defined SLJIT_MIPS_R1 && SLJIT_MIPS_R1)
 		FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
 		FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
 #endif
