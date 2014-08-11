@@ -260,6 +260,11 @@ of sljitConfigInternal.h */
 /*  Main structures and functions                                        */
 /* --------------------------------------------------------------------- */
 
+/*
+	The following structures are private, and can be changed in the
+	future. Keeping them here allows code inlining.
+*/
+
 struct sljit_memory_fragment {
 	struct sljit_memory_fragment *next;
 	sljit_uw used_size;
@@ -291,6 +296,7 @@ struct sljit_const {
 
 struct sljit_compiler {
 	sljit_si error;
+	sljit_si options;
 
 	struct sljit_label *labels;
 	struct sljit_jump *jumps;
@@ -454,23 +460,26 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    all machine registers and stack handling among other things. The
    sljit_emit_enter function emits the necessary instructions for
    setting up a new context for the executable code and moves function
-   arguments to the saved registers. The number of sljit_sw arguments
-   passed to the function are specified in the "args" parameter. The
-   number of arguments must be less than or equal to 3. The first
-   argument goes to SLJIT_S0, the second goes to SLJIT_S1 and so on.
-   The register set used by the function must be declared as well.
-   The number of scratch and saved registers used by the function must
-   be passed to sljit_emit_enter. Only R registers between R0 and
-   "scratches" argument can be used later. E.g. if "scratches" is set
-   to 2, the register set will be limited to R0 and R1. The S registers
-   and the floating point registers ("fscratches" and "fsaveds")
-   are specified in a similar way. The sljit_emit_enter is also capable
-   of allocating a stack space for local variables. The "local_size"
-   argument contains the size in bytes of this local area and its
-   staring address is stored in SLJIT_SP. The memory area between
-   SLJIT_SP (inclusive) and SLJIT_SP + local_size (exclusive) can be
-   modified freely until the function returns. The stack space is not
-   initialized.
+   arguments to the saved registers. Furthermore the options argument
+   can be used to pass configuration options to the compiler. Currently
+   there are no options, so it must be set to 0.
+
+   The number of sljit_sw arguments passed to the generated function
+   are specified in the "args" parameter. The number of arguments must
+   be less than or equal to 3. The first argument goes to SLJIT_S0,
+   the second goes to SLJIT_S1 and so on. The register set used by
+   the function must be declared as well. The number of scratch and
+   saved registers used by the function must be passed to sljit_emit_enter.
+   Only R registers between R0 and "scratches" argument can be used
+   later. E.g. if "scratches" is set to 2, the register set will be
+   limited to R0 and R1. The S registers and the floating point
+   registers ("fscratches" and "fsaveds") are specified in a similar
+   way. The sljit_emit_enter is also capable of allocating a stack
+   space for local variables. The "local_size" argument contains the
+   size in bytes of this local area and its staring address is stored
+   in SLJIT_SP. The memory area between SLJIT_SP (inclusive) and
+   SLJIT_SP + local_size (exclusive) can be modified freely until
+   the function returns. The stack space is not initialized.
 
    Note: the following conditions must met:
          0 <= scratches <= SLJIT_NUMBER_OF_REGISTERS
@@ -487,7 +496,7 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_MAX_LOCAL_SIZE	65536
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size);
 
 /* The machine code has a context (which contains the local stack space size,
@@ -501,7 +510,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
          the previous context. */
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size);
 
 /* Return from machine code.  The op argument can be SLJIT_UNUSED which means the

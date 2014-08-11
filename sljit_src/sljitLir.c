@@ -872,11 +872,12 @@ static SLJIT_INLINE void check_sljit_generate_code(struct sljit_compiler *compil
 }
 
 static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	/* If debug and verbose are disabled, all arguments are unused. */
 	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(options);
 	SLJIT_UNUSED_ARG(args);
 	SLJIT_UNUSED_ARG(scratches);
 	SLJIT_UNUSED_ARG(saveds);
@@ -884,6 +885,7 @@ static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler,
 	SLJIT_UNUSED_ARG(fsaveds);
 	SLJIT_UNUSED_ARG(local_size);
 
+	SLJIT_ASSERT(options == 0);
 	SLJIT_ASSERT(args >= 0 && args <= 3);
 	SLJIT_ASSERT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	SLJIT_ASSERT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_REGISTERS);
@@ -895,17 +897,18 @@ static SLJIT_INLINE void check_sljit_emit_enter(struct sljit_compiler *compiler,
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
-		fprintf(compiler->verbose, "  enter args:%d scratches:%d saveds:%d fscratches:%d fsaveds:%d local_size:%d\n",
+		fprintf(compiler->verbose, "  enter options:none args:%d scratches:%d saveds:%d fscratches:%d fsaveds:%d local_size:%d\n",
 			args, scratches, saveds, fscratches, fsaveds, local_size);
 #endif
 }
 
 static SLJIT_INLINE void check_sljit_set_context(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	/* If debug and verbose are disabled, all arguments are unused. */
 	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(options);
 	SLJIT_UNUSED_ARG(args);
 	SLJIT_UNUSED_ARG(scratches);
 	SLJIT_UNUSED_ARG(saveds);
@@ -920,6 +923,7 @@ static SLJIT_INLINE void check_sljit_set_context(struct sljit_compiler *compiler
 	}
 #endif
 
+	SLJIT_ASSERT(options == 0);
 	SLJIT_ASSERT(args >= 0 && args <= 3);
 	SLJIT_ASSERT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	SLJIT_ASSERT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_REGISTERS);
@@ -931,7 +935,7 @@ static SLJIT_INLINE void check_sljit_set_context(struct sljit_compiler *compiler
 	SLJIT_ASSERT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
-		fprintf(compiler->verbose, "  set_context args:%d scratches:%d saveds:%d fscratches:%d fsaveds:%d local_size:%d\n",
+		fprintf(compiler->verbose, "  set_context options:none args:%d scratches:%d saveds:%d fscratches:%d fsaveds:%d local_size:%d\n",
 			args, scratches, saveds, fscratches, fsaveds, local_size);
 #endif
 }
@@ -1780,10 +1784,11 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code)
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(options);
 	SLJIT_UNUSED_ARG(args);
 	SLJIT_UNUSED_ARG(scratches);
 	SLJIT_UNUSED_ARG(saveds);
@@ -1795,10 +1800,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(options);
 	SLJIT_UNUSED_ARG(args);
 	SLJIT_UNUSED_ARG(scratches);
 	SLJIT_UNUSED_ARG(saveds);
