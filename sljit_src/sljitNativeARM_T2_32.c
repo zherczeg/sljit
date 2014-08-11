@@ -1128,15 +1128,16 @@ static SLJIT_INLINE sljit_si emit_op_mem2(struct sljit_compiler *compiler, sljit
 /* --------------------------------------------------------------------- */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	sljit_si size, i, tmp;
 	sljit_ins push;
 
 	CHECK_ERROR();
-	check_sljit_emit_enter(compiler, args, scratches, saveds, fscratches, fsaveds, local_size);
+	check_sljit_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
 
+	compiler->options = options;
 	compiler->scratches = scratches;
 	compiler->saveds = saveds;
 	compiler->fscratches = fscratches;
@@ -1180,14 +1181,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
-	sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
 	sljit_si size;
 
 	CHECK_ERROR_VOID();
-	check_sljit_set_context(compiler, args, scratches, saveds, fscratches, fsaveds, local_size);
+	check_sljit_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
 
+	compiler->options = options;
 	compiler->scratches = scratches;
 	compiler->saveds = saveds;
 	compiler->fscratches = fscratches;

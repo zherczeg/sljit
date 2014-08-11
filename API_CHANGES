@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+11.08.2014 - Non-backward compatible
+    A currently unused options parameter is added to sljit_emit_enter
+    and sljit_set_context.
+
 06.07.2014 - Non-backward compatible
     SCRATCH registers are renamed to Rx and SAVED registers
     are renamed to Sx. See the explanation of these registers
