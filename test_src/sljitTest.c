@@ -945,7 +945,8 @@ static void test13(void)
 		printf("Run test13\n");
 
 	if (!sljit_is_fpu_available()) {
-		printf("no fpu available, test13 skipped\n");
+		if (verbose)
+			printf("no fpu available, test13 skipped\n");
 		successful_tests++;
 		if (compiler)
 			sljit_free_compiler(compiler);
@@ -1029,7 +1030,8 @@ static void test14(void)
 		printf("Run test14\n");
 
 	if (!sljit_is_fpu_available()) {
-		printf("no fpu available, test14 skipped\n");
+		if (verbose)
+			printf("no fpu available, test14 skipped\n");
 		successful_tests++;
 		if (compiler)
 			sljit_free_compiler(compiler);
@@ -2721,7 +2723,8 @@ static void test32(void)
 	dbuf[3].value = 27.0;
 
 	if (!sljit_is_fpu_available()) {
-		printf("no fpu available, test32 skipped\n");
+		if (verbose)
+			printf("no fpu available, test32 skipped\n");
 		successful_tests++;
 		if (compiler)
 			sljit_free_compiler(compiler);
@@ -3917,7 +3920,8 @@ static void test43(void)
 		printf("Run test43\n");
 
 	if (!sljit_is_fpu_available()) {
-		printf("no fpu available, test43 skipped\n");
+		if (verbose)
+			printf("no fpu available, test43 skipped\n");
 		successful_tests++;
 		if (compiler)
 			sljit_free_compiler(compiler);
@@ -4033,7 +4037,8 @@ static void test45(void)
 		printf("Run test45\n");
 
 	if (!sljit_is_fpu_available()) {
-		printf("no fpu available, test45 skipped\n");
+		if (verbose)
+			printf("no fpu available, test45 skipped\n");
 		successful_tests++;
 		if (compiler)
 			sljit_free_compiler(compiler);
@@ -4297,7 +4302,8 @@ static void test48(void)
 		printf("Run test48\n");
 
 	if (!sljit_is_fpu_available()) {
-		printf("no fpu available, test48 skipped\n");
+		if (verbose)
+			printf("no fpu available, test48 skipped\n");
 		successful_tests++;
 		if (compiler)
 			sljit_free_compiler(compiler);
@@ -4446,7 +4452,8 @@ static void test49(void)
 		printf("Run test49\n");
 
 	if (!sljit_is_fpu_available()) {
-		printf("no fpu available, test49 skipped\n");
+		if (verbose)
+			printf("no fpu available, test49 skipped\n");
 		successful_tests++;
 		if (compiler)
 			sljit_free_compiler(compiler);
@@ -4581,7 +4588,8 @@ static void test50(void)
 		printf("Run test50\n");
 
 	if (!sljit_is_fpu_available()) {
-		printf("no fpu available, test50 skipped\n");
+		if (verbose)
+			printf("no fpu available, test50 skipped\n");
 		successful_tests++;
 		if (compiler)
 			sljit_free_compiler(compiler);
@@ -4785,7 +4793,8 @@ static void test52(void)
 	sljit_si i;
 
 	if (!sljit_is_fpu_available()) {
-		printf("no fpu available, test52 skipped\n");
+		if (verbose)
+			printf("no fpu available, test52 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -4940,7 +4949,7 @@ void sljit_test(int argc, char* argv[])
 		printf("all tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT " ");
 	else
 		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests are failed ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / 47);
-	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), sljit_is_fpu_available() ? " (+fpu)" : "");
+	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), sljit_is_fpu_available() ? " (with fpu)" : " (without fpu)");
 
 #	undef TEST_COUNT
 }
