@@ -359,7 +359,6 @@ struct sljit_compiler {
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
-	sljit_si locals_offset;
 	sljit_si cache_arg;
 	sljit_sw cache_argw;
 #endif

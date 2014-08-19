@@ -434,7 +434,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	compiler->logical_local_size = local_size;
 #endif
 
-	local_size = (local_size + FIXED_LOCALS_OFFSET + 7) & ~0x7;
+	local_size = (local_size + SLJIT_LOCALS_OFFSET + 7) & ~0x7;
 	compiler->local_size = local_size;
 
 	if (local_size <= SIMM_MAX) {
@@ -466,7 +466,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	compiler->logical_local_size = local_size;
 #endif
 
-	compiler->local_size = (local_size + FIXED_LOCALS_OFFSET + 7) & ~0x7;
+	compiler->local_size = (local_size + SLJIT_LOCALS_OFFSET + 7) & ~0x7;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compiler, sljit_si op, sljit_si src, sljit_sw srcw)

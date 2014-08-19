@@ -141,14 +141,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	}
 #endif
 
-	SLJIT_COMPILE_ASSERT(FIXED_LOCALS_OFFSET >= (2 + 4) * sizeof(sljit_uw), require_at_least_two_words);
+	SLJIT_COMPILE_ASSERT(SLJIT_LOCALS_OFFSET >= (2 + 4) * sizeof(sljit_uw), require_at_least_two_words);
 #if defined(__APPLE__)
-	/* Ignore pushed registers and FIXED_LOCALS_OFFSET when
-	computing the aligned local size. */
+	/* Ignore pushed registers and SLJIT_LOCALS_OFFSET when computing the aligned local size. */
 	saveds = (2 + (scratches > 7 ? (scratches - 7) : 0) + (saveds <= 3 ? saveds : 3)) * sizeof(sljit_uw);
-	local_size = ((FIXED_LOCALS_OFFSET + saveds + local_size + 15) & ~15) - saveds;
+	local_size = ((SLJIT_LOCALS_OFFSET + saveds + local_size + 15) & ~15) - saveds;
 #else
-	local_size = FIXED_LOCALS_OFFSET + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
+	local_size = SLJIT_LOCALS_OFFSET + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
 #endif
 
 	compiler->local_size = local_size;
@@ -157,10 +156,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 		FAIL_IF(emit_do_imm(compiler, MOV_r_i32 + reg_map[SLJIT_R0], local_size));
 #else
-		local_size -= FIXED_LOCALS_OFFSET;
+		local_size -= SLJIT_LOCALS_OFFSET;
 		FAIL_IF(emit_do_imm(compiler, MOV_r_i32 + reg_map[SLJIT_R0], local_size));
 		FAIL_IF(emit_non_cum_binary(compiler, SUB_r_rm, SUB_rm_r, SUB, SUB_EAX_i32,
-			SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, FIXED_LOCALS_OFFSET));
+			SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, SLJIT_LOCALS_OFFSET));
 #endif
 		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(sljit_grow_stack)));
 	}
@@ -190,9 +189,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 
 #if defined(__APPLE__)
 	saveds = (2 + (scratches > 7 ? (scratches - 7) : 0) + (saveds <= 3 ? saveds : 3)) * sizeof(sljit_uw);
-	compiler->local_size = ((FIXED_LOCALS_OFFSET + saveds + local_size + 15) & ~15) - saveds;
+	compiler->local_size = ((SLJIT_LOCALS_OFFSET + saveds + local_size + 15) & ~15) - saveds;
 #else
-	compiler->local_size = FIXED_LOCALS_OFFSET + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
+	compiler->local_size = SLJIT_LOCALS_OFFSET + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
 #endif
 }
 

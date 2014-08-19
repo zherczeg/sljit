@@ -32,20 +32,19 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 /* Length of an instruction word */
 typedef sljit_ui sljit_ins;
 
-#define TMP_ZERO	0
+#define TMP_ZERO	(0)
 
 #define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
 #define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
 #define TMP_REG3	(SLJIT_NUMBER_OF_REGISTERS + 4)
-#define TMP_REG4	(SLJIT_NUMBER_OF_REGISTERS + 5)
-#define TMP_LR		(SLJIT_NUMBER_OF_REGISTERS + 6)
-#define TMP_SP		(SLJIT_NUMBER_OF_REGISTERS + 7)
+#define TMP_LR		(SLJIT_NUMBER_OF_REGISTERS + 5)
+#define TMP_SP		(SLJIT_NUMBER_OF_REGISTERS + 6)
 
 #define TMP_FREG1	(0)
 #define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
 
 static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 8] = {
-  31, 0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 15, 16, 17, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 29, 9, 10, 11, 12, 30, 31
+  31, 0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15, 16, 17, 8, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 29, 9, 10, 11, 30, 31
 };
 
 #define W_OP (1 << 31)
@@ -730,12 +729,12 @@ static sljit_si emit_op_imm(struct sljit_compiler *compiler, sljit_si flags, slj
 			return push_inst(compiler, (MADD ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2) | RT2(TMP_ZERO));
 		if (flags & INT_OP) {
 			FAIL_IF(push_inst(compiler, SMADDL | RD(dst) | RN(arg1) | RM(arg2) | (31 << 10)));
-			FAIL_IF(push_inst(compiler, ADD | RD(TMP_REG4) | RN(TMP_ZERO) | RM(dst) | (2 << 22) | (31 << 10)));
-			return push_inst(compiler, SUBS | RD(TMP_ZERO) | RN(TMP_REG4) | RM(dst) | (2 << 22) | (63 << 10));
+			FAIL_IF(push_inst(compiler, ADD | RD(TMP_LR) | RN(TMP_ZERO) | RM(dst) | (2 << 22) | (31 << 10)));
+			return push_inst(compiler, SUBS | RD(TMP_ZERO) | RN(TMP_LR) | RM(dst) | (2 << 22) | (63 << 10));
 		}
-		FAIL_IF(push_inst(compiler, SMULH | RD(TMP_REG4) | RN(arg1) | RM(arg2)));
+		FAIL_IF(push_inst(compiler, SMULH | RD(TMP_LR) | RN(arg1) | RM(arg2)));
 		FAIL_IF(push_inst(compiler, MADD | RD(dst) | RN(arg1) | RM(arg2) | RT2(TMP_ZERO)));
-		return push_inst(compiler, SUBS | RD(TMP_ZERO) | RN(TMP_REG4) | RM(dst) | (2 << 22) | (63 << 10));
+		return push_inst(compiler, SUBS | RD(TMP_ZERO) | RN(TMP_LR) | RM(dst) | (2 << 22) | (63 << 10));
 	case SLJIT_AND:
 		CHECK_FLAGS(3 << 29);
 		return push_inst(compiler, (AND ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
@@ -976,9 +975,9 @@ static sljit_si getput_arg(struct sljit_compiler *compiler, sljit_si flags, slji
 			FAIL_IF(push_inst(compiler, ADD | RD(arg) | RN(arg) | RM(other_r) | (argw << 10)));
 			return push_inst(compiler, sljit_mem_imm[flags & 0x3] | (shift << 30) | RT(reg) | RN(arg));
 		}
-		FAIL_IF(push_inst(compiler, ADD | RD(TMP_REG4) | RN(arg) | RM(other_r) | (argw << 10)));
-		FAIL_IF(push_inst(compiler, sljit_mem_imm[flags & 0x3] | (shift << 30) | RT(reg) | RN(TMP_REG4)));
-		return push_inst(compiler, ORR | RD(arg) | RN(TMP_ZERO) | RM(TMP_REG4));
+		FAIL_IF(push_inst(compiler, ADD | RD(TMP_LR) | RN(arg) | RM(other_r) | (argw << 10)));
+		FAIL_IF(push_inst(compiler, sljit_mem_imm[flags & 0x3] | (shift << 30) | RT(reg) | RN(TMP_LR)));
+		return push_inst(compiler, ORR | RD(arg) | RN(TMP_ZERO) | RM(TMP_LR));
 	}
 
 	if (arg & OFFS_REG_MASK) {
@@ -1065,7 +1064,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
-	sljit_si i, tmp, offs, prev;
+	sljit_si i, tmp, offs, prev, saved_regs_size;
 
 	CHECK_ERROR();
 	check_sljit_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
@@ -1078,28 +1077,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->logical_local_size = local_size;
 #endif
-	compiler->locals_offset = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 2);
-	local_size = (compiler->locals_offset + local_size + 15) & ~15;
+	saved_regs_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 0);
+	local_size += saved_regs_size + SLJIT_LOCALS_OFFSET;
+	local_size = (local_size + 15) & ~0xf;
 	compiler->local_size = local_size;
 
-	if (local_size <= (64 << 3))
+	if (local_size <= (63 * sizeof(sljit_sw))) {
 		FAIL_IF(push_inst(compiler, STP_PRE | 29 | RT2(TMP_LR)
 			| RN(TMP_SP) | ((-(local_size >> 3) & 0x7f) << 15)));
-	else {
-		local_size -= (64 << 3);
-		if (local_size > 0xfff) {
-			FAIL_IF(push_inst(compiler, SUBI | RD(TMP_SP) | RN(TMP_SP) | ((local_size >> 12) << 10) | (1 << 22)));
-			local_size &= 0xfff;
-		}
-		if (local_size)
-			FAIL_IF(push_inst(compiler, SUBI | RD(TMP_SP) | RN(TMP_SP) | (local_size << 10)));
-		FAIL_IF(push_inst(compiler, STP_PRE | 29 | RT2(TMP_LR) | RN(TMP_SP) | (0x40 << 15)));
+		FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_SP) | RN(TMP_SP) | (0 << 10)));
+		offs = (local_size - saved_regs_size) << (15 - 3);
+	} else {
+		compiler->local_size += 2 * sizeof(sljit_sw);
+		local_size -= saved_regs_size;
+		saved_regs_size += 2 * sizeof(sljit_sw);
+		FAIL_IF(push_inst(compiler, STP_PRE | 29 | RT2(TMP_LR)
+			| RN(TMP_SP) | ((-(saved_regs_size >> 3) & 0x7f) << 15)));
+		offs = 2 << 15;
 	}
 
-	FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_SP) | RN(TMP_SP)));
-
 	tmp = saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - saveds) : SLJIT_FIRST_SAVED_REG;
-	offs = 2 << 15;
 	prev = -1;
 	for (i = SLJIT_S0; i >= tmp; i--) {
 		if (prev == -1) {
@@ -1123,6 +1120,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 
 	if (prev != -1)
 		FAIL_IF(push_inst(compiler, STRI | RT(prev) | RN(TMP_SP) | (offs >> 5)));
+
+	if (compiler->local_size > (63 * sizeof(sljit_sw))) {
+		/* The local_size is already adjusted by the saved registers. */
+		if (local_size > 0xfff) {
+			FAIL_IF(push_inst(compiler, SUBI | RD(TMP_SP) | RN(TMP_SP) | ((local_size >> 12) << 10) | (1 << 22)));
+			local_size &= 0xfff;
+		}
+		if (local_size)
+			FAIL_IF(push_inst(compiler, SUBI | RD(TMP_SP) | RN(TMP_SP) | (local_size << 10)));
+		FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_SP) | RN(TMP_SP) | (0 << 10)));
+	}
 
 	if (args >= 1)
 		FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0) | RN(TMP_ZERO) | RM(SLJIT_R0)));
@@ -1149,22 +1157,42 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->logical_local_size = local_size;
 #endif
-	compiler->locals_offset = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 2);
-	compiler->local_size = (compiler->locals_offset + local_size + 15) & ~15;
+	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 0) + SLJIT_LOCALS_OFFSET;
+	local_size = (local_size + 15) & ~0xf;
+	if (local_size > (63 * sizeof(sljit_sw)))
+		local_size += 2 * sizeof(sljit_sw);
+	compiler->local_size = local_size;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compiler, sljit_si op, sljit_si src, sljit_sw srcw)
 {
 	sljit_si local_size;
-	sljit_si i, tmp, offs, prev;
+	sljit_si i, tmp, offs, prev, saved_regs_size;
 
 	CHECK_ERROR();
 	check_sljit_emit_return(compiler, op, src, srcw);
 
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
 
+	local_size = compiler->local_size;
+
+	saved_regs_size = GET_SAVED_REGISTERS_SIZE(compiler->scratches, compiler->saveds, 0);
+	if (local_size <= (63 * sizeof(sljit_sw)))
+		offs = (local_size - saved_regs_size) << (15 - 3);
+	else {
+		saved_regs_size += 2 * sizeof(sljit_sw);
+		local_size -= saved_regs_size;
+		if (local_size > 0xfff) {
+			FAIL_IF(push_inst(compiler, ADDI | RD(TMP_SP) | RN(TMP_SP) | ((local_size >> 12) << 10) | (1 << 22)));
+			local_size &= 0xfff;
+		}
+		if (local_size)
+			FAIL_IF(push_inst(compiler, ADDI | RD(TMP_SP) | RN(TMP_SP) | (local_size << 10)));
+		local_size = saved_regs_size;
+		offs = 2 << 15;
+	}
+
 	tmp = compiler->saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - compiler->saveds) : SLJIT_FIRST_SAVED_REG;
-	offs = 2 << 15;
 	prev = -1;
 	for (i = SLJIT_S0; i >= tmp; i--) {
 		if (prev == -1) {
@@ -1189,21 +1217,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 	if (prev != -1)
 		FAIL_IF(push_inst(compiler, LDRI | RT(prev) | RN(TMP_SP) | (offs >> 5)));
 
-	local_size = compiler->local_size;
-
-	if (local_size <= (62 << 3))
-		FAIL_IF(push_inst(compiler, LDP_PST | 29 | RT2(TMP_LR)
-			| RN(TMP_SP) | (((local_size >> 3) & 0x7f) << 15)));
-	else {
-		FAIL_IF(push_inst(compiler, LDP_PST | 29 | RT2(TMP_LR) | RN(TMP_SP) | (0x3e << 15)));
-		local_size -= (62 << 3);
-		if (local_size > 0xfff) {
-			FAIL_IF(push_inst(compiler, ADDI | RD(TMP_SP) | RN(TMP_SP) | ((local_size >> 12) << 10) | (1 << 22)));
-			local_size &= 0xfff;
-		}
-		if (local_size)
-			FAIL_IF(push_inst(compiler, ADDI | RD(TMP_SP) | RN(TMP_SP) | (local_size << 10)));
-	}
+	FAIL_IF(push_inst(compiler, LDP_PST | 29 | RT2(TMP_LR)
+		| RN(TMP_SP) | (((local_size >> 3) & 0x7f) << 15)));
 
 	FAIL_IF(push_inst(compiler, RET | RN(TMP_LR)));
 	return SLJIT_SUCCESS;

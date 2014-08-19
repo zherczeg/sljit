@@ -173,7 +173,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 #endif
 	}
 
-	local_size = ((local_size + FIXED_LOCALS_OFFSET + saved_register_size + 16 - 1) & ~(16 - 1)) - saved_register_size;
+	local_size = ((local_size + SLJIT_LOCALS_OFFSET + saved_register_size + 15) & ~15) - saved_register_size;
 	compiler->local_size = local_size;
 
 #ifdef _WIN64
@@ -263,7 +263,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 
 	/* Including the return address saved by the call instruction. */
 	saved_register_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
-	compiler->local_size = ((local_size + FIXED_LOCALS_OFFSET + saved_register_size + 16 - 1) & ~(16 - 1)) - saved_register_size;
+	compiler->local_size = ((local_size + SLJIT_LOCALS_OFFSET + saved_register_size + 15) & ~15) - saved_register_size;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compiler, sljit_si op, sljit_si src, sljit_sw srcw)
