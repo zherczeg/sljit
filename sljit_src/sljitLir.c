@@ -236,60 +236,6 @@
 		(saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? saveds : SLJIT_NUMBER_OF_SAVED_REGISTERS) + \
 		extra) * sizeof(sljit_sw))
 
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-#define SLJIT_LOCALS_OFFSET ((2 + 4) * sizeof(sljit_sw))
-#else
-/* Maximum 3 arguments are passed on the stack. */
-#define SLJIT_LOCALS_OFFSET ((3 + 4) * sizeof(sljit_sw))
-#endif
-
-#endif /* SLJIT_CONFIG_X86_32 */
-
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-#ifdef _WIN64
-#define SLJIT_LOCALS_OFFSET ((4 + 2) * sizeof(sljit_sw))
-#else
-#define SLJIT_LOCALS_OFFSET (sizeof(sljit_sw))
-#endif
-#endif
-
-#if (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
-#define SLJIT_LOCALS_OFFSET 0
-#endif
-
-#if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
-#define SLJIT_LOCALS_OFFSET (2 * sizeof(sljit_sw))
-#endif
-
-#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-#ifdef _AIX
-#define SLJIT_LOCALS_OFFSET ((6 + 8) * sizeof(sljit_sw))
-#else
-#define SLJIT_LOCALS_OFFSET (3 * sizeof(sljit_sw))
-#endif
-#endif
-
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-#define SLJIT_LOCALS_OFFSET ((6 + 8) * sizeof(sljit_sw))
-#endif
-
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-#define SLJIT_LOCALS_OFFSET (4 * sizeof(sljit_sw))
-#endif
-
-#if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
-#define SLJIT_LOCALS_OFFSET 0
-#endif
-
-#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-#define SLJIT_LOCALS_OFFSET (23 * sizeof(sljit_sw))
-#endif
-
-#if (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
-#define SLJIT_LOCALS_OFFSET 0
-#endif
-
 #define ADJUST_LOCAL_OFFSET(p, i) \
 	if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
 		(i) += SLJIT_LOCALS_OFFSET;
@@ -531,6 +477,38 @@ static SLJIT_INLINE void reverse_buf(struct sljit_compiler *compiler)
 	} while (buf != NULL);
 
 	compiler->buf = prev;
+}
+
+static SLJIT_INLINE void set_emit_enter(struct sljit_compiler *compiler,
+	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
+{
+	SLJIT_UNUSED_ARG(local_size);
+
+	compiler->options = options;
+	compiler->scratches = scratches;
+	compiler->saveds = saveds;
+	compiler->fscratches = fscratches;
+	compiler->fsaveds = fsaveds;
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->logical_local_size = local_size;
+#endif
+}
+
+static SLJIT_INLINE void set_set_context(struct sljit_compiler *compiler,
+	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
+	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
+{
+	SLJIT_UNUSED_ARG(local_size);
+
+	compiler->options = options;
+	compiler->scratches = scratches;
+	compiler->saveds = saveds;
+	compiler->fscratches = fscratches;
+	compiler->fsaveds = fsaveds;
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	compiler->logical_local_size = local_size;
+#endif
 }
 
 static SLJIT_INLINE void set_label(struct sljit_label *label, struct sljit_compiler *compiler)

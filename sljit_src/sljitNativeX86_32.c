@@ -72,17 +72,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 
 	CHECK_ERROR();
 	check_sljit_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
+	set_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
 
-	compiler->options = options;
-	compiler->scratches = scratches;
-	compiler->saveds = saveds;
-	compiler->fscratches = fscratches;
-	compiler->fsaveds = fsaveds;
 	compiler->args = args;
 	compiler->flags_saved = 0;
-#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	compiler->logical_local_size = local_size;
-#endif
 
 	size = 1 + (scratches > 7 ? (scratches - 7) : 0) + (saveds <= 3 ? saveds : 3);
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
@@ -176,16 +169,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 {
 	CHECK_ERROR_VOID();
 	check_sljit_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
+	set_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
 
-	compiler->options = options;
-	compiler->scratches = scratches;
-	compiler->saveds = saveds;
-	compiler->fscratches = fscratches;
-	compiler->fsaveds = fsaveds;
 	compiler->args = args;
-#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	compiler->logical_local_size = local_size;
-#endif
 
 #if defined(__APPLE__)
 	saveds = (2 + (scratches > 7 ? (scratches - 7) : 0) + (saveds <= 3 ? saveds : 3)) * sizeof(sljit_uw);

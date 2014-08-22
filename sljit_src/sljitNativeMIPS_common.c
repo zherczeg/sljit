@@ -547,15 +547,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 
 	CHECK_ERROR();
 	check_sljit_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
-
-	compiler->options = options;
-	compiler->scratches = scratches;
-	compiler->saveds = saveds;
-	compiler->fscratches = fscratches;
-	compiler->fsaveds = fsaveds;
-#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	compiler->logical_local_size = local_size;
-#endif
+	set_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
 
 	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1) + SLJIT_LOCALS_OFFSET;
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
@@ -608,15 +600,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 {
 	CHECK_ERROR_VOID();
 	check_sljit_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
-
-	compiler->options = options;
-	compiler->scratches = scratches;
-	compiler->saveds = saveds;
-	compiler->fscratches = fscratches;
-	compiler->fsaveds = fsaveds;
-#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	compiler->logical_local_size = local_size;
-#endif
+	set_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
 
 	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1) + SLJIT_LOCALS_OFFSET;
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
