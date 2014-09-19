@@ -925,36 +925,64 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
 
-/* Invert conditional instruction: xor (^) with 0x1 */
-#define SLJIT_C_EQUAL			0
-#define SLJIT_C_ZERO			0
-#define SLJIT_C_NOT_EQUAL		1
-#define SLJIT_C_NOT_ZERO		1
+/* Invert (negate) conditional type: xor (^) with 0x1 */
 
-#define SLJIT_C_LESS			2
-#define SLJIT_C_GREATER_EQUAL		3
-#define SLJIT_C_GREATER			4
-#define SLJIT_C_LESS_EQUAL		5
-#define SLJIT_C_SIG_LESS		6
-#define SLJIT_C_SIG_GREATER_EQUAL	7
-#define SLJIT_C_SIG_GREATER		8
-#define SLJIT_C_SIG_LESS_EQUAL		9
+/* Integer comparison types. */
+#define SLJIT_EQUAL			0
+#define SLJIT_I_EQUAL			(SLJIT_EQUAL | SLJIT_INT_OP)
+#define SLJIT_ZERO			0
+#define SLJIT_I_ZERO			(SLJIT_ZERO | SLJIT_INT_OP)
+#define SLJIT_NOT_EQUAL			1
+#define SLJIT_I_NOT_EQUAL		(SLJIT_NOT_EQUAL | SLJIT_INT_OP)
+#define SLJIT_NOT_ZERO			1
+#define SLJIT_I_NOT_ZERO		(SLJIT_NOT_ZERO | SLJIT_INT_OP)
 
-#define SLJIT_C_OVERFLOW		10
-#define SLJIT_C_NOT_OVERFLOW		11
+#define SLJIT_LESS			2
+#define SLJIT_I_LESS			(SLJIT_LESS | SLJIT_INT_OP)
+#define SLJIT_GREATER_EQUAL		3
+#define SLJIT_I_GREATER_EQUAL		(SLJIT_GREATER_EQUAL | SLJIT_INT_OP)
+#define SLJIT_GREATER			4
+#define SLJIT_I_GREATER			(SLJIT_GREATER | SLJIT_INT_OP)
+#define SLJIT_LESS_EQUAL		5
+#define SLJIT_I_LESS_EQUAL		(SLJIT_LESS_EQUAL | SLJIT_INT_OP)
+#define SLJIT_SIG_LESS			6
+#define SLJIT_I_SIG_LESS		(SLJIT_SIG_LESS | SLJIT_INT_OP)
+#define SLJIT_SIG_GREATER_EQUAL		7
+#define SLJIT_I_SIG_GREATER_EQUAL	(SLJIT_SIG_GREATER_EQUAL | SLJIT_INT_OP)
+#define SLJIT_SIG_GREATER		8
+#define SLJIT_I_SIG_GREATER		(SLJIT_SIG_GREATER | SLJIT_INT_OP)
+#define SLJIT_SIG_LESS_EQUAL		9
+#define SLJIT_I_SIG_LESS_EQUAL		(SLJIT_SIG_LESS_EQUAL | SLJIT_INT_OP)
 
-#define SLJIT_C_MUL_OVERFLOW		12
-#define SLJIT_C_MUL_NOT_OVERFLOW	13
+#define SLJIT_OVERFLOW			10
+#define SLJIT_I_OVERFLOW		(SLJIT_OVERFLOW | SLJIT_INT_OP)
+#define SLJIT_NOT_OVERFLOW		11
+#define SLJIT_I_NOT_OVERFLOW		(SLJIT_NOT_OVERFLOW | SLJIT_INT_OP)
 
-#define SLJIT_C_FLOAT_EQUAL		14
-#define SLJIT_C_FLOAT_NOT_EQUAL		15
-#define SLJIT_C_FLOAT_LESS		16
-#define SLJIT_C_FLOAT_GREATER_EQUAL	17
-#define SLJIT_C_FLOAT_GREATER		18
-#define SLJIT_C_FLOAT_LESS_EQUAL	19
-#define SLJIT_C_FLOAT_UNORDERED		20
-#define SLJIT_C_FLOAT_ORDERED		21
+#define SLJIT_MUL_OVERFLOW		12
+#define SLJIT_I_MUL_OVERFLOW		(SLJIT_MUL_OVERFLOW | SLJIT_INT_OP)
+#define SLJIT_MUL_NOT_OVERFLOW		13
+#define SLJIT_I_MUL_NOT_OVERFLOW	(SLJIT_MUL_NOT_OVERFLOW | SLJIT_INT_OP)
 
+/* Floating point comparison types. */
+#define SLJIT_D_EQUAL			14
+#define SLJIT_S_EQUAL			(SLJIT_D_EQUAL | SLJIT_SINGLE_OP)
+#define SLJIT_D_NOT_EQUAL		15
+#define SLJIT_S_NOT_EQUAL		(SLJIT_D_NOT_EQUAL | SLJIT_SINGLE_OP)
+#define SLJIT_D_LESS			16
+#define SLJIT_S_LESS			(SLJIT_D_LESS | SLJIT_SINGLE_OP)
+#define SLJIT_D_GREATER_EQUAL		17
+#define SLJIT_S_GREATER_EQUAL		(SLJIT_D_GREATER_EQUAL | SLJIT_SINGLE_OP)
+#define SLJIT_D_GREATER			18
+#define SLJIT_S_GREATER			(SLJIT_D_GREATER | SLJIT_SINGLE_OP)
+#define SLJIT_D_LESS_EQUAL		19
+#define SLJIT_S_LESS_EQUAL		(SLJIT_D_LESS_EQUAL | SLJIT_SINGLE_OP)
+#define SLJIT_D_UNORDERED		20
+#define SLJIT_S_UNORDERED		(SLJIT_D_UNORDERED | SLJIT_SINGLE_OP)
+#define SLJIT_D_ORDERED			21
+#define SLJIT_S_ORDERED			(SLJIT_D_ORDERED | SLJIT_SINGLE_OP)
+
+/* Unconditional jump types. */
 #define SLJIT_JUMP			22
 #define SLJIT_FAST_CALL			23
 #define SLJIT_CALL0			24
@@ -968,7 +996,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_REWRITABLE_JUMP		0x1000
 
 /* Emit a jump instruction. The destination is not set, only the type of the jump.
-    type must be between SLJIT_C_EQUAL and SLJIT_CALL3
+    type must be between SLJIT_EQUAL and SLJIT_CALL3
     type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
    Flags: - (never set any flags) for both conditional and unconditional jumps.
    Flags: destroy all flags for calls. */
@@ -977,10 +1005,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 /* Basic arithmetic comparison. In most architectures it is implemented as
    an SLJIT_SUB operation (with SLJIT_UNUSED destination and setting
    appropriate flags) followed by a sljit_emit_jump. However some
-   architectures (i.e: MIPS) may employ special optimizations here. It is
-   suggested to use this comparison form when appropriate.
-    type must be between SLJIT_C_EQUAL and SLJIT_C_SIG_LESS_EQUAL
-    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP or SLJIT_INT_OP
+   architectures (i.e: ARM64 or MIPS) may employ special optimizations here.
+   It is suggested to use this comparison form when appropriate.
+    type must be between SLJIT_EQUAL and SLJIT_I_SIG_LESS_EQUAL
+    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
    Flags: destroy flags. */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_si type,
 	sljit_si src1, sljit_sw src1w,
@@ -991,11 +1019,11 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
    sljit_emit_jump. However some architectures (i.e: MIPS) may employ
    special optimizations here. It is suggested to use this comparison form
    when appropriate.
-    type must be between SLJIT_C_FLOAT_EQUAL and SLJIT_C_FLOAT_ORDERED
-    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP and SLJIT_SINGLE_OP
+    type must be between SLJIT_D_EQUAL and SLJIT_S_ORDERED
+    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
    Flags: destroy flags.
    Note: if either operand is NaN, the behaviour is undefined for
-         type <= SLJIT_C_FLOAT_LESS_EQUAL. */
+         types up to SLJIT_S_LESS_EQUAL. */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compiler *compiler, sljit_si type,
 	sljit_si src1, sljit_sw src1w,
 	sljit_si src2, sljit_sw src2w);
@@ -1014,8 +1042,8 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compiler, sljit_si type, sljit_si src, sljit_sw srcw);
 
 /* Perform the operation using the conditional flags as the second argument.
-   Type must always be between SLJIT_C_EQUAL and SLJIT_C_FLOAT_ORDERED. The
-   value represented by the type is 1, if the condition represented by the type
+   Type must always be between SLJIT_EQUAL and SLJIT_S_ORDERED. The value
+   represented by the type is 1, if the condition represented by the type
    is fulfilled, and 0 otherwise.
 
    If op == SLJIT_MOV, SLJIT_MOV_SI, SLJIT_MOV_UI:
