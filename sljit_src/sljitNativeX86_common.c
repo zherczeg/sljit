@@ -330,54 +330,54 @@ static void get_cpu_features(void)
 static sljit_ub get_jump_code(sljit_si type)
 {
 	switch (type) {
-	case SLJIT_C_EQUAL:
-	case SLJIT_C_FLOAT_EQUAL:
+	case SLJIT_EQUAL:
+	case SLJIT_D_EQUAL:
 		return 0x84 /* je */;
 
-	case SLJIT_C_NOT_EQUAL:
-	case SLJIT_C_FLOAT_NOT_EQUAL:
+	case SLJIT_NOT_EQUAL:
+	case SLJIT_D_NOT_EQUAL:
 		return 0x85 /* jne */;
 
-	case SLJIT_C_LESS:
-	case SLJIT_C_FLOAT_LESS:
+	case SLJIT_LESS:
+	case SLJIT_D_LESS:
 		return 0x82 /* jc */;
 
-	case SLJIT_C_GREATER_EQUAL:
-	case SLJIT_C_FLOAT_GREATER_EQUAL:
+	case SLJIT_GREATER_EQUAL:
+	case SLJIT_D_GREATER_EQUAL:
 		return 0x83 /* jae */;
 
-	case SLJIT_C_GREATER:
-	case SLJIT_C_FLOAT_GREATER:
+	case SLJIT_GREATER:
+	case SLJIT_D_GREATER:
 		return 0x87 /* jnbe */;
 
-	case SLJIT_C_LESS_EQUAL:
-	case SLJIT_C_FLOAT_LESS_EQUAL:
+	case SLJIT_LESS_EQUAL:
+	case SLJIT_D_LESS_EQUAL:
 		return 0x86 /* jbe */;
 
-	case SLJIT_C_SIG_LESS:
+	case SLJIT_SIG_LESS:
 		return 0x8c /* jl */;
 
-	case SLJIT_C_SIG_GREATER_EQUAL:
+	case SLJIT_SIG_GREATER_EQUAL:
 		return 0x8d /* jnl */;
 
-	case SLJIT_C_SIG_GREATER:
+	case SLJIT_SIG_GREATER:
 		return 0x8f /* jnle */;
 
-	case SLJIT_C_SIG_LESS_EQUAL:
+	case SLJIT_SIG_LESS_EQUAL:
 		return 0x8e /* jle */;
 
-	case SLJIT_C_OVERFLOW:
-	case SLJIT_C_MUL_OVERFLOW:
+	case SLJIT_OVERFLOW:
+	case SLJIT_MUL_OVERFLOW:
 		return 0x80 /* jo */;
 
-	case SLJIT_C_NOT_OVERFLOW:
-	case SLJIT_C_MUL_NOT_OVERFLOW:
+	case SLJIT_NOT_OVERFLOW:
+	case SLJIT_MUL_NOT_OVERFLOW:
 		return 0x81 /* jno */;
 
-	case SLJIT_C_FLOAT_UNORDERED:
+	case SLJIT_D_UNORDERED:
 		return 0x8a /* jp */;
 
-	case SLJIT_C_FLOAT_ORDERED:
+	case SLJIT_D_ORDERED:
 		return 0x8b /* jpo */;
 	}
 	return 0;
@@ -2670,6 +2670,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 	if (SLJIT_UNLIKELY(compiler->flags_saved))
 		FAIL_IF(emit_restore_flags(compiler, op & SLJIT_KEEP_FLAGS));
 
+	type &= 0xff;
 	/* setcc = jcc + 0x10. */
 	cond_set = get_jump_code(type) + 0x10;
 
