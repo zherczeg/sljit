@@ -1227,15 +1227,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 		return push_inst(compiler, BRK);
 	case SLJIT_NOP:
 		return push_inst(compiler, NOP);
-	case SLJIT_UMUL:
-	case SLJIT_SMUL:
+	case SLJIT_LUMUL:
+	case SLJIT_LSMUL:
 		FAIL_IF(push_inst(compiler, ORR | RD(TMP_REG1) | RN(TMP_ZERO) | RM(SLJIT_R0)));
 		FAIL_IF(push_inst(compiler, MADD | RD(SLJIT_R0) | RN(SLJIT_R0) | RM(SLJIT_R1) | RT2(TMP_ZERO)));
-		return push_inst(compiler, (op == SLJIT_SMUL ? SMULH : UMULH) | RD(SLJIT_R1) | RN(TMP_REG1) | RM(SLJIT_R1));
-	case SLJIT_UDIV:
-	case SLJIT_SDIV:
+		return push_inst(compiler, (op == SLJIT_LUMUL ? UMULH : SMULH) | RD(SLJIT_R1) | RN(TMP_REG1) | RM(SLJIT_R1));
+	case SLJIT_LUDIV:
+	case SLJIT_LSDIV:
 		FAIL_IF(push_inst(compiler, (ORR ^ inv_bits) | RD(TMP_REG1) | RN(TMP_ZERO) | RM(SLJIT_R0)));
-		FAIL_IF(push_inst(compiler, ((op == SLJIT_SDIV ? SDIV : UDIV) ^ inv_bits) | RD(SLJIT_R0) | RN(SLJIT_R0) | RM(SLJIT_R1)));
+		FAIL_IF(push_inst(compiler, ((op == SLJIT_LUDIV ? UDIV : SDIV) ^ inv_bits) | RD(SLJIT_R0) | RN(SLJIT_R0) | RM(SLJIT_R1)));
 		FAIL_IF(push_inst(compiler, (MADD ^ inv_bits) | RD(SLJIT_R1) | RN(SLJIT_R0) | RM(SLJIT_R1) | RT2(TMP_ZERO)));
 		return push_inst(compiler, (SUB ^ inv_bits) | RD(SLJIT_R1) | RN(TMP_REG1) | RM(SLJIT_R1));
 	}
@@ -1663,7 +1663,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_MOVD:
+	case SLJIT_DMOV:
 		if (src != dst_r) {
 			if (dst_r != TMP_FREG1)
 				FAIL_IF(push_inst(compiler, (FMOV ^ inv_bits) | VD(dst_r) | VN(src)));
@@ -1671,10 +1671,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 				dst_r = src;
 		}
 		break;
-	case SLJIT_NEGD:
+	case SLJIT_DNEG:
 		FAIL_IF(push_inst(compiler, (FNEG ^ inv_bits) | VD(dst_r) | VN(src)));
 		break;
-	case SLJIT_ABSD:
+	case SLJIT_DABS:
 		FAIL_IF(push_inst(compiler, (FABS ^ inv_bits) | VD(dst_r) | VN(src)));
 		break;
 	case SLJIT_CONVD_FROMS:
@@ -1715,16 +1715,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_ADDD:
+	case SLJIT_DADD:
 		FAIL_IF(push_inst(compiler, (FADD ^ inv_bits) | VD(dst_r) | VN(src1) | VM(src2)));
 		break;
-	case SLJIT_SUBD:
+	case SLJIT_DSUB:
 		FAIL_IF(push_inst(compiler, (FSUB ^ inv_bits) | VD(dst_r) | VN(src1) | VM(src2)));
 		break;
-	case SLJIT_MULD:
+	case SLJIT_DMUL:
 		FAIL_IF(push_inst(compiler, (FMUL ^ inv_bits) | VD(dst_r) | VN(src1) | VM(src2)));
 		break;
-	case SLJIT_DIVD:
+	case SLJIT_DDIV:
 		FAIL_IF(push_inst(compiler, (FDIV ^ inv_bits) | VD(dst_r) | VN(src1) | VM(src2)));
 		break;
 	}
@@ -1778,50 +1778,50 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 static sljit_uw get_cc(sljit_si type)
 {
 	switch (type) {
-	case SLJIT_C_EQUAL:
-	case SLJIT_C_MUL_NOT_OVERFLOW:
-	case SLJIT_C_FLOAT_EQUAL:
+	case SLJIT_EQUAL:
+	case SLJIT_MUL_NOT_OVERFLOW:
+	case SLJIT_D_EQUAL:
 		return 0x1;
 
-	case SLJIT_C_NOT_EQUAL:
-	case SLJIT_C_MUL_OVERFLOW:
-	case SLJIT_C_FLOAT_NOT_EQUAL:
+	case SLJIT_NOT_EQUAL:
+	case SLJIT_MUL_OVERFLOW:
+	case SLJIT_D_NOT_EQUAL:
 		return 0x0;
 
-	case SLJIT_C_LESS:
-	case SLJIT_C_FLOAT_LESS:
+	case SLJIT_LESS:
+	case SLJIT_D_LESS:
 		return 0x2;
 
-	case SLJIT_C_GREATER_EQUAL:
-	case SLJIT_C_FLOAT_GREATER_EQUAL:
+	case SLJIT_GREATER_EQUAL:
+	case SLJIT_D_GREATER_EQUAL:
 		return 0x3;
 
-	case SLJIT_C_GREATER:
-	case SLJIT_C_FLOAT_GREATER:
+	case SLJIT_GREATER:
+	case SLJIT_D_GREATER:
 		return 0x9;
 
-	case SLJIT_C_LESS_EQUAL:
-	case SLJIT_C_FLOAT_LESS_EQUAL:
+	case SLJIT_LESS_EQUAL:
+	case SLJIT_D_LESS_EQUAL:
 		return 0x8;
 
-	case SLJIT_C_SIG_LESS:
+	case SLJIT_SIG_LESS:
 		return 0xa;
 
-	case SLJIT_C_SIG_GREATER_EQUAL:
+	case SLJIT_SIG_GREATER_EQUAL:
 		return 0xb;
 
-	case SLJIT_C_SIG_GREATER:
+	case SLJIT_SIG_GREATER:
 		return 0xd;
 
-	case SLJIT_C_SIG_LESS_EQUAL:
+	case SLJIT_SIG_LESS_EQUAL:
 		return 0xc;
 
-	case SLJIT_C_OVERFLOW:
-	case SLJIT_C_FLOAT_UNORDERED:
+	case SLJIT_OVERFLOW:
+	case SLJIT_D_UNORDERED:
 		return 0x7;
 
-	case SLJIT_C_NOT_OVERFLOW:
-	case SLJIT_C_FLOAT_ORDERED:
+	case SLJIT_NOT_OVERFLOW:
+	case SLJIT_D_ORDERED:
 		return 0x6;
 
 	default:
@@ -1878,7 +1878,7 @@ static SLJIT_INLINE struct sljit_jump* emit_cmp_to0(struct sljit_compiler *compi
 	struct sljit_jump *jump;
 	sljit_ins inv_bits = (type & SLJIT_INT_OP) ? (1 << 31) : 0;
 
-	SLJIT_ASSERT((type & 0xff) == SLJIT_C_EQUAL || (type & 0xff) == SLJIT_C_NOT_EQUAL);
+	SLJIT_ASSERT((type & 0xff) == SLJIT_EQUAL || (type & 0xff) == SLJIT_NOT_EQUAL);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
@@ -1896,7 +1896,7 @@ static SLJIT_INLINE struct sljit_jump* emit_cmp_to0(struct sljit_compiler *compi
 	}
 	SLJIT_ASSERT(FAST_IS_REG(src));
 
-	if ((type & 0xff) == SLJIT_C_EQUAL)
+	if ((type & 0xff) == SLJIT_EQUAL)
 		inv_bits |= 1 << 24;
 
 	PTR_FAIL_IF(push_inst(compiler, (CBZ ^ inv_bits) | (6 << 5) | RT(src)));
@@ -1949,7 +1949,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;
 
-	cc = get_cc(type);
+	cc = get_cc(type & 0xff);
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 
 	if (GET_OPCODE(op) < SLJIT_ADD) {

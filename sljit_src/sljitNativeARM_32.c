@@ -1814,29 +1814,29 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 	case SLJIT_NOP:
 		FAIL_IF(push_inst(compiler, NOP));
 		break;
-	case SLJIT_UMUL:
-	case SLJIT_SMUL:
+	case SLJIT_LUMUL:
+	case SLJIT_LSMUL:
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
-		return push_inst(compiler, (op == SLJIT_UMUL ? UMULL : SMULL)
+		return push_inst(compiler, (op == SLJIT_LUMUL ? UMULL : SMULL)
 			| (reg_map[SLJIT_R1] << 16)
 			| (reg_map[SLJIT_R0] << 12)
 			| (reg_map[SLJIT_R0] << 8)
 			| reg_map[SLJIT_R1]);
 #else
 		FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG1, SLJIT_UNUSED, RM(SLJIT_R1))));
-		return push_inst(compiler, (op == SLJIT_UMUL ? UMULL : SMULL)
+		return push_inst(compiler, (op == SLJIT_LUMUL ? UMULL : SMULL)
 			| (reg_map[SLJIT_R1] << 16)
 			| (reg_map[SLJIT_R0] << 12)
 			| (reg_map[SLJIT_R0] << 8)
 			| reg_map[TMP_REG1]);
 #endif
-	case SLJIT_UDIV:
-	case SLJIT_SDIV:
+	case SLJIT_LUDIV:
+	case SLJIT_LSDIV:
 		if (compiler->scratches >= 3)
 			FAIL_IF(push_inst(compiler, 0xe52d2008 /* str r2, [sp, #-8]! */));
 #if defined(__GNUC__)
 		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM,
-			(op == SLJIT_UDIV ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
+			(op == SLJIT_LUDIV ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
 #else
 #error "Software divmod functions are needed"
 #endif
@@ -2172,7 +2172,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_MOVD:
+	case SLJIT_DMOV:
 		if (src != dst_r) {
 			if (dst_r != TMP_FREG1)
 				FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VMOV_F32, op & SLJIT_SINGLE_OP, dst_r, src, 0)));
@@ -2180,10 +2180,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 				dst_r = src;
 		}
 		break;
-	case SLJIT_NEGD:
+	case SLJIT_DNEG:
 		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VNEG_F32, op & SLJIT_SINGLE_OP, dst_r, src, 0)));
 		break;
-	case SLJIT_ABSD:
+	case SLJIT_DABS:
 		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VABS_F32, op & SLJIT_SINGLE_OP, dst_r, src, 0)));
 		break;
 	case SLJIT_CONVD_FROMS:
@@ -2227,19 +2227,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_ADDD:
+	case SLJIT_DADD:
 		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VADD_F32, op & SLJIT_SINGLE_OP, dst_r, src2, src1)));
 		break;
 
-	case SLJIT_SUBD:
+	case SLJIT_DSUB:
 		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VSUB_F32, op & SLJIT_SINGLE_OP, dst_r, src2, src1)));
 		break;
 
-	case SLJIT_MULD:
+	case SLJIT_DMUL:
 		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VMUL_F32, op & SLJIT_SINGLE_OP, dst_r, src2, src1)));
 		break;
 
-	case SLJIT_DIVD:
+	case SLJIT_DDIV:
 		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VDIV_F32, op & SLJIT_SINGLE_OP, dst_r, src2, src1)));
 		break;
 	}
@@ -2311,53 +2311,54 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 static sljit_uw get_cc(sljit_si type)
 {
 	switch (type) {
-	case SLJIT_C_EQUAL:
-	case SLJIT_C_MUL_NOT_OVERFLOW:
-	case SLJIT_C_FLOAT_EQUAL:
+	case SLJIT_EQUAL:
+	case SLJIT_MUL_NOT_OVERFLOW:
+	case SLJIT_D_EQUAL:
 		return 0x00000000;
 
-	case SLJIT_C_NOT_EQUAL:
-	case SLJIT_C_MUL_OVERFLOW:
-	case SLJIT_C_FLOAT_NOT_EQUAL:
+	case SLJIT_NOT_EQUAL:
+	case SLJIT_MUL_OVERFLOW:
+	case SLJIT_D_NOT_EQUAL:
 		return 0x10000000;
 
-	case SLJIT_C_LESS:
-	case SLJIT_C_FLOAT_LESS:
+	case SLJIT_LESS:
+	case SLJIT_D_LESS:
 		return 0x30000000;
 
-	case SLJIT_C_GREATER_EQUAL:
-	case SLJIT_C_FLOAT_GREATER_EQUAL:
+	case SLJIT_GREATER_EQUAL:
+	case SLJIT_D_GREATER_EQUAL:
 		return 0x20000000;
 
-	case SLJIT_C_GREATER:
-	case SLJIT_C_FLOAT_GREATER:
+	case SLJIT_GREATER:
+	case SLJIT_D_GREATER:
 		return 0x80000000;
 
-	case SLJIT_C_LESS_EQUAL:
-	case SLJIT_C_FLOAT_LESS_EQUAL:
+	case SLJIT_LESS_EQUAL:
+	case SLJIT_D_LESS_EQUAL:
 		return 0x90000000;
 
-	case SLJIT_C_SIG_LESS:
+	case SLJIT_SIG_LESS:
 		return 0xb0000000;
 
-	case SLJIT_C_SIG_GREATER_EQUAL:
+	case SLJIT_SIG_GREATER_EQUAL:
 		return 0xa0000000;
 
-	case SLJIT_C_SIG_GREATER:
+	case SLJIT_SIG_GREATER:
 		return 0xc0000000;
 
-	case SLJIT_C_SIG_LESS_EQUAL:
+	case SLJIT_SIG_LESS_EQUAL:
 		return 0xd0000000;
 
-	case SLJIT_C_OVERFLOW:
-	case SLJIT_C_FLOAT_UNORDERED:
+	case SLJIT_OVERFLOW:
+	case SLJIT_D_UNORDERED:
 		return 0x60000000;
 
-	case SLJIT_C_NOT_OVERFLOW:
-	case SLJIT_C_FLOAT_ORDERED:
+	case SLJIT_NOT_OVERFLOW:
+	case SLJIT_D_ORDERED:
 		return 0x70000000;
 
-	default: /* SLJIT_JUMP */
+	default:
+		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL3);
 		return 0xe0000000;
 	}
 }
@@ -2473,7 +2474,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 		return SLJIT_SUCCESS;
 
 	op = GET_OPCODE(op);
-	cc = get_cc(type);
+	cc = get_cc(type & 0xff);
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG2;
 
 	if (op < SLJIT_ADD) {
