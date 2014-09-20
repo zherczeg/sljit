@@ -1596,7 +1596,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 
 	condition = type & 0xff;
 #if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
-	if ((condition == SLJIT_C_EQUAL || condition == SLJIT_C_NOT_EQUAL)) {
+	if ((condition == SLJIT_EQUAL || condition == SLJIT_NOT_EQUAL)) {
 		if ((src1 & SLJIT_IMM) && !src1w) {
 			src1 = src2;
 			src1w = src2w;
