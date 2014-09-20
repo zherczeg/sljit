@@ -578,8 +578,8 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		break; \
 	case SLJIT_BREAKPOINT: \
 	case SLJIT_NOP: \
-	case SLJIT_UMUL: \
-	case SLJIT_SMUL: \
+	case SLJIT_LUMUL: \
+	case SLJIT_LSMUL: \
 	case SLJIT_MOV: \
 	case SLJIT_MOV_UI: \
 	case SLJIT_MOV_P: \
@@ -598,7 +598,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 #define FUNCTION_CHECK_FOP() \
 	SLJIT_ASSERT(!GET_FLAGS(op) || !(op & SLJIT_KEEP_FLAGS)); \
 	switch (GET_OPCODE(op)) { \
-	case SLJIT_CMPD: \
+	case SLJIT_DCMP: \
 		SLJIT_ASSERT(!(op & (SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
 		SLJIT_ASSERT((op & (SLJIT_SET_E | SLJIT_SET_S))); \
 		break; \
@@ -767,7 +767,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *comp
 
 static SLJIT_CONST char* op0_names[] = {
 	(char*)"breakpoint", (char*)"nop",
-	(char*)"umul", (char*)"smul", (char*)"udiv", (char*)"sdiv",
+	(char*)"lumul", (char*)"lsmul", (char*)"ludiv", (char*)"lsdiv",
 };
 
 static SLJIT_CONST char* op1_names[] = {
@@ -981,9 +981,9 @@ static SLJIT_INLINE void check_sljit_emit_op0(struct sljit_compiler *compiler, s
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(op);
 
-	SLJIT_ASSERT((op >= SLJIT_BREAKPOINT && op <= SLJIT_SMUL)
-		|| ((op & ~SLJIT_INT_OP) >= SLJIT_UDIV && (op & ~SLJIT_INT_OP) <= SLJIT_SDIV));
-	SLJIT_ASSERT(op < SLJIT_UMUL || compiler->scratches >= 2);
+	SLJIT_ASSERT((op >= SLJIT_BREAKPOINT && op <= SLJIT_LSMUL)
+		|| ((op & ~SLJIT_INT_OP) >= SLJIT_LUDIV && (op & ~SLJIT_INT_OP) <= SLJIT_LSDIV));
+	SLJIT_ASSERT(op < SLJIT_LUMUL || compiler->scratches >= 2);
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
 		fprintf(compiler->verbose, "  %s%s\n", !(op & SLJIT_INT_OP) ? "" : "i", op0_names[GET_OPCODE(op) - SLJIT_OP0_BASE]);
@@ -1098,8 +1098,8 @@ static SLJIT_INLINE void check_sljit_emit_op_custom(struct sljit_compiler *compi
 	SLJIT_ASSERT(sljit_is_fpu_available()); \
 	SLJIT_COMPILE_ASSERT(!(SLJIT_CONVW_FROMD & 0x1) && !(SLJIT_CONVD_FROMW & 0x1), \
 		invalid_float_opcodes); \
-	if (GET_OPCODE(op) >= SLJIT_CONVW_FROMD && GET_OPCODE(op) <= SLJIT_CMPD) { \
-		if (GET_OPCODE(op) == SLJIT_CMPD) { \
+	if (GET_OPCODE(op) >= SLJIT_CONVW_FROMD && GET_OPCODE(op) <= SLJIT_DCMP) { \
+		if (GET_OPCODE(op) == SLJIT_DCMP) { \
 			check_sljit_emit_fop1_cmp(compiler, op, dst, dstw, src, srcw); \
 			ADJUST_LOCAL_OFFSET(dst, dstw); \
 			ADJUST_LOCAL_OFFSET(src, srcw); \
@@ -1139,7 +1139,7 @@ static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, 
 	}
 #endif
 
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_MOVD && GET_OPCODE(op) <= SLJIT_ABSD);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DMOV && GET_OPCODE(op) <= SLJIT_DABS);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src, srcw);
@@ -1147,10 +1147,13 @@ static SLJIT_INLINE void check_sljit_emit_fop1(struct sljit_compiler *compiler, 
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s%s ", fop1_names[GET_OPCODE(op) - SLJIT_FOP1_BASE],
-			(GET_OPCODE(op) == SLJIT_CONVD_FROMS)
-			? ((op & SLJIT_SINGLE_OP) ? "s.fromd" : "d.froms")
-			: ((op & SLJIT_SINGLE_OP) ? "s" : "d"));
+		if (GET_OPCODE(op) == SLJIT_CONVD_FROMS)
+			fprintf(compiler->verbose, "  %s%s ", fop1_names[SLJIT_CONVD_FROMS - SLJIT_FOP1_BASE],
+				(op & SLJIT_SINGLE_OP) ? "s.fromd" : "d.froms");
+		else
+			fprintf(compiler->verbose, "  %s%s ", (op & SLJIT_SINGLE_OP) ? "s" : "d",
+				fop1_names[GET_OPCODE(op) - SLJIT_FOP1_BASE]);
+
 		sljit_verbose_fparam(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_fparam(compiler, src, srcw);
@@ -1178,7 +1181,7 @@ static SLJIT_INLINE void check_sljit_emit_fop1_cmp(struct sljit_compiler *compil
 	}
 #endif
 
-	SLJIT_ASSERT(GET_OPCODE(op) == SLJIT_CMPD);
+	SLJIT_ASSERT(GET_OPCODE(op) == SLJIT_DCMP);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src1, src1w);
@@ -1186,8 +1189,8 @@ static SLJIT_INLINE void check_sljit_emit_fop1_cmp(struct sljit_compiler *compil
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s%s%s%s ", fop1_names[GET_OPCODE(op) - SLJIT_FOP1_BASE], (op & SLJIT_SINGLE_OP) ? "s" : "d",
-			!(op & SLJIT_SET_E) ? "" : ".e", !(op & SLJIT_SET_S) ? "" : ".s");
+		fprintf(compiler->verbose, "  %s%s%s%s ", (op & SLJIT_SINGLE_OP) ? "s" : "d", fop1_names[SLJIT_DCMP - SLJIT_FOP1_BASE],
+			(op & SLJIT_SET_E) ? ".e" : "", (op & SLJIT_SET_S) ? ".s" : "");
 		sljit_verbose_fparam(compiler, src1, src1w);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_fparam(compiler, src2, src2w);
@@ -1288,7 +1291,7 @@ static SLJIT_INLINE void check_sljit_emit_fop2(struct sljit_compiler *compiler, 
 	SLJIT_UNUSED_ARG(src2w);
 
 	SLJIT_ASSERT(sljit_is_fpu_available());
-	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_ADDD && GET_OPCODE(op) <= SLJIT_DIVD);
+	SLJIT_ASSERT(GET_OPCODE(op) >= SLJIT_DADD && GET_OPCODE(op) <= SLJIT_DDIV);
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src1, src1w);
@@ -1297,7 +1300,7 @@ static SLJIT_INLINE void check_sljit_emit_fop2(struct sljit_compiler *compiler, 
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s%s ", fop2_names[GET_OPCODE(op) - SLJIT_FOP2_BASE], (op & SLJIT_SINGLE_OP) ? "s" : "d");
+		fprintf(compiler->verbose, "  %s%s ", (op & SLJIT_SINGLE_OP) ? "s" : "d", fop2_names[GET_OPCODE(op) - SLJIT_FOP2_BASE]);
 		sljit_verbose_fparam(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_fparam(compiler, src1, src1w);
@@ -1676,7 +1679,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->skip_checks = 1;
 #endif
-	sljit_emit_fop1(compiler, SLJIT_CMPD | flags, src1, src1w, src2, src2w);
+	sljit_emit_fop1(compiler, SLJIT_DCMP | flags, src1, src1w, src2, src2w);
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	compiler->skip_checks = 1;

@@ -739,10 +739,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 		INC_SIZE(1);
 		*inst = NOP;
 		break;
-	case SLJIT_UMUL:
-	case SLJIT_SMUL:
-	case SLJIT_UDIV:
-	case SLJIT_SDIV:
+	case SLJIT_LUMUL:
+	case SLJIT_LSMUL:
+	case SLJIT_LUDIV:
+	case SLJIT_LSDIV:
 		compiler->flags_saved = 0;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 #ifdef _WIN64
@@ -762,7 +762,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 #endif
 
 		op = GET_OPCODE(op);
-		if (op == SLJIT_UDIV) {
+		if (op == SLJIT_LUDIV) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || defined(_WIN64)
 			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_R1, 0);
 			inst = emit_x86_instruction(compiler, 1, SLJIT_R1, 0, SLJIT_R1, 0);
@@ -773,7 +773,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 			*inst = XOR_r_rm;
 		}
 
-		if (op == SLJIT_SDIV) {
+		if (op == SLJIT_LSDIV) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || defined(_WIN64)
 			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_R1, 0);
 #endif
@@ -804,10 +804,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 		FAIL_IF(!inst);
 		INC_SIZE(2);
 		*inst++ = GROUP_F7;
-		*inst = MOD_REG | ((op >= SLJIT_UDIV) ? reg_map[TMP_REG1] : reg_map[SLJIT_R1]);
+		*inst = MOD_REG | ((op >= SLJIT_LUDIV) ? reg_map[TMP_REG1] : reg_map[SLJIT_R1]);
 #else
 #ifdef _WIN64
-		size = (!compiler->mode32 || op >= SLJIT_UDIV) ? 3 : 2;
+		size = (!compiler->mode32 || op >= SLJIT_LUDIV) ? 3 : 2;
 #else
 		size = (!compiler->mode32) ? 3 : 2;
 #endif
@@ -816,11 +816,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 		INC_SIZE(size);
 #ifdef _WIN64
 		if (!compiler->mode32)
-			*inst++ = REX_W | ((op >= SLJIT_UDIV) ? REX_B : 0);
-		else if (op >= SLJIT_UDIV)
+			*inst++ = REX_W | ((op >= SLJIT_LUDIV) ? REX_B : 0);
+		else if (op >= SLJIT_LUDIV)
 			*inst++ = REX_B;
 		*inst++ = GROUP_F7;
-		*inst = MOD_REG | ((op >= SLJIT_UDIV) ? reg_lmap[TMP_REG1] : reg_lmap[SLJIT_R1]);
+		*inst = MOD_REG | ((op >= SLJIT_LUDIV) ? reg_lmap[TMP_REG1] : reg_lmap[SLJIT_R1]);
 #else
 		if (!compiler->mode32)
 			*inst++ = REX_W;
@@ -829,16 +829,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 #endif
 #endif
 		switch (op) {
-		case SLJIT_UMUL:
+		case SLJIT_LUMUL:
 			*inst |= MUL;
 			break;
-		case SLJIT_SMUL:
+		case SLJIT_LSMUL:
 			*inst |= IMUL;
 			break;
-		case SLJIT_UDIV:
+		case SLJIT_LUDIV:
 			*inst |= DIV;
 			break;
-		case SLJIT_SDIV:
+		case SLJIT_LSDIV:
 			*inst |= IDIV;
 			break;
 		}
@@ -2391,7 +2391,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	CHECK_ERROR();
 	SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw);
 
-	if (GET_OPCODE(op) == SLJIT_MOVD) {
+	if (GET_OPCODE(op) == SLJIT_DMOV) {
 		if (FAST_IS_REG(dst))
 			return emit_sse2_load(compiler, op & SLJIT_SINGLE_OP, dst, src, srcw);
 		if (FAST_IS_REG(src))
@@ -2430,11 +2430,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_NEGD:
+	case SLJIT_DNEG:
 		FAIL_IF(emit_sse2_logic(compiler, XORPD_x_xm, 1, dst_r, SLJIT_MEM0(), (sljit_sw)(op & SLJIT_SINGLE_OP ? sse2_buffer : sse2_buffer + 8)));
 		break;
 
-	case SLJIT_ABSD:
+	case SLJIT_DABS:
 		FAIL_IF(emit_sse2_logic(compiler, ANDPD_x_xm, 1, dst_r, SLJIT_MEM0(), (sljit_sw)(op & SLJIT_SINGLE_OP ? sse2_buffer + 4 : sse2_buffer + 12)));
 		break;
 	}
@@ -2465,7 +2465,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 		dst_r = dst;
 		if (dst == src1)
 			; /* Do nothing here. */
-		else if (dst == src2 && (op == SLJIT_ADDD || op == SLJIT_MULD)) {
+		else if (dst == src2 && (op == SLJIT_DADD || op == SLJIT_DMUL)) {
 			/* Swap arguments. */
 			src2 = src1;
 			src2w = src1w;
@@ -2483,19 +2483,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_ADDD:
+	case SLJIT_DADD:
 		FAIL_IF(emit_sse2(compiler, ADDSD_x_xm, op & SLJIT_SINGLE_OP, dst_r, src2, src2w));
 		break;
 
-	case SLJIT_SUBD:
+	case SLJIT_DSUB:
 		FAIL_IF(emit_sse2(compiler, SUBSD_x_xm, op & SLJIT_SINGLE_OP, dst_r, src2, src2w));
 		break;
 
-	case SLJIT_MULD:
+	case SLJIT_DMUL:
 		FAIL_IF(emit_sse2(compiler, MULSD_x_xm, op & SLJIT_SINGLE_OP, dst_r, src2, src2w));
 		break;
 
-	case SLJIT_DIVD:
+	case SLJIT_DDIV:
 		FAIL_IF(emit_sse2(compiler, DIVSD_x_xm, op & SLJIT_SINGLE_OP, dst_r, src2, src2w));
 		break;
 	}
