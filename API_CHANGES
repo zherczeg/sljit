@@ -1,5 +1,10 @@
 This file is the short summary of the API changes:
 
+19.09.2014 - Non-backward compatible
+    Using I, D, S prefixes in conditional and floating
+    point operations. And an L prefix to long multiplication
+    and division (op0 opcodes).
+
 11.08.2014 - Non-backward compatible
     A currently unused options parameter is added to sljit_emit_enter
     and sljit_set_context.

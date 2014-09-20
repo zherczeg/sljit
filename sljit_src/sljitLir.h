@@ -673,23 +673,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 /* Flags: - (may destroy flags)
    Unsigned multiplication of SLJIT_R0 and SLJIT_R1.
    Result goes to SLJIT_R1:SLJIT_R0 (high:low) word */
-#define SLJIT_UMUL			(SLJIT_OP0_BASE + 2)
+#define SLJIT_LUMUL			(SLJIT_OP0_BASE + 2)
 /* Flags: - (may destroy flags)
    Signed multiplication of SLJIT_R0 and SLJIT_R1.
    Result goes to SLJIT_R1:SLJIT_R0 (high:low) word */
-#define SLJIT_SMUL			(SLJIT_OP0_BASE + 3)
+#define SLJIT_LSMUL			(SLJIT_OP0_BASE + 3)
 /* Flags: I - (may destroy flags)
    Unsigned divide of the value in SLJIT_R0 by the value in SLJIT_R1.
    The result is placed in SLJIT_R0 and the remainder goes to SLJIT_R1.
    Note: if SLJIT_R1 contains 0, the behaviour is undefined. */
-#define SLJIT_UDIV			(SLJIT_OP0_BASE + 4)
-#define SLJIT_IUDIV			(SLJIT_UDIV | SLJIT_INT_OP)
+#define SLJIT_LUDIV			(SLJIT_OP0_BASE + 4)
+#define SLJIT_ILUDIV			(SLJIT_LUDIV | SLJIT_INT_OP)
 /* Flags: I - (may destroy flags)
    Signed divide of the value in SLJIT_R0 by the value in SLJIT_R1.
    The result is placed in SLJIT_R0 and the remainder goes to SLJIT_R1.
    Note: if SLJIT_R1 contains 0, the behaviour is undefined. */
-#define SLJIT_SDIV			(SLJIT_OP0_BASE + 5)
-#define SLJIT_ISDIV			(SLJIT_SDIV | SLJIT_INT_OP)
+#define SLJIT_LSDIV			(SLJIT_OP0_BASE + 5)
+#define SLJIT_ILSDIV			(SLJIT_LSDIV | SLJIT_INT_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler, sljit_si op);
 
@@ -863,8 +863,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_is_fpu_available(void);
 #define SLJIT_FOP1_BASE			128
 
 /* Flags: SP - (never set any flags) */
-#define SLJIT_MOVD			(SLJIT_FOP1_BASE + 0)
-#define SLJIT_MOVS			(SLJIT_MOVD | SLJIT_SINGLE_OP)
+#define SLJIT_DMOV			(SLJIT_FOP1_BASE + 0)
+#define SLJIT_SMOV			(SLJIT_DMOV | SLJIT_SINGLE_OP)
 /* Convert opcodes: CONV[DST_TYPE].FROM[SRC_TYPE]
    SRC/DST TYPE can be: D - double, S - single, W - signed word, I - signed int
    Rounding mode when the destination is W or I: round towards zero. */
@@ -887,14 +887,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_is_fpu_available(void);
    Note: NaN check is always performed. If SLJIT_C_FLOAT_UNORDERED flag
          is set, the comparison result is unpredictable.
    Flags: SP | E | S (see SLJIT_C_FLOAT_*) */
-#define SLJIT_CMPD			(SLJIT_FOP1_BASE + 6)
-#define SLJIT_CMPS			(SLJIT_CMPD | SLJIT_SINGLE_OP)
+#define SLJIT_DCMP			(SLJIT_FOP1_BASE + 6)
+#define SLJIT_SCMP			(SLJIT_DCMP | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_NEGD			(SLJIT_FOP1_BASE + 7)
-#define SLJIT_NEGS			(SLJIT_NEGD | SLJIT_SINGLE_OP)
+#define SLJIT_DNEG			(SLJIT_FOP1_BASE + 7)
+#define SLJIT_SNEG			(SLJIT_DNEG | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_ABSD			(SLJIT_FOP1_BASE + 8)
-#define SLJIT_ABSS			(SLJIT_ABSD | SLJIT_SINGLE_OP)
+#define SLJIT_DABS			(SLJIT_FOP1_BASE + 8)
+#define SLJIT_SABS			(SLJIT_DABS | SLJIT_SINGLE_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si dst, sljit_sw dstw,
@@ -904,17 +904,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop1(struct sljit_compiler *compile
 #define SLJIT_FOP2_BASE			160
 
 /* Flags: SP - (never set any flags) */
-#define SLJIT_ADDD			(SLJIT_FOP2_BASE + 0)
-#define SLJIT_ADDS			(SLJIT_ADDD | SLJIT_SINGLE_OP)
+#define SLJIT_DADD			(SLJIT_FOP2_BASE + 0)
+#define SLJIT_SADD			(SLJIT_DADD | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_SUBD			(SLJIT_FOP2_BASE + 1)
-#define SLJIT_SUBS			(SLJIT_SUBD | SLJIT_SINGLE_OP)
+#define SLJIT_DSUB			(SLJIT_FOP2_BASE + 1)
+#define SLJIT_SSUB			(SLJIT_DSUB | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_MULD			(SLJIT_FOP2_BASE + 2)
-#define SLJIT_MULS			(SLJIT_MULD | SLJIT_SINGLE_OP)
+#define SLJIT_DMUL			(SLJIT_FOP2_BASE + 2)
+#define SLJIT_SMUL			(SLJIT_DMUL | SLJIT_SINGLE_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_DIVD			(SLJIT_FOP2_BASE + 3)
-#define SLJIT_DIVS			(SLJIT_DIVD | SLJIT_SINGLE_OP)
+#define SLJIT_DDIV			(SLJIT_FOP2_BASE + 3)
+#define SLJIT_SDIV			(SLJIT_DDIV | SLJIT_SINGLE_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compiler, sljit_si op,
 	sljit_si dst, sljit_sw dstw,
