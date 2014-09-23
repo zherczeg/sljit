@@ -95,8 +95,10 @@ of sljitConfigInternal.h */
 /* Cannot allocate executable memory.
    Only for sljit_generate_code() */
 #define SLJIT_ERR_EX_ALLOC_FAILED	3
-/* return value for SLJIT_CONFIG_UNSUPPORTED empty architecture. */
+/* Return value for SLJIT_CONFIG_UNSUPPORTED placeholder architecture. */
 #define SLJIT_ERR_UNSUPPORTED		4
+/* An ivalid argument is passed to any SLJIT function. */
+#define SLJIT_ERR_BAD_ARGUMENT		5
 
 /* --------------------------------------------------------------------- */
 /*  Registers                                                            */
@@ -390,12 +392,15 @@ struct sljit_compiler {
 	FILE* verbose;
 #endif
 
-#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
+		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	/* Local size passed to the functions. */
 	sljit_si logical_local_size;
 #endif
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) || (defined SLJIT_DEBUG && SLJIT_DEBUG)
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
+		|| (defined SLJIT_DEBUG && SLJIT_DEBUG) \
+		|| (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	sljit_si skip_checks;
 #endif
 };
@@ -508,7 +513,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
    Note: every call of sljit_emit_enter and sljit_set_context overwrites
          the previous context. */
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_set_context(struct sljit_compiler *compiler,
 	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size);
 
@@ -837,7 +842,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_register_index(sljit_si reg);
 
 /* The following function is a helper function for sljit_emit_op_custom.
    It returns with the real machine register index of any SLJIT_FLOAT register.
-   
+
    Note: the index is always an even number on ARM (except ARM-64), MIPS, and SPARC. */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_float_register_index(sljit_si reg);
