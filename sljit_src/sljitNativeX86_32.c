@@ -71,7 +71,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	sljit_ub *inst;
 
 	CHECK_ERROR();
-	check_sljit_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
+	CHECK(check_sljit_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size));
 	set_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
 
 	compiler->args = args;
@@ -163,12 +163,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 		SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, local_size);
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_set_context(struct sljit_compiler *compiler,
 	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
-	CHECK_ERROR_VOID();
-	check_sljit_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
+	CHECK_ERROR();
+	CHECK(check_sljit_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size));
 	set_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
 
 	compiler->args = args;
@@ -179,6 +179,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 #else
 	compiler->local_size = SLJIT_LOCALS_OFFSET + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
 #endif
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compiler, sljit_si op, sljit_si src, sljit_sw srcw)
@@ -187,7 +188,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 	sljit_ub *inst;
 
 	CHECK_ERROR();
-	check_sljit_emit_return(compiler, op, src, srcw);
+	CHECK(check_sljit_emit_return(compiler, op, src, srcw));
 	SLJIT_ASSERT(compiler->args >= 0);
 
 	compiler->flags_saved = 0;
@@ -445,7 +446,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_enter(struct sljit_compiler *c
 	sljit_ub *inst;
 
 	CHECK_ERROR();
-	check_sljit_emit_fast_enter(compiler, dst, dstw);
+	CHECK(check_sljit_emit_fast_enter(compiler, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	CHECK_EXTRA_REGS(dst, dstw, (void)0);
@@ -476,7 +477,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 	sljit_ub *inst;
 
 	CHECK_ERROR();
-	check_sljit_emit_fast_return(compiler, src, srcw);
+	CHECK(check_sljit_emit_fast_return(compiler, src, srcw));
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	CHECK_EXTRA_REGS(src, srcw, (void)0);
