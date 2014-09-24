@@ -1702,7 +1702,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_local_base(struct sljit_compiler *compiler, sljit_si dst, sljit_sw dstw, sljit_sw offset)
 {
 	CHECK_ERROR();
-	check_sljit_get_local_base(compiler, dst, dstw, offset);
+	CHECK(check_sljit_get_local_base(compiler, dst, dstw, offset));
 
 	ADJUST_LOCAL_OFFSET(SLJIT_MEM1(SLJIT_SP), offset);
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
@@ -1783,7 +1783,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_set_context(struct sljit_compiler *compiler,
 	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
@@ -1796,6 +1796,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 	SLJIT_UNUSED_ARG(fsaveds);
 	SLJIT_UNUSED_ARG(local_size);
 	SLJIT_ASSERT_STOP();
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compiler, sljit_si op, sljit_si src, sljit_sw srcw)

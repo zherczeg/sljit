@@ -371,7 +371,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	struct sljit_const *const_;
 
 	CHECK_ERROR_PTR();
-	check_sljit_generate_code(compiler);
+	CHECK_PTR(check_sljit_generate_code(compiler));
 	reverse_buf(compiler);
 
 	code = (sljit_ins*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_ins));
@@ -546,7 +546,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	sljit_si i, tmp, offs;
 
 	CHECK_ERROR();
-	check_sljit_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
+	CHECK(check_sljit_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size));
 	set_emit_enter(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
 
 	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1) + SLJIT_LOCALS_OFFSET;
@@ -594,12 +594,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
+SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_set_context(struct sljit_compiler *compiler,
 	sljit_si options, sljit_si args, sljit_si scratches, sljit_si saveds,
 	sljit_si fscratches, sljit_si fsaveds, sljit_si local_size)
 {
-	CHECK_ERROR_VOID();
-	check_sljit_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
+	CHECK_ERROR();
+	CHECK(check_sljit_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size));
 	set_set_context(compiler, options, args, scratches, saveds, fscratches, fsaveds, local_size);
 
 	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1) + SLJIT_LOCALS_OFFSET;
@@ -608,6 +608,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_context(struct sljit_compiler *compiler,
 #else
 	compiler->local_size = (local_size + 31) & ~0x1f;
 #endif
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compiler, sljit_si op, sljit_si src, sljit_sw srcw)
@@ -616,7 +617,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 	sljit_ins base;
 
 	CHECK_ERROR();
-	check_sljit_emit_return(compiler, op, src, srcw);
+	CHECK(check_sljit_emit_return(compiler, op, src, srcw));
 
 	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
 
@@ -1035,7 +1036,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 #endif
 
 	CHECK_ERROR();
-	check_sljit_emit_op0(compiler, op);
+	CHECK(check_sljit_emit_op0(compiler, op));
 
 	op = GET_OPCODE(op);
 	switch (op) {
@@ -1086,7 +1087,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op1(struct sljit_compiler *compiler
 #endif
 
 	CHECK_ERROR();
-	check_sljit_emit_op1(compiler, op, dst, dstw, src, srcw);
+	CHECK(check_sljit_emit_op1(compiler, op, dst, dstw, src, srcw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
@@ -1188,7 +1189,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 #endif
 
 	CHECK_ERROR();
-	check_sljit_emit_op2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
+	CHECK(check_sljit_emit_op2(compiler, op, dst, dstw, src1, src1w, src2, src2w));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
@@ -1246,13 +1247,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op2(struct sljit_compiler *compiler
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_register_index(sljit_si reg)
 {
-	check_sljit_get_register_index(reg);
+	CHECK_REG_INDEX(check_sljit_get_register_index(reg));
 	return reg_map[reg];
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_float_register_index(sljit_si reg)
 {
-	check_sljit_get_float_register_index(reg);
+	CHECK_REG_INDEX(check_sljit_get_float_register_index(reg));
 	return reg << 1;
 }
 
@@ -1260,7 +1261,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_custom(struct sljit_compiler *co
 	void *instruction, sljit_si size)
 {
 	CHECK_ERROR();
-	check_sljit_emit_op_custom(compiler, instruction, size);
+	CHECK(check_sljit_emit_op_custom(compiler, instruction, size));
 	SLJIT_ASSERT(size == 4);
 
 	return push_inst(compiler, *(sljit_ins*)instruction, UNMOVABLE_INS);
@@ -1455,7 +1456,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 	sljit_si dst_r, flags = 0;
 
 	CHECK_ERROR();
-	check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w);
+	CHECK(check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
@@ -1536,7 +1537,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fop2(struct sljit_compiler *compile
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_enter(struct sljit_compiler *compiler, sljit_si dst, sljit_sw dstw)
 {
 	CHECK_ERROR();
-	check_sljit_emit_fast_enter(compiler, dst, dstw);
+	CHECK(check_sljit_emit_fast_enter(compiler, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	/* For UNUSED dst. Uncommon, but possible. */
@@ -1553,7 +1554,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_enter(struct sljit_compiler *c
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *compiler, sljit_si src, sljit_sw srcw)
 {
 	CHECK_ERROR();
-	check_sljit_emit_fast_return(compiler, src, srcw);
+	CHECK(check_sljit_emit_fast_return(compiler, src, srcw));
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	if (FAST_IS_REG(src))
@@ -1576,7 +1577,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 	struct sljit_label *label;
 
 	CHECK_ERROR_PTR();
-	check_sljit_emit_label(compiler);
+	CHECK_PTR(check_sljit_emit_label(compiler));
 
 	if (compiler->last_label && compiler->last_label->size == compiler->size)
 		return compiler->last_label;
@@ -1622,7 +1623,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	sljit_si delay_check = UNMOVABLE_INS;
 
 	CHECK_ERROR_PTR();
-	check_sljit_emit_jump(compiler, type);
+	CHECK_PTR(check_sljit_emit_jump(compiler, type));
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	PTR_FAIL_IF(!jump);
@@ -1739,7 +1740,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 	sljit_ins inst;
 
 	CHECK_ERROR_PTR();
-	check_sljit_emit_cmp(compiler, type, src1, src1w, src2, src2w);
+	CHECK_PTR(check_sljit_emit_cmp(compiler, type, src1, src1w, src2, src2w));
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
 
@@ -1860,7 +1861,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 	sljit_si if_true;
 
 	CHECK_ERROR_PTR();
-	check_sljit_emit_fcmp(compiler, type, src1, src1w, src2, src2w);
+	CHECK_PTR(check_sljit_emit_fcmp(compiler, type, src1, src1w, src2, src2w));
 
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
@@ -1946,7 +1947,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_ijump(struct sljit_compiler *compil
 	struct sljit_jump *jump = NULL;
 
 	CHECK_ERROR();
-	check_sljit_emit_ijump(compiler, type, src, srcw);
+	CHECK(check_sljit_emit_ijump(compiler, type, src, srcw));
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	if (FAST_IS_REG(src)) {
@@ -2012,7 +2013,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 #endif
 
 	CHECK_ERROR();
-	check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type);
+	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	if (dst == SLJIT_UNUSED)
@@ -2118,7 +2119,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	sljit_si reg;
 
 	CHECK_ERROR_PTR();
-	check_sljit_emit_const(compiler, dst, dstw, init_value);
+	CHECK_PTR(check_sljit_emit_const(compiler, dst, dstw, init_value));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
