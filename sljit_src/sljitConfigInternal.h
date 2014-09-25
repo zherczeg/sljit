@@ -533,8 +533,8 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void);
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 #define SLJIT_LOCALS_OFFSET_BASE ((2 + 4) * sizeof(sljit_sw))
 #else
-/* Maximum 3 arguments are passed on the stack. */
-#define SLJIT_LOCALS_OFFSET_BASE ((3 + 4) * sizeof(sljit_sw))
+/* Maximum 3 arguments are passed on the stack, +1 for double alignment. */
+#define SLJIT_LOCALS_OFFSET_BASE ((3 + 1 + 4) * sizeof(sljit_sw))
 #endif /* SLJIT_X86_32_FASTCALL */
 
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -573,6 +573,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void);
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 17
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) || (defined _AIX)
 #define SLJIT_LOCALS_OFFSET_BASE ((6 + 8) * sizeof(sljit_sw))
+#elif (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
+/* Add +1 for double alignment. */
+#define SLJIT_LOCALS_OFFSET_BASE ((3 + 1) * sizeof(sljit_sw))
 #else
 #define SLJIT_LOCALS_OFFSET_BASE (3 * sizeof(sljit_sw))
 #endif /* SLJIT_CONFIG_PPC_64 || _AIX */
@@ -591,7 +594,10 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void);
 
 #define SLJIT_NUMBER_OF_REGISTERS 18
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 14
-#define SLJIT_LOCALS_OFFSET_BASE (23 * sizeof(sljit_sw))
+#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+/* Add +1 for double alignment. */
+#define SLJIT_LOCALS_OFFSET_BASE ((23 + 1) * sizeof(sljit_sw))
+#endif
 
 #elif (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 
