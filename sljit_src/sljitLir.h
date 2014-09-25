@@ -465,8 +465,8 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    sljit_emit_enter function emits the necessary instructions for
    setting up a new context for the executable code and moves function
    arguments to the saved registers. Furthermore the options argument
-   can be used to pass configuration options to the compiler. Currently
-   there are no options, so it must be set to 0.
+   can be used to pass configuration options to the compiler. The
+   available options are listed before sljit_emit_enter.
 
    The number of sljit_sw arguments passed to the generated function
    are specified in the "args" parameter. The number of arguments must
@@ -497,6 +497,11 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
          overwrites the previous context.
 */
 
+/* The absolute address returned by sljit_get_local_base with
+offset 0 is aligned to sljit_d. Otherwise it is aligned to sljit_uw. */
+#define SLJIT_DOUBLE_ALIGNMENT 0x00000001
+
+/* The local_size must be >= 0 and <= SLJIT_MAX_LOCAL_SIZE. */
 #define SLJIT_MAX_LOCAL_SIZE	65536
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compiler,

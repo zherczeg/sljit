@@ -4882,6 +4882,62 @@ static void test52(void)
 	successful_tests++;
 }
 
+static void test53(void)
+{
+	/* Check SLJIT_DOUBLE_ALIGNMENT. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler();
+	sljit_sw buf[1];
+
+	if (verbose)
+		printf("Run test53\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = -1;
+
+	sljit_emit_enter(compiler, SLJIT_DOUBLE_ALIGNMENT, 1, 1, 1, 0, 0, 2 * sizeof(sljit_sw));
+
+	sljit_get_local_base(compiler, SLJIT_R0, 0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R0, 0);
+
+	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)&buf);
+
+	FAILED((buf[0] & (sizeof(sljit_d) - 1)) != 0, "test53 case 1 failed\n");
+
+	sljit_free_code(code.code);
+
+	/* Next test. */
+
+	compiler = sljit_create_compiler();
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = -1;
+
+	/* One more saved register to break the alignment on x86-32. */
+	sljit_emit_enter(compiler, SLJIT_DOUBLE_ALIGNMENT, 1, 1, 2, 0, 0, 2 * sizeof(sljit_sw));
+
+	sljit_get_local_base(compiler, SLJIT_R0, 0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R0, 0);
+
+	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)&buf);
+
+	FAILED((buf[0] & (sizeof(sljit_d) - 1)) != 0, "test53 case 2 failed\n");
+
+	sljit_free_code(code.code);
+	successful_tests++;
+}
+
 void sljit_test(int argc, char* argv[])
 {
 	sljit_si has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -4946,12 +5002,13 @@ void sljit_test(int argc, char* argv[])
 	test50();
 	test51();
 	test52();
+	test53();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 52
+#	define TEST_COUNT 53
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

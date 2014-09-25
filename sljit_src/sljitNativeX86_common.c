@@ -183,6 +183,7 @@ static SLJIT_CONST sljit_ub reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 #define IMUL_r_rm_i8	0x6b
 #define IMUL_r_rm_i32	0x69
 #define JE_i8		0x74
+#define JNE_i8		0x75
 #define JMP_i8		0xeb
 #define JMP_i32		0xe9
 #define JMP_rm		(/* GROUP_FF */ 4 << 3)
@@ -2230,7 +2231,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_custom(struct sljit_compiler *co
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_custom(compiler, instruction, size));
-	SLJIT_ASSERT(size > 0 && size < 16);
 
 	inst = (sljit_ub*)ensure_buf(compiler, 1 + size);
 	FAIL_IF(!inst);

@@ -1508,7 +1508,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_custom(struct sljit_compiler *co
 {
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_custom(compiler, instruction, size));
-	SLJIT_ASSERT(size == 2 || size == 4);
 
 	if (size == 2)
 		return push_inst16(compiler, *(sljit_uh*)instruction);

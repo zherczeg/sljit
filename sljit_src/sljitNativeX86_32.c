@@ -140,7 +140,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_enter(struct sljit_compiler *compil
 	saveds = (2 + (scratches > 7 ? (scratches - 7) : 0) + (saveds <= 3 ? saveds : 3)) * sizeof(sljit_uw);
 	local_size = ((SLJIT_LOCALS_OFFSET + saveds + local_size + 15) & ~15) - saveds;
 #else
-	local_size = SLJIT_LOCALS_OFFSET + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
+	if (options & SLJIT_DOUBLE_ALIGNMENT) {
+		local_size = SLJIT_LOCALS_OFFSET + ((local_size + 7) & ~7);
+
+		inst = (sljit_ub*)ensure_buf(compiler, 1 + 17);
+		FAIL_IF(!inst);
+
+		INC_SIZE(17);
+		inst[0] = MOV_r_rm;
+		inst[1] = MOD_REG | (reg_map[TMP_REG1] << 3) | reg_map[SLJIT_SP];
+		inst[2] = GROUP_F7;
+		inst[3] = MOD_REG | (0 << 3) | reg_map[SLJIT_SP];
+		*(sljit_sw*)(inst + 4) = 0x4;
+		inst[8] = JNE_i8;
+		inst[9] = 6;
+		inst[10] = GROUP_BINARY_81;
+		inst[11] = MOD_REG | (5 << 3) | reg_map[SLJIT_SP];
+		*(sljit_sw*)(inst + 12) = 0x4;
+		inst[16] = PUSH_r + reg_map[TMP_REG1];
+	}
+	else
+		local_size = SLJIT_LOCALS_OFFSET + ((local_size + 3) & ~3);
 #endif
 
 	compiler->local_size = local_size;
@@ -177,7 +197,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_set_context(struct sljit_compiler *compi
 	saveds = (2 + (scratches > 7 ? (scratches - 7) : 0) + (saveds <= 3 ? saveds : 3)) * sizeof(sljit_uw);
 	compiler->local_size = ((SLJIT_LOCALS_OFFSET + saveds + local_size + 15) & ~15) - saveds;
 #else
-	compiler->local_size = SLJIT_LOCALS_OFFSET + ((local_size + sizeof(sljit_uw) - 1) & ~(sizeof(sljit_uw) - 1));
+	if (options & SLJIT_DOUBLE_ALIGNMENT)
+		compiler->local_size = SLJIT_LOCALS_OFFSET + ((local_size + 7) & ~7);
+	else
+		compiler->local_size = SLJIT_LOCALS_OFFSET + ((local_size + 3) & ~3);
 #endif
 	return SLJIT_SUCCESS;
 }
@@ -197,6 +220,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 	SLJIT_ASSERT(compiler->local_size > 0);
 	FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
 		SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, compiler->local_size));
+
+#if !defined(__APPLE__)
+	if (compiler->options & SLJIT_DOUBLE_ALIGNMENT) {
+		inst = (sljit_ub*)ensure_buf(compiler, 1 + 3);
+		FAIL_IF(!inst);
+
+		INC_SIZE(3);
+		inst[0] = MOV_r_rm;
+		inst[1] = (reg_map[SLJIT_SP] << 3) | 0x4 /* SIB */;
+		inst[2] = (4 << 3) | reg_map[SLJIT_SP];
+	}
+#endif
 
 	size = 2 + (compiler->scratches > 7 ? (compiler->scratches - 7) : 0) +
 		(compiler->saveds <= 3 ? compiler->saveds : 3);
