@@ -337,7 +337,7 @@ static SLJIT_INLINE sljit_si resolve_const_pool_index(struct future_patch **firs
 					prev_patch->next = curr_patch->next;
 				else
 					*first_patch = curr_patch->next;
-				SLJIT_FREE(curr_patch);
+				SLJIT_FREE(curr_patch, compiler->allocator_data);
 				break;
 			}
 			prev_patch = curr_patch;
@@ -347,12 +347,12 @@ static SLJIT_INLINE sljit_si resolve_const_pool_index(struct future_patch **firs
 
 	if (value >= 0) {
 		if ((sljit_uw)value > cpool_current_index) {
-			curr_patch = (struct future_patch*)SLJIT_MALLOC(sizeof(struct future_patch));
+			curr_patch = (struct future_patch*)SLJIT_MALLOC(sizeof(struct future_patch), compiler->allocator_data);
 			if (!curr_patch) {
 				while (*first_patch) {
 					curr_patch = *first_patch;
 					*first_patch = (*first_patch)->next;
-					SLJIT_FREE(curr_patch);
+					SLJIT_FREE(curr_patch, compiler->allocator_data);
 				}
 				return SLJIT_ERR_ALLOC_FAILED;
 			}

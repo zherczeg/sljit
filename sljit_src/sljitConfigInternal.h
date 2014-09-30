@@ -203,11 +203,11 @@
 */
 
 #ifndef SLJIT_MALLOC
-#define SLJIT_MALLOC(size) malloc(size)
+#define SLJIT_MALLOC(size, allocator_data) malloc(size)
 #endif
 
 #ifndef SLJIT_FREE
-#define SLJIT_FREE(ptr) free(ptr)
+#define SLJIT_FREE(ptr, allocator_data) free(ptr)
 #endif
 
 #ifndef SLJIT_MEMMOVE

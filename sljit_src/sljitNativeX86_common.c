@@ -2661,6 +2661,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op_flags(struct sljit_compiler *com
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type));
+	SLJIT_UNUSED_ARG(srcw);
 
 	if (dst == SLJIT_UNUSED)
 		return SLJIT_SUCCESS;
