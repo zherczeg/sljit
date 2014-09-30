@@ -200,7 +200,7 @@ static SLJIT_INLINE sljit_si open_dev_zero(void)
 /* Planning to make it even more clever in the future. */
 static sljit_sw sljit_page_align = 0;
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_uw limit, sljit_uw max_limit)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_uw limit, sljit_uw max_limit, void *allocator_data)
 {
 	struct sljit_stack *stack;
 	union {
@@ -232,7 +232,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(slj
 	/* Align limit and max_limit. */
 	max_limit = (max_limit + sljit_page_align) & ~sljit_page_align;
 
-	stack = (struct sljit_stack*)SLJIT_MALLOC(sizeof(struct sljit_stack));
+	stack = (struct sljit_stack*)SLJIT_MALLOC(sizeof(struct sljit_stack), allocator_data);
 	if (!stack)
 		return NULL;
 
@@ -262,7 +262,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(slj
 	base.ptr = mmap(NULL, max_limit, PROT_READ | PROT_WRITE, MAP_PRIVATE, dev_zero, 0);
 #endif
 	if (base.ptr == MAP_FAILED) {
-		SLJIT_FREE(stack);
+		SLJIT_FREE(stack, allocator_data);
 		return NULL;
 	}
 	stack->base = base.uw;
@@ -275,14 +275,14 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(slj
 
 #undef PAGE_ALIGN
 
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_free_stack(struct sljit_stack* stack)
+SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_free_stack(struct sljit_stack* stack, void *allocator_data)
 {
 #ifdef _WIN32
 	VirtualFree((void*)stack->base, 0, MEM_RELEASE);
 #else
 	munmap((void*)stack->base, stack->max_limit - stack->base);
 #endif
-	SLJIT_FREE(stack);
+	SLJIT_FREE(stack, allocator_data);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_sw SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_uw new_limit)

@@ -1,5 +1,10 @@
 This file is the short summary of the API changes:
 
+29.09.2014 - Non-backward compatible
+    The sljit_create_compiler, sljit_allocate_stack, and
+    sljit_free_stack functions have an allocator_data
+    argument now.
+
 19.09.2014 - Non-backward compatible
     Using I, D, S prefixes in conditional and floating
     point operations. And an L prefix to long multiplication

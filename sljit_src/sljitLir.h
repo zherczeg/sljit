@@ -307,6 +307,7 @@ struct sljit_compiler {
 	struct sljit_jump *last_jump;
 	struct sljit_const *last_const;
 
+	void *allocator_data;
 	struct sljit_memory_fragment *buf;
 	struct sljit_memory_fragment *abuf;
 
@@ -409,11 +410,16 @@ struct sljit_compiler {
 /*  Main functions                                                       */
 /* --------------------------------------------------------------------- */
 
-/* Creates an sljit compiler.
-   Returns NULL if failed. */
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void);
+/* Creates an sljit compiler. The allocator_data is required by some
+   custom memory managers. This pointer is passed to SLJIT_MALLOC
+   and SLJIT_FREE macros. Most allocators (including the default
+   one) ignores this value, and it is recommended to pass NULL
+   as a dummy value for allocator_data.
 
-/* Free everything except the compiled machine code. */
+   Returns NULL if failed. */
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data);
+
+/* Frees everything except the compiled machine code. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_compiler(struct sljit_compiler *compiler);
 
 /* Returns the current error code. If an error is occurred, future sljit
@@ -1095,7 +1101,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 /* --------------------------------------------------------------------- */
 
 #define SLJIT_MAJOR_VERSION	0
-#define SLJIT_MINOR_VERSION	92
+#define SLJIT_MINOR_VERSION	93
 
 /* Get the human readable name of the platform. Can be useful on platforms
    like ARM, where ARM and Thumb2 functions can be mixed, and
@@ -1141,10 +1147,11 @@ struct sljit_stack {
 };
 
 /* Returns NULL if unsuccessful.
-   Note: limit and max_limit contains the size for stack allocation
-   Note: the top field is initialized to base. */
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_uw limit, sljit_uw max_limit);
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_free_stack(struct sljit_stack* stack);
+   Note: limit and max_limit contains the size for stack allocation.
+   Note: the top field is initialized to base.
+   Note: see sljit_create_compiler for the explanation of allocator_data. */
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_CALL sljit_allocate_stack(sljit_uw limit, sljit_uw max_limit, void *allocator_data);
+SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_free_stack(struct sljit_stack *stack, void *allocator_data);
 
 /* Can be used to increase (allocate) or decrease (free) the memory area.
    Returns with a non-zero value if unsuccessful. If new_limit is greater than
@@ -1152,7 +1159,7 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_CALL sljit_free_stack(struct sljit_stack* st
    since the growth ratio can be added to the current limit, and sljit_stack_resize
    will do all the necessary checks. The fields of the stack are not changed if
    sljit_stack_resize fails. */
-SLJIT_API_FUNC_ATTRIBUTE sljit_sw SLJIT_CALL sljit_stack_resize(struct sljit_stack* stack, sljit_uw new_limit);
+SLJIT_API_FUNC_ATTRIBUTE sljit_sw SLJIT_CALL sljit_stack_resize(struct sljit_stack *stack, sljit_uw new_limit);
 
 #endif /* (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) */
 
