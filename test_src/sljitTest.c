@@ -3446,10 +3446,22 @@ static void test39(void)
 	SLJIT_ASSERT(!compiler->buf->next && !compiler->buf->used_size);
 	SLJIT_ASSERT(!compiler->abuf->next && !compiler->abuf->used_size);
 
-	code.code = sljit_generate_code(compiler);
+	sljit_set_compiler_memory_error(compiler);
 	FAILED(sljit_get_compiler_error(compiler) != -3967, "test39 case 1 failed\n");
-	FAILED(!!code.code, "test39 case 2 failed\n");
+
+	code.code = sljit_generate_code(compiler);
+	FAILED(sljit_get_compiler_error(compiler) != -3967, "test39 case 2 failed\n");
+	FAILED(!!code.code, "test39 case 3 failed\n");
 	sljit_free_compiler(compiler);
+
+	compiler = sljit_create_compiler(NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	FAILED(sljit_get_compiler_error(compiler) != SLJIT_SUCCESS, "test39 case 4 failed\n");
+	sljit_set_compiler_memory_error(compiler);
+	FAILED(sljit_get_compiler_error(compiler) != SLJIT_ERR_ALLOC_FAILED, "test39 case 5 failed\n");
+	sljit_free_compiler(compiler);
+
 	successful_tests++;
 }
 
