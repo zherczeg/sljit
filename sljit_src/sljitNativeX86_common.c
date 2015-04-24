@@ -1905,60 +1905,62 @@ static sljit_si emit_test_binary(struct sljit_compiler *compiler,
 		return SLJIT_SUCCESS;
 	}
 
-	if (FAST_IS_REG(src1)) {
+	if (!(src1 & SLJIT_IMM)) {
 		if (src2 & SLJIT_IMM) {
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 			if (IS_HALFWORD(src2w) || compiler->mode32) {
-				inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, src2w, src1, 0);
+				inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, src2w, src1, src1w);
 				FAIL_IF(!inst);
 				*inst = GROUP_F7;
 			}
 			else {
 				FAIL_IF(emit_load_imm64(compiler, TMP_REG2, src2w));
-				inst = emit_x86_instruction(compiler, 1, TMP_REG2, 0, src1, 0);
+				inst = emit_x86_instruction(compiler, 1, TMP_REG2, 0, src1, src1w);
 				FAIL_IF(!inst);
 				*inst = TEST_rm_r;
 			}
 #else
-			inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, src2w, src1, 0);
+			inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, src2w, src1, src1w);
 			FAIL_IF(!inst);
 			*inst = GROUP_F7;
 #endif
+			return SLJIT_SUCCESS;
 		}
-		else {
+		else if (FAST_IS_REG(src1)) {
 			inst = emit_x86_instruction(compiler, 1, src1, 0, src2, src2w);
 			FAIL_IF(!inst);
 			*inst = TEST_rm_r;
+			return SLJIT_SUCCESS;
 		}
-		return SLJIT_SUCCESS;
 	}
 
-	if (FAST_IS_REG(src2)) {
+	if (!(src2 & SLJIT_IMM)) {
 		if (src1 & SLJIT_IMM) {
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 			if (IS_HALFWORD(src1w) || compiler->mode32) {
-				inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, src1w, src2, 0);
+				inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, src1w, src2, src2w);
 				FAIL_IF(!inst);
 				*inst = GROUP_F7;
 			}
 			else {
 				FAIL_IF(emit_load_imm64(compiler, TMP_REG2, src1w));
-				inst = emit_x86_instruction(compiler, 1, TMP_REG2, 0, src2, 0);
+				inst = emit_x86_instruction(compiler, 1, TMP_REG2, 0, src2, src2w);
 				FAIL_IF(!inst);
 				*inst = TEST_rm_r;
 			}
 #else
-			inst = emit_x86_instruction(compiler, 1, src1, src1w, src2, 0);
+			inst = emit_x86_instruction(compiler, 1, src1, src1w, src2, src2w);
 			FAIL_IF(!inst);
 			*inst = GROUP_F7;
 #endif
+			return SLJIT_SUCCESS;
 		}
-		else {
+		else if (FAST_IS_REG(src2)) {
 			inst = emit_x86_instruction(compiler, 1, src2, 0, src1, src1w);
 			FAIL_IF(!inst);
 			*inst = TEST_rm_r;
+			return SLJIT_SUCCESS;
 		}
-		return SLJIT_SUCCESS;
 	}
 
 	EMIT_MOV(compiler, TMP_REG1, 0, src1, src1w);
