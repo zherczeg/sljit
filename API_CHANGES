@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+18.05.2015 - Non-backward compatible
+    SLJIT_[I|]L[U|S]DIV is renamed to SLJIT_[I|][U|S]DIVMOD
+
 29.09.2014 - Non-backward compatible
     The sljit_create_compiler, sljit_allocate_stack, and
     sljit_free_stack functions have an allocator_data
