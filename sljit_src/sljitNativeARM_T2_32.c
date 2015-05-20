@@ -1255,8 +1255,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 			| (reg_map[SLJIT_R0] << 12)
 			| (reg_map[SLJIT_R0] << 16)
 			| reg_map[SLJIT_R1]);
-	case SLJIT_LUDIV:
-	case SLJIT_LSDIV:
+	case SLJIT_UDIVI:
+	case SLJIT_SDIVI:
+		op -= SLJIT_UDIVI - SLJIT_UDIVMOD;
+	case SLJIT_UDIVMOD:
+	case SLJIT_SDIVMOD:
 		if (compiler->scratches >= 4) {
 			FAIL_IF(push_inst32(compiler, 0xf84d2d04 /* str r2, [sp, #-4]! */));
 			FAIL_IF(push_inst32(compiler, 0xf84dcd04 /* str ip, [sp, #-4]! */));
@@ -1264,7 +1267,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler
 			FAIL_IF(push_inst32(compiler, 0xf84d2d08 /* str r2, [sp, #-8]! */));
 #if defined(__GNUC__)
 		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM,
-			(op == SLJIT_LUDIV ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
+			(op == SLJIT_UDIVMOD ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
 #else
 #error "Software divmod functions are needed"
 #endif

@@ -687,7 +687,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
 #define SLJIT_OP0_BASE			0
 
 /* Flags: - (never set any flags)
-   Note: breakpoint instruction is not supported by all architectures (namely ppc)
+   Note: breakpoint instruction is not supported by all architectures (e.g. ppc)
          It falls back to SLJIT_NOP in those cases. */
 #define SLJIT_BREAKPOINT		(SLJIT_OP0_BASE + 0)
 /* Flags: - (never set any flags)
@@ -706,14 +706,32 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_fast_return(struct sljit_compiler *
    Unsigned divide of the value in SLJIT_R0 by the value in SLJIT_R1.
    The result is placed in SLJIT_R0 and the remainder goes to SLJIT_R1.
    Note: if SLJIT_R1 contains 0, the behaviour is undefined. */
-#define SLJIT_LUDIV			(SLJIT_OP0_BASE + 4)
-#define SLJIT_ILUDIV			(SLJIT_LUDIV | SLJIT_INT_OP)
+#define SLJIT_UDIVMOD			(SLJIT_OP0_BASE + 4)
+#define SLJIT_IUDIVMOD			(SLJIT_UDIVMOD | SLJIT_INT_OP)
 /* Flags: I - (may destroy flags)
    Signed divide of the value in SLJIT_R0 by the value in SLJIT_R1.
    The result is placed in SLJIT_R0 and the remainder goes to SLJIT_R1.
    Note: if SLJIT_R1 contains 0, the behaviour is undefined. */
-#define SLJIT_LSDIV			(SLJIT_OP0_BASE + 5)
-#define SLJIT_ILSDIV			(SLJIT_LSDIV | SLJIT_INT_OP)
+#define SLJIT_SDIVMOD			(SLJIT_OP0_BASE + 5)
+#define SLJIT_ISDIVMOD			(SLJIT_SDIVMOD | SLJIT_INT_OP)
+/* Flags: I - (may destroy flags)
+   Unsigned divide of the value in SLJIT_R0 by the value in SLJIT_R1.
+   The result is placed in SLJIT_R0. SLJIT_R1 is undefined after the operation.
+   Note: if SLJIT_R1 contains 0, the behaviour is undefined.
+   Note: this operation is faster than SLJIT_UDIVMOD on certain CPUs,
+         but it is just an alias to SLJIT_UDIVMOD on others.
+   Note: SLJIT_SDIV is single precision divide. */
+#define SLJIT_UDIVI			(SLJIT_OP0_BASE + 6)
+#define SLJIT_IUDIVI			(SLJIT_UDIVI | SLJIT_INT_OP)
+/* Flags: I - (may destroy flags)
+   Signed divide of the value in SLJIT_R0 by the value in SLJIT_R1.
+   The result is placed in SLJIT_R0. SLJIT_R1 is undefined after the operation.
+   Note: if SLJIT_R1 contains 0, the behaviour is undefined.
+   Note: this operation is faster than SLJIT_SDIVMOD on certain CPUs,
+         but it is just an alias to SLJIT_SDIVMOD on others.
+   Note: SLJIT_SDIV is single precision divide. */
+#define SLJIT_SDIVI			(SLJIT_OP0_BASE + 7)
+#define SLJIT_ISDIVI			(SLJIT_SDIVI | SLJIT_INT_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_op0(struct sljit_compiler *compiler, sljit_si op);
 
