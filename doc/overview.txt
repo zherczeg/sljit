@@ -102,6 +102,11 @@ the data type of the value stored in a source register
 must match the data type expected by the instruction.
 Otherwise the result is undefined (even crash is possible).
 
+Rounding:
+
+Similar to standard C, floating point computation
+results are rounded toward zero.
+
 *** Boolean status flags:
 
 Conditional branches usually depend on the value
