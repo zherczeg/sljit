@@ -3978,44 +3978,20 @@ static void test42(void)
 
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	FAILED(buf[19] != SLJIT_W(0x3340bfc), "test42 case 20 failed\n");
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
-	FAILED(buf[20] != SLJIT_W(0x1ab27a5227), "test42 case 21 failed\n");
-#else
 	FAILED(buf[20] != SLJIT_W(0x3d4af2c543), "test42 case 21 failed\n");
-#endif
 	FAILED(buf[21] != SLJIT_W(-0xaf978), "test42 case 22 failed\n");
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
-	FAILED(buf[22] != SLJIT_W(-0x96b89c148c4), "test42 case 23 failed\n");
-#else
 	FAILED(buf[22] != SLJIT_W(0xa64ae42b7d6), "test42 case 23 failed\n");
-#endif
-#else /* SLJIT_64BIT_ARCHITECTURE */
+#else
 	FAILED(buf[19] != SLJIT_W(0xda5), "test42 case 20 failed\n");
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) || (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
-	FAILED(buf[20] != SLJIT_W(0x4fc26), "test42 case 21 failed\n");
-#else
 	FAILED(buf[20] != SLJIT_W(0xb86d0), "test42 case 21 failed\n");
-#endif
 	FAILED(buf[21] != SLJIT_W(-0x6b6e), "test42 case 22 failed\n");
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) || (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
-	FAILED(buf[22] != SLJIT_W(-0x3cca), "test42 case 23 failed\n");
-#else
 	FAILED(buf[22] != SLJIT_W(0xd357), "test42 case 23 failed\n");
 #endif
-#endif /* SLJIT_64BIT_ARCHITECTURE */
 
 	FAILED(buf[23] != SLJIT_W(0x0), "test42 case 24 failed\n");
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) || (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
-	FAILED(buf[24] != SLJIT_W(0x1c027b34), "test42 case 25 failed\n");
-#else
 	FAILED(buf[24] != SLJIT_W(0xf2906b14), "test42 case 25 failed\n");
-#endif
 	FAILED(buf[25] != SLJIT_W(-0x8), "test42 case 26 failed\n");
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) || (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
-	FAILED(buf[26] != SLJIT_W(0x585a8f5), "test42 case 27 failed\n");
-#else
 	FAILED(buf[26] != SLJIT_W(-0xa63c923), "test42 case 27 failed\n");
-#endif
 
 	sljit_free_code(code.code);
 	successful_tests++;
@@ -5125,7 +5101,7 @@ void sljit_test(int argc, char* argv[])
 	if (successful_tests == TEST_COUNT)
 		printf("all tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT " ");
 	else
-		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests are failed ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / 47);
+		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests are " COLOR_RED "FAILED" COLOR_DEFAULT " ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / 47);
 	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), sljit_is_fpu_available() ? " (with fpu)" : " (without fpu)");
 
 #	undef TEST_COUNT
