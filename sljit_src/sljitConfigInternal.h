@@ -252,11 +252,6 @@
 #endif
 #endif /* !SLJIT_INLINE */
 
-#ifndef SLJIT_CONST
-/* Const variables. */
-#define SLJIT_CONST const
-#endif
-
 #ifndef SLJIT_UNUSED_ARG
 /* Unused arguments. */
 #define SLJIT_UNUSED_ARG(arg) (void)arg

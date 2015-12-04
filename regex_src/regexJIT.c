@@ -2185,8 +2185,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 		sljit_set_label(fast_forward_jump, label);
 	CHECK(sljit_emit_return(compiler_common.compiler, SLJIT_UNUSED, 0, 0));
 
-	ind = 1;
-	while (ind < compiler_common.dfa_size - 1) {
+	for (ind = 1; ind < compiler_common.dfa_size - 1; ind++) {
 		if (compiler_common.search_states[ind].type >= 0) {
 			SLJIT_ASSERT(compiler_common.search_states[ind].type < compiler_common.terms_size);
 			EMIT_LABEL(label);
@@ -2228,7 +2227,6 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 			EMIT_OP1(SLJIT_MOV, SLJIT_MEM1(R_CURR_STATE), TERM_OFFSET_OF(compiler_common.search_states[ind].type, 1), SLJIT_IMM, -1);
 			CHECK(sljit_emit_ijump(compiler_common.compiler, SLJIT_JUMP, SLJIT_MEM2(R_CURR_STATE, R_TEMP), 0));
 		}
-		ind++;
 	}
 
 	if (ind == compiler_common.dfa_size - 1) {

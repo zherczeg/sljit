@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
+SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
 	return "ARM-64" SLJIT_CPUINFO;
 }
@@ -43,7 +43,7 @@ typedef sljit_ui sljit_ins;
 #define TMP_FREG1	(0)
 #define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
 
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 8] = {
+static const sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 8] = {
   31, 0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15, 16, 17, 8, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 29, 9, 10, 11, 30, 31
 };
 
@@ -777,28 +777,28 @@ set_flags:
 
 #define MEM_SIZE_SHIFT(flags) ((flags) >> 8)
 
-static SLJIT_CONST sljit_ins sljit_mem_imm[4] = {
+static const sljit_ins sljit_mem_imm[4] = {
 /* u l */ 0x39400000 /* ldrb [reg,imm] */,
 /* u s */ 0x39000000 /* strb [reg,imm] */,
 /* s l */ 0x39800000 /* ldrsb [reg,imm] */,
 /* s s */ 0x39000000 /* strb [reg,imm] */,
 };
 
-static SLJIT_CONST sljit_ins sljit_mem_simm[4] = {
+static const sljit_ins sljit_mem_simm[4] = {
 /* u l */ 0x38400000 /* ldurb [reg,imm] */,
 /* u s */ 0x38000000 /* sturb [reg,imm] */,
 /* s l */ 0x38800000 /* ldursb [reg,imm] */,
 /* s s */ 0x38000000 /* sturb [reg,imm] */,
 };
 
-static SLJIT_CONST sljit_ins sljit_mem_pre_simm[4] = {
+static const sljit_ins sljit_mem_pre_simm[4] = {
 /* u l */ 0x38400c00 /* ldrb [reg,imm]! */,
 /* u s */ 0x38000c00 /* strb [reg,imm]! */,
 /* s l */ 0x38800c00 /* ldrsb [reg,imm]! */,
 /* s s */ 0x38000c00 /* strb [reg,imm]! */,
 };
 
-static SLJIT_CONST sljit_ins sljit_mem_reg[4] = {
+static const sljit_ins sljit_mem_reg[4] = {
 /* u l */ 0x38606800 /* ldrb [reg,reg] */,
 /* u s */ 0x38206800 /* strb [reg,reg] */,
 /* s l */ 0x38a06800 /* ldrsb [reg,reg] */,

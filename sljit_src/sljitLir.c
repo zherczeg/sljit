@@ -844,12 +844,12 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *comp
 			fprintf(compiler->verbose, "fs%d", SLJIT_NUMBER_OF_FLOAT_REGISTERS - (p)); \
 	}
 
-static SLJIT_CONST char* op0_names[] = {
+static const char* op0_names[] = {
 	(char*)"breakpoint", (char*)"nop", (char*)"lumul", (char*)"lsmul",
 	(char*)"udivmod", (char*)"sdivmod", (char*)"udivi", (char*)"sdivi"
 };
 
-static SLJIT_CONST char* op1_names[] = {
+static const char* op1_names[] = {
 	(char*)"mov", (char*)"mov_ub", (char*)"mov_sb", (char*)"mov_uh",
 	(char*)"mov_sh", (char*)"mov_ui", (char*)"mov_si", (char*)"mov_p",
 	(char*)"movu", (char*)"movu_ub", (char*)"movu_sb", (char*)"movu_uh",
@@ -857,19 +857,19 @@ static SLJIT_CONST char* op1_names[] = {
 	(char*)"not", (char*)"neg", (char*)"clz",
 };
 
-static SLJIT_CONST char* op2_names[] = {
+static const char* op2_names[] = {
 	(char*)"add", (char*)"addc", (char*)"sub", (char*)"subc",
 	(char*)"mul", (char*)"and", (char*)"or", (char*)"xor",
 	(char*)"shl", (char*)"lshr", (char*)"ashr",
 };
 
-static SLJIT_CONST char* fop1_names[] = {
+static const char* fop1_names[] = {
 	(char*)"mov", (char*)"conv", (char*)"conv", (char*)"conv",
 	(char*)"conv", (char*)"conv", (char*)"cmp", (char*)"neg",
 	(char*)"abs",
 };
 
-static SLJIT_CONST char* fop2_names[] = {
+static const char* fop2_names[] = {
 	(char*)"add", (char*)"sub", (char*)"mul", (char*)"div"
 };
 
@@ -1710,7 +1710,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_get_local_base(struct sljit_compiler *co
 
 /* Empty function bodies for those machines, which are not (yet) supported. */
 
-SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
+SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
 	return "unsupported";
 }

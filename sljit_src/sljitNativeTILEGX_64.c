@@ -49,7 +49,7 @@
 #define ADDR_TMP (SLJIT_NUMBER_OF_REGISTERS + 5)
 #define PIC_ADDR_REG TMP_REG2
 
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
+static const sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
 	63, 0, 1, 2, 3, 4, 30, 31, 32, 33, 34, 54, 5, 16, 6, 7
 };
 
@@ -106,7 +106,7 @@ static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
  */
 #define CHECK_FLAGS(list) (!(flags & UNUSED_DEST) || (op & GET_FLAGS(~(list))))
 
-SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char *sljit_get_platform_name(void)
+SLJIT_API_FUNC_ATTRIBUTE const char *sljit_get_platform_name(void)
 {
 	return "TileGX" SLJIT_CPUINFO;
 }
@@ -307,7 +307,7 @@ struct jit_instr {
 #define JOFF_X1(x) create_JumpOff_X1(x)
 #define BOFF_X1(x) create_BrOff_X1(x)
 
-static SLJIT_CONST tilegx_mnemonic data_transfer_insts[16] = {
+static const tilegx_mnemonic data_transfer_insts[16] = {
 	/* u w s */ TILEGX_OPC_ST   /* st */,
 	/* u w l */ TILEGX_OPC_LD   /* ld */,
 	/* u b s */ TILEGX_OPC_ST1  /* st1 */,
