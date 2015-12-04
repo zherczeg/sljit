@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
+SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
 	return "SPARC" SLJIT_CPUINFO;
 }
@@ -91,7 +91,7 @@ static void sparc_cache_flush(sljit_ins *from, sljit_ins *to)
 #define TMP_FREG1	(0)
 #define TMP_FREG2	((SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1) << 1)
 
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
+static const sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
 	0, 8, 9, 10, 13, 29, 28, 27, 23, 22, 21, 20, 19, 18, 17, 16, 26, 25, 24, 14, 1, 11, 12, 15
 };
 
@@ -478,7 +478,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 #define ARCH_32_64(a, b)	b
 #endif
 
-static SLJIT_CONST sljit_ins data_transfer_insts[16 + 4] = {
+static const sljit_ins data_transfer_insts[16 + 4] = {
 /* u w s */ ARCH_32_64(OPC1(3) | OPC3(0x04) /* stw */, OPC1(3) | OPC3(0x0e) /* stx */),
 /* u w l */ ARCH_32_64(OPC1(3) | OPC3(0x00) /* lduw */, OPC1(3) | OPC3(0x0b) /* ldx */),
 /* u b s */ OPC1(3) | OPC3(0x05) /* stb */,

@@ -27,7 +27,7 @@
 /* Latest MIPS architecture. */
 /* Automatically detect SLJIT_MIPS_R1 */
 
-SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
+SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
 #if (defined SLJIT_MIPS_R1 && SLJIT_MIPS_R1)
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
@@ -68,7 +68,7 @@ typedef sljit_ui sljit_ins;
 #define TMP_FREG1	(0)
 #define TMP_FREG2	((SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1) << 1)
 
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
+static const sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 	0, 2, 5, 6, 7, 8, 9, 10, 11, 24, 23, 22, 21, 20, 19, 18, 17, 16, 29, 3, 25, 4
 };
 
@@ -668,7 +668,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_si sljit_emit_return(struct sljit_compiler *compi
 #define ARCH_32_64(a, b)	b
 #endif
 
-static SLJIT_CONST sljit_ins data_transfer_insts[16 + 4] = {
+static const sljit_ins data_transfer_insts[16 + 4] = {
 /* u w s */ ARCH_32_64(HI(43) /* sw */, HI(63) /* sd */),
 /* u w l */ ARCH_32_64(HI(35) /* lw */, HI(55) /* ld */),
 /* u b s */ HI(40) /* sb */,

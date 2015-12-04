@@ -31,7 +31,7 @@
 
 void sljit_test(int argc, char* argv[]);
 
-void error(SLJIT_CONST char* str)
+void error(const char* str)
 {
 	printf("An error occured: %s\n", str);
 	exit(-1);

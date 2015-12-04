@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
+SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
 	return "ARM-Thumb2" SLJIT_CPUINFO;
 }
@@ -42,7 +42,7 @@ typedef sljit_ui sljit_ins;
 #define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
 
 /* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
+static const sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
 	0, 0, 1, 2, 12, 11, 10, 9, 8, 7, 6, 5, 13, 3, 4, 14, 15
 };
 
@@ -813,7 +813,7 @@ static sljit_si emit_op_imm(struct sljit_compiler *compiler, sljit_si flags, slj
   s = store
 */
 
-static SLJIT_CONST sljit_ins sljit_mem16[12] = {
+static const sljit_ins sljit_mem16[12] = {
 /* w u l */ 0x5800 /* ldr */,
 /* w u s */ 0x5000 /* str */,
 /* w s l */ 0x5800 /* ldr */,
@@ -830,7 +830,7 @@ static SLJIT_CONST sljit_ins sljit_mem16[12] = {
 /* h s s */ 0x5200 /* strh */,
 };
 
-static SLJIT_CONST sljit_ins sljit_mem16_imm5[12] = {
+static const sljit_ins sljit_mem16_imm5[12] = {
 /* w u l */ 0x6800 /* ldr imm5 */,
 /* w u s */ 0x6000 /* str imm5 */,
 /* w s l */ 0x6800 /* ldr imm5 */,
@@ -849,7 +849,7 @@ static SLJIT_CONST sljit_ins sljit_mem16_imm5[12] = {
 
 #define MEM_IMM8	0xc00
 #define MEM_IMM12	0x800000
-static SLJIT_CONST sljit_ins sljit_mem32[12] = {
+static const sljit_ins sljit_mem32[12] = {
 /* w u l */ 0xf8500000 /* ldr.w */,
 /* w u s */ 0xf8400000 /* str.w */,
 /* w s l */ 0xf8500000 /* ldr.w */,

@@ -24,7 +24,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
+SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 	return "ARMv7" SLJIT_CPUINFO;
@@ -55,7 +55,7 @@ SLJIT_API_FUNC_ATTRIBUTE SLJIT_CONST char* sljit_get_platform_name(void)
 	(((max_diff) / (sljit_si)sizeof(sljit_uw)) - (CONST_POOL_ALIGNMENT - 1))
 
 /* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
-static SLJIT_CONST sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
+static const sljit_ub reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
 	0, 0, 1, 2, 11, 10, 9, 8, 7, 6, 5, 4, 13, 3, 12, 14, 15
 };
 
@@ -327,7 +327,7 @@ static sljit_si resolve_const_pool_index(struct sljit_compiler *compiler, struct
 		value = (sljit_si)cpool_start_address[cpool_current_index];
 	else {
 		curr_patch = *first_patch;
-		prev_patch = 0;
+		prev_patch = NULL;
 		while (1) {
 			if (!curr_patch) {
 				value = (sljit_si)cpool_start_address[cpool_current_index];

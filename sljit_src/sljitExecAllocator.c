@@ -153,7 +153,7 @@ static SLJIT_INLINE void sljit_insert_free_block(struct free_block *free_block, 
 	free_block->size = size;
 
 	free_block->next = free_blocks;
-	free_block->prev = 0;
+	free_block->prev = NULL;
 	if (free_blocks)
 		free_blocks->prev = free_block;
 	free_blocks = free_block;
