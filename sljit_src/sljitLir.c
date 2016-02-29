@@ -654,8 +654,8 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 		break; \
 	case SLJIT_BREAKPOINT: \
 	case SLJIT_NOP: \
-	case SLJIT_LUMUL: \
-	case SLJIT_LSMUL: \
+	case SLJIT_LMUL_UW: \
+	case SLJIT_LMUL_SW: \
 	case SLJIT_MOV: \
 	case SLJIT_MOV_U32: \
 	case SLJIT_MOV_P: \
@@ -845,8 +845,8 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *comp
 	}
 
 static const char* op0_names[] = {
-	(char*)"breakpoint", (char*)"nop", (char*)"lumul", (char*)"lsmul",
-	(char*)"udivmod", (char*)"sdivmod", (char*)"udivi", (char*)"sdivi"
+	(char*)"breakpoint", (char*)"nop", (char*)"lmul.uw", (char*)"lmul.sw",
+	(char*)"divmod.u", (char*)"divmod.s", (char*)"div.u", (char*)"div.s"
 };
 
 static const char* op1_names[] = {
@@ -1035,13 +1035,19 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fast_return(struct sljit_
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT((op >= SLJIT_BREAKPOINT && op <= SLJIT_LSMUL)
-		|| ((op & ~SLJIT_I32_OP) >= SLJIT_UDIVMOD && (op & ~SLJIT_I32_OP) <= SLJIT_SDIVI));
-	CHECK_ARGUMENT(op < SLJIT_LUMUL || compiler->scratches >= 2);
+	CHECK_ARGUMENT((op >= SLJIT_BREAKPOINT && op <= SLJIT_LMUL_SW)
+		|| ((op & ~SLJIT_I32_OP) >= SLJIT_DIVMOD_UW && (op & ~SLJIT_I32_OP) <= SLJIT_DIV_SW));
+	CHECK_ARGUMENT(op < SLJIT_LMUL_UW || compiler->scratches >= 2);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
-		fprintf(compiler->verbose, "  %s%s\n", !(op & SLJIT_I32_OP) ? "" : "i", op0_names[GET_OPCODE(op) - SLJIT_OP0_BASE]);
+	{
+		fprintf(compiler->verbose, "  %s", op0_names[GET_OPCODE(op) - SLJIT_OP0_BASE]);
+		if (GET_OPCODE(op) >= SLJIT_DIVMOD_UW) {
+			fprintf(compiler->verbose, (op & SLJIT_I32_OP) ? "32" : "w");
+		}
+		fprintf(compiler->verbose, "\n");
+	}
 #endif
 	CHECK_RETURN_OK;
 }

@@ -695,41 +695,39 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler 
 /* Flags: - (may destroy flags)
    Unsigned multiplication of SLJIT_R0 and SLJIT_R1.
    Result is placed into SLJIT_R1:SLJIT_R0 (high:low) word */
-#define SLJIT_LUMUL			(SLJIT_OP0_BASE + 2)
+#define SLJIT_LMUL_UW			(SLJIT_OP0_BASE + 2)
 /* Flags: - (may destroy flags)
    Signed multiplication of SLJIT_R0 and SLJIT_R1.
    Result is placed into SLJIT_R1:SLJIT_R0 (high:low) word */
-#define SLJIT_LSMUL			(SLJIT_OP0_BASE + 3)
+#define SLJIT_LMUL_SW			(SLJIT_OP0_BASE + 3)
 /* Flags: I - (may destroy flags)
    Unsigned divide of the value in SLJIT_R0 by the value in SLJIT_R1.
    The result is placed into SLJIT_R0 and the remainder into SLJIT_R1.
    Note: if SLJIT_R1 is 0, the behaviour is undefined. */
-#define SLJIT_UDIVMOD			(SLJIT_OP0_BASE + 4)
-#define SLJIT_IUDIVMOD			(SLJIT_UDIVMOD | SLJIT_I32_OP)
+#define SLJIT_DIVMOD_UW			(SLJIT_OP0_BASE + 4)
+#define SLJIT_DIVMOD_U32		(SLJIT_DIVMOD_UW | SLJIT_I32_OP)
 /* Flags: I - (may destroy flags)
    Signed divide of the value in SLJIT_R0 by the value in SLJIT_R1.
    The result is placed into SLJIT_R0 and the remainder into SLJIT_R1.
    Note: if SLJIT_R1 is 0, the behaviour is undefined.
    Note: if SLJIT_R1 is -1 and SLJIT_R0 is integer min (0x800..00),
          the behaviour is undefined. */
-#define SLJIT_SDIVMOD			(SLJIT_OP0_BASE + 5)
-#define SLJIT_ISDIVMOD			(SLJIT_SDIVMOD | SLJIT_I32_OP)
+#define SLJIT_DIVMOD_SW			(SLJIT_OP0_BASE + 5)
+#define SLJIT_DIVMOD_S32		(SLJIT_DIVMOD_SW | SLJIT_I32_OP)
 /* Flags: I - (may destroy flags)
    Unsigned divide of the value in SLJIT_R0 by the value in SLJIT_R1.
    The result is placed into SLJIT_R0. SLJIT_R1 preserves its value.
-   Note: if SLJIT_R1 is 0, the behaviour is undefined.
-   Note: SLJIT_SDIV is single precision divide. */
-#define SLJIT_UDIVI			(SLJIT_OP0_BASE + 6)
-#define SLJIT_IUDIVI			(SLJIT_UDIVI | SLJIT_I32_OP)
+   Note: if SLJIT_R1 is 0, the behaviour is undefined. */
+#define SLJIT_DIV_UW			(SLJIT_OP0_BASE + 6)
+#define SLJIT_DIV_U32			(SLJIT_DIV_UW | SLJIT_I32_OP)
 /* Flags: I - (may destroy flags)
    Signed divide of the value in SLJIT_R0 by the value in SLJIT_R1.
    The result is placed into SLJIT_R0. SLJIT_R1 preserves its value.
    Note: if SLJIT_R1 is 0, the behaviour is undefined.
    Note: if SLJIT_R1 is -1 and SLJIT_R0 is integer min (0x800..00),
-         the behaviour is undefined.
-   Note: SLJIT_SDIV is single precision divide. */
-#define SLJIT_SDIVI			(SLJIT_OP0_BASE + 7)
-#define SLJIT_ISDIVI			(SLJIT_SDIVI | SLJIT_I32_OP)
+         the behaviour is undefined. */
+#define SLJIT_DIV_SW			(SLJIT_OP0_BASE + 7)
+#define SLJIT_DIV_S32			(SLJIT_DIV_SW | SLJIT_I32_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op);
 
