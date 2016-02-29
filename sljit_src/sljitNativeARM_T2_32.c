@@ -1251,18 +1251,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 		return push_inst16(compiler, BKPT);
 	case SLJIT_NOP:
 		return push_inst16(compiler, NOP);
-	case SLJIT_LUMUL:
-	case SLJIT_LSMUL:
-		return push_inst32(compiler, (op == SLJIT_LUMUL ? UMULL : SMULL)
+	case SLJIT_LMUL_UW:
+	case SLJIT_LMUL_SW:
+		return push_inst32(compiler, (op == SLJIT_LMUL_UW ? UMULL : SMULL)
 			| (reg_map[SLJIT_R1] << 8)
 			| (reg_map[SLJIT_R0] << 12)
 			| (reg_map[SLJIT_R0] << 16)
 			| reg_map[SLJIT_R1]);
-	case SLJIT_UDIVMOD:
-	case SLJIT_SDIVMOD:
-	case SLJIT_UDIVI:
-	case SLJIT_SDIVI:
-		SLJIT_COMPILE_ASSERT((SLJIT_UDIVMOD & 0x2) == 0 && SLJIT_UDIVI - 0x2 == SLJIT_UDIVMOD, bad_div_opcode_assignments);
+	case SLJIT_DIVMOD_UW:
+	case SLJIT_DIVMOD_SW:
+	case SLJIT_DIV_UW:
+	case SLJIT_DIV_SW:
+		SLJIT_COMPILE_ASSERT((SLJIT_DIVMOD_UW & 0x2) == 0 && SLJIT_DIV_UW - 0x2 == SLJIT_DIVMOD_UW, bad_div_opcode_assignments);
 		SLJIT_COMPILE_ASSERT(reg_map[2] == 1 && reg_map[3] == 2 && reg_map[4] == 12, bad_register_mapping);
 
 		saved_reg_count = 0;
@@ -1270,7 +1270,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 			saved_reg_list[saved_reg_count++] = 12;
 		if (compiler->scratches >= 3)
 			saved_reg_list[saved_reg_count++] = 2;
-		if (op >= SLJIT_UDIVI)
+		if (op >= SLJIT_DIV_UW)
 			saved_reg_list[saved_reg_count++] = 1;
 
 		if (saved_reg_count > 0) {
@@ -1288,7 +1288,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 
 #if defined(__GNUC__)
 		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM,
-			((op | 0x2) == SLJIT_UDIVI ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
+			((op | 0x2) == SLJIT_DIV_UW ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
 #else
 #error "Software divmod functions are needed"
 #endif

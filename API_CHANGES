@@ -1,5 +1,17 @@
 This file is the short summary of the API changes:
 
+29.02.2016 - Non-backward compatible
+    Several types and instructions are renamed to improve
+    readability. In general byte, half, and int are renamed
+    to 8, 16, and 32. Floating point types are also renamed
+    from d and s to f64 and f32.
+
+      [s|u]b -> [s|u]8    (8 bit values)
+      [s|u]h -> [s|u]16   (16 bit values)
+      [s|u]i -> [s|u]32   (32 bit values)
+      d -> f64            (64 bit floating point value)
+      s -> f32            (32 bit floating point value)
+
 18.05.2015 - Non-backward compatible
     SLJIT_[I|]L[U|S]DIV is renamed to SLJIT_[I|][U|S]DIVMOD
 

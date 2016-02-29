@@ -1257,33 +1257,33 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 	case SLJIT_BREAKPOINT:
 	case SLJIT_NOP:
 		return push_inst(compiler, NOP);
-	case SLJIT_LUMUL:
-	case SLJIT_LSMUL:
+	case SLJIT_LMUL_UW:
+	case SLJIT_LMUL_SW:
 		FAIL_IF(push_inst(compiler, OR | S(SLJIT_R0) | A(TMP_REG1) | B(SLJIT_R0)));
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		FAIL_IF(push_inst(compiler, MULLD | D(SLJIT_R0) | A(TMP_REG1) | B(SLJIT_R1)));
-		return push_inst(compiler, (op == SLJIT_LUMUL ? MULHDU : MULHD) | D(SLJIT_R1) | A(TMP_REG1) | B(SLJIT_R1));
+		return push_inst(compiler, (op == SLJIT_LMUL_UW ? MULHDU : MULHD) | D(SLJIT_R1) | A(TMP_REG1) | B(SLJIT_R1));
 #else
 		FAIL_IF(push_inst(compiler, MULLW | D(SLJIT_R0) | A(TMP_REG1) | B(SLJIT_R1)));
-		return push_inst(compiler, (op == SLJIT_LUMUL ? MULHWU : MULHW) | D(SLJIT_R1) | A(TMP_REG1) | B(SLJIT_R1));
+		return push_inst(compiler, (op == SLJIT_LMUL_UW ? MULHWU : MULHW) | D(SLJIT_R1) | A(TMP_REG1) | B(SLJIT_R1));
 #endif
-	case SLJIT_UDIVMOD:
-	case SLJIT_SDIVMOD:
+	case SLJIT_DIVMOD_UW:
+	case SLJIT_DIVMOD_SW:
 		FAIL_IF(push_inst(compiler, OR | S(SLJIT_R0) | A(TMP_REG1) | B(SLJIT_R0)));
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-		FAIL_IF(push_inst(compiler, (int_op ? (op == SLJIT_UDIVMOD ? DIVWU : DIVW) : (op == SLJIT_UDIVMOD ? DIVDU : DIVD)) | D(SLJIT_R0) | A(SLJIT_R0) | B(SLJIT_R1)));
+		FAIL_IF(push_inst(compiler, (int_op ? (op == SLJIT_DIVMOD_UW ? DIVWU : DIVW) : (op == SLJIT_DIVMOD_UW ? DIVDU : DIVD)) | D(SLJIT_R0) | A(SLJIT_R0) | B(SLJIT_R1)));
 		FAIL_IF(push_inst(compiler, (int_op ? MULLW : MULLD) | D(SLJIT_R1) | A(SLJIT_R0) | B(SLJIT_R1)));
 #else
-		FAIL_IF(push_inst(compiler, (op == SLJIT_UDIVMOD ? DIVWU : DIVW) | D(SLJIT_R0) | A(SLJIT_R0) | B(SLJIT_R1)));
+		FAIL_IF(push_inst(compiler, (op == SLJIT_DIVMOD_UW ? DIVWU : DIVW) | D(SLJIT_R0) | A(SLJIT_R0) | B(SLJIT_R1)));
 		FAIL_IF(push_inst(compiler, MULLW | D(SLJIT_R1) | A(SLJIT_R0) | B(SLJIT_R1)));
 #endif
 		return push_inst(compiler, SUBF | D(SLJIT_R1) | A(SLJIT_R1) | B(TMP_REG1));
-	case SLJIT_UDIVI:
-	case SLJIT_SDIVI:
+	case SLJIT_DIV_UW:
+	case SLJIT_DIV_SW:
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-		return push_inst(compiler, (int_op ? (op == SLJIT_UDIVI ? DIVWU : DIVW) : (op == SLJIT_UDIVI ? DIVDU : DIVD)) | D(SLJIT_R0) | A(SLJIT_R0) | B(SLJIT_R1));
+		return push_inst(compiler, (int_op ? (op == SLJIT_DIV_UW ? DIVWU : DIVW) : (op == SLJIT_DIV_UW ? DIVDU : DIVD)) | D(SLJIT_R0) | A(SLJIT_R0) | B(SLJIT_R1));
 #else
-		return push_inst(compiler, (op == SLJIT_UDIVI ? DIVWU : DIVW) | D(SLJIT_R0) | A(SLJIT_R0) | B(SLJIT_R1));
+		return push_inst(compiler, (op == SLJIT_DIV_UW ? DIVWU : DIVW) | D(SLJIT_R0) | A(SLJIT_R0) | B(SLJIT_R1));
 #endif
 	}
 

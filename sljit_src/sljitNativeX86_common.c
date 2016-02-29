@@ -742,12 +742,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 		INC_SIZE(1);
 		*inst = NOP;
 		break;
-	case SLJIT_LUMUL:
-	case SLJIT_LSMUL:
-	case SLJIT_UDIVMOD:
-	case SLJIT_SDIVMOD:
-	case SLJIT_UDIVI:
-	case SLJIT_SDIVI:
+	case SLJIT_LMUL_UW:
+	case SLJIT_LMUL_SW:
+	case SLJIT_DIVMOD_UW:
+	case SLJIT_DIVMOD_SW:
+	case SLJIT_DIV_UW:
+	case SLJIT_DIV_SW:
 		compiler->flags_saved = 0;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 #ifdef _WIN64
@@ -765,10 +765,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 #endif
 		compiler->mode32 = op & SLJIT_I32_OP;
 #endif
-		SLJIT_COMPILE_ASSERT((SLJIT_UDIVMOD & 0x2) == 0 && SLJIT_UDIVI - 0x2 == SLJIT_UDIVMOD, bad_div_opcode_assignments);
+		SLJIT_COMPILE_ASSERT((SLJIT_DIVMOD_UW & 0x2) == 0 && SLJIT_DIV_UW - 0x2 == SLJIT_DIVMOD_UW, bad_div_opcode_assignments);
 
 		op = GET_OPCODE(op);
-		if ((op | 0x2) == SLJIT_UDIVI) {
+		if ((op | 0x2) == SLJIT_DIV_UW) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || defined(_WIN64)
 			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_R1, 0);
 			inst = emit_x86_instruction(compiler, 1, SLJIT_R1, 0, SLJIT_R1, 0);
@@ -779,7 +779,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 			*inst = XOR_r_rm;
 		}
 
-		if ((op | 0x2) == SLJIT_SDIVI) {
+		if ((op | 0x2) == SLJIT_DIV_SW) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || defined(_WIN64)
 			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_R1, 0);
 #endif
@@ -810,10 +810,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 		FAIL_IF(!inst);
 		INC_SIZE(2);
 		*inst++ = GROUP_F7;
-		*inst = MOD_REG | ((op >= SLJIT_UDIVMOD) ? reg_map[TMP_REG1] : reg_map[SLJIT_R1]);
+		*inst = MOD_REG | ((op >= SLJIT_DIVMOD_UW) ? reg_map[TMP_REG1] : reg_map[SLJIT_R1]);
 #else
 #ifdef _WIN64
-		size = (!compiler->mode32 || op >= SLJIT_UDIVMOD) ? 3 : 2;
+		size = (!compiler->mode32 || op >= SLJIT_DIVMOD_UW) ? 3 : 2;
 #else
 		size = (!compiler->mode32) ? 3 : 2;
 #endif
@@ -822,11 +822,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 		INC_SIZE(size);
 #ifdef _WIN64
 		if (!compiler->mode32)
-			*inst++ = REX_W | ((op >= SLJIT_UDIVMOD) ? REX_B : 0);
-		else if (op >= SLJIT_UDIVMOD)
+			*inst++ = REX_W | ((op >= SLJIT_DIVMOD_UW) ? REX_B : 0);
+		else if (op >= SLJIT_DIVMOD_UW)
 			*inst++ = REX_B;
 		*inst++ = GROUP_F7;
-		*inst = MOD_REG | ((op >= SLJIT_UDIVMOD) ? reg_lmap[TMP_REG1] : reg_lmap[SLJIT_R1]);
+		*inst = MOD_REG | ((op >= SLJIT_DIVMOD_UW) ? reg_lmap[TMP_REG1] : reg_lmap[SLJIT_R1]);
 #else
 		if (!compiler->mode32)
 			*inst++ = REX_W;
@@ -835,26 +835,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 #endif
 #endif
 		switch (op) {
-		case SLJIT_LUMUL:
+		case SLJIT_LMUL_UW:
 			*inst |= MUL;
 			break;
-		case SLJIT_LSMUL:
+		case SLJIT_LMUL_SW:
 			*inst |= IMUL;
 			break;
-		case SLJIT_UDIVMOD:
-		case SLJIT_UDIVI:
+		case SLJIT_DIVMOD_UW:
+		case SLJIT_DIV_UW:
 			*inst |= DIV;
 			break;
-		case SLJIT_SDIVMOD:
-		case SLJIT_SDIVI:
+		case SLJIT_DIVMOD_SW:
+		case SLJIT_DIV_SW:
 			*inst |= IDIV;
 			break;
 		}
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) && !defined(_WIN64)
-		if (op <= SLJIT_SDIVMOD)
+		if (op <= SLJIT_DIVMOD_SW)
 			EMIT_MOV(compiler, SLJIT_R1, 0, TMP_REG1, 0);
 #else
-		if (op >= SLJIT_UDIVI)
+		if (op >= SLJIT_DIV_UW)
 			EMIT_MOV(compiler, SLJIT_R1, 0, TMP_REG1, 0);
 #endif
 		break;
