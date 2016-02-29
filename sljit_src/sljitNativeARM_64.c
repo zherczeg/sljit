@@ -1600,14 +1600,14 @@ static sljit_s32 emit_fop_mem(struct sljit_compiler *compiler, sljit_s32 flags, 
 	return push_inst(compiler, STR_FI | ins_bits | VT(reg) | RN(TMP_REG3));
 }
 
-static SLJIT_INLINE sljit_s32 sljit_emit_fop1_convw_fromd(struct sljit_compiler *compiler, sljit_s32 op,
+static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_s32 dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 	sljit_ins inv_bits = (op & SLJIT_F32_OP) ? (1 << 22) : 0;
 
-	if (GET_OPCODE(op) == SLJIT_CONVI_FROMD)
+	if (GET_OPCODE(op) == SLJIT_CONV_S32_FROM_F64)
 		inv_bits |= (1 << 31);
 
 	if (src & SLJIT_MEM) {
@@ -1618,26 +1618,26 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_convw_fromd(struct sljit_compiler 
 	FAIL_IF(push_inst(compiler, (FCVTZS ^ inv_bits) | RD(dst_r) | VN(src)));
 
 	if (dst_r == TMP_REG1 && dst != SLJIT_UNUSED)
-		return emit_op_mem(compiler, ((GET_OPCODE(op) == SLJIT_CONVI_FROMD) ? INT_SIZE : WORD_SIZE) | STORE, TMP_REG1, dst, dstw);
+		return emit_op_mem(compiler, ((GET_OPCODE(op) == SLJIT_CONV_S32_FROM_F64) ? INT_SIZE : WORD_SIZE) | STORE, TMP_REG1, dst, dstw);
 	return SLJIT_SUCCESS;
 }
 
-static SLJIT_INLINE sljit_s32 sljit_emit_fop1_convd_fromw(struct sljit_compiler *compiler, sljit_s32 op,
+static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_sw(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 	sljit_ins inv_bits = (op & SLJIT_F32_OP) ? (1 << 22) : 0;
 
-	if (GET_OPCODE(op) == SLJIT_CONVD_FROMI)
+	if (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_S32)
 		inv_bits |= (1 << 31);
 
 	if (src & SLJIT_MEM) {
-		emit_op_mem(compiler, ((GET_OPCODE(op) == SLJIT_CONVD_FROMI) ? INT_SIZE : WORD_SIZE), TMP_REG1, src, srcw);
+		emit_op_mem(compiler, ((GET_OPCODE(op) == SLJIT_CONV_F64_FROM_S32) ? INT_SIZE : WORD_SIZE), TMP_REG1, src, srcw);
 		src = TMP_REG1;
 	} else if (src & SLJIT_IMM) {
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-		if (GET_OPCODE(op) == SLJIT_CONVD_FROMI)
+		if (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_S32)
 			srcw = (sljit_s32)srcw;
 #endif
 		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
@@ -1689,12 +1689,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 
 	if (src & SLJIT_MEM) {
-		emit_fop_mem(compiler, (GET_OPCODE(op) == SLJIT_CONVD_FROMS) ? (mem_flags ^ 0x100) : mem_flags, dst_r, src, srcw);
+		emit_fop_mem(compiler, (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_F32) ? (mem_flags ^ 0x100) : mem_flags, dst_r, src, srcw);
 		src = dst_r;
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_DMOV:
+	case SLJIT_MOV_F64:
 		if (src != dst_r) {
 			if (dst_r != TMP_FREG1)
 				FAIL_IF(push_inst(compiler, (FMOV ^ inv_bits) | VD(dst_r) | VN(src)));
@@ -1702,13 +1702,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 				dst_r = src;
 		}
 		break;
-	case SLJIT_DNEG:
+	case SLJIT_NEG_F64:
 		FAIL_IF(push_inst(compiler, (FNEG ^ inv_bits) | VD(dst_r) | VN(src)));
 		break;
-	case SLJIT_DABS:
+	case SLJIT_ABS_F64:
 		FAIL_IF(push_inst(compiler, (FABS ^ inv_bits) | VD(dst_r) | VN(src)));
 		break;
-	case SLJIT_CONVD_FROMS:
+	case SLJIT_CONV_F64_FROM_F32:
 		FAIL_IF(push_inst(compiler, FCVT | ((op & SLJIT_F32_OP) ? (1 << 22) : (1 << 15)) | VD(dst_r) | VN(src)));
 		break;
 	}
@@ -1746,16 +1746,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	}
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_DADD:
+	case SLJIT_ADD_F64:
 		FAIL_IF(push_inst(compiler, (FADD ^ inv_bits) | VD(dst_r) | VN(src1) | VM(src2)));
 		break;
-	case SLJIT_DSUB:
+	case SLJIT_SUB_F64:
 		FAIL_IF(push_inst(compiler, (FSUB ^ inv_bits) | VD(dst_r) | VN(src1) | VM(src2)));
 		break;
-	case SLJIT_DMUL:
+	case SLJIT_MUL_F64:
 		FAIL_IF(push_inst(compiler, (FMUL ^ inv_bits) | VD(dst_r) | VN(src1) | VM(src2)));
 		break;
-	case SLJIT_DDIV:
+	case SLJIT_DIV_F64:
 		FAIL_IF(push_inst(compiler, (FDIV ^ inv_bits) | VD(dst_r) | VN(src1) | VM(src2)));
 		break;
 	}

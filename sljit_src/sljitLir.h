@@ -875,38 +875,38 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_fpu_available(void);
 #define SLJIT_FOP1_BASE			128
 
 /* Flags: SP - (never set any flags) */
-#define SLJIT_DMOV			(SLJIT_FOP1_BASE + 0)
-#define SLJIT_SMOV			(SLJIT_DMOV | SLJIT_F32_OP)
+#define SLJIT_MOV_F64			(SLJIT_FOP1_BASE + 0)
+#define SLJIT_MOV_F32			(SLJIT_MOV_F64 | SLJIT_F32_OP)
 /* Convert opcodes: CONV[DST_TYPE].FROM[SRC_TYPE]
    SRC/DST TYPE can be: D - double, S - single, W - signed word, I - signed int
    Rounding mode when the destination is W or I: round towards zero. */
 /* Flags: SP - (never set any flags) */
-#define SLJIT_CONVD_FROMS		(SLJIT_FOP1_BASE + 1)
-#define SLJIT_CONVS_FROMD		(SLJIT_CONVD_FROMS | SLJIT_F32_OP)
+#define SLJIT_CONV_F64_FROM_F32		(SLJIT_FOP1_BASE + 1)
+#define SLJIT_CONV_F32_FROM_F64		(SLJIT_CONV_F64_FROM_F32 | SLJIT_F32_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_CONVW_FROMD		(SLJIT_FOP1_BASE + 2)
-#define SLJIT_CONVW_FROMS		(SLJIT_CONVW_FROMD | SLJIT_F32_OP)
+#define SLJIT_CONV_SW_FROM_F64		(SLJIT_FOP1_BASE + 2)
+#define SLJIT_CONV_SW_FROM_F32		(SLJIT_CONV_SW_FROM_F64 | SLJIT_F32_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_CONVI_FROMD		(SLJIT_FOP1_BASE + 3)
-#define SLJIT_CONVI_FROMS		(SLJIT_CONVI_FROMD | SLJIT_F32_OP)
+#define SLJIT_CONV_S32_FROM_F64		(SLJIT_FOP1_BASE + 3)
+#define SLJIT_CONV_S32_FROM_F32		(SLJIT_CONV_S32_FROM_F64 | SLJIT_F32_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_CONVD_FROMW		(SLJIT_FOP1_BASE + 4)
-#define SLJIT_CONVS_FROMW		(SLJIT_CONVD_FROMW | SLJIT_F32_OP)
+#define SLJIT_CONV_F64_FROM_SW		(SLJIT_FOP1_BASE + 4)
+#define SLJIT_CONV_F32_FROM_SW		(SLJIT_CONV_F64_FROM_SW | SLJIT_F32_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_CONVD_FROMI		(SLJIT_FOP1_BASE + 5)
-#define SLJIT_CONVS_FROMI		(SLJIT_CONVD_FROMI | SLJIT_F32_OP)
+#define SLJIT_CONV_F64_FROM_S32		(SLJIT_FOP1_BASE + 5)
+#define SLJIT_CONV_F32_FROM_S32		(SLJIT_CONV_F64_FROM_S32 | SLJIT_F32_OP)
 /* Note: dst is the left and src is the right operand for SLJIT_CMPD.
    Note: NaN check is always performed. If SLJIT_C_FLOAT_UNORDERED flag
          is set, the comparison result is unpredictable.
    Flags: SP | E | S (see SLJIT_C_FLOAT_*) */
-#define SLJIT_DCMP			(SLJIT_FOP1_BASE + 6)
-#define SLJIT_SCMP			(SLJIT_DCMP | SLJIT_F32_OP)
+#define SLJIT_CMP_F64			(SLJIT_FOP1_BASE + 6)
+#define SLJIT_CMP_F32			(SLJIT_CMP_F64 | SLJIT_F32_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_DNEG			(SLJIT_FOP1_BASE + 7)
-#define SLJIT_SNEG			(SLJIT_DNEG | SLJIT_F32_OP)
+#define SLJIT_NEG_F64			(SLJIT_FOP1_BASE + 7)
+#define SLJIT_NEG_F32			(SLJIT_NEG_F64 | SLJIT_F32_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_DABS			(SLJIT_FOP1_BASE + 8)
-#define SLJIT_SABS			(SLJIT_DABS | SLJIT_F32_OP)
+#define SLJIT_ABS_F64			(SLJIT_FOP1_BASE + 8)
+#define SLJIT_ABS_F32			(SLJIT_ABS_F64 | SLJIT_F32_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
@@ -916,17 +916,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 #define SLJIT_FOP2_BASE			160
 
 /* Flags: SP - (never set any flags) */
-#define SLJIT_DADD			(SLJIT_FOP2_BASE + 0)
-#define SLJIT_SADD			(SLJIT_DADD | SLJIT_F32_OP)
+#define SLJIT_ADD_F64			(SLJIT_FOP2_BASE + 0)
+#define SLJIT_ADD_F32			(SLJIT_ADD_F64 | SLJIT_F32_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_DSUB			(SLJIT_FOP2_BASE + 1)
-#define SLJIT_SSUB			(SLJIT_DSUB | SLJIT_F32_OP)
+#define SLJIT_SUB_F64			(SLJIT_FOP2_BASE + 1)
+#define SLJIT_SUB_F32			(SLJIT_SUB_F64 | SLJIT_F32_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_DMUL			(SLJIT_FOP2_BASE + 2)
-#define SLJIT_SMUL			(SLJIT_DMUL | SLJIT_F32_OP)
+#define SLJIT_MUL_F64			(SLJIT_FOP2_BASE + 2)
+#define SLJIT_MUL_F32			(SLJIT_MUL_F64 | SLJIT_F32_OP)
 /* Flags: SP - (never set any flags) */
-#define SLJIT_DDIV			(SLJIT_FOP2_BASE + 3)
-#define SLJIT_SDIV			(SLJIT_DDIV | SLJIT_F32_OP)
+#define SLJIT_DIV_F64			(SLJIT_FOP2_BASE + 3)
+#define SLJIT_DIV_F32			(SLJIT_DIV_F64 | SLJIT_F32_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,

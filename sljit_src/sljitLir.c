@@ -674,7 +674,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 #define FUNCTION_CHECK_FOP() \
 	CHECK_ARGUMENT(!GET_FLAGS(op) || !(op & SLJIT_KEEP_FLAGS)); \
 	switch (GET_OPCODE(op)) { \
-	case SLJIT_DCMP: \
+	case SLJIT_CMP_F64: \
 		CHECK_ARGUMENT(!(op & (SLJIT_SET_U | SLJIT_SET_O | SLJIT_SET_C | SLJIT_KEEP_FLAGS))); \
 		CHECK_ARGUMENT((op & (SLJIT_SET_E | SLJIT_SET_S))); \
 		break; \
@@ -1170,19 +1170,19 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1(struct sljit_compile
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_is_fpu_available());
-	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_DMOV && GET_OPCODE(op) <= SLJIT_DABS);
+	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV_F64 && GET_OPCODE(op) <= SLJIT_ABS_F64);
 	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src, srcw);
 	FUNCTION_FCHECK(dst, dstw);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		if (GET_OPCODE(op) == SLJIT_CONVD_FROMS)
-			fprintf(compiler->verbose, "  %s%s ", fop1_names[SLJIT_CONVD_FROMS - SLJIT_FOP1_BASE],
-				(op & SLJIT_F32_OP) ? "s.fromd" : "d.froms");
+		if (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_F32)
+			fprintf(compiler->verbose, "  %s%s ", fop1_names[SLJIT_CONV_F64_FROM_F32 - SLJIT_FOP1_BASE],
+				(op & SLJIT_F32_OP) ? ".f32.from.f64" : ".f64.from.f32");
 		else
-			fprintf(compiler->verbose, "  %s%s ", (op & SLJIT_F32_OP) ? "s" : "d",
-				fop1_names[GET_OPCODE(op) - SLJIT_FOP1_BASE]);
+			fprintf(compiler->verbose, "  %s%s ", fop1_names[GET_OPCODE(op) - SLJIT_FOP1_BASE],
+				(op & SLJIT_F32_OP) ? ".f32" : ".f64");
 
 		sljit_verbose_fparam(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", ");
@@ -1204,14 +1204,14 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_cmp(struct sljit_com
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_is_fpu_available());
-	CHECK_ARGUMENT(GET_OPCODE(op) == SLJIT_DCMP);
+	CHECK_ARGUMENT(GET_OPCODE(op) == SLJIT_CMP_F64);
 	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src1, src1w);
 	FUNCTION_FCHECK(src2, src2w);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s%s%s%s ", (op & SLJIT_F32_OP) ? "s" : "d", fop1_names[SLJIT_DCMP - SLJIT_FOP1_BASE],
+		fprintf(compiler->verbose, "  %s%s%s%s ", fop1_names[SLJIT_CMP_F64 - SLJIT_FOP1_BASE], (op & SLJIT_F32_OP) ? ".f32" : ".f64",
 			(op & SLJIT_SET_E) ? ".e" : "", (op & SLJIT_SET_S) ? ".s" : "");
 		sljit_verbose_fparam(compiler, src1, src1w);
 		fprintf(compiler->verbose, ", ");
@@ -1222,7 +1222,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_cmp(struct sljit_com
 	CHECK_RETURN_OK;
 }
 
-static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_convw_fromd(struct sljit_compiler *compiler, sljit_s32 op,
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_conv_sw_from_f64(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
@@ -1233,7 +1233,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_convw_fromd(struct s
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_is_fpu_available());
-	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_CONVW_FROMD && GET_OPCODE(op) <= SLJIT_CONVI_FROMD);
+	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_CONV_SW_FROM_F64 && GET_OPCODE(op) <= SLJIT_CONV_S32_FROM_F64);
 	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src, srcw);
 	FUNCTION_CHECK_DST(dst, dstw);
@@ -1241,8 +1241,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_convw_fromd(struct s
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  %s%s.from%s ", fop1_names[GET_OPCODE(op) - SLJIT_FOP1_BASE],
-			(GET_OPCODE(op) == SLJIT_CONVI_FROMD) ? "i" : "w",
-			(op & SLJIT_F32_OP) ? "s" : "d");
+			(GET_OPCODE(op) == SLJIT_CONV_S32_FROM_F64) ? ".s32" : ".sw",
+			(op & SLJIT_F32_OP) ? ".f32" : ".f64");
 		sljit_verbose_param(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_fparam(compiler, src, srcw);
@@ -1252,7 +1252,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_convw_fromd(struct s
 	CHECK_RETURN_OK;
 }
 
-static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_convd_fromw(struct sljit_compiler *compiler, sljit_s32 op,
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_conv_f64_from_sw(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
@@ -1263,7 +1263,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_convd_fromw(struct s
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_is_fpu_available());
-	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_CONVD_FROMW && GET_OPCODE(op) <= SLJIT_CONVD_FROMI);
+	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_CONV_F64_FROM_SW && GET_OPCODE(op) <= SLJIT_CONV_F64_FROM_S32);
 	FUNCTION_CHECK_FOP();
 	FUNCTION_CHECK_SRC(src, srcw);
 	FUNCTION_FCHECK(dst, dstw);
@@ -1271,8 +1271,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_convd_fromw(struct s
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  %s%s.from%s ", fop1_names[GET_OPCODE(op) - SLJIT_FOP1_BASE],
-			(op & SLJIT_F32_OP) ? "s" : "d",
-			(GET_OPCODE(op) == SLJIT_CONVD_FROMI) ? "i" : "w");
+			(op & SLJIT_F32_OP) ? ".f32" : ".f64",
+			(GET_OPCODE(op) == SLJIT_CONV_F64_FROM_S32) ? ".s32" : ".sw");
 		sljit_verbose_fparam(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, src, srcw);
@@ -1289,7 +1289,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop2(struct sljit_compile
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_is_fpu_available());
-	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_DADD && GET_OPCODE(op) <= SLJIT_DDIV);
+	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_ADD_F64 && GET_OPCODE(op) <= SLJIT_DIV_F64);
 	FUNCTION_CHECK_FOP();
 	FUNCTION_FCHECK(src1, src1w);
 	FUNCTION_FCHECK(src2, src2w);
@@ -1297,7 +1297,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop2(struct sljit_compile
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s%s ", (op & SLJIT_F32_OP) ? "s" : "d", fop2_names[GET_OPCODE(op) - SLJIT_FOP2_BASE]);
+		fprintf(compiler->verbose, "  %s%s ", fop2_names[GET_OPCODE(op) - SLJIT_FOP2_BASE], (op & SLJIT_F32_OP) ? ".f32" : ".f64");
 		sljit_verbose_fparam(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_fparam(compiler, src1, src1w);
@@ -1482,25 +1482,25 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_const(struct sljit_compil
 #endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_VERBOSE */
 
 #define SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw) \
-	SLJIT_COMPILE_ASSERT(!(SLJIT_CONVW_FROMD & 0x1) && !(SLJIT_CONVD_FROMW & 0x1), \
+	SLJIT_COMPILE_ASSERT(!(SLJIT_CONV_SW_FROM_F64 & 0x1) && !(SLJIT_CONV_F64_FROM_SW & 0x1), \
 		invalid_float_opcodes); \
-	if (GET_OPCODE(op) >= SLJIT_CONVW_FROMD && GET_OPCODE(op) <= SLJIT_DCMP) { \
-		if (GET_OPCODE(op) == SLJIT_DCMP) { \
+	if (GET_OPCODE(op) >= SLJIT_CONV_SW_FROM_F64 && GET_OPCODE(op) <= SLJIT_CMP_F64) { \
+		if (GET_OPCODE(op) == SLJIT_CMP_F64) { \
 			CHECK(check_sljit_emit_fop1_cmp(compiler, op, dst, dstw, src, srcw)); \
 			ADJUST_LOCAL_OFFSET(dst, dstw); \
 			ADJUST_LOCAL_OFFSET(src, srcw); \
 			return sljit_emit_fop1_cmp(compiler, op, dst, dstw, src, srcw); \
 		} \
-		if ((GET_OPCODE(op) | 0x1) == SLJIT_CONVI_FROMD) { \
-			CHECK(check_sljit_emit_fop1_convw_fromd(compiler, op, dst, dstw, src, srcw)); \
+		if ((GET_OPCODE(op) | 0x1) == SLJIT_CONV_S32_FROM_F64) { \
+			CHECK(check_sljit_emit_fop1_conv_sw_from_f64(compiler, op, dst, dstw, src, srcw)); \
 			ADJUST_LOCAL_OFFSET(dst, dstw); \
 			ADJUST_LOCAL_OFFSET(src, srcw); \
-			return sljit_emit_fop1_convw_fromd(compiler, op, dst, dstw, src, srcw); \
+			return sljit_emit_fop1_conv_sw_from_f64(compiler, op, dst, dstw, src, srcw); \
 		} \
-		CHECK(check_sljit_emit_fop1_convd_fromw(compiler, op, dst, dstw, src, srcw)); \
+		CHECK(check_sljit_emit_fop1_conv_f64_from_sw(compiler, op, dst, dstw, src, srcw)); \
 		ADJUST_LOCAL_OFFSET(dst, dstw); \
 		ADJUST_LOCAL_OFFSET(src, srcw); \
-		return sljit_emit_fop1_convd_fromw(compiler, op, dst, dstw, src, srcw); \
+		return sljit_emit_fop1_conv_f64_from_sw(compiler, op, dst, dstw, src, srcw); \
 	} \
 	CHECK(check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw)); \
 	ADJUST_LOCAL_OFFSET(dst, dstw); \
@@ -1676,7 +1676,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	compiler->skip_checks = 1;
 #endif
-	sljit_emit_fop1(compiler, SLJIT_DCMP | flags, src1, src1w, src2, src2w);
+	sljit_emit_fop1(compiler, SLJIT_CMP_F64 | flags, src1, src1w, src2, src2w);
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
 		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
