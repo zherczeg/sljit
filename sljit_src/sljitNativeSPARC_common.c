@@ -949,8 +949,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_fpu_available(void)
 #endif
 }
 
-#define FLOAT_DATA(op) (DOUBLE_DATA | ((op & SLJIT_SINGLE_OP) >> 7))
-#define SELECT_FOP(op, single, double) ((op & SLJIT_SINGLE_OP) ? single : double)
+#define FLOAT_DATA(op) (DOUBLE_DATA | ((op & SLJIT_F32_OP) >> 7))
+#define SELECT_FOP(op, single, double) ((op & SLJIT_F32_OP) ? single : double)
 #define FLOAT_TMP_MEM_OFFSET (22 * sizeof(sljit_sw))
 
 static SLJIT_INLINE sljit_s32 sljit_emit_fop1_convw_fromd(struct sljit_compiler *compiler, sljit_s32 op,
@@ -1039,11 +1039,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	SLJIT_COMPILE_ASSERT((SLJIT_SINGLE_OP == 0x100) && !(DOUBLE_DATA & 0x2), float_transfer_bit_error);
+	SLJIT_COMPILE_ASSERT((SLJIT_F32_OP == 0x100) && !(DOUBLE_DATA & 0x2), float_transfer_bit_error);
 	SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw);
 
 	if (GET_OPCODE(op) == SLJIT_CONVD_FROMS)
-		op ^= SLJIT_SINGLE_OP;
+		op ^= SLJIT_F32_OP;
 
 	dst_r = FAST_IS_REG(dst) ? (dst << 1) : TMP_FREG1;
 
@@ -1059,7 +1059,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 		if (src != dst_r) {
 			if (dst_r != TMP_FREG1) {
 				FAIL_IF(push_inst(compiler, FMOVS | DA(dst_r) | S2A(src), MOVABLE_INS));
-				if (!(op & SLJIT_SINGLE_OP))
+				if (!(op & SLJIT_F32_OP))
 					FAIL_IF(push_inst(compiler, FMOVS | DA(dst_r | 1) | S2A(src | 1), MOVABLE_INS));
 			}
 			else
@@ -1068,17 +1068,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 		break;
 	case SLJIT_DNEG:
 		FAIL_IF(push_inst(compiler, FNEGS | DA(dst_r) | S2A(src), MOVABLE_INS));
-		if (dst_r != src && !(op & SLJIT_SINGLE_OP))
+		if (dst_r != src && !(op & SLJIT_F32_OP))
 			FAIL_IF(push_inst(compiler, FMOVS | DA(dst_r | 1) | S2A(src | 1), MOVABLE_INS));
 		break;
 	case SLJIT_DABS:
 		FAIL_IF(push_inst(compiler, FABSS | DA(dst_r) | S2A(src), MOVABLE_INS));
-		if (dst_r != src && !(op & SLJIT_SINGLE_OP))
+		if (dst_r != src && !(op & SLJIT_F32_OP))
 			FAIL_IF(push_inst(compiler, FMOVS | DA(dst_r | 1) | S2A(src | 1), MOVABLE_INS));
 		break;
 	case SLJIT_CONVD_FROMS:
 		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FSTOD, FDTOS) | DA(dst_r) | S2A(src), MOVABLE_INS));
-		op ^= SLJIT_SINGLE_OP;
+		op ^= SLJIT_F32_OP;
 		break;
 	}
 
@@ -1236,28 +1236,28 @@ static sljit_ins get_cc(sljit_s32 type)
 	switch (type) {
 	case SLJIT_EQUAL:
 	case SLJIT_MUL_NOT_OVERFLOW:
-	case SLJIT_D_NOT_EQUAL: /* Unordered. */
+	case SLJIT_F64_NOT_EQUAL: /* Unordered. */
 		return DA(0x1);
 
 	case SLJIT_NOT_EQUAL:
 	case SLJIT_MUL_OVERFLOW:
-	case SLJIT_D_EQUAL:
+	case SLJIT_F64_EQUAL:
 		return DA(0x9);
 
 	case SLJIT_LESS:
-	case SLJIT_D_GREATER: /* Unordered. */
+	case SLJIT_F64_GREATER: /* Unordered. */
 		return DA(0x5);
 
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_D_LESS_EQUAL:
+	case SLJIT_F64_LESS_EQUAL:
 		return DA(0xd);
 
 	case SLJIT_GREATER:
-	case SLJIT_D_GREATER_EQUAL: /* Unordered. */
+	case SLJIT_F64_GREATER_EQUAL: /* Unordered. */
 		return DA(0xc);
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_D_LESS:
+	case SLJIT_F64_LESS:
 		return DA(0x4);
 
 	case SLJIT_SIG_LESS:
@@ -1273,11 +1273,11 @@ static sljit_ins get_cc(sljit_s32 type)
 		return DA(0x2);
 
 	case SLJIT_OVERFLOW:
-	case SLJIT_D_UNORDERED:
+	case SLJIT_F64_UNORDERED:
 		return DA(0x7);
 
 	case SLJIT_NOT_OVERFLOW:
-	case SLJIT_D_ORDERED:
+	case SLJIT_F64_ORDERED:
 		return DA(0xf);
 
 	default:
@@ -1298,7 +1298,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 	type &= 0xff;
 
-	if (type < SLJIT_D_EQUAL) {
+	if (type < SLJIT_F64_EQUAL) {
 		jump->flags |= IS_COND;
 		if (((compiler->delay_slot & DST_INS_MASK) != UNMOVABLE_INS) && !(compiler->delay_slot & ICC_IS_SET))
 			jump->flags |= IS_MOVABLE;
@@ -1395,7 +1395,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	}
 
 	type &= 0xff;
-	if (type < SLJIT_D_EQUAL)
+	if (type < SLJIT_F64_EQUAL)
 		FAIL_IF(push_inst(compiler, BICC | get_cc(type) | 3, UNMOVABLE_INS));
 	else
 		FAIL_IF(push_inst(compiler, FBFCC | get_cc(type) | 3, UNMOVABLE_INS));

@@ -1691,8 +1691,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_fpu_available(void)
 #endif
 }
 
-#define FLOAT_DATA(op) (DOUBLE_DATA | ((op & SLJIT_SINGLE_OP) >> 6))
-#define SELECT_FOP(op, single, double) ((op & SLJIT_SINGLE_OP) ? single : double)
+#define FLOAT_DATA(op) (DOUBLE_DATA | ((op & SLJIT_F32_OP) >> 6))
+#define SELECT_FOP(op, single, double) ((op & SLJIT_F32_OP) ? single : double)
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define FLOAT_TMP_MEM_OFFSET (6 * sizeof(sljit_sw))
@@ -1810,7 +1810,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_convd_fromw(struct sljit_compiler 
 
 	if (dst & SLJIT_MEM)
 		return emit_op_mem2(compiler, FLOAT_DATA(op), TMP_FREG1, dst, dstw, 0, 0);
-	if (op & SLJIT_SINGLE_OP)
+	if (op & SLJIT_F32_OP)
 		return push_inst(compiler, FRSP | FD(dst_r) | FB(dst_r));
 	return SLJIT_SUCCESS;
 
@@ -1848,7 +1848,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_convd_fromw(struct sljit_compiler 
 
 	if (dst & SLJIT_MEM)
 		return emit_op_mem2(compiler, FLOAT_DATA(op), TMP_FREG1, dst, dstw, 0, 0);
-	if (op & SLJIT_SINGLE_OP)
+	if (op & SLJIT_F32_OP)
 		return push_inst(compiler, FRSP | FD(dst_r) | FB(dst_r));
 	return SLJIT_SUCCESS;
 
@@ -1882,11 +1882,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	SLJIT_COMPILE_ASSERT((SLJIT_SINGLE_OP == 0x100) && !(DOUBLE_DATA & 0x4), float_transfer_bit_error);
+	SLJIT_COMPILE_ASSERT((SLJIT_F32_OP == 0x100) && !(DOUBLE_DATA & 0x4), float_transfer_bit_error);
 	SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw);
 
 	if (GET_OPCODE(op) == SLJIT_CONVD_FROMS)
-		op ^= SLJIT_SINGLE_OP;
+		op ^= SLJIT_F32_OP;
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 
@@ -1897,8 +1897,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_CONVD_FROMS:
-		op ^= SLJIT_SINGLE_OP;
-		if (op & SLJIT_SINGLE_OP) {
+		op ^= SLJIT_F32_OP;
+		if (op & SLJIT_F32_OP) {
 			FAIL_IF(push_inst(compiler, FRSP | FD(dst_r) | FB(src)));
 			break;
 		}
@@ -2075,19 +2075,19 @@ static sljit_ins get_bo_bi_flags(sljit_s32 type)
 		return (4 << 21) | (2 << 16);
 
 	case SLJIT_LESS:
-	case SLJIT_D_LESS:
+	case SLJIT_F64_LESS:
 		return (12 << 21) | ((4 + 0) << 16);
 
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_D_GREATER_EQUAL:
+	case SLJIT_F64_GREATER_EQUAL:
 		return (4 << 21) | ((4 + 0) << 16);
 
 	case SLJIT_GREATER:
-	case SLJIT_D_GREATER:
+	case SLJIT_F64_GREATER:
 		return (12 << 21) | ((4 + 1) << 16);
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_D_LESS_EQUAL:
+	case SLJIT_F64_LESS_EQUAL:
 		return (4 << 21) | ((4 + 1) << 16);
 
 	case SLJIT_SIG_LESS:
@@ -2110,16 +2110,16 @@ static sljit_ins get_bo_bi_flags(sljit_s32 type)
 	case SLJIT_MUL_NOT_OVERFLOW:
 		return (4 << 21) | (3 << 16);
 
-	case SLJIT_D_EQUAL:
+	case SLJIT_F64_EQUAL:
 		return (12 << 21) | ((4 + 2) << 16);
 
-	case SLJIT_D_NOT_EQUAL:
+	case SLJIT_F64_NOT_EQUAL:
 		return (4 << 21) | ((4 + 2) << 16);
 
-	case SLJIT_D_UNORDERED:
+	case SLJIT_F64_UNORDERED:
 		return (12 << 21) | ((4 + 3) << 16);
 
-	case SLJIT_D_ORDERED:
+	case SLJIT_F64_ORDERED:
 		return (4 << 21) | ((4 + 3) << 16);
 
 	default:
@@ -2255,23 +2255,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		break;
 
 	case SLJIT_LESS:
-	case SLJIT_D_LESS:
+	case SLJIT_F64_LESS:
 		GET_CR_BIT(4 + 0, reg);
 		break;
 
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_D_GREATER_EQUAL:
+	case SLJIT_F64_GREATER_EQUAL:
 		GET_CR_BIT(4 + 0, reg);
 		INVERT_BIT(reg);
 		break;
 
 	case SLJIT_GREATER:
-	case SLJIT_D_GREATER:
+	case SLJIT_F64_GREATER:
 		GET_CR_BIT(4 + 1, reg);
 		break;
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_D_LESS_EQUAL:
+	case SLJIT_F64_LESS_EQUAL:
 		GET_CR_BIT(4 + 1, reg);
 		INVERT_BIT(reg);
 		break;
@@ -2305,20 +2305,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		INVERT_BIT(reg);
 		break;
 
-	case SLJIT_D_EQUAL:
+	case SLJIT_F64_EQUAL:
 		GET_CR_BIT(4 + 2, reg);
 		break;
 
-	case SLJIT_D_NOT_EQUAL:
+	case SLJIT_F64_NOT_EQUAL:
 		GET_CR_BIT(4 + 2, reg);
 		INVERT_BIT(reg);
 		break;
 
-	case SLJIT_D_UNORDERED:
+	case SLJIT_F64_UNORDERED:
 		GET_CR_BIT(4 + 3, reg);
 		break;
 
-	case SLJIT_D_ORDERED:
+	case SLJIT_F64_ORDERED:
 		GET_CR_BIT(4 + 3, reg);
 		INVERT_BIT(reg);
 		break;

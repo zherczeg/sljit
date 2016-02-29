@@ -1605,13 +1605,13 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_convw_fromd(struct sljit_compiler 
 	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_s32 dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
-	sljit_ins inv_bits = (op & SLJIT_SINGLE_OP) ? (1 << 22) : 0;
+	sljit_ins inv_bits = (op & SLJIT_F32_OP) ? (1 << 22) : 0;
 
 	if (GET_OPCODE(op) == SLJIT_CONVI_FROMD)
 		inv_bits |= (1 << 31);
 
 	if (src & SLJIT_MEM) {
-		emit_fop_mem(compiler, (op & SLJIT_SINGLE_OP) ? INT_SIZE : WORD_SIZE, TMP_FREG1, src, srcw);
+		emit_fop_mem(compiler, (op & SLJIT_F32_OP) ? INT_SIZE : WORD_SIZE, TMP_FREG1, src, srcw);
 		src = TMP_FREG1;
 	}
 
@@ -1627,7 +1627,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_convd_fromw(struct sljit_compiler 
 	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
-	sljit_ins inv_bits = (op & SLJIT_SINGLE_OP) ? (1 << 22) : 0;
+	sljit_ins inv_bits = (op & SLJIT_F32_OP) ? (1 << 22) : 0;
 
 	if (GET_OPCODE(op) == SLJIT_CONVD_FROMI)
 		inv_bits |= (1 << 31);
@@ -1647,7 +1647,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_convd_fromw(struct sljit_compiler 
 	FAIL_IF(push_inst(compiler, (SCVTF ^ inv_bits) | VD(dst_r) | RN(src)));
 
 	if (dst & SLJIT_MEM)
-		return emit_fop_mem(compiler, ((op & SLJIT_SINGLE_OP) ? INT_SIZE : WORD_SIZE) | STORE, TMP_FREG1, dst, dstw);
+		return emit_fop_mem(compiler, ((op & SLJIT_F32_OP) ? INT_SIZE : WORD_SIZE) | STORE, TMP_FREG1, dst, dstw);
 	return SLJIT_SUCCESS;
 }
 
@@ -1655,8 +1655,8 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
-	sljit_s32 mem_flags = (op & SLJIT_SINGLE_OP) ? INT_SIZE : WORD_SIZE;
-	sljit_ins inv_bits = (op & SLJIT_SINGLE_OP) ? (1 << 22) : 0;
+	sljit_s32 mem_flags = (op & SLJIT_F32_OP) ? INT_SIZE : WORD_SIZE;
+	sljit_ins inv_bits = (op & SLJIT_F32_OP) ? (1 << 22) : 0;
 
 	if (src1 & SLJIT_MEM) {
 		emit_fop_mem(compiler, mem_flags, TMP_FREG1, src1, src1w);
@@ -1675,7 +1675,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
-	sljit_s32 dst_r, mem_flags = (op & SLJIT_SINGLE_OP) ? INT_SIZE : WORD_SIZE;
+	sljit_s32 dst_r, mem_flags = (op & SLJIT_F32_OP) ? INT_SIZE : WORD_SIZE;
 	sljit_ins inv_bits;
 
 	CHECK_ERROR();
@@ -1685,7 +1685,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	SLJIT_COMPILE_ASSERT((INT_SIZE ^ 0x100) == WORD_SIZE, must_be_one_bit_difference);
 	SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw);
 
-	inv_bits = (op & SLJIT_SINGLE_OP) ? (1 << 22) : 0;
+	inv_bits = (op & SLJIT_F32_OP) ? (1 << 22) : 0;
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 
 	if (src & SLJIT_MEM) {
@@ -1709,7 +1709,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 		FAIL_IF(push_inst(compiler, (FABS ^ inv_bits) | VD(dst_r) | VN(src)));
 		break;
 	case SLJIT_CONVD_FROMS:
-		FAIL_IF(push_inst(compiler, FCVT | ((op & SLJIT_SINGLE_OP) ? (1 << 22) : (1 << 15)) | VD(dst_r) | VN(src)));
+		FAIL_IF(push_inst(compiler, FCVT | ((op & SLJIT_F32_OP) ? (1 << 22) : (1 << 15)) | VD(dst_r) | VN(src)));
 		break;
 	}
 
@@ -1723,8 +1723,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
-	sljit_s32 dst_r, mem_flags = (op & SLJIT_SINGLE_OP) ? INT_SIZE : WORD_SIZE;
-	sljit_ins inv_bits = (op & SLJIT_SINGLE_OP) ? (1 << 22) : 0;
+	sljit_s32 dst_r, mem_flags = (op & SLJIT_F32_OP) ? INT_SIZE : WORD_SIZE;
+	sljit_ins inv_bits = (op & SLJIT_F32_OP) ? (1 << 22) : 0;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w));
@@ -1811,28 +1811,28 @@ static sljit_uw get_cc(sljit_s32 type)
 	switch (type) {
 	case SLJIT_EQUAL:
 	case SLJIT_MUL_NOT_OVERFLOW:
-	case SLJIT_D_EQUAL:
+	case SLJIT_F64_EQUAL:
 		return 0x1;
 
 	case SLJIT_NOT_EQUAL:
 	case SLJIT_MUL_OVERFLOW:
-	case SLJIT_D_NOT_EQUAL:
+	case SLJIT_F64_NOT_EQUAL:
 		return 0x0;
 
 	case SLJIT_LESS:
-	case SLJIT_D_LESS:
+	case SLJIT_F64_LESS:
 		return 0x2;
 
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_D_GREATER_EQUAL:
+	case SLJIT_F64_GREATER_EQUAL:
 		return 0x3;
 
 	case SLJIT_GREATER:
-	case SLJIT_D_GREATER:
+	case SLJIT_F64_GREATER:
 		return 0x9;
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_D_LESS_EQUAL:
+	case SLJIT_F64_LESS_EQUAL:
 		return 0x8;
 
 	case SLJIT_SIG_LESS:
@@ -1848,11 +1848,11 @@ static sljit_uw get_cc(sljit_s32 type)
 		return 0xc;
 
 	case SLJIT_OVERFLOW:
-	case SLJIT_D_UNORDERED:
+	case SLJIT_F64_UNORDERED:
 		return 0x7;
 
 	case SLJIT_NOT_OVERFLOW:
-	case SLJIT_D_ORDERED:
+	case SLJIT_F64_ORDERED:
 		return 0x6;
 
 	default:
