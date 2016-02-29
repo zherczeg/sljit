@@ -137,10 +137,10 @@ struct free_block {
 };
 
 #define AS_BLOCK_HEADER(base, offset) \
-	((struct block_header*)(((sljit_ub*)base) + offset))
+	((struct block_header*)(((sljit_u8*)base) + offset))
 #define AS_FREE_BLOCK(base, offset) \
-	((struct free_block*)(((sljit_ub*)base) + offset))
-#define MEM_START(base)		((void*)(((sljit_ub*)base) + sizeof(struct block_header)))
+	((struct free_block*)(((sljit_u8*)base) + offset))
+#define MEM_START(base)		((void*)(((sljit_u8*)base) + sizeof(struct block_header)))
 #define ALIGN_SIZE(size)	(((size) + sizeof(struct block_header) + 7) & ~7)
 
 static struct free_block* free_blocks;

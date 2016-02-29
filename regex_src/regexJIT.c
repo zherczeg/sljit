@@ -2027,7 +2027,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 
 	EMIT_OP1(SLJIT_MOV, R_TEMP, 0, R_STRING, 0);
 #ifdef REGEX_USE_8BIT_CHARS
-	EMIT_OP1(SLJIT_MOV_UB, R_CURR_CHAR, 0, SLJIT_MEM1(R_TEMP), 0);
+	EMIT_OP1(SLJIT_MOV_U8, R_CURR_CHAR, 0, SLJIT_MEM1(R_TEMP), 0);
 	EMIT_OP2(SLJIT_ADD, R_TEMP, 0, R_TEMP, 0, SLJIT_IMM, 1);
 #else
 	EMIT_OP1(SLJIT_MOV_UH, R_CURR_CHAR, 0, SLJIT_MEM1(R_TEMP), 0);
@@ -2114,7 +2114,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 		EMIT_JUMP(fast_forward_jump, SLJIT_EQUAL);
 
 #ifdef REGEX_USE_8BIT_CHARS
-		EMIT_OP1(SLJIT_MOV_UB, R_CURR_CHAR, 0, SLJIT_MEM1(R_CURR_STATE), 0);
+		EMIT_OP1(SLJIT_MOV_U8, R_CURR_CHAR, 0, SLJIT_MEM1(R_CURR_STATE), 0);
 		EMIT_OP2(SLJIT_ADD, R_CURR_STATE, 0, R_CURR_STATE, 0, SLJIT_IMM, 1);
 #else
 		EMIT_OP1(SLJIT_MOV_UH, R_CURR_CHAR, 0, SLJIT_MEM1(R_CURR_STATE), 0);
