@@ -1634,27 +1634,27 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 
 	switch (type) {
 	case SLJIT_EQUAL:
-	case SLJIT_F64_NOT_EQUAL:
+	case SLJIT_NOT_EQUAL_F64:
 		BR_NZ(EQUAL_FLAG);
 		break;
 	case SLJIT_NOT_EQUAL:
-	case SLJIT_F64_EQUAL:
+	case SLJIT_EQUAL_F64:
 		BR_Z(EQUAL_FLAG);
 		break;
 	case SLJIT_LESS:
-	case SLJIT_F64_LESS:
+	case SLJIT_LESS_F64:
 		BR_Z(ULESS_FLAG);
 		break;
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_F64_GREATER_EQUAL:
+	case SLJIT_GREATER_EQUAL_F64:
 		BR_NZ(ULESS_FLAG);
 		break;
 	case SLJIT_GREATER:
-	case SLJIT_F64_GREATER:
+	case SLJIT_GREATER_F64:
 		BR_Z(UGREATER_FLAG);
 		break;
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_F64_LESS_EQUAL:
+	case SLJIT_LESS_EQUAL_F64:
 		BR_NZ(UGREATER_FLAG);
 		break;
 	case SLJIT_SIG_LESS:
@@ -1677,10 +1677,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	case SLJIT_MUL_NOT_OVERFLOW:
 		BR_NZ(OVERFLOW_FLAG);
 		break;
-	case SLJIT_F64_UNORDERED:
+	case SLJIT_UNORDERED_F64:
 		BR_F();
 		break;
-	case SLJIT_F64_ORDERED:
+	case SLJIT_ORDERED_F64:
 		BR_T();
 		break;
 	default:
@@ -1888,37 +1888,37 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 	jump->flags |= IS_BIT16_COND;
 
 	switch (type & 0xff) {
-	case SLJIT_F64_EQUAL:
+	case SLJIT_EQUAL_F64:
 		inst = C_UEQ_S;
 		if_true = 1;
 		break;
-	case SLJIT_F64_NOT_EQUAL:
+	case SLJIT_NOT_EQUAL_F64:
 		inst = C_UEQ_S;
 		if_true = 0;
 		break;
-	case SLJIT_F64_LESS:
+	case SLJIT_LESS_F64:
 		inst = C_ULT_S;
 		if_true = 1;
 		break;
-	case SLJIT_F64_GREATER_EQUAL:
+	case SLJIT_GREATER_EQUAL_F64:
 		inst = C_ULT_S;
 		if_true = 0;
 		break;
-	case SLJIT_F64_GREATER:
+	case SLJIT_GREATER_F64:
 		inst = C_ULE_S;
 		if_true = 0;
 		break;
-	case SLJIT_F64_LESS_EQUAL:
+	case SLJIT_LESS_EQUAL_F64:
 		inst = C_ULE_S;
 		if_true = 1;
 		break;
-	case SLJIT_F64_UNORDERED:
+	case SLJIT_UNORDERED_F64:
 		inst = C_UN_S;
 		if_true = 1;
 		break;
 	default: /* Make compilers happy. */
 		SLJIT_ASSERT_STOP();
-	case SLJIT_F64_ORDERED:
+	case SLJIT_ORDERED_F64:
 		inst = C_UN_S;
 		if_true = 0;
 		break;
@@ -2045,14 +2045,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		break;
 	case SLJIT_LESS:
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_F64_LESS:
-	case SLJIT_F64_GREATER_EQUAL:
+	case SLJIT_LESS_F64:
+	case SLJIT_GREATER_EQUAL_F64:
 		dst_ar = ULESS_FLAG;
 		break;
 	case SLJIT_GREATER:
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_F64_GREATER:
-	case SLJIT_F64_LESS_EQUAL:
+	case SLJIT_GREATER_F64:
+	case SLJIT_LESS_EQUAL_F64:
 		dst_ar = UGREATER_FLAG;
 		break;
 	case SLJIT_SIG_LESS:
@@ -2073,13 +2073,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		dst_ar = sugg_dst_ar;
 		type ^= 0x1; /* Flip type bit for the XORI below. */
 		break;
-	case SLJIT_F64_EQUAL:
-	case SLJIT_F64_NOT_EQUAL:
+	case SLJIT_EQUAL_F64:
+	case SLJIT_NOT_EQUAL_F64:
 		dst_ar = EQUAL_FLAG;
 		break;
 
-	case SLJIT_F64_UNORDERED:
-	case SLJIT_F64_ORDERED:
+	case SLJIT_UNORDERED_F64:
+	case SLJIT_ORDERED_F64:
 		FAIL_IF(push_inst(compiler, CFC1 | TA(sugg_dst_ar) | DA(FCSR_REG), sugg_dst_ar));
 		FAIL_IF(push_inst(compiler, SRL | TA(sugg_dst_ar) | DA(sugg_dst_ar) | SH_IMM(23), sugg_dst_ar));
 		FAIL_IF(push_inst(compiler, ANDI | SA(sugg_dst_ar) | TA(sugg_dst_ar) | IMM(1), sugg_dst_ar));

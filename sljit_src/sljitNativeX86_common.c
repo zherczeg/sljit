@@ -334,27 +334,27 @@ static sljit_u8 get_jump_code(sljit_s32 type)
 {
 	switch (type) {
 	case SLJIT_EQUAL:
-	case SLJIT_F64_EQUAL:
+	case SLJIT_EQUAL_F64:
 		return 0x84 /* je */;
 
 	case SLJIT_NOT_EQUAL:
-	case SLJIT_F64_NOT_EQUAL:
+	case SLJIT_NOT_EQUAL_F64:
 		return 0x85 /* jne */;
 
 	case SLJIT_LESS:
-	case SLJIT_F64_LESS:
+	case SLJIT_LESS_F64:
 		return 0x82 /* jc */;
 
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_F64_GREATER_EQUAL:
+	case SLJIT_GREATER_EQUAL_F64:
 		return 0x83 /* jae */;
 
 	case SLJIT_GREATER:
-	case SLJIT_F64_GREATER:
+	case SLJIT_GREATER_F64:
 		return 0x87 /* jnbe */;
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_F64_LESS_EQUAL:
+	case SLJIT_LESS_EQUAL_F64:
 		return 0x86 /* jbe */;
 
 	case SLJIT_SIG_LESS:
@@ -377,10 +377,10 @@ static sljit_u8 get_jump_code(sljit_s32 type)
 	case SLJIT_MUL_NOT_OVERFLOW:
 		return 0x81 /* jno */;
 
-	case SLJIT_F64_UNORDERED:
+	case SLJIT_UNORDERED_F64:
 		return 0x8a /* jp */;
 
-	case SLJIT_F64_ORDERED:
+	case SLJIT_ORDERED_F64:
 		return 0x8b /* jpo */;
 	}
 	return 0;
@@ -2966,7 +2966,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_x86_emit_cmov(struct sljit_compiler *co
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_x86_is_cmov_available());
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_I32_OP)));
-	CHECK_ARGUMENT((type & 0xff) >= SLJIT_EQUAL && (type & 0xff) <= SLJIT_F64_ORDERED);
+	CHECK_ARGUMENT((type & 0xff) >= SLJIT_EQUAL && (type & 0xff) <= SLJIT_ORDERED_F64);
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(dst_reg & ~SLJIT_I32_OP));
 	FUNCTION_CHECK_SRC(src, srcw);
 #endif

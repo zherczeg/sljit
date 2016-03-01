@@ -850,10 +850,10 @@ static const char* op0_names[] = {
 };
 
 static const char* op1_names[] = {
-	(char*)"mov", (char*)"mov_ub", (char*)"mov_sb", (char*)"mov_uh",
-	(char*)"mov_sh", (char*)"mov_ui", (char*)"mov_si", (char*)"mov_p",
-	(char*)"movu", (char*)"movu_ub", (char*)"movu_sb", (char*)"movu_uh",
-	(char*)"movu_sh", (char*)"movu_ui", (char*)"movu_si", (char*)"movu_p",
+	(char*)"", (char*)".u8", (char*)".s8", (char*)".u16",
+	(char*)".s16", (char*)".u32", (char*)".s32", (char*)".p",
+	(char*)"", (char*)".u8", (char*)".s8", (char*)".u16",
+	(char*)".s16", (char*)".u32", (char*)".s32", (char*)".p",
 	(char*)"not", (char*)"neg", (char*)"clz",
 };
 
@@ -875,7 +875,7 @@ static const char* fop2_names[] = {
 
 #define JUMP_PREFIX(type) \
 	((type & 0xff) <= SLJIT_MUL_NOT_OVERFLOW ? ((type & SLJIT_I32_OP) ? "i_" : "") \
-	: ((type & 0xff) <= SLJIT_F64_ORDERED ? ((type & SLJIT_F32_OP) ? "s_" : "d_") : ""))
+	: ((type & 0xff) <= SLJIT_ORDERED_F64 ? ((type & SLJIT_F32_OP) ? "s_" : "d_") : ""))
 
 static char* jump_names[] = {
 	(char*)"equal", (char*)"not_equal",
@@ -993,7 +993,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_return(struct sljit_compi
 		if (op == SLJIT_UNUSED)
 			fprintf(compiler->verbose, "  return\n");
 		else {
-			fprintf(compiler->verbose, "  return.%s ", op1_names[op - SLJIT_OP1_BASE]);
+			fprintf(compiler->verbose, "  return%s ", op1_names[op - SLJIT_OP1_BASE]);
 			sljit_verbose_param(compiler, src, srcw);
 			fprintf(compiler->verbose, "\n");
 		}
@@ -1070,9 +1070,18 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s%s%s%s%s%s%s%s ", !(op & SLJIT_I32_OP) ? "" : "i", op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE],
-			!(op & SLJIT_SET_E) ? "" : ".e", !(op & SLJIT_SET_U) ? "" : ".u", !(op & SLJIT_SET_S) ? "" : ".s",
-			!(op & SLJIT_SET_O) ? "" : ".o", !(op & SLJIT_SET_C) ? "" : ".c", !(op & SLJIT_KEEP_FLAGS) ? "" : ".k");
+		if (GET_OPCODE(op) <= SLJIT_MOVU_P)
+		{
+			fprintf(compiler->verbose, "  mov%s%s%s ", (GET_OPCODE(op) >= SLJIT_MOVU) ? "u" : "",
+				!(op & SLJIT_I32_OP) ? "" : "32", (op != SLJIT_MOV32 && op != SLJIT_MOVU32) ? op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE] : "");
+		}
+		else
+		{
+			fprintf(compiler->verbose, "  %s%s%s%s%s%s%s%s ", op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE], !(op & SLJIT_I32_OP) ? "" : "32",
+				!(op & SLJIT_SET_E) ? "" : ".e", !(op & SLJIT_SET_U) ? "" : ".u", !(op & SLJIT_SET_S) ? "" : ".s",
+				!(op & SLJIT_SET_O) ? "" : ".o", !(op & SLJIT_SET_C) ? "" : ".c", !(op & SLJIT_KEEP_FLAGS) ? "" : ".k");
+		}
+
 		sljit_verbose_param(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, src, srcw);
@@ -1101,7 +1110,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2(struct sljit_compiler
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s%s%s%s%s%s%s%s ", !(op & SLJIT_I32_OP) ? "" : "i", op2_names[GET_OPCODE(op) - SLJIT_OP2_BASE],
+		fprintf(compiler->verbose, "  %s%s%s%s%s%s%s%s ", op2_names[GET_OPCODE(op) - SLJIT_OP2_BASE], !(op & SLJIT_I32_OP) ? "" : "32",
 			!(op & SLJIT_SET_E) ? "" : ".e", !(op & SLJIT_SET_U) ? "" : ".u", !(op & SLJIT_SET_S) ? "" : ".s",
 			!(op & SLJIT_SET_O) ? "" : ".o", !(op & SLJIT_SET_C) ? "" : ".c", !(op & SLJIT_KEEP_FLAGS) ? "" : ".k");
 		sljit_verbose_param(compiler, dst, dstw);
@@ -1377,7 +1386,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fcmp(struct sljit_compile
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_is_fpu_available());
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_F32_OP)));
-	CHECK_ARGUMENT((type & 0xff) >= SLJIT_F64_EQUAL && (type & 0xff) <= SLJIT_F64_ORDERED);
+	CHECK_ARGUMENT((type & 0xff) >= SLJIT_EQUAL_F64 && (type & 0xff) <= SLJIT_ORDERED_F64);
 	FUNCTION_FCHECK(src1, src1w);
 	FUNCTION_FCHECK(src2, src2w);
 #endif
@@ -1423,7 +1432,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_flags(struct sljit_com
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_I32_OP)));
-	CHECK_ARGUMENT((type & 0xff) >= SLJIT_EQUAL && (type & 0xff) <= SLJIT_F64_ORDERED);
+	CHECK_ARGUMENT((type & 0xff) >= SLJIT_EQUAL && (type & 0xff) <= SLJIT_ORDERED_F64);
 	CHECK_ARGUMENT(op == SLJIT_MOV || GET_OPCODE(op) == SLJIT_MOV_U32 || GET_OPCODE(op) == SLJIT_MOV_S32
 		|| (GET_OPCODE(op) >= SLJIT_AND && GET_OPCODE(op) <= SLJIT_XOR));
 	CHECK_ARGUMENT((op & (SLJIT_SET_U | SLJIT_SET_S | SLJIT_SET_O | SLJIT_SET_C)) == 0);
@@ -1674,7 +1683,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 	CHECK_PTR(check_sljit_emit_fcmp(compiler, type, src1, src1w, src2, src2w));
 
 	condition = type & 0xff;
-	flags = (condition <= SLJIT_F64_NOT_EQUAL) ? SLJIT_SET_E : SLJIT_SET_S;
+	flags = (condition <= SLJIT_NOT_EQUAL_F64) ? SLJIT_SET_E : SLJIT_SET_S;
 	if (type & SLJIT_F32_OP)
 		flags |= SLJIT_F32_OP;
 
