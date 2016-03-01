@@ -2075,19 +2075,19 @@ static sljit_ins get_bo_bi_flags(sljit_s32 type)
 		return (4 << 21) | (2 << 16);
 
 	case SLJIT_LESS:
-	case SLJIT_F64_LESS:
+	case SLJIT_LESS_F64:
 		return (12 << 21) | ((4 + 0) << 16);
 
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_F64_GREATER_EQUAL:
+	case SLJIT_GREATER_EQUAL_F64:
 		return (4 << 21) | ((4 + 0) << 16);
 
 	case SLJIT_GREATER:
-	case SLJIT_F64_GREATER:
+	case SLJIT_GREATER_F64:
 		return (12 << 21) | ((4 + 1) << 16);
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_F64_LESS_EQUAL:
+	case SLJIT_LESS_EQUAL_F64:
 		return (4 << 21) | ((4 + 1) << 16);
 
 	case SLJIT_SIG_LESS:
@@ -2110,16 +2110,16 @@ static sljit_ins get_bo_bi_flags(sljit_s32 type)
 	case SLJIT_MUL_NOT_OVERFLOW:
 		return (4 << 21) | (3 << 16);
 
-	case SLJIT_F64_EQUAL:
+	case SLJIT_EQUAL_F64:
 		return (12 << 21) | ((4 + 2) << 16);
 
-	case SLJIT_F64_NOT_EQUAL:
+	case SLJIT_NOT_EQUAL_F64:
 		return (4 << 21) | ((4 + 2) << 16);
 
-	case SLJIT_F64_UNORDERED:
+	case SLJIT_UNORDERED_F64:
 		return (12 << 21) | ((4 + 3) << 16);
 
-	case SLJIT_F64_ORDERED:
+	case SLJIT_ORDERED_F64:
 		return (4 << 21) | ((4 + 3) << 16);
 
 	default:
@@ -2255,23 +2255,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		break;
 
 	case SLJIT_LESS:
-	case SLJIT_F64_LESS:
+	case SLJIT_LESS_F64:
 		GET_CR_BIT(4 + 0, reg);
 		break;
 
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_F64_GREATER_EQUAL:
+	case SLJIT_GREATER_EQUAL_F64:
 		GET_CR_BIT(4 + 0, reg);
 		INVERT_BIT(reg);
 		break;
 
 	case SLJIT_GREATER:
-	case SLJIT_F64_GREATER:
+	case SLJIT_GREATER_F64:
 		GET_CR_BIT(4 + 1, reg);
 		break;
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_F64_LESS_EQUAL:
+	case SLJIT_LESS_EQUAL_F64:
 		GET_CR_BIT(4 + 1, reg);
 		INVERT_BIT(reg);
 		break;
@@ -2305,20 +2305,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		INVERT_BIT(reg);
 		break;
 
-	case SLJIT_F64_EQUAL:
+	case SLJIT_EQUAL_F64:
 		GET_CR_BIT(4 + 2, reg);
 		break;
 
-	case SLJIT_F64_NOT_EQUAL:
+	case SLJIT_NOT_EQUAL_F64:
 		GET_CR_BIT(4 + 2, reg);
 		INVERT_BIT(reg);
 		break;
 
-	case SLJIT_F64_UNORDERED:
+	case SLJIT_UNORDERED_F64:
 		GET_CR_BIT(4 + 3, reg);
 		break;
 
-	case SLJIT_F64_ORDERED:
+	case SLJIT_ORDERED_F64:
 		GET_CR_BIT(4 + 3, reg);
 		INVERT_BIT(reg);
 		break;

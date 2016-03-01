@@ -1845,28 +1845,28 @@ static sljit_uw get_cc(sljit_s32 type)
 	switch (type) {
 	case SLJIT_EQUAL:
 	case SLJIT_MUL_NOT_OVERFLOW:
-	case SLJIT_F64_EQUAL:
+	case SLJIT_EQUAL_F64:
 		return 0x0;
 
 	case SLJIT_NOT_EQUAL:
 	case SLJIT_MUL_OVERFLOW:
-	case SLJIT_F64_NOT_EQUAL:
+	case SLJIT_NOT_EQUAL_F64:
 		return 0x1;
 
 	case SLJIT_LESS:
-	case SLJIT_F64_LESS:
+	case SLJIT_LESS_F64:
 		return 0x3;
 
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_F64_GREATER_EQUAL:
+	case SLJIT_GREATER_EQUAL_F64:
 		return 0x2;
 
 	case SLJIT_GREATER:
-	case SLJIT_F64_GREATER:
+	case SLJIT_GREATER_F64:
 		return 0x8;
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_F64_LESS_EQUAL:
+	case SLJIT_LESS_EQUAL_F64:
 		return 0x9;
 
 	case SLJIT_SIG_LESS:
@@ -1882,11 +1882,11 @@ static sljit_uw get_cc(sljit_s32 type)
 		return 0xd;
 
 	case SLJIT_OVERFLOW:
-	case SLJIT_F64_UNORDERED:
+	case SLJIT_UNORDERED_F64:
 		return 0x6;
 
 	case SLJIT_NOT_OVERFLOW:
-	case SLJIT_F64_ORDERED:
+	case SLJIT_ORDERED_F64:
 		return 0x7;
 
 	default: /* SLJIT_JUMP */
