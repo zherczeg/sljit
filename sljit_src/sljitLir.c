@@ -873,9 +873,9 @@ static const char* fop2_names[] = {
 	(char*)"add", (char*)"sub", (char*)"mul", (char*)"div"
 };
 
-#define JUMP_PREFIX(type) \
-	((type & 0xff) <= SLJIT_MUL_NOT_OVERFLOW ? ((type & SLJIT_I32_OP) ? "i_" : "") \
-	: ((type & 0xff) <= SLJIT_ORDERED_F64 ? ((type & SLJIT_F32_OP) ? "s_" : "d_") : ""))
+#define JUMP_POSTFIX(type) \
+	((type & 0xff) <= SLJIT_MUL_NOT_OVERFLOW ? ((type & SLJIT_I32_OP) ? "32" : "") \
+	: ((type & 0xff) <= SLJIT_ORDERED_F64 ? ((type & SLJIT_F32_OP) ? ".f32" : ".f64") : ""))
 
 static char* jump_names[] = {
 	(char*)"equal", (char*)"not_equal",
@@ -1350,8 +1350,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_jump(struct sljit_compile
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
-		fprintf(compiler->verbose, "  jump%s.%s%s\n", !(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r",
-			JUMP_PREFIX(type), jump_names[type & 0xff]);
+		fprintf(compiler->verbose, "  jump%s %s%s\n", !(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r",
+			jump_names[type & 0xff], JUMP_POSTFIX(type));
 #endif
 	CHECK_RETURN_OK;
 }
@@ -1368,8 +1368,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_cmp(struct sljit_compiler
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  cmp%s.%s%s ", !(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r",
-			(type & SLJIT_I32_OP) ? "i_" : "", jump_names[type & 0xff]);
+		fprintf(compiler->verbose, "  cmp%s %s%s, ", !(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r",
+			jump_names[type & 0xff], (type & SLJIT_I32_OP) ? "32" : "");
 		sljit_verbose_param(compiler, src1, src1w);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, src2, src2w);
@@ -1392,8 +1392,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fcmp(struct sljit_compile
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  fcmp%s.%s%s ", !(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r",
-			(type & SLJIT_F32_OP) ? "s_" : "d_", jump_names[type & 0xff]);
+		fprintf(compiler->verbose, "  fcmp%s %s%s, ", !(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r",
+			jump_names[type & 0xff], (type & SLJIT_F32_OP) ? ".f32" : ".f64");
 		sljit_verbose_fparam(compiler, src1, src1w);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_fparam(compiler, src2, src2w);
@@ -1446,15 +1446,16 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_flags(struct sljit_com
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  flags.%s%s%s%s ", !(op & SLJIT_I32_OP) ? "" : "i",
-			GET_OPCODE(op) >= SLJIT_OP2_BASE ? op2_names[GET_OPCODE(op) - SLJIT_OP2_BASE] : op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE],
-			!(op & SLJIT_SET_E) ? "" : ".e", !(op & SLJIT_KEEP_FLAGS) ? "" : ".k");
+		fprintf(compiler->verbose, "  flags %s%s%s%s, ",
+			!(op & SLJIT_SET_E) ? "" : ".e", !(op & SLJIT_KEEP_FLAGS) ? "" : ".k",
+			GET_OPCODE(op) < SLJIT_OP2_BASE ? "mov" : op2_names[GET_OPCODE(op) - SLJIT_OP2_BASE],
+			GET_OPCODE(op) < SLJIT_OP2_BASE ? op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE] : ((op & SLJIT_I32_OP) ? "32" : ""));
 		sljit_verbose_param(compiler, dst, dstw);
 		if (src != SLJIT_UNUSED) {
 			fprintf(compiler->verbose, ", ");
 			sljit_verbose_param(compiler, src, srcw);
 		}
-		fprintf(compiler->verbose, ", %s%s\n", JUMP_PREFIX(type), jump_names[type & 0xff]);
+		fprintf(compiler->verbose, ", %s%s\n", jump_names[type & 0xff], JUMP_POSTFIX(type));
 	}
 #endif
 	CHECK_RETURN_OK;
