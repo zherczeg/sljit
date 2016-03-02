@@ -2974,7 +2974,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_x86_emit_cmov(struct sljit_compiler *co
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  x86_cmov%s %s%s, ",
 			!(dst_reg & SLJIT_I32_OP) ? "" : ".i",
-			JUMP_PREFIX(type), jump_names[type & 0xff]);
+			jump_names[type & 0xff], JUMP_POSTFIX(type));
 		sljit_verbose_reg(compiler, dst_reg & ~SLJIT_I32_OP);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, src, srcw);
