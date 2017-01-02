@@ -92,6 +92,9 @@ static void cond_set(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw ds
 	} \
 	memset(result, 255, size);
 
+#define FREE_EXEC(ptr) \
+	SLJIT_FREE_EXEC(((sljit_u8*)(ptr)) + SLJIT_EXEC_OFFSET(ptr));
+
 static void test_exec_allocator(void)
 {
 	/* This is not an sljit test. */
@@ -105,26 +108,26 @@ static void test_exec_allocator(void)
 	MALLOC_EXEC(ptr1, 32);
 	MALLOC_EXEC(ptr2, 512);
 	MALLOC_EXEC(ptr3, 512);
-	SLJIT_FREE_EXEC(ptr2);
-	SLJIT_FREE_EXEC(ptr3);
-	SLJIT_FREE_EXEC(ptr1);
+	FREE_EXEC(ptr2);
+	FREE_EXEC(ptr3);
+	FREE_EXEC(ptr1);
 	MALLOC_EXEC(ptr1, 262104);
 	MALLOC_EXEC(ptr2, 32000);
-	SLJIT_FREE_EXEC(ptr1);
+	FREE_EXEC(ptr1);
 	MALLOC_EXEC(ptr1, 262104);
-	SLJIT_FREE_EXEC(ptr1);
-	SLJIT_FREE_EXEC(ptr2);
+	FREE_EXEC(ptr1);
+	FREE_EXEC(ptr2);
 	MALLOC_EXEC(ptr1, 512);
 	MALLOC_EXEC(ptr2, 512);
 	MALLOC_EXEC(ptr3, 512);
-	SLJIT_FREE_EXEC(ptr2);
+	FREE_EXEC(ptr2);
 	MALLOC_EXEC(ptr2, 512);
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
-	SLJIT_FREE_EXEC(ptr3);
-	SLJIT_FREE_EXEC(ptr1);
-	SLJIT_FREE_EXEC(ptr2);
+	FREE_EXEC(ptr3);
+	FREE_EXEC(ptr1);
+	FREE_EXEC(ptr2);
 #if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
 	/* Just call the global locks. */
 	sljit_grab_lock();
