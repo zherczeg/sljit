@@ -509,7 +509,7 @@ static SLJIT_INLINE void inline_set_jump_addr(sljit_uw jump_ptr, sljit_sw execut
 
 static sljit_uw get_imm(sljit_uw imm);
 
-static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_sw new_constant, sljit_s32 flush)
+static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_sw executable_offset, sljit_sw new_constant, sljit_s32 flush_cache)
 {
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	sljit_uw *ptr = (sljit_uw*)addr;
@@ -520,7 +520,8 @@ static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_sw new_constant, 
 	src2 = get_imm(new_constant);
 	if (src2) {
 		*inst = 0xe3a00000 | (ldr_literal & 0xf000) | src2;
-		if (flush) {
+		if (flush_cache) {
+			inst = (sljit_uw *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
 			SLJIT_CACHE_FLUSH(inst, inst + 1);
 		}
 		return;
@@ -529,7 +530,8 @@ static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_sw new_constant, 
 	src2 = get_imm(~new_constant);
 	if (src2) {
 		*inst = 0xe3e00000 | (ldr_literal & 0xf000) | src2;
-		if (flush) {
+		if (flush_cache) {
+			inst = (sljit_uw *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
 			SLJIT_CACHE_FLUSH(inst, inst + 1);
 		}
 		return;
@@ -542,7 +544,8 @@ static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_sw new_constant, 
 
 	if (*inst != ldr_literal) {
 		*inst = ldr_literal;
-		if (flush) {
+		if (flush_cache) {
+			inst = (sljit_uw *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
 			SLJIT_CACHE_FLUSH(inst, inst + 1);
 		}
 	}
@@ -552,7 +555,8 @@ static SLJIT_INLINE void inline_set_const(sljit_uw addr, sljit_sw new_constant, 
 	SLJIT_ASSERT((inst[0] & 0xfff00000) == MOVW && (inst[1] & 0xfff00000) == MOVT);
 	inst[0] = MOVW | (inst[0] & 0xf000) | ((new_constant << 4) & 0xf0000) | (new_constant & 0xfff);
 	inst[1] = MOVT | (inst[1] & 0xf000) | ((new_constant >> 12) & 0xf0000) | ((new_constant >> 16) & 0xfff);
-	if (flush) {
+	if (flush_cache) {
+		inst = (sljit_uw *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
 		SLJIT_CACHE_FLUSH(inst, inst + 2);
 	}
 #endif
@@ -790,7 +794,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 		else
 			buf_ptr += 1;
 		/* Set the value again (can be a simple constant). */
-		inline_set_const((sljit_uw)code_ptr, *buf_ptr, 0);
+		inline_set_const((sljit_uw)code_ptr, executable_offset, *buf_ptr, 0);
 		code_ptr += 2;
 
 		const_ = const_->next;
@@ -800,6 +804,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	SLJIT_ASSERT(code_ptr - code <= (sljit_s32)size);
 
 	compiler->error = SLJIT_ERR_COMPILED;
+	compiler->executable_offset = executable_offset;
 	compiler->executable_size = (code_ptr - code) * sizeof(sljit_uw);
 
 	code = (sljit_uw *)SLJIT_ADD_EXEC_OFFSET(code, executable_offset);
@@ -2414,7 +2419,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	struct sljit_jump *jump;
 
 	CHECK_ERROR_PTR();
-	CHECK_DYN_CODE_MOD(type & SLJIT_REWRITABLE_JUMP);
 	CHECK_PTR(check_sljit_emit_jump(compiler, type));
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
@@ -2547,7 +2551,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	sljit_s32 reg;
 
 	CHECK_ERROR_PTR();
-	CHECK_DYN_CODE_MOD(1);
 	CHECK_PTR(check_sljit_emit_const(compiler, dst, dstw, init_value));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
@@ -2569,12 +2572,12 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	return const_;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_addr)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset)
 {
-	inline_set_jump_addr(addr, 0, new_addr, 1);
+	inline_set_jump_addr(addr, executable_offset, new_target, 1);
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset)
 {
-	inline_set_const(addr, new_constant, 1);
+	inline_set_const(addr, executable_offset, new_constant, 1);
 }
