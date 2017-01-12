@@ -27,6 +27,8 @@
 #include "sljitLir.h"
 #include "regexJIT.h"
 
+#include <stdlib.h>
+
 #ifdef REGEX_MATCH_VERBOSE
 #include <stdio.h>
 #endif
