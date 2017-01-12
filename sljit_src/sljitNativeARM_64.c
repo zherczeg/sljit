@@ -1401,7 +1401,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		return SLJIT_SUCCESS;
 	}
 
-	flags = GET_FLAGS(op_flags) ? SET_FLAGS : 0;
+	flags = HAS_FLAGS(op_flags) ? SET_FLAGS : 0;
 	mem_flags = WORD_SIZE;
 	if (op_flags & SLJIT_I32_OP) {
 		flags |= INT_OP;
@@ -1454,7 +1454,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	compiler->cache_argw = 0;
 
 	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
-	flags = GET_FLAGS(op) ? SET_FLAGS : 0;
+	flags = HAS_FLAGS(op) ? SET_FLAGS : 0;
 	mem_flags = WORD_SIZE;
 	if (op & SLJIT_I32_OP) {
 		flags |= INT_OP;
@@ -2002,7 +2002,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
-	flags = GET_FLAGS(op) ? SET_FLAGS : 0;
+	flags = HAS_FLAGS(op) ? SET_FLAGS : 0;
 	mem_flags = WORD_SIZE;
 	if (op & SLJIT_I32_OP) {
 		flags |= INT_OP;

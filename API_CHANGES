@@ -1,5 +1,12 @@
 This file is the short summary of the API changes:
 
+12.01.2017 - Non-backward compatible
+    Introducing a new flag mechanism which provides better
+    compatibility with CPUs without flags. Only two flags
+    remain: zero and variable. The current type of the
+    variable flag is specified by the arithmetic operator.
+    The SLJIT_KEEP_FLAGS is removed.
+
 29.02.2016 - Non-backward compatible
     Several types and instructions are renamed to improve
     readability. In general byte, half, and int are renamed
