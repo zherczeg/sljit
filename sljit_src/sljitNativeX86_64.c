@@ -1,7 +1,7 @@
 /*
  *    Stack-less Just-In-Time compiler
  *
- *    Copyright 2009-2012 Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
+ *    Copyright Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are
  * permitted provided that the following conditions are met:
@@ -47,7 +47,7 @@ static sljit_u8* generate_far_jump_code(struct sljit_jump *jump, sljit_u8 *code_
 		*code_ptr++ = 10 + 3;
 	}
 
-	SLJIT_COMPILE_ASSERT(reg_map[TMP_REG3] == 9, tmp3_is_9_first);
+	SLJIT_ASSERT(reg_map[TMP_REG3] == 9);
 	*code_ptr++ = REX_W | REX_B;
 	*code_ptr++ = MOV_r_i32 + 1;
 	jump->addr = (sljit_uw)code_ptr;
@@ -165,7 +165,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			local_size -= 4 * sizeof(sljit_sw);
 		}
 		/* Second instruction */
-		SLJIT_COMPILE_ASSERT(reg_map[SLJIT_R0] < 8, temporary_reg1_is_loreg);
+		SLJIT_ASSERT(reg_map[SLJIT_R0] < 8);
 		*inst++ = REX_W;
 		*inst++ = MOV_rm_i32;
 		*inst++ = MOD_REG | reg_lmap[SLJIT_R0];
@@ -533,7 +533,7 @@ static SLJIT_INLINE sljit_s32 call_with_args(struct sljit_compiler *compiler, sl
 	sljit_u8 *inst;
 
 #ifndef _WIN64
-	SLJIT_COMPILE_ASSERT(reg_map[SLJIT_R1] == 6 && reg_map[SLJIT_R0] < 8 && reg_map[SLJIT_R2] < 8, args_registers);
+	SLJIT_ASSERT(reg_map[SLJIT_R1] == 6 && reg_map[SLJIT_R0] < 8 && reg_map[SLJIT_R2] < 8);
 
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
 	FAIL_IF(!inst);
@@ -547,7 +547,7 @@ static SLJIT_INLINE sljit_s32 call_with_args(struct sljit_compiler *compiler, sl
 	*inst++ = MOV_r_rm;
 	*inst++ = MOD_REG | (0x7 /* rdi */ << 3) | reg_lmap[SLJIT_R0];
 #else
-	SLJIT_COMPILE_ASSERT(reg_map[SLJIT_R1] == 2 && reg_map[SLJIT_R0] < 8 && reg_map[SLJIT_R2] < 8, args_registers);
+	SLJIT_ASSERT(reg_map[SLJIT_R1] == 2 && reg_map[SLJIT_R0] < 8 && reg_map[SLJIT_R2] < 8);
 
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
 	FAIL_IF(!inst);

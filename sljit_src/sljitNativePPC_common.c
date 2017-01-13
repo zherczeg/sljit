@@ -1,7 +1,7 @@
 /*
  *    Stack-less Just-In-Time compiler
  *
- *    Copyright 2009-2012 Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
+ *    Copyright Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are
  * permitted provided that the following conditions are met:
@@ -865,7 +865,7 @@ static sljit_s32 getput_arg_fast(struct sljit_compiler *compiler, sljit_s32 inp_
 	sljit_ins inst;
 
 	/* Should work when (arg & REG_MASK) == 0. */
-	SLJIT_COMPILE_ASSERT(A(0) == 0, a0_must_be_0);
+	SLJIT_ASSERT(A(0) == 0);
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
 	if (arg & OFFS_REG_MASK) {
@@ -1586,7 +1586,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 			}
 		}
 
-		if (dst == SLJIT_UNUSED && GET_FLAG_TYPE(op) != GET_FLAG_TYPE(SLJIT_SET_CARRY) && GET_FLAG_TYPE(op) == SLJIT_OVERFLOW && GET_FLAG_TYPE(op) == SLJIT_NOT_OVERFLOW) {
+		if (dst == SLJIT_UNUSED && GET_FLAG_TYPE(op) != GET_FLAG_TYPE(SLJIT_SET_CARRY)
+				&& GET_FLAG_TYPE(op) == SLJIT_OVERFLOW && GET_FLAG_TYPE(op) == SLJIT_NOT_OVERFLOW) {
 			if (TEST_SL_IMM(src2, src2w)) {
 				compiler->imm = src2w & 0xffff;
 				return emit_op(compiler, SLJIT_SUB, flags | ALT_FORM2, dst, dstw, src1, src1w, TMP_REG2, 0);
@@ -2344,7 +2345,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		break;
 
 	default:
-		SLJIT_ASSERT_STOP();
+		SLJIT_UNREACHABLE();
 		break;
 	}
 

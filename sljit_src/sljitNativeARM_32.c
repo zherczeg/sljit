@@ -1,7 +1,7 @@
 /*
  *    Stack-less Just-In-Time compiler
  *
- *    Copyright 2009-2012 Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
+ *    Copyright Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are
  * permitted provided that the following conditions are met:
@@ -1144,7 +1144,8 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_ASHR:
 		EMIT_SHIFT_INS_AND_RETURN(2);
 	}
-	SLJIT_ASSERT_STOP();
+
+	SLJIT_UNREACHABLE();
 	return SLJIT_SUCCESS;
 }
 
@@ -1855,7 +1856,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 	case SLJIT_DIV_UW:
 	case SLJIT_DIV_SW:
 		SLJIT_COMPILE_ASSERT((SLJIT_DIVMOD_UW & 0x2) == 0 && SLJIT_DIV_UW - 0x2 == SLJIT_DIVMOD_UW, bad_div_opcode_assignments);
-		SLJIT_COMPILE_ASSERT(reg_map[2] == 1 && reg_map[3] == 2, bad_register_mapping);
+		SLJIT_ASSERT(reg_map[2] == 1 && reg_map[3] == 2);
 
 		if ((op >= SLJIT_DIV_UW) && (compiler->scratches >= 3)) {
 			FAIL_IF(push_inst(compiler, 0xe52d2008 /* str r2, [sp, #-8]! */));

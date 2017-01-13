@@ -1,7 +1,7 @@
 /*
  *    Stack-less Just-In-Time compiler
  *
- *    Copyright 2009-2012 Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
+ *    Copyright Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are
  * permitted provided that the following conditions are met:
@@ -375,7 +375,7 @@ static sljit_ins logical_imm(sljit_sw imm, sljit_s32 len)
 	uimm = (sljit_uw)imm;
 	while (1) {
 		if (len <= 0) {
-			SLJIT_ASSERT_STOP();
+			SLJIT_UNREACHABLE();
 			return 0;
 		}
 		mask = ((sljit_uw)1 << len) - 1;
@@ -645,7 +645,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			}
 			goto set_flags;
 		default:
-			SLJIT_ASSERT_STOP();
+			SLJIT_UNREACHABLE();
 			break;
 		}
 
@@ -765,7 +765,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		goto set_flags;
 	}
 
-	SLJIT_ASSERT_STOP();
+	SLJIT_UNREACHABLE();
 	return SLJIT_SUCCESS;
 
 set_flags:
@@ -1374,7 +1374,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 				srcw = (sljit_s32)srcw;
 			break;
 		default:
-			SLJIT_ASSERT_STOP();
+			SLJIT_UNREACHABLE();
 			flags = 0;
 			break;
 		}
@@ -1866,7 +1866,7 @@ static sljit_uw get_cc(sljit_s32 type)
 		return 0x6;
 
 	default:
-		SLJIT_ASSERT_STOP();
+		SLJIT_UNREACHABLE();
 		return 0xe;
 	}
 }
