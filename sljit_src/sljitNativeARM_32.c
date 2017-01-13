@@ -1379,12 +1379,20 @@ static sljit_s32 getput_arg_fast(struct sljit_compiler *compiler, sljit_s32 inp_
 	if (!(arg & REG_MASK))
 		return 0;
 
+	if (!(inp_flags & ARG_TEST) && (inp_flags & WRITE_BACK) && reg == (arg & REG_MASK)) {
+		/* This is not a fast case but too difficult to test otherwise. */
+		SLJIT_ASSERT(!(inp_flags & LOAD_DATA));
+		FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG3, SLJIT_UNUSED, RM(reg))));
+		reg = TMP_REG3;
+	}
+
 	if (arg & OFFS_REG_MASK) {
 		if ((argw & 0x3) != 0 && !IS_TYPE1_TRANSFER(inp_flags))
 			return 0;
 
 		if (inp_flags & ARG_TEST)
 			return 1;
+
 		FAIL_IF(push_inst(compiler, EMIT_DATA_TRANSFER(inp_flags, 1, inp_flags & WRITE_BACK, reg, arg & REG_MASK,
 			RM(OFFS_REG(arg)) | (IS_TYPE1_TRANSFER(inp_flags) ? SRC2_IMM : 0) | ((argw & 0x3) << 7))));
 		return -1;
