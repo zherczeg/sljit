@@ -1,7 +1,7 @@
 /*
  *    Stack-less Just-In-Time compiler
  *
- *    Copyright 2009-2012 Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
+ *    Copyright Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are
  * permitted provided that the following conditions are met:
@@ -727,17 +727,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 	case SLJIT_DIV_SW:
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 #ifdef _WIN64
-		SLJIT_COMPILE_ASSERT(
+		SLJIT_ASSERT(
 			reg_map[SLJIT_R0] == 0
 			&& reg_map[SLJIT_R1] == 2
-			&& reg_map[TMP_REG1] > 7,
-			invalid_register_assignment_for_div_mul);
+			&& reg_map[TMP_REG1] > 7);
 #else
-		SLJIT_COMPILE_ASSERT(
+		SLJIT_ASSERT(
 			reg_map[SLJIT_R0] == 0
 			&& reg_map[SLJIT_R1] < 7
-			&& reg_map[TMP_REG1] == 2,
-			invalid_register_assignment_for_div_mul);
+			&& reg_map[TMP_REG1] == 2);
 #endif
 		compiler->mode32 = op & SLJIT_I32_OP;
 #endif
@@ -2707,7 +2705,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	}
 
 	if (GET_OPCODE(op) == SLJIT_OR && !GET_ALL_FLAGS(op) && FAST_IS_REG(dst) && dst == src && reg_map[dst] <= 4) {
-		SLJIT_COMPILE_ASSERT(reg_map[SLJIT_R0] == 0, scratch_reg1_must_be_eax);
+		SLJIT_ASSERT(reg_map[SLJIT_R0] == 0);
+
 		if (dst != SLJIT_R0) {
 			inst = (sljit_u8*)ensure_buf(compiler, 1 + 1 + 3 + 2 + 1);
 			FAIL_IF(!inst);

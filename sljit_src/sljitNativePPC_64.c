@@ -1,7 +1,7 @@
 /*
  *    Stack-less Just-In-Time compiler
  *
- *    Copyright 2009-2012 Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
+ *    Copyright Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are
  * permitted provided that the following conditions are met:
@@ -364,7 +364,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return push_inst(compiler, ((flags & ALT_FORM2) ? SRAW : SRAD) | RC(flags) | S(src1) | A(dst) | B(src2));
 	}
 
-	SLJIT_ASSERT_STOP();
+	SLJIT_UNREACHABLE();
 	return SLJIT_SUCCESS;
 }
 

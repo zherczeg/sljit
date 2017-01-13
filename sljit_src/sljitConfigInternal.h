@@ -1,7 +1,7 @@
 /*
  *    Stack-less Just-In-Time compiler
  *
- *    Copyright 2009-2012 Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
+ *    Copyright Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are
  * permitted provided that the following conditions are met:
@@ -663,7 +663,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 
-#if !defined(SLJIT_ASSERT) || !defined(SLJIT_ASSERT_STOP)
+#if !defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)
 
 /* SLJIT_HALT_PROCESS must halt the process. */
 #ifndef SLJIT_HALT_PROCESS
@@ -675,7 +675,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 
 #include <stdio.h>
 
-#endif /* !SLJIT_ASSERT || !SLJIT_ASSERT_STOP */
+#endif /* !SLJIT_ASSERT || !SLJIT_UNREACHABLE */
 
 /* Feel free to redefine these two macros. */
 #ifndef SLJIT_ASSERT
@@ -690,34 +690,33 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 
 #endif /* !SLJIT_ASSERT */
 
-#ifndef SLJIT_ASSERT_STOP
+#ifndef SLJIT_UNREACHABLE
 
-#define SLJIT_ASSERT_STOP() \
+#define SLJIT_UNREACHABLE() \
 	do { \
 		printf("Should never been reached " __FILE__ ":%d\n", __LINE__); \
 		SLJIT_HALT_PROCESS(); \
 	} while (0)
 
-#endif /* !SLJIT_ASSERT_STOP */
+#endif /* !SLJIT_UNREACHABLE */
 
 #else /* (defined SLJIT_DEBUG && SLJIT_DEBUG) */
 
 /* Forcing empty, but valid statements. */
 #undef SLJIT_ASSERT
-#undef SLJIT_ASSERT_STOP
+#undef SLJIT_UNREACHABLE
 
 #define SLJIT_ASSERT(x) \
 	do { } while (0)
-#define SLJIT_ASSERT_STOP() \
+#define SLJIT_UNREACHABLE() \
 	do { } while (0)
 
 #endif /* (defined SLJIT_DEBUG && SLJIT_DEBUG) */
 
 #ifndef SLJIT_COMPILE_ASSERT
 
-/* Should be improved eventually. */
 #define SLJIT_COMPILE_ASSERT(x, description) \
-	SLJIT_ASSERT(x)
+	switch(0) { case 0: case ((x) ? 1 : 0): break; }
 
 #endif /* !SLJIT_COMPILE_ASSERT */
 

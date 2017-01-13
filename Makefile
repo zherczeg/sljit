@@ -2,7 +2,7 @@ ifdef CROSS_COMPILER
 CC = $(CROSS_COMPILER)
 else
 ifndef CC
-# default compier
+# default compiler
 CC = gcc
 endif
 endif

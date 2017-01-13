@@ -1,7 +1,7 @@
 /*
  *    Stack-less Just-In-Time compiler
  *
- *    Copyright 2009-2012 Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
+ *    Copyright Zoltan Herczeg (hzmester@freemail.hu). All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are
  * permitted provided that the following conditions are met:
@@ -338,7 +338,7 @@ static SLJIT_INLINE void set_jump_instruction(struct sljit_jump *jump, sljit_sw 
 	else if (type == 6) /* Encoding T1 of 'BL' instruction */
 		jump_inst[1] |= 0xd000;
 	else
-		SLJIT_ASSERT_STOP();
+		SLJIT_UNREACHABLE();
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compiler)
@@ -669,7 +669,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				return push_inst32(compiler, ASR_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
 			}
 		default:
-			SLJIT_ASSERT_STOP();
+			SLJIT_UNREACHABLE();
 			break;
 		}
 
@@ -788,7 +788,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		return push_inst32(compiler, ASR_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	}
 
-	SLJIT_ASSERT_STOP();
+	SLJIT_UNREACHABLE();
 	return SLJIT_SUCCESS;
 }
 
@@ -1270,7 +1270,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 	case SLJIT_DIV_UW:
 	case SLJIT_DIV_SW:
 		SLJIT_COMPILE_ASSERT((SLJIT_DIVMOD_UW & 0x2) == 0 && SLJIT_DIV_UW - 0x2 == SLJIT_DIVMOD_UW, bad_div_opcode_assignments);
-		SLJIT_COMPILE_ASSERT(reg_map[2] == 1 && reg_map[3] == 2 && reg_map[4] == 12, bad_register_mapping);
+		SLJIT_ASSERT(reg_map[2] == 1 && reg_map[3] == 2 && reg_map[4] == 12);
 
 		saved_reg_count = 0;
 		if (compiler->scratches >= 4)
@@ -1391,7 +1391,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 				srcw = (sljit_s16)srcw;
 			break;
 		default:
-			SLJIT_ASSERT_STOP();
+			SLJIT_UNREACHABLE();
 			flags = 0;
 			break;
 		}
@@ -1904,7 +1904,7 @@ static sljit_uw get_cc(sljit_s32 type)
 		return 0x7;
 
 	default: /* SLJIT_JUMP */
-		SLJIT_ASSERT_STOP();
+		SLJIT_UNREACHABLE();
 		return 0xe;
 	}
 }
