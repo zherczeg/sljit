@@ -903,6 +903,11 @@ static sljit_s32 getput_arg_fast(struct sljit_compiler *compiler, sljit_s32 flag
 
 	if (SLJIT_UNLIKELY(flags & UPDATE)) {
 		if ((arg & REG_MASK) && !(arg & OFFS_REG_MASK) && argw <= 0xff && argw >= -0xff) {
+			if (reg == (arg & REG_MASK)) {
+				SLJIT_ASSERT(flags & STORE);
+				return 0;
+			}
+
 			if (SLJIT_UNLIKELY(flags & ARG_TEST))
 				return 1;
 
@@ -1009,7 +1014,7 @@ static sljit_s32 can_cache(sljit_s32 arg, sljit_sw argw, sljit_s32 next_arg, slj
 static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sljit_s32 reg,
 	sljit_s32 arg, sljit_sw argw, sljit_s32 next_arg, sljit_sw next_argw)
 {
-	sljit_s32 tmp_r, other_r;
+	sljit_s32 other_r;
 	sljit_sw diff;
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
@@ -1017,8 +1022,6 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 		next_arg = 0;
 		next_argw = 0;
 	}
-
-	tmp_r = (flags & STORE) ? TMP_REG3 : reg;
 
 	if (SLJIT_UNLIKELY((flags & UPDATE) && (arg & REG_MASK))) {
 		/* Update only applies if a base register exists. */
