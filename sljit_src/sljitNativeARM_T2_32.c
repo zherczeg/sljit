@@ -903,11 +903,6 @@ static sljit_s32 getput_arg_fast(struct sljit_compiler *compiler, sljit_s32 flag
 
 	if (SLJIT_UNLIKELY(flags & UPDATE)) {
 		if ((arg & REG_MASK) && !(arg & OFFS_REG_MASK) && argw <= 0xff && argw >= -0xff) {
-			if (reg == (arg & REG_MASK)) {
-				SLJIT_ASSERT(flags & STORE);
-				return 0;
-			}
-
 			if (SLJIT_UNLIKELY(flags & ARG_TEST))
 				return 1;
 
@@ -1058,13 +1053,12 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 			}
 		}
 
-		argw &= 0x3;
-		if (!argw && IS_3_LO_REGS(reg, arg, other_r)) {
+		if (IS_3_LO_REGS(reg, arg, other_r)) {
 			FAIL_IF(push_inst16(compiler, sljit_mem16[flags] | RD3(reg) | RN3(arg) | RM3(other_r)));
 			return push_inst16(compiler, ADD | SET_REGS44(arg, other_r));
 		}
-		FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | RT4(reg) | RN4(arg) | RM4(other_r) | (argw << 4)));
-		return push_inst32(compiler, ADD_W | RD4(arg) | RN4(arg) | RM4(other_r) | (argw << 6));
+		FAIL_IF(push_inst32(compiler, sljit_mem32[flags] | RT4(reg) | RN4(arg) | RM4(other_r)));
+		return push_inst32(compiler, ADD_W | RD4(arg) | RN4(arg) | RM4(other_r));
 	}
 	flags &= ~UPDATE;
 

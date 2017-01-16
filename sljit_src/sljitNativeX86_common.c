@@ -1233,7 +1233,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
-	sljit_u8* inst;
 	sljit_s32 update = 0;
 	sljit_s32 op_flags = GET_ALL_FLAGS(op);
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
@@ -1312,14 +1311,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 #endif
 		}
 
-		if (SLJIT_UNLIKELY(update) && (src & SLJIT_MEM) && !src_is_ereg && (src & REG_MASK) && (srcw != 0 || (src & OFFS_REG_MASK) != 0)) {
-			inst = emit_x86_instruction(compiler, 1, src & REG_MASK, 0, src, srcw);
-			FAIL_IF(!inst);
-			*inst = LEA_r_m;
-			src &= SLJIT_MEM | 0xf;
-			srcw = 0;
-		}
-
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		if (SLJIT_UNLIKELY(dst_is_ereg) && (!(op == SLJIT_MOV || op == SLJIT_MOV_U32 || op == SLJIT_MOV_S32 || op == SLJIT_MOV_P) || (src & SLJIT_MEM))) {
 			SLJIT_ASSERT(dst == SLJIT_MEM1(SLJIT_SP));
@@ -1363,10 +1354,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 			return emit_mov(compiler, SLJIT_MEM1(SLJIT_SP), dstw, TMP_REG1, 0);
 #endif
 
-		if (SLJIT_UNLIKELY(update) && (dst & SLJIT_MEM) && (dst & REG_MASK) && (dstw != 0 || (dst & OFFS_REG_MASK) != 0)) {
-			inst = emit_x86_instruction(compiler, 1, dst & REG_MASK, 0, dst, dstw);
-			FAIL_IF(!inst);
-			*inst = LEA_r_m;
+		if (SLJIT_UNLIKELY(update) && (src & SLJIT_MEM) && !src_is_ereg && (src & REG_MASK)) {
+			if ((src & OFFS_REG_MASK) != 0) {
+				FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
+						(src & REG_MASK), 0, (src & REG_MASK), 0, OFFS_REG(dst), 0));
+			}
+			else if (srcw != 0) {
+				FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
+						(src & REG_MASK), 0, (src & REG_MASK), 0, SLJIT_IMM, srcw));
+			}
+		}
+
+		if (SLJIT_UNLIKELY(update) && (dst & SLJIT_MEM) && (dst & REG_MASK)) {
+			if ((dst & OFFS_REG_MASK) != 0) {
+				FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
+						(dst & REG_MASK), 0, (dst & REG_MASK), 0, OFFS_REG(dst), 0));
+			}
+			else if (dstw != 0) {
+				FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
+						(dst & REG_MASK), 0, (dst & REG_MASK), 0, SLJIT_IMM, dstw));
+			}
 		}
 		return SLJIT_SUCCESS;
 	}

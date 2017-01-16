@@ -1054,15 +1054,21 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	FUNCTION_CHECK_SRC(src, srcw);
 	FUNCTION_CHECK_DST(dst, dstw);
 
-	if (GET_OPCODE(op) >= SLJIT_MOVU && GET_OPCODE(op) <= SLJIT_MOVU_P) {
-		CHECK_ARGUMENT(!(src & SLJIT_MEM) || (src & REG_MASK) != SLJIT_SP);
-		CHECK_ARGUMENT(!(dst & SLJIT_MEM) || (dst & REG_MASK) != SLJIT_SP);
-		if ((src & SLJIT_MEM) && (src & REG_MASK))
-			CHECK_ARGUMENT((dst & REG_MASK) != (src & REG_MASK) && OFFS_REG(dst) != (src & REG_MASK));
-	}
-
 	if (GET_OPCODE(op) >= SLJIT_NOT)
 		compiler->last_flags = GET_FLAG_TYPE(op) | (op & (SLJIT_I32_OP | SLJIT_SET_Z));
+	else if (GET_OPCODE(op) >= SLJIT_MOVU) {
+		CHECK_ARGUMENT(!(src & SLJIT_MEM) || (src & REG_MASK) != SLJIT_SP);
+		CHECK_ARGUMENT(!(dst & SLJIT_MEM) || (dst & REG_MASK) != SLJIT_SP);
+		if ((src & REG_MASK) != SLJIT_UNUSED) {
+			CHECK_ARGUMENT((src & REG_MASK) != (dst & REG_MASK) && (src & REG_MASK) != OFFS_REG(dst));
+			CHECK_ARGUMENT((src & OFFS_REG_MASK) == SLJIT_UNUSED || srcw == 0);
+		}
+		if ((dst & REG_MASK) != SLJIT_UNUSED) {
+			CHECK_ARGUMENT((dst & REG_MASK) != OFFS_REG(src));
+			CHECK_ARGUMENT((dst & OFFS_REG_MASK) == SLJIT_UNUSED || dstw == 0);
+		}
+		compiler->last_flags = 0;
+	}
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {

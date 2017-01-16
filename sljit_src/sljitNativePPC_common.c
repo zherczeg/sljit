@@ -1020,10 +1020,6 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 inp_flags
 #endif
 
 		if (inp_flags & WRITE_BACK) {
-			if (arg == reg) {
-				FAIL_IF(push_inst(compiler, OR | S(reg) | A(tmp_r) | B(reg)));
-				reg = tmp_r;
-			}
 			tmp_r = arg;
 			FAIL_IF(push_inst(compiler, ADDIS | D(arg) | A(arg) | IMM(high_short >> 16)));
 		}

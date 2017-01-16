@@ -362,8 +362,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 	if (b & SLJIT_MEM) {
 		if (!(b & OFFS_REG_MASK)) {
 			if (NOT_HALFWORD(immb)) {
-				if (emit_load_imm64(compiler, TMP_REG3, immb))
-					return NULL;
+				PTR_FAIL_IF(emit_load_imm64(compiler, TMP_REG3, immb));
 				immb = 0;
 				if (b & REG_MASK)
 					b |= TO_OFFS_REG(TMP_REG3);

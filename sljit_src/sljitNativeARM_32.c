@@ -1379,13 +1379,6 @@ static sljit_s32 getput_arg_fast(struct sljit_compiler *compiler, sljit_s32 inp_
 	if (!(arg & REG_MASK))
 		return 0;
 
-	if (!(inp_flags & ARG_TEST) && (inp_flags & WRITE_BACK) && reg == (arg & REG_MASK)) {
-		/* This is not a fast case but too difficult to test otherwise. */
-		SLJIT_ASSERT(!(inp_flags & LOAD_DATA));
-		FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG3, SLJIT_UNUSED, RM(reg))));
-		reg = TMP_REG3;
-	}
-
 	if (arg & OFFS_REG_MASK) {
 		if ((argw & 0x3) != 0 && !IS_TYPE1_TRANSFER(inp_flags))
 			return 0;
@@ -1469,18 +1462,6 @@ static sljit_s32 can_cache(sljit_s32 arg, sljit_sw argw, sljit_s32 next_arg, slj
 	else \
 		FAIL_IF(push_inst(compiler, EMIT_DATA_TRANSFER(inp_flags, add, wb, target, base, TYPE2_TRANSFER_IMM(imm))));
 
-#define TEST_WRITE_BACK() \
-	if (inp_flags & WRITE_BACK) { \
-		tmp_r = arg & REG_MASK; \
-		if (reg == tmp_r) { \
-			/* This can only happen for stores */ \
-			/* since ldr reg, [reg, ...]! has no meaning */ \
-			SLJIT_ASSERT(!(inp_flags & LOAD_DATA)); \
-			FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(MOV_DP, 0, TMP_REG3, SLJIT_UNUSED, RM(reg)))); \
-			reg = TMP_REG3; \
-		} \
-	}
-
 /* Emit the necessary instructions. See can_cache above. */
 static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 inp_flags, sljit_s32 reg, sljit_s32 arg, sljit_sw argw, sljit_s32 next_arg, sljit_sw next_argw)
 {
@@ -1555,7 +1536,8 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 inp_flags
 
 	imm = get_imm(argw & ~max_delta);
 	if (imm) {
-		TEST_WRITE_BACK();
+		if (inp_flags & WRITE_BACK)
+			tmp_r = arg & REG_MASK;
 		FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(ADD_DP, 0, tmp_r, arg & REG_MASK, imm)));
 		GETPUT_ARG_DATA_TRANSFER(1, inp_flags & WRITE_BACK, reg, tmp_r, argw & max_delta);
 		return SLJIT_SUCCESS;
@@ -1563,15 +1545,15 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 inp_flags
 
 	imm = get_imm(-argw & ~max_delta);
 	if (imm) {
+		if (inp_flags & WRITE_BACK)
+			tmp_r = arg & REG_MASK;
 		argw = -argw;
-		TEST_WRITE_BACK();
 		FAIL_IF(push_inst(compiler, EMIT_DATA_PROCESS_INS(SUB_DP, 0, tmp_r, arg & REG_MASK, imm)));
 		GETPUT_ARG_DATA_TRANSFER(0, inp_flags & WRITE_BACK, reg, tmp_r, argw & max_delta);
 		return SLJIT_SUCCESS;
 	}
 
 	if ((compiler->cache_arg & SLJIT_IMM) && compiler->cache_argw == argw) {
-		TEST_WRITE_BACK();
 		return push_inst(compiler, EMIT_DATA_TRANSFER(inp_flags, 1, inp_flags & WRITE_BACK, reg, arg & REG_MASK, RM(TMP_REG3) | (max_delta & 0xf00 ? SRC2_IMM : 0)));
 	}
 
@@ -1582,7 +1564,6 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 inp_flags
 		compiler->cache_arg = SLJIT_IMM;
 		compiler->cache_argw = argw;
 
-		TEST_WRITE_BACK();
 		return push_inst(compiler, EMIT_DATA_TRANSFER(inp_flags, 1, inp_flags & WRITE_BACK, reg, arg & REG_MASK, RM(TMP_REG3) | (max_delta & 0xf00 ? SRC2_IMM : 0)));
 	}
 

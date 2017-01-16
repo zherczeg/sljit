@@ -1,5 +1,10 @@
 This file is the short summary of the API changes:
 
+15.01.2017 - Non-backward compatible
+    Move with update may modifiy flags, the base register
+    can only be used once and [reg+reg<<shift] addressing
+    mode where shift > 0 is not supported anymore.
+
 12.01.2017 - Non-backward compatible
     Introducing a new flag mechanism which provides better
     compatibility with CPUs without flags. Only two flags
