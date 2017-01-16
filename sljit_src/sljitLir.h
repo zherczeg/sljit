@@ -801,16 +801,47 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 /* Starting index of opcodes for sljit_emit_op1. */
 #define SLJIT_OP1_BASE			32
 
-/* Notes for MOV instructions:
-   U = Mov with update (pre form). If source or destination defined as SLJIT_MEM1(r1)
-       or SLJIT_MEM2(r1, r2), r1 is increased by the sum of r2 and the constant argument
-   UB = unsigned byte (8 bit)
-   SB = signed byte (8 bit)
-   UH = unsigned half (16 bit)
-   SH = signed half (16 bit)
-   UI = unsigned int (32 bit)
-   SI = signed int (32 bit)
-   P  = pointer (sljit_p) size */
+/* The MOV instruction transfer data from source to destination.
+
+   MOV instruction suffixes:
+
+   U8  - unsigned 8 bit data transfer
+   S8  - signed 8 bit data transfer
+   U16 - unsigned 16 bit data transfer
+   S16 - signed 16 bit data transfer
+   U32 - unsigned int (32 bit) data transfer
+   S32 - signed int (32 bit) data transfer
+   P   - pointer (sljit_p) data transfer
+
+   U = move with update (pre form). If source or destination defined as
+       SLJIT_MEM1(r1) or SLJIT_MEM2(r1, r2), r1 is increased by the
+       offset part of the address.
+
+   Register arguments and base registers can only be used once for move
+   with update instructions. The shift value of SLJIT_MEM2 addressing
+   mode must also be 0. Reason: SLJIT_MOVU instructions are expected to
+   be in high-performance loops where complex instruction emulation
+   would be too costly.
+
+   Examples for invalid move with update instructions:
+
+   sljit_emit_op1(..., SLJIT_MOVU_U8,
+       SLJIT_R0, 0, SLJIT_MEM1(SLJIT_R0), 8);
+   sljit_emit_op1(..., SLJIT_MOVU_U8,
+       SLJIT_MEM2(SLJIT_R1, SLJIT_R0), 0, SLJIT_R0, 0);
+   sljit_emit_op1(..., SLJIT_MOVU_U8,
+       SLJIT_MEM2(SLJIT_R0, SLJIT_R1), 0, SLJIT_MEM1(SLJIT_R0), 8);
+   sljit_emit_op1(..., SLJIT_MOVU_U8,
+       SLJIT_MEM2(SLJIT_R0, SLJIT_R1), 0, SLJIT_MEM2(SLJIT_R1, SLJIT_R0), 0);
+   sljit_emit_op1(..., SLJIT_MOVU_U8,
+       SLJIT_R2, 0, SLJIT_MEM2(SLJIT_R0, SLJIT_R1), 1);
+
+   The following example is valid, since only the offset register is
+   used multiple times:
+
+   sljit_emit_op1(..., SLJIT_MOVU_U8,
+       SLJIT_MEM2(SLJIT_R0, SLJIT_R2), 0, SLJIT_MEM2(SLJIT_R1, SLJIT_R2), 0);
+*/
 
 /* Flags: - (does not modify flags) */
 #define SLJIT_MOV			(SLJIT_OP1_BASE + 0)
@@ -836,29 +867,29 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 #define SLJIT_MOV32			(SLJIT_MOV_S32 | SLJIT_I32_OP)
 /* Flags: - (does not modify flags) */
 #define SLJIT_MOV_P			(SLJIT_OP1_BASE + 7)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_MOVU			(SLJIT_OP1_BASE + 8)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_MOVU_U8			(SLJIT_OP1_BASE + 9)
 #define SLJIT_MOVU32_U8			(SLJIT_MOVU_U8 | SLJIT_I32_OP)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_MOVU_S8			(SLJIT_OP1_BASE + 10)
 #define SLJIT_MOVU32_S8			(SLJIT_MOVU_S8 | SLJIT_I32_OP)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_MOVU_U16			(SLJIT_OP1_BASE + 11)
 #define SLJIT_MOVU32_U16			(SLJIT_MOVU_U16 | SLJIT_I32_OP)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_MOVU_S16			(SLJIT_OP1_BASE + 12)
 #define SLJIT_MOVU32_S16		(SLJIT_MOVU_S16 | SLJIT_I32_OP)
-/* Flags: - (does not modify flags)
+/* Flags: - (may destroy flags)
    Note: no SLJIT_MOVU32_U32 form, since it is the same as SLJIT_MOVU32 */
 #define SLJIT_MOVU_U32			(SLJIT_OP1_BASE + 13)
-/* Flags: - (does not modify flags)
+/* Flags: - (may destroy flags)
    Note: no SLJIT_MOVU32_S32 form, since it is the same as SLJIT_MOVU32 */
 #define SLJIT_MOVU_S32			(SLJIT_OP1_BASE + 14)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_MOVU32			(SLJIT_MOVU_S32 | SLJIT_I32_OP)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_MOVU_P			(SLJIT_OP1_BASE + 15)
 /* Flags: Z */
 #define SLJIT_NOT			(SLJIT_OP1_BASE + 16)
@@ -867,9 +898,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 #define SLJIT_NEG			(SLJIT_OP1_BASE + 17)
 #define SLJIT_NEG32			(SLJIT_NEG | SLJIT_I32_OP)
 /* Count leading zeroes
-   Flags: Z
-   Important note! Sparc 32 does not support K flag, since
-   the required popc instruction is introduced only in sparc 64. */
+   Flags: Z */
 #define SLJIT_CLZ			(SLJIT_OP1_BASE + 18)
 #define SLJIT_CLZ32			(SLJIT_CLZ | SLJIT_I32_OP)
 

@@ -936,14 +936,16 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 		other_r = OFFS_REG(arg);
 		if (!other_r) {
 			other_r = arg & REG_MASK;
-			if (other_r != reg && argw >= 0 && argw <= 0xffffff) {
+			SLJIT_ASSERT(other_r != reg);
+
+			if (argw >= 0 && argw <= 0xffffff) {
 				if ((argw & 0xfff) != 0)
 					FAIL_IF(push_inst(compiler, ADDI | RD(other_r) | RN(other_r) | ((argw & 0xfff) << 10)));
 				if (argw >> 12)
 					FAIL_IF(push_inst(compiler, ADDI | (1 << 22) | RD(other_r) | RN(other_r) | ((argw >> 12) << 10)));
 				return push_inst(compiler, sljit_mem_imm[flags & 0x3] | (shift << 30) | RT(reg) | RN(other_r));
 			}
-			else if (other_r != reg && argw < 0 && argw >= -0xffffff) {
+			else if (argw < 0 && argw >= -0xffffff) {
 				argw = -argw;
 				if ((argw & 0xfff) != 0)
 					FAIL_IF(push_inst(compiler, SUBI | RD(other_r) | RN(other_r) | ((argw & 0xfff) << 10)));
@@ -976,18 +978,8 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 
 		/* No caching here. */
 		arg &= REG_MASK;
-		argw &= 0x3;
-		if (!argw || argw == shift) {
-			FAIL_IF(push_inst(compiler, sljit_mem_reg[flags & 0x3] | (shift << 30) | RT(reg) | RN(arg) | RM(other_r) | (argw ? (1 << 12) : 0)));
-			return push_inst(compiler, ADD | RD(arg) | RN(arg) | RM(other_r) | (argw << 10));
-		}
-		if (arg != reg) {
-			FAIL_IF(push_inst(compiler, ADD | RD(arg) | RN(arg) | RM(other_r) | (argw << 10)));
-			return push_inst(compiler, sljit_mem_imm[flags & 0x3] | (shift << 30) | RT(reg) | RN(arg));
-		}
-		FAIL_IF(push_inst(compiler, ADD | RD(TMP_LR) | RN(arg) | RM(other_r) | (argw << 10)));
-		FAIL_IF(push_inst(compiler, sljit_mem_imm[flags & 0x3] | (shift << 30) | RT(reg) | RN(TMP_LR)));
-		return push_inst(compiler, ORR | RD(arg) | RN(TMP_ZERO) | RM(TMP_LR));
+		FAIL_IF(push_inst(compiler, sljit_mem_reg[flags & 0x3] | (shift << 30) | RT(reg) | RN(arg) | RM(other_r)));
+		return push_inst(compiler, ADD | RD(arg) | RN(arg) | RM(other_r));
 	}
 
 	if (arg & OFFS_REG_MASK) {

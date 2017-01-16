@@ -759,34 +759,28 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 	base = arg & REG_MASK;
 
 	if (SLJIT_UNLIKELY(arg & OFFS_REG_MASK)) {
-		argw &= 0x3;
-		if ((flags & WRITE_BACK) && reg_ar == DR(base)) {
-			SLJIT_ASSERT(!(flags & LOAD_DATA) && DR(TMP_REG1) != reg_ar);
-			FAIL_IF(push_inst(compiler, ADDU_W | SA(reg_ar) | TA(0) | D(TMP_REG1), DR(TMP_REG1)));
-			reg_ar = DR(TMP_REG1);
+		if (SLJIT_UNLIKELY(flags & WRITE_BACK)) {
+			SLJIT_ASSERT(argw == 0);
+			FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(OFFS_REG(arg)) | D(base), DR(base)));
+			return push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | S(base) | TA(reg_ar), delay_slot);
 		}
+
+		argw &= 0x3;
 
 		/* Using the cache. */
 		if (argw == compiler->cache_argw) {
-			if (!(flags & WRITE_BACK)) {
-				if (arg == compiler->cache_arg)
+			if (arg == compiler->cache_arg)
+				return push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | S(TMP_REG3) | TA(reg_ar), delay_slot);
+
+			if ((SLJIT_MEM | (arg & OFFS_REG_MASK)) == compiler->cache_arg) {
+				if (arg == next_arg && argw == (next_argw & 0x3)) {
+					compiler->cache_arg = arg;
+					compiler->cache_argw = argw;
+					FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(TMP_REG3) | D(TMP_REG3), DR(TMP_REG3)));
 					return push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | S(TMP_REG3) | TA(reg_ar), delay_slot);
-				if ((SLJIT_MEM | (arg & OFFS_REG_MASK)) == compiler->cache_arg) {
-					if (arg == next_arg && argw == (next_argw & 0x3)) {
-						compiler->cache_arg = arg;
-						compiler->cache_argw = argw;
-						FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(TMP_REG3) | D(TMP_REG3), DR(TMP_REG3)));
-						return push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | S(TMP_REG3) | TA(reg_ar), delay_slot);
-					}
-					FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(TMP_REG3) | DA(tmp_ar), tmp_ar));
-					return push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | SA(tmp_ar) | TA(reg_ar), delay_slot);
 				}
-			}
-			else {
-				if ((SLJIT_MEM | (arg & OFFS_REG_MASK)) == compiler->cache_arg) {
-					FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(TMP_REG3) | D(base), DR(base)));
-					return push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | S(base) | TA(reg_ar), delay_slot);
-				}
+				FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(TMP_REG3) | DA(tmp_ar), tmp_ar));
+				return push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | SA(tmp_ar) | TA(reg_ar), delay_slot);
 			}
 		}
 
@@ -796,35 +790,18 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 			FAIL_IF(push_inst(compiler, SLL_W | T(OFFS_REG(arg)) | D(TMP_REG3) | SH_IMM(argw), DR(TMP_REG3)));
 		}
 
-		if (!(flags & WRITE_BACK)) {
-			if (arg == next_arg && argw == (next_argw & 0x3)) {
-				compiler->cache_arg = arg;
-				compiler->cache_argw = argw;
-				FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(!argw ? OFFS_REG(arg) : TMP_REG3) | D(TMP_REG3), DR(TMP_REG3)));
-				tmp_ar = DR(TMP_REG3);
-			}
-			else
-				FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(!argw ? OFFS_REG(arg) : TMP_REG3) | DA(tmp_ar), tmp_ar));
-			return push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | SA(tmp_ar) | TA(reg_ar), delay_slot);
+		if (arg == next_arg && argw == (next_argw & 0x3)) {
+			compiler->cache_arg = arg;
+			compiler->cache_argw = argw;
+			FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(!argw ? OFFS_REG(arg) : TMP_REG3) | D(TMP_REG3), DR(TMP_REG3)));
+			tmp_ar = DR(TMP_REG3);
 		}
-		FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(!argw ? OFFS_REG(arg) : TMP_REG3) | D(base), DR(base)));
-		return push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | S(base) | TA(reg_ar), delay_slot);
+		else
+			FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(!argw ? OFFS_REG(arg) : TMP_REG3) | DA(tmp_ar), tmp_ar));
+		return push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | SA(tmp_ar) | TA(reg_ar), delay_slot);
 	}
 
 	if (SLJIT_UNLIKELY(flags & WRITE_BACK) && base) {
-		/* Update only applies if a base register exists. */
-		if (reg_ar == DR(base)) {
-			SLJIT_ASSERT(!(flags & LOAD_DATA) && DR(TMP_REG1) != reg_ar);
-			if (argw <= SIMM_MAX && argw >= SIMM_MIN) {
-				FAIL_IF(push_inst(compiler, data_transfer_insts[flags & MEM_MASK] | S(base) | TA(reg_ar) | IMM(argw), MOVABLE_INS));
-				if (argw)
-					return push_inst(compiler, ADDIU_W | S(base) | T(base) | IMM(argw), DR(base));
-				return SLJIT_SUCCESS;
-			}
-			FAIL_IF(push_inst(compiler, ADDU_W | SA(reg_ar) | TA(0) | D(TMP_REG1), DR(TMP_REG1)));
-			reg_ar = DR(TMP_REG1);
-		}
-
 		if (argw <= SIMM_MAX && argw >= SIMM_MIN) {
 			if (argw)
 				FAIL_IF(push_inst(compiler, ADDIU_W | S(base) | T(base) | IMM(argw), DR(base)));
