@@ -750,8 +750,10 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *comp
 	do { \
 		if ((r) < (SLJIT_R0 + compiler->scratches)) \
 			fprintf(compiler->verbose, "r%d", (r) - SLJIT_R0); \
-		else \
+		else if ((r) != SLJIT_SP) \
 			fprintf(compiler->verbose, "s%d", SLJIT_NUMBER_OF_REGISTERS - (r)); \
+		else \
+			fprintf(compiler->verbose, "sp"); \
 	} while (0)
 
 #define sljit_verbose_param(compiler, p, i) \

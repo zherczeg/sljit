@@ -356,11 +356,6 @@ struct sljit_compiler {
 	sljit_sw cache_argw;
 #endif
 
-#if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
-	sljit_s32 cache_arg;
-	sljit_sw cache_argw;
-#endif
-
 #if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
 	sljit_s32 cache_arg;
 	sljit_sw cache_argw;
