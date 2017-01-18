@@ -901,7 +901,7 @@ static SLJIT_INLINE sljit_s32 emit_op_mem(struct sljit_compiler *compiler, sljit
 	sljit_uw tmp;
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
-	SLJIT_ASSERT((arg & 0xf) != tmp_reg);
+	SLJIT_ASSERT((arg & REG_MASK) != tmp_reg);
 	flags &= ~UPDATE;
 	arg &= ~SLJIT_MEM;
 

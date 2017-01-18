@@ -352,8 +352,6 @@ struct sljit_compiler {
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 	/* Temporary fields. */
 	sljit_uw shift_imm;
-	sljit_s32 cache_arg;
-	sljit_sw cache_argw;
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
