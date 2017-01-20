@@ -3679,7 +3679,7 @@ static void test41(void)
 
 	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		if (SLJIT_R(i) >= SLJIT_R3 && SLJIT_R(i) <= SLJIT_R6) {
+		if (SLJIT_R(i) >= SLJIT_R3 && SLJIT_R(i) <= SLJIT_R8) {
 			SLJIT_ASSERT(sljit_get_register_index(SLJIT_R(i)) == -1);
 			continue;
 		}
@@ -5138,7 +5138,9 @@ static void test54(void)
 	sljit_s32 ibuf[6];
 
 	if (verbose)
-		printf("Run test53\n");
+		printf("Run test54\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 98;
 	buf[1] = 0;
@@ -5219,7 +5221,68 @@ static void test54(void)
 	}
 #endif
 
+	sljit_free_code(code.code);
+	successful_tests++;
+}
+
+static void test55(void)
+{
+	/* Check value preservation. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	sljit_sw buf[2];
+	sljit_s32 i;
+
+	if (verbose)
+		printf("Run test55\n");
+
 	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 0;
+	buf[1] = 0;
+
+	sljit_emit_enter(compiler, 0, 0, SLJIT_NUMBER_OF_REGISTERS, 0, 0, 0, sizeof (sljit_sw));
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), 0, SLJIT_IMM, 217);
+
+	/* Check 1 */
+	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++)
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, 118);
+
+	sljit_emit_op0(compiler, SLJIT_DIVMOD_SW);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
+
+	for (i = 2; i < SLJIT_NUMBER_OF_REGISTERS; i++)
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R(i), 0);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM0(), (sljit_sw)(buf + 0), SLJIT_R0, 0);
+
+	/* Check 2 */
+	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++)
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, 146);
+
+	sljit_emit_op0(compiler, SLJIT_DIV_SW);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
+
+	for (i = 1; i < SLJIT_NUMBER_OF_REGISTERS; i++)
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R(i), 0);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM0(), (sljit_sw)(buf + 1), SLJIT_R0, 0);
+
+	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func0();
+
+	FAILED(buf[0] != (SLJIT_NUMBER_OF_REGISTERS - 2) * 118 + 217, "test55 case 1 failed\n");
+	FAILED(buf[1] != (SLJIT_NUMBER_OF_REGISTERS - 1) * 146 + 217, "test55 case 2 failed\n");
+
 	sljit_free_code(code.code);
 	successful_tests++;
 }
@@ -5290,12 +5353,13 @@ void sljit_test(int argc, char* argv[])
 	test52();
 	test53();
 	test54();
+	test55();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 54
+#	define TEST_COUNT 55
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

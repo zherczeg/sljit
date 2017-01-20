@@ -553,13 +553,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 
-#define SLJIT_NUMBER_OF_REGISTERS 10
-#define SLJIT_NUMBER_OF_SAVED_REGISTERS 7
+#define SLJIT_NUMBER_OF_REGISTERS 12
+#define SLJIT_NUMBER_OF_SAVED_REGISTERS 9
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-#define SLJIT_LOCALS_OFFSET_BASE ((2 + 4) * sizeof(sljit_sw))
+#define SLJIT_LOCALS_OFFSET_BASE ((2 + 6) * sizeof(sljit_sw))
 #else
 /* Maximum 3 arguments are passed on the stack, +1 for double alignment. */
-#define SLJIT_LOCALS_OFFSET_BASE ((3 + 1 + 4) * sizeof(sljit_sw))
+#define SLJIT_LOCALS_OFFSET_BASE ((3 + 1 + 6) * sizeof(sljit_sw))
 #endif /* SLJIT_X86_32_FASTCALL */
 
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
