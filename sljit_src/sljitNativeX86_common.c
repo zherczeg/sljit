@@ -67,12 +67,12 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 #define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
 
 static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 3] = {
-	0, 0, 2, 1, 0, 0, 0, 0, 7, 6, 3, 4, 5
+	0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 7, 6, 3, 4, 5
 };
 
 #define CHECK_EXTRA_REGS(p, w, do) \
-	if (p >= SLJIT_R3 && p <= SLJIT_R6) { \
-		w = SLJIT_LOCALS_OFFSET + ((p) - (SLJIT_R3 + 4)) * sizeof(sljit_sw); \
+	if (p >= SLJIT_R3 && p <= SLJIT_R8) { \
+		w = SLJIT_LOCALS_OFFSET + ((p) - (SLJIT_R3 + 6)) * sizeof(sljit_sw); \
 		p = SLJIT_MEM1(SLJIT_SP); \
 		do; \
 	}
@@ -2171,7 +2171,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 reg)
 {
 	CHECK_REG_INDEX(check_sljit_get_register_index(reg));
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	if (reg >= SLJIT_R3 && reg <= SLJIT_R6)
+	if (reg >= SLJIT_R3 && reg <= SLJIT_R8)
 		return -1;
 #endif
 	return reg_map[reg];
