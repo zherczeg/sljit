@@ -505,6 +505,18 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw
 	}
 }
 
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler, sljit_s32 current_flags)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(current_flags);
+
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	if ((current_flags & ~(VARIABLE_FLAG_MASK | SLJIT_I32_OP | SLJIT_SET_Z)) == 0) {
+		compiler->last_flags = GET_FLAG_TYPE(current_flags) | (current_flags & (SLJIT_I32_OP | SLJIT_SET_Z));
+	}
+#endif
+}
+
 /* --------------------------------------------------------------------- */
 /*  Private functions                                                    */
 /* --------------------------------------------------------------------- */
@@ -1196,6 +1208,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_custom(struct sljit_co
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(instruction);
+
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	CHECK_ARGUMENT(size > 0 && size < 16);
 #elif (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
@@ -1205,6 +1218,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_custom(struct sljit_co
 	CHECK_ARGUMENT(size == 4 && (((sljit_sw)instruction) & 0x3) == 0);
 #endif
 
+	compiler->last_flags = 0;
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1963,6 +1977,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 	SLJIT_UNUSED_ARG(size);
 	SLJIT_UNREACHABLE();
 	return SLJIT_ERR_UNSUPPORTED;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler, sljit_s32 current_flags)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(current_flags);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_fpu_available(void)
