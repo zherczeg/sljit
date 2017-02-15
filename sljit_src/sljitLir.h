@@ -1329,6 +1329,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
 	void *instruction, sljit_s32 size);
 
+/* Define the currently available CPU status flags. It is usually used after an
+   sljit_emit_op_custom call to define which flags are set. */
+
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler,
+	sljit_s32 current_flags);
+
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 
 /* Returns with non-zero if sse2 is available. */
