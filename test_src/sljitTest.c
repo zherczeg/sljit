@@ -5095,7 +5095,7 @@ static void test53(void)
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = -1;
 
-	sljit_emit_enter(compiler, SLJIT_DOUBLE_ALIGNMENT, 1, 1, 1, 0, 0, 2 * sizeof(sljit_sw));
+	sljit_emit_enter(compiler, SLJIT_F64_ALIGNMENT, 1, 1, 1, 0, 0, 2 * sizeof(sljit_sw));
 
 	sljit_get_local_base(compiler, SLJIT_R0, 0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R0, 0);
@@ -5119,7 +5119,7 @@ static void test53(void)
 	buf[0] = -1;
 
 	/* One more saved register to break the alignment on x86-32. */
-	sljit_emit_enter(compiler, SLJIT_DOUBLE_ALIGNMENT, 1, 1, 2, 0, 0, 2 * sizeof(sljit_sw));
+	sljit_emit_enter(compiler, SLJIT_F64_ALIGNMENT, 1, 1, 2, 0, 0, 2 * sizeof(sljit_sw));
 
 	sljit_get_local_base(compiler, SLJIT_R0, 0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R0, 0);
