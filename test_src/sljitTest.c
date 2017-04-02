@@ -1582,14 +1582,36 @@ static void test20(void)
 	jump = sljit_emit_jump(compiler, SLJIT_NOT_EQUAL);
 	sljit_set_label(jump, label);
 
-	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_IMM, 0x5387);
 
 	code.code = sljit_generate_code(compiler);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
-	/* Just survive this code. */
-	code.func0();
+	FAILED(code.func0() != 0x5387, "test20 case 5 failed\n");
+
+	sljit_free_code(code.code);
+
+	compiler = sljit_create_compiler(NULL);
+	sljit_emit_enter(compiler, SLJIT_F64_ALIGNMENT, 0, 3, 0, 0, 0, SLJIT_MAX_LOCAL_SIZE);
+
+	sljit_get_local_base(compiler, SLJIT_R0, 0, SLJIT_MAX_LOCAL_SIZE - sizeof(sljit_sw));
+	sljit_get_local_base(compiler, SLJIT_R1, 0, -(sljit_sw)sizeof(sljit_sw));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, -1);
+	label = sljit_emit_label(compiler);
+	sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_MEM1(SLJIT_R1), sizeof(sljit_sw), SLJIT_R2, 0);
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_Z, SLJIT_UNUSED, 0, SLJIT_R1, 0, SLJIT_R0, 0);
+	jump = sljit_emit_jump(compiler, SLJIT_NOT_EQUAL);
+	sljit_set_label(jump, label);
+
+	sljit_get_local_base(compiler, SLJIT_R0, 0, 0);
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	FAILED(code.func0() % sizeof(sljit_f64) != 0, "test20 case 6 failed\n");
 
 	sljit_free_code(code.code);
 	successful_tests++;
