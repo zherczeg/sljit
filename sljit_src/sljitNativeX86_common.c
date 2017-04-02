@@ -2596,11 +2596,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	sljit_u8 cond_set = 0;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	sljit_s32 reg;
-#else
-	/* CHECK_EXTRA_REGS migh overwrite these values. */
+#endif
+	/* ADJUST_LOCAL_OFFSET and CHECK_EXTRA_REGS might overwrite these values. */
 	sljit_s32 dst_save = dst;
 	sljit_sw dstw_save = dstw;
-#endif
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type));
@@ -2643,6 +2642,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	*inst++ = cond_set;
 	*inst++ = MOD_REG | reg_lmap[reg];
 	*inst++ = REX_W | (reg_map[reg] <= 7 ? 0 : (REX_B | REX_R));
+	/* The movzx instruction does not affect flags. */
 	*inst++ = GROUP_0F;
 	*inst++ = MOVZX_r_rm8;
 	*inst = MOD_REG | (reg_lmap[reg] << 3) | reg_lmap[reg];
@@ -2658,8 +2658,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	compiler->skip_checks = 1;
 #endif
-	return sljit_emit_op2(compiler, op, dst, dstw, dst, dstw, TMP_REG1, 0);
-#else /* SLJIT_CONFIG_X86_64 */
+	return sljit_emit_op2(compiler, op, dst_save, dstw_save, dst_save, dstw_save, TMP_REG1, 0);
+
+#else
+	/* The SLJIT_CONFIG_X86_32 code path starts here. */
 	if (GET_OPCODE(op) < SLJIT_ADD && FAST_IS_REG(dst)) {
 		if (reg_map[dst] <= 4) {
 			/* Low byte is accessible. */

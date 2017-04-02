@@ -80,8 +80,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	/* [esp+0] for saving temporaries and third argument for calls. */
 	compiler->saveds_offset = 1 * sizeof(sljit_sw);
 #else
-	/* [esp+0] for saving temporaries and space for three arguments. */
-	compiler->saveds_offset = 3 * sizeof(sljit_sw);
+	/* [esp+0] for saving temporaries and space for maximum three arguments. */
+	if (scratches <= 1)
+		compiler->saveds_offset = 1 * sizeof(sljit_sw);
+	else
+		compiler->saveds_offset = ((scratches == 2) ? 2 : 3) * sizeof(sljit_sw);
 #endif
 
 	if (scratches > 3)
@@ -192,6 +195,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		FAIL_IF(emit_non_cum_binary(compiler, SUB_r_rm, SUB_rm_r, SUB, SUB_EAX_i32,
 			SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, local_size + sizeof(sljit_sw)));
 
+#if defined _WIN32 && !(defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
+		if (compiler->local_size > 1024)
+			FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
+				TMP_REG1, 0, TMP_REG1, 0, SLJIT_IMM, sizeof(sljit_sw)));
+#endif
+
 		inst = (sljit_u8*)ensure_buf(compiler, 1 + 6);
 		FAIL_IF(!inst);
 
@@ -222,8 +231,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	/* [esp+0] for saving temporaries and third argument for calls. */
 	compiler->saveds_offset = 1 * sizeof(sljit_sw);
 #else
-	/* [esp+0] for saving temporaries and space for three arguments. */
-	compiler->saveds_offset = 3 * sizeof(sljit_sw);
+	/* [esp+0] for saving temporaries and space for maximum three arguments. */
+	if (scratches <= 1)
+		compiler->saveds_offset = 1 * sizeof(sljit_sw);
+	else
+		compiler->saveds_offset = ((scratches == 2) ? 2 : 3) * sizeof(sljit_sw);
 #endif
 
 	if (scratches > 3)

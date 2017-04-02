@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+27.03.2017 - Non-backward compatible
+    JIT stack is changed from bottom-up to top-town.
+
 15.01.2017 - Non-backward compatible
     Move with update may modifiy flags, the base register
     can only be used once and [reg+reg<<shift] addressing
