@@ -76,6 +76,7 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 8] = {
 #define BRK 0xd4200000
 #define CBZ 0xb4000000
 #define CLZ 0xdac01000
+#define CSEL 0x9a800000
 #define CSINC 0x9a800400
 #define EOR 0xca000000
 #define EORI 0xd2000000
@@ -2014,6 +2015,35 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	if (dst_r != TMP_REG1)
 		return SLJIT_SUCCESS;
 	return emit_op_mem2(compiler, mem_flags | STORE, TMP_REG1, dst, dstw, 0, 0);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_cmov_available(void)
+{
+	return 1;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_reg,
+	sljit_s32 src, sljit_sw srcw)
+{
+	sljit_ins inv_bits = (dst_reg & SLJIT_I32_OP) ? (1 << 31) : 0;
+	sljit_ins cc;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_cmov(compiler, type, dst_reg, src, srcw));
+
+	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {
+		if (dst_reg & SLJIT_I32_OP)
+			srcw = (sljit_s32)srcw;
+		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
+		src = TMP_REG1;
+		srcw = 0;
+	}
+
+	cc = get_cc(type & 0xff);
+	dst_reg &= ~SLJIT_I32_OP;
+
+	return push_inst(compiler, (CSEL ^ inv_bits) | (cc << 12) | RD(dst_reg) | RN(src) | RM(dst_reg));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
