@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+20.04.2017 - Non-backward compatible
+    x86 specific cmov is changed to a general function
+
 27.03.2017 - Non-backward compatible
     JIT stack is changed from bottom-up to top-town.
 

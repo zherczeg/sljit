@@ -1171,7 +1171,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 src, sljit_sw srcw);
 
 /* Perform the operation using the conditional flags as the second argument.
-   Type must always be between SLJIT_EQUAL and SLJIT_S_ORDERED. The value
+   Type must always be between SLJIT_EQUAL and SLJIT_ORDERED_F64. The value
    represented by the type is 1, if the condition represented by the type
    is fulfilled, and 0 otherwise.
 
@@ -1189,6 +1189,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw,
 	sljit_s32 type);
+
+/* Returns with non-zero if sljit_emit_cmov is natively supported
+   on the current CPU. Otherwise sljit_emit_cmov is emulated. */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_cmov_available(void);
+
+/* Emit a conditional mov instruction which moves source to destination,
+   if the condition is satisfied. Unlike other arithmetic operations this
+   instruction does not support memory accesses.
+
+   type must be between SLJIT_EQUAL and SLJIT_ORDERED_F64
+   dst_reg must be a valid register and it can be combined
+      with SLJIT_I32_OP to perform a 32 bit arithmetic operation
+   src must be register or immediate (SLJIT_IMM)
+
+   Flags: - (does not modify flags) */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_reg,
+	sljit_s32 src, sljit_sw srcw);
 
 /* Copies the base address of SLJIT_SP + offset to dst.
    Flags: - (may destroy flags) */
@@ -1215,7 +1233,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 /* --------------------------------------------------------------------- */
 
 #define SLJIT_MAJOR_VERSION	0
-#define SLJIT_MINOR_VERSION	93
+#define SLJIT_MINOR_VERSION	94
 
 /* Get the human readable name of the platform. Can be useful on platforms
    like ARM, where ARM and Thumb2 functions can be mixed, and
@@ -1359,26 +1377,6 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *com
 /* Returns with non-zero if sse2 is available. */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_x86_is_sse2_available(void);
-
-/* Returns with non-zero if cmov instruction is available. */
-
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_x86_is_cmov_available(void);
-
-/* Emit a conditional mov instruction on x86 CPUs. This instruction
-   moves src to destination, if the condition is satisfied. Unlike
-   other arithmetic instructions, destination must be a register.
-   Before such instructions are emitted, cmov support should be
-   checked by sljit_x86_is_cmov_available function.
-    type must be between SLJIT_EQUAL and SLJIT_S_ORDERED
-    dst_reg must be a valid register and it can be combined
-      with SLJIT_I32_OP to perform 32 bit arithmetic
-   Flags: - (does not modify flags)
- */
-
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_x86_emit_cmov(struct sljit_compiler *compiler,
-	sljit_s32 type,
-	sljit_s32 dst_reg,
-	sljit_s32 src, sljit_sw srcw);
 
 #endif
 

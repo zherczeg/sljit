@@ -2369,6 +2369,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	return sljit_emit_op2(compiler, op | flags, dst, original_dstw, src, srcw, TMP_REG2, 0);
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_cmov_available(void)
+{
+	return 0;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_reg,
+	sljit_s32 src, sljit_sw srcw)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_cmov(compiler, type, dst_reg, src, srcw));
+
+	return sljit_emit_cmov_generic(compiler, type, dst_reg, src, srcw);;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
 {
 	struct sljit_const *const_;

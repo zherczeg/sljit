@@ -1830,6 +1830,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 			FAIL_IF(push_inst32(compiler, MOV_WI | RD4(dst_r) | 1));
 			FAIL_IF(push_inst32(compiler, MOV_WI | RD4(dst_r) | 0));
 		} else {
+			/* The movsi (immediate) instruction does not set flags in IT block. */
 			FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 1));
 			FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 0));
 		}
@@ -1883,6 +1884,34 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(TMP_REG1) | RM4(dst_r));
 	}
 	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_cmov_available(void)
+{
+	return 1;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_reg,
+	sljit_s32 src, sljit_sw srcw)
+{
+	sljit_uw cc;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_cmov(compiler, type, dst_reg, src, srcw));
+
+	dst_reg &= ~SLJIT_I32_OP;
+
+	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {
+		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
+		src = TMP_REG1;
+		srcw = 0;
+	}
+
+	cc = get_cc(type & 0xff);
+
+	FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
+	return push_inst16(compiler, MOV | SET_REGS44(dst_reg, src));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
