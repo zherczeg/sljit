@@ -107,7 +107,11 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 #define BLX		0x4780
 #define BX		0x4700
 #define CLZ		0xfab0f080
+#define CMNI_W		0xf1100f00
+#define CMP		0x4280
 #define CMPI		0x2800
+#define CMPI_W		0xf1b00f00
+#define CMP_X		0x4500
 #define CMP_W		0xebb00f00
 #define EORI		0xf0800000
 #define EORS		0x4040
@@ -566,9 +570,12 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				if (nimm <= 0xfff)
 					return push_inst32(compiler, SUBWI | RD4(dst) | RN4(reg) | IMM12(nimm));
 			}
-			imm = get_imm(imm);
-			if (imm != INVALID_IMM)
-				return push_inst32(compiler, ADD_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
+			nimm = get_imm(imm);
+			if (nimm != INVALID_IMM)
+				return push_inst32(compiler, ADD_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
+			nimm = get_imm(-imm);
+			if (nimm != INVALID_IMM)
+				return push_inst32(compiler, SUB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
 			break;
 		case SLJIT_ADDC:
 			imm = get_imm(imm);
@@ -576,6 +583,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				return push_inst32(compiler, ADCI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_SUB:
+			/* SUB operation can be replaced by ADD because of the negative carry flag. */
 			if (flags & ARG1_IMM) {
 				if (imm == 0 && IS_2_LO_REGS(reg, dst))
 					return push_inst16(compiler, RSBSI | RD3(dst) | RN3(reg));
@@ -583,6 +591,16 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				if (imm != INVALID_IMM)
 					return push_inst32(compiler, RSB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 				break;
+			}
+			if (flags & UNUSED_RETURN) {
+				if (imm <= 0xff && reg_map[reg] <= 7)
+					return push_inst16(compiler, CMPI | IMM8(imm) | RDN3(reg));
+				nimm = get_imm(imm);
+				if (nimm != INVALID_IMM)
+					return push_inst32(compiler, CMPI_W | RN4(reg) | nimm);
+				nimm = get_imm(-imm);
+				if (nimm != INVALID_IMM)
+					return push_inst32(compiler, CMNI_W | RN4(reg) | nimm);
 			}
 			nimm = -imm;
 			if (IS_2_LO_REGS(reg, dst)) {
@@ -596,8 +614,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 					if (nimm <= 0xff)
 						return push_inst16(compiler, ADDSI8 | IMM8(nimm) | RDN3(dst));
 				}
-				if (imm <= 0xff && (flags & UNUSED_RETURN))
-					return push_inst16(compiler, CMPI | IMM8(imm) | RDN3(reg));
 			}
 			if (!(flags & SET_FLAGS)) {
 				if (imm <= 0xfff)
@@ -605,9 +621,12 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				if (nimm <= 0xfff)
 					return push_inst32(compiler, ADDWI | RD4(dst) | RN4(reg) | IMM12(nimm));
 			}
-			imm = get_imm(imm);
-			if (imm != INVALID_IMM)
-				return push_inst32(compiler, SUB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
+			nimm = get_imm(imm);
+			if (nimm != INVALID_IMM)
+				return push_inst32(compiler, SUB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
+			nimm = get_imm(-imm);
+			if (nimm != INVALID_IMM)
+				return push_inst32(compiler, ADD_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
 			break;
 		case SLJIT_SUBC:
 			if (flags & ARG1_IMM)
@@ -746,6 +765,11 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			return push_inst16(compiler, ADCS | RD3(dst) | RN3(arg2));
 		return push_inst32(compiler, ADC_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_SUB:
+		if (flags & UNUSED_RETURN) {
+			if (IS_2_LO_REGS(arg1, arg2))
+				return push_inst16(compiler, CMP | RD3(arg1) | RN3(arg2));
+			return push_inst16(compiler, CMP_X | SET_REGS44(arg1, arg2));
+		}
 		if (IS_3_LO_REGS(dst, arg1, arg2))
 			return push_inst16(compiler, SUBS | RD3(dst) | RN3(arg1) | RM3(arg2));
 		return push_inst32(compiler, SUB_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
