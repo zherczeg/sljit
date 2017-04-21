@@ -713,7 +713,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 	case SLJIT_NOT:
 		SLJIT_ASSERT(arg1 == TMP_REG1);
 		FAIL_IF(push_inst(compiler, (ORN ^ inv_bits) | RD(dst) | RN(TMP_ZERO) | RM(arg2)));
-		goto set_flags;
+		break; /* Set flags. */
 	case SLJIT_NEG:
 		SLJIT_ASSERT(arg1 == TMP_REG1);
 		if (flags & SET_FLAGS)
@@ -722,7 +722,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(arg1 == TMP_REG1);
 		FAIL_IF(push_inst(compiler, (CLZ ^ inv_bits) | RD(dst) | RN(arg2)));
-		goto set_flags;
+		break; /* Set flags. */
 	case SLJIT_ADD:
 		CHECK_FLAGS(1 << 29);
 		return push_inst(compiler, (ADD ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
@@ -751,23 +751,23 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		return push_inst(compiler, (AND ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
 	case SLJIT_OR:
 		FAIL_IF(push_inst(compiler, (ORR ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2)));
-		goto set_flags;
+		break; /* Set flags. */
 	case SLJIT_XOR:
 		FAIL_IF(push_inst(compiler, (EOR ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2)));
-		goto set_flags;
+		break; /* Set flags. */
 	case SLJIT_SHL:
 		FAIL_IF(push_inst(compiler, (LSLV ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2)));
-		goto set_flags;
+		break; /* Set flags. */
 	case SLJIT_LSHR:
 		FAIL_IF(push_inst(compiler, (LSRV ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2)));
-		goto set_flags;
+		break; /* Set flags. */
 	case SLJIT_ASHR:
 		FAIL_IF(push_inst(compiler, (ASRV ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2)));
-		goto set_flags;
+		break; /* Set flags. */
+	default:
+		SLJIT_UNREACHABLE();
+		return SLJIT_SUCCESS;
 	}
-
-	SLJIT_UNREACHABLE();
-	return SLJIT_SUCCESS;
 
 set_flags:
 	if (flags & SET_FLAGS)
