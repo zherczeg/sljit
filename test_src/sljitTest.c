@@ -980,7 +980,7 @@ static void test13(void)
 	if (verbose)
 		printf("Run test13\n");
 
-	if (!sljit_is_fpu_available()) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test13 skipped\n");
 		successful_tests++;
@@ -1067,7 +1067,7 @@ static void test14(void)
 	if (verbose)
 		printf("Run test14\n");
 
-	if (!sljit_is_fpu_available()) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test14 skipped\n");
 		successful_tests++;
@@ -2133,7 +2133,7 @@ static void test26(void)
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_S1, 0, SLJIT_IMM, 100);
 	sljit_emit_op2(compiler, SLJIT_MUL32, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_s32) * 2 - 101, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_s32) * 2 - 1, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_s32) * 3 - 1);
 
-	if (sljit_is_fpu_available()) {
+	if (sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_S2, 0, SLJIT_S2, 0, SLJIT_IMM, 3);
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S2), sizeof(sljit_f64) - 3, SLJIT_MEM1(SLJIT_S2), -3);
 		sljit_emit_fop2(compiler, SLJIT_ADD_F64, SLJIT_MEM1(SLJIT_S2), sizeof(sljit_f64) * 2 - 3, SLJIT_MEM1(SLJIT_S2), -3, SLJIT_MEM1(SLJIT_S2), sizeof(sljit_f64) - 3);
@@ -2156,7 +2156,7 @@ static void test26(void)
 	FAILED(ibuf[1] != -2789, "test26 case 3 failed\n");
 	FAILED(ibuf[2] != -18, "test26 case 4 failed\n");
 
-	if (sljit_is_fpu_available()) {
+	if (sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		FAILED(dbuf[1] != 5.75, "test26 case 5 failed\n");
 		FAILED(dbuf[2] != 11.5, "test26 case 6 failed\n");
 		FAILED(dbuf[3] != -2.875, "test26 case 7 failed\n");
@@ -2809,7 +2809,7 @@ static void test32(void)
 	dbuf[2].value = -13.0;
 	dbuf[3].value = 27.0;
 
-	if (!sljit_is_fpu_available()) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test32 skipped\n");
 		successful_tests++;
@@ -3809,7 +3809,7 @@ static void test41(void)
 
 	sljit_free_code(code.code);
 
-	if (sljit_is_fpu_available()) {
+	if (sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		buf[0] = 13.5;
 		buf[1] = -2.25;
 		buf[2] = 0.0;
@@ -4145,7 +4145,7 @@ static void test43(void)
 	if (verbose)
 		printf("Run test43\n");
 
-	if (!sljit_is_fpu_available()) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test43 skipped\n");
 		successful_tests++;
@@ -4262,7 +4262,7 @@ static void test45(void)
 	if (verbose)
 		printf("Run test45\n");
 
-	if (!sljit_is_fpu_available()) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test45 skipped\n");
 		successful_tests++;
@@ -4532,7 +4532,7 @@ static void test48(void)
 	if (verbose)
 		printf("Run test48\n");
 
-	if (!sljit_is_fpu_available()) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test48 skipped\n");
 		successful_tests++;
@@ -4682,7 +4682,7 @@ static void test49(void)
 	if (verbose)
 		printf("Run test49\n");
 
-	if (!sljit_is_fpu_available()) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test49 skipped\n");
 		successful_tests++;
@@ -4818,7 +4818,7 @@ static void test50(void)
 	if (verbose)
 		printf("Run test50\n");
 
-	if (!sljit_is_fpu_available()) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test50 skipped\n");
 		successful_tests++;
@@ -5023,7 +5023,7 @@ static void test52(void)
 	sljit_f64 buf[3];
 	sljit_s32 i;
 
-	if (!sljit_is_fpu_available()) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test52 skipped\n");
 		successful_tests++;
@@ -5193,8 +5193,6 @@ static void test54(void)
 	for (i = 0; i < 4; i++)
 		ibuf[i] = 0;
 
-	SLJIT_ASSERT(sljit_is_cmov_available() == 0 || sljit_is_cmov_available() == 1);
-
 	sljit_emit_enter(compiler, 0, 3, 5, 3, 3, 0, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 17);
@@ -5249,7 +5247,7 @@ static void test54(void)
 	sljit_emit_cmov(compiler, SLJIT_EQUAL, SLJIT_R3, SLJIT_R4, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 10 * sizeof(sljit_sw), SLJIT_R3, 0);
 
-	if (sljit_is_fpu_available()) {
+	if (sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_S2), 0);
 		sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_S2), sizeof(sljit_f32));
 		sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR2, 0, SLJIT_MEM1(SLJIT_S2), 2 * sizeof(sljit_f32));
@@ -5327,7 +5325,7 @@ static void test54(void)
 	FAILED(buf[9] != -12, "test54 case 10 failed\n");
 	FAILED(buf[10] != 21, "test54 case 11 failed\n");
 
-	if (sljit_is_fpu_available()) {
+	if (sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		FAILED(buf[11] != 16, "test54 case 12 failed\n");
 		FAILED(buf[12] != -45, "test54 case 13 failed\n");
 		FAILED(buf[13] != 33, "test54 case 14 failed\n");
@@ -5561,7 +5559,7 @@ void sljit_test(int argc, char* argv[])
 		printf("all tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT " ");
 	else
 		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests are " COLOR_RED "FAILED" COLOR_DEFAULT " ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / 47);
-	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), sljit_is_fpu_available() ? " (with fpu)" : " (without fpu)");
+	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), sljit_has_cpu_feature(SLJIT_HAS_FPU) ? " (with fpu)" : " (without fpu)");
 
 #	undef TEST_COUNT
 }

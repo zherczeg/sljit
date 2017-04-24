@@ -588,6 +588,42 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	return (void*)(code + executable_offset);
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
+{
+	switch (feature_type) {
+	case SLJIT_HAS_FPU:
+#ifdef SLJIT_IS_FPU_AVAILABLE
+		return SLJIT_IS_FPU_AVAILABLE;
+#elif (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
+		if (cpu_has_sse2 == -1)
+			get_cpu_features();
+		return cpu_has_sse2;
+#else /* SLJIT_DETECT_SSE2 */
+		return 1;
+#endif /* SLJIT_DETECT_SSE2 */
+
+	case SLJIT_HAS_CLZ:
+		return 1;
+
+	case SLJIT_HAS_CMOV:
+		if (cpu_has_cmov == -1)
+			get_cpu_features();
+		return cpu_has_cmov;
+
+	case SLJIT_HAS_SSE2:
+#if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
+		if (cpu_has_sse2 == -1)
+			get_cpu_features();
+		return cpu_has_sse2;
+#else
+		return 1;
+#endif
+
+	default:
+		return 0;
+	}
+}
+
 /* --------------------------------------------------------------------- */
 /*  Operators                                                            */
 /* --------------------------------------------------------------------- */
@@ -2221,19 +2257,6 @@ static void init_compiler(void)
 	sse2_buffer[13] = 0x7fffffff;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_fpu_available(void)
-{
-#ifdef SLJIT_IS_FPU_AVAILABLE
-	return SLJIT_IS_FPU_AVAILABLE;
-#elif (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
-	if (cpu_has_sse2 == -1)
-		get_cpu_features();
-	return cpu_has_sse2;
-#else /* SLJIT_DETECT_SSE2 */
-	return 1;
-#endif /* SLJIT_DETECT_SSE2 */
-}
-
 static sljit_s32 emit_sse2(struct sljit_compiler *compiler, sljit_u8 opcode,
 	sljit_s32 single, sljit_s32 xmm1, sljit_s32 xmm2, sljit_sw xmm2w)
 {
@@ -2776,13 +2799,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 #endif /* SLJIT_CONFIG_X86_64 */
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_cmov_available(void)
-{
-	if (cpu_has_cmov == -1)
-		get_cpu_features();
-	return cpu_has_cmov;
-}
-
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 dst_reg,
 	sljit_s32 src, sljit_sw srcw)
@@ -2795,10 +2811,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	dst_reg &= ~SLJIT_I32_OP;
 
-	if (!sljit_is_cmov_available() || (dst_reg >= SLJIT_R3 && dst_reg <= SLJIT_S3))
+	if (!sljit_has_cpu_feature(SLJIT_HAS_CMOV) || (dst_reg >= SLJIT_R3 && dst_reg <= SLJIT_S3))
 		return sljit_emit_cmov_generic(compiler, type, dst_reg, src, srcw);
 #else
-	if (!sljit_is_cmov_available())
+	if (!sljit_has_cpu_feature(SLJIT_HAS_CMOV))
 		return sljit_emit_cmov_generic(compiler, type, dst_reg, src, srcw);
 #endif
 
@@ -2916,15 +2932,3 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 	SLJIT_UNUSED_ARG(executable_offset);
 	sljit_unaligned_store_sw((void*)addr, new_constant);
 }
-
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_x86_is_sse2_available(void)
-{
-#if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
-	if (cpu_has_sse2 == -1)
-		get_cpu_features();
-	return cpu_has_sse2;
-#else
-	return 1;
-#endif
-}
-

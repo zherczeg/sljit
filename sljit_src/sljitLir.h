@@ -489,6 +489,29 @@ static SLJIT_INLINE sljit_sw sljit_get_executable_offset(struct sljit_compiler *
 */
 static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler *compiler) { return compiler->executable_size; }
 
+/* Returns with non-zero if the passed SLJIT_HAS_* feature is available.
+
+   Some features (e.g. floating point operations) require CPU support
+   while other (e.g. move with update) is emulated if not available.
+   However it might be worth to generate a special code path even in
+   the latter case in certain cases. */
+
+/* [Not emulated] Floating-point support is available. */
+#define SLJIT_HAS_FPU			0
+/* [Emulated] Some forms of move with pre update is supported. */
+#define SLJIT_HAS_PRE_UPDATE		1
+/* [Emulated] Count leading zero is supported. */
+#define SLJIT_HAS_CLZ			2
+/* [Emulated] Conditional move is supported. */
+#define SLJIT_HAS_CMOV			3
+
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+/* [Not emulated] SSE2 support is available on x86. */
+#define SLJIT_HAS_SSE2			100
+#endif
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type);
+
 /* Instruction generation. Returns with any error code. If there is no
    error, they return with SLJIT_SUCCESS. */
 
@@ -961,10 +984,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w);
 
-/* Returns with non-zero if fpu is available. */
-
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_fpu_available(void);
-
 /* Starting index of opcodes for sljit_emit_fop1. */
 #define SLJIT_FOP1_BASE			128
 
@@ -1190,10 +1209,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	sljit_s32 src, sljit_sw srcw,
 	sljit_s32 type);
 
-/* Returns with non-zero if sljit_emit_cmov is natively supported
-   on the current CPU. Otherwise sljit_emit_cmov is emulated. */
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_is_cmov_available(void);
-
 /* Emit a conditional mov instruction which moves source to destination,
    if the condition is satisfied. Unlike other arithmetic operations this
    instruction does not support memory accesses.
@@ -1371,13 +1386,5 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler,
 	sljit_s32 current_flags);
-
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
-
-/* Returns with non-zero if sse2 is available. */
-
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_x86_is_sse2_available(void);
-
-#endif
 
 #endif /* _SLJIT_LIR_H_ */
