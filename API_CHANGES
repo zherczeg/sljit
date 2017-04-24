@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+24.04.2017 - Non-backward compatible
+    The sljit_is_fpu_available function is replaced
+    by sljit_has_cpu_feature.
+
 20.04.2017 - Non-backward compatible
     x86 specific cmov is changed to a general function
 
