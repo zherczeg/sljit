@@ -1167,22 +1167,8 @@ static sljit_s32 emit_clz(struct sljit_compiler *compiler, sljit_s32 op_flags,
 	sljit_s32 dst_r;
 
 	SLJIT_UNUSED_ARG(op_flags);
-	if (SLJIT_UNLIKELY(dst == SLJIT_UNUSED)) {
-		/* Just set the zero flag. */
-		EMIT_MOV(compiler, TMP_REG1, 0, src, srcw);
-		inst = emit_x86_instruction(compiler, 1, 0, 0, TMP_REG1, 0);
-		FAIL_IF(!inst);
-		*inst++ = GROUP_F7;
-		*inst |= NOT_rm;
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 31, TMP_REG1, 0);
-#else
-		inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, !(op_flags & SLJIT_I32_OP) ? 63 : 31, TMP_REG1, 0);
-#endif
-		FAIL_IF(!inst);
-		*inst |= SHR;
+	if (SLJIT_UNLIKELY(dst == SLJIT_UNUSED))
 		return SLJIT_SUCCESS;
-	}
 
 	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {
 		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, srcw);

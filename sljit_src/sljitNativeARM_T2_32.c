@@ -769,11 +769,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(arg1 == TMP_REG2);
 		FAIL_IF(push_inst32(compiler, CLZ | RN4(arg2) | RD4(dst) | RM4(arg2)));
-		if (flags & SET_FLAGS) {
-			if (reg_map[dst] <= 7)
-				return push_inst16(compiler, CMPI | RDN3(dst));
-			return push_inst32(compiler, ADD_WI | SET_FLAGS | RN4(dst) | RD4(dst));
-		}
 		return SLJIT_SUCCESS;
 	case SLJIT_ADD:
 		if (IS_3_LO_REGS(dst, arg1, arg2))

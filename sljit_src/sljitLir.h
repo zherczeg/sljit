@@ -919,7 +919,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 #define SLJIT_NEG			(SLJIT_OP1_BASE + 17)
 #define SLJIT_NEG32			(SLJIT_NEG | SLJIT_I32_OP)
 /* Count leading zeroes
-   Flags: Z */
+   Flags: - (may destroy flags) */
 #define SLJIT_CLZ			(SLJIT_OP1_BASE + 18)
 #define SLJIT_CLZ32			(SLJIT_CLZ | SLJIT_I32_OP)
 

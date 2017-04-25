@@ -742,8 +742,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		return push_inst(compiler, (SUB ^ inv_bits) | RD(dst) | RN(TMP_ZERO) | RM(arg2));
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(arg1 == TMP_REG1);
-		FAIL_IF(push_inst(compiler, (CLZ ^ inv_bits) | RD(dst) | RN(arg2)));
-		break; /* Set flags. */
+		return push_inst(compiler, (CLZ ^ inv_bits) | RD(dst) | RN(arg2));
 	case SLJIT_ADD:
 		CHECK_FLAGS(1 << 29);
 		return push_inst(compiler, (ADD ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
