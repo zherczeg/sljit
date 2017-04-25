@@ -1079,8 +1079,6 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		SLJIT_ASSERT(!(flags & INV_IMM));
 		SLJIT_ASSERT(!(src2 & SRC2_IMM));
 		FAIL_IF(push_inst(compiler, CLZ | RD(dst) | RM(src2)));
-		if (flags & SET_FLAGS)
-			return push_inst(compiler, EMIT_DATA_PROCESS_INS(CMP_DP, flags & SET_FLAGS, SLJIT_UNUSED, dst, SRC2_IMM));
 		return SLJIT_SUCCESS;
 
 	case SLJIT_ADD:

@@ -1042,7 +1042,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_NOT:
-	case SLJIT_CLZ:
+		/* Only SLJIT_I32_OP and SLJIT_SET_Z are allowed. */
 		CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK));
 		break;
 	case SLJIT_NEG:
@@ -1060,7 +1060,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 		CHECK_ARGUMENT(!(op & (SLJIT_I32_OP | SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
 		break;
 	default:
-		/* Only SLJIT_I32_OP or SLJIT_F32_OP is allowed. */
+		/* Only SLJIT_I32_OP is allowed. */
 		CHECK_ARGUMENT(!(op & (SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
 		break;
 	}

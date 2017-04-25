@@ -211,8 +211,8 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		if (flags & ALT_FORM1)
-			return push_inst(compiler, CNTLZW | RC(flags) | S(src2) | A(dst));
-		return push_inst(compiler, CNTLZD | RC(flags) | S(src2) | A(dst));
+			return push_inst(compiler, CNTLZW | S(src2) | A(dst));
+		return push_inst(compiler, CNTLZD | S(src2) | A(dst));
 
 	case SLJIT_ADD:
 		if (flags & ALT_FORM1) {
