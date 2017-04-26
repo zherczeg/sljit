@@ -204,6 +204,13 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 	case SLJIT_NEG:
 		SLJIT_ASSERT(src1 == TMP_REG1);
+
+		if ((flags & (ALT_FORM1 | ALT_SIGN_EXT)) == (ALT_FORM1 | ALT_SIGN_EXT)) {
+			FAIL_IF(push_inst(compiler, RLDI(TMP_REG2, src2, 32, 31, 1)));
+			FAIL_IF(push_inst(compiler, NEG | OE(ALT_SET_FLAGS) | RC(ALT_SET_FLAGS) | D(dst) | A(TMP_REG2)));
+			return push_inst(compiler, RLDI(dst, dst, 32, 32, 0));
+		}
+
 		UN_EXTS();
 		/* Setting XER SO is not enough, CR SO is also needed. */
 		return push_inst(compiler, NEG | OE((flags & ALT_FORM1) ? ALT_SET_FLAGS : 0) | RC(flags) | D(dst) | A(src2));

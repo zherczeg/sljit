@@ -5399,13 +5399,13 @@ static void test56(void)
 	/* Check integer substraction with negative immediate. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
-	sljit_sw buf[12];
+	sljit_sw buf[13];
 	sljit_s32 i;
 
 	if (verbose)
 		printf("Run test56\n");
 
-	for (i = 0; i < 12; i++)
+	for (i = 0; i < 13; i++)
 		buf[i] = 77;
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -5440,6 +5440,10 @@ static void test56(void)
 	sljit_emit_op2(compiler, SLJIT_ADD32 | SLJIT_SET_OVERFLOW, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, -(91 << 12));
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 11 * sizeof(sljit_sw), SLJIT_UNUSED, 0, SLJIT_OVERFLOW32);
 
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, -0x80000000);
+	sljit_emit_op1(compiler, SLJIT_NEG32 | SLJIT_SET_OVERFLOW, SLJIT_R0, 0, SLJIT_R0, 0);
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 12 * sizeof(sljit_sw), SLJIT_UNUSED, 0, SLJIT_OVERFLOW32);
+
 	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
 
 	code.code = sljit_generate_code(compiler);
@@ -5460,6 +5464,7 @@ static void test56(void)
 	FAILED(buf[9] != 1, "test56 case 10 failed\n");
 	FAILED(buf[10] != 1, "test56 case 11 failed\n");
 	FAILED(buf[11] != 1, "test56 case 12 failed\n");
+	FAILED(buf[12] != 1, "test56 case 13 failed\n");
 
 	sljit_free_code(code.code);
 	successful_tests++;

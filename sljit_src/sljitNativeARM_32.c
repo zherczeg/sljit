@@ -1324,7 +1324,10 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 reg, 
 	/* Load integer. */
 	return push_inst_with_literal(compiler, EMIT_DATA_TRANSFER(WORD_DATA | LOAD_DATA, 1, 0, reg, TMP_PC, 0), imm);
 #else
-	return emit_imm(compiler, reg, imm);
+	FAIL_IF(push_inst(compiler, MOVW | RD(reg) | ((imm << 4) & 0xf0000) | (imm & 0xfff)));
+	if (imm <= 0xffff)
+		return SLJIT_SUCCESS;
+	return push_inst(compiler, MOVT | RD(reg) | ((imm >> 12) & 0xf0000) | ((imm >> 16) & 0xfff));
 #endif
 }
 
@@ -2247,20 +2250,35 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	sljit_s32 dst_reg,
 	sljit_s32 src, sljit_sw srcw)
 {
-	sljit_uw cc;
+	sljit_uw cc, tmp;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_cmov(compiler, type, dst_reg, src, srcw));
 
 	dst_reg &= ~SLJIT_I32_OP;
 
+	cc = get_cc(type & 0xff);
+
 	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {
+		tmp = get_imm(srcw);
+		if (tmp)
+			return push_inst(compiler, (EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst_reg, SLJIT_UNUSED, tmp) & ~COND_MASK) | cc);
+
+		tmp = get_imm(~srcw);
+		if (tmp)
+			return push_inst(compiler, (EMIT_DATA_PROCESS_INS(MVN_DP, 0, dst_reg, SLJIT_UNUSED, tmp) & ~COND_MASK) | cc);
+
+#if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+		tmp = (sljit_uw) srcw;
+		FAIL_IF(push_inst(compiler, (MOVW & ~COND_MASK) | cc | RD(dst_reg) | ((tmp << 4) & 0xf0000) | (tmp & 0xfff)));
+		if (tmp <= 0xffff)
+			return SLJIT_SUCCESS;
+		return push_inst(compiler, (MOVT & ~COND_MASK) | cc | RD(dst_reg) | ((tmp >> 12) & 0xf0000) | ((tmp >> 16) & 0xfff));
+#else
 		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
 		src = TMP_REG1;
-		srcw = 0;
+#endif
 	}
-
-	cc = get_cc(type & 0xff);
 
 	return push_inst(compiler, (EMIT_DATA_PROCESS_INS(MOV_DP, 0, dst_reg, SLJIT_UNUSED, src) & ~COND_MASK) | cc);
 }
