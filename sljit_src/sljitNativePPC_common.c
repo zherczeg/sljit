@@ -1368,6 +1368,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 			flags |= INT_DATA | SIGNED_DATA;
 			if (src & SLJIT_IMM)
 				srcw = (sljit_s32)srcw;
+			if (HAS_FLAGS(op_flags))
+				flags |= ALT_SIGN_EXT;
 		}
 #endif
 	}
