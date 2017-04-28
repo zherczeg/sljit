@@ -489,12 +489,13 @@ static SLJIT_INLINE sljit_sw sljit_get_executable_offset(struct sljit_compiler *
 */
 static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler *compiler) { return compiler->executable_size; }
 
-/* Returns with non-zero if the passed SLJIT_HAS_* feature is available.
+/* Returns with non-zero if the passed SLJIT_HAS_* feature type is supported
+   by the current CPU.
 
-   Some features (e.g. floating point operations) require CPU support
-   while other (e.g. move with update) is emulated if not available.
-   However it might be worth to generate a special code path even in
-   the latter case in certain cases. */
+   Some features (e.g. floating point operations) require hardware (CPU)
+   support while others (e.g. move with update) are emulated if not available.
+   However even if a feature is emulated, specialized code paths can be faster
+   than the emulation. */
 
 /* [Not emulated] Floating-point support is available. */
 #define SLJIT_HAS_FPU			0
