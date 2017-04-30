@@ -47,7 +47,7 @@ static sljit_u8* generate_far_jump_code(struct sljit_jump *jump, sljit_u8 *code_
 		*code_ptr++ = 10 + 3;
 	}
 
-	SLJIT_ASSERT(reg_map[TMP_REG3] == 9);
+	SLJIT_ASSERT(reg_map[TMP_REG2] == 9);
 	*code_ptr++ = REX_W | REX_B;
 	*code_ptr++ = MOV_r_i32 + 1;
 	jump->addr = (sljit_uw)code_ptr;
@@ -380,12 +380,12 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 	if (b & SLJIT_MEM) {
 		if (!(b & OFFS_REG_MASK)) {
 			if (NOT_HALFWORD(immb)) {
-				PTR_FAIL_IF(emit_load_imm64(compiler, TMP_REG3, immb));
+				PTR_FAIL_IF(emit_load_imm64(compiler, TMP_REG2, immb));
 				immb = 0;
 				if (b & REG_MASK)
-					b |= TO_OFFS_REG(TMP_REG3);
+					b |= TO_OFFS_REG(TMP_REG2);
 				else
-					b |= TMP_REG3;
+					b |= TMP_REG2;
 			}
 			else if (reg_lmap[b & REG_MASK] == 4)
 				b |= TO_OFFS_REG(SLJIT_SP);
