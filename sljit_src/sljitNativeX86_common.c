@@ -601,11 +601,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 1;
 #endif /* SLJIT_DETECT_SSE2 */
 
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+	case SLJIT_HAS_VIRTUAL_REGISTERS:
+		return 1;
+#endif
+
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_CMOV:
 		if (cpu_has_cmov == -1)
 			get_cpu_features();
 		return cpu_has_cmov;
+
+	case SLJIT_HAS_PREF_SHIFT_REG:
+		return 1;
 
 	case SLJIT_HAS_SSE2:
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)

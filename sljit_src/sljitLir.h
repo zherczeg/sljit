@@ -120,8 +120,8 @@ of sljitConfigInternal.h */
   If an architecture provides two scratch and three saved registers,
   its scratch and saved register sets are the following:
 
-     R0   |  [S4]  |   R0 and S4 represent the same physical register
-     R1   |  [S3]  |   R1 and S3 represent the same physical register
+     R0   |        |   R0 is always a scratch register
+     R1   |        |   R1 is always a scratch register
     [R2]  |   S2   |   R2 and S2 represent the same physical register
     [R3]  |   S1   |   R3 and S1 represent the same physical register
     [R4]  |   S0   |   R4 and S0 represent the same physical register
@@ -129,35 +129,28 @@ of sljitConfigInternal.h */
   Note: SLJIT_NUMBER_OF_SCRATCH_REGISTERS would be 2 and
         SLJIT_NUMBER_OF_SAVED_REGISTERS would be 3 for this architecture.
 
-  Note: On all supported architectures SLJIT_NUMBER_OF_REGISTERS >= 10
-        and SLJIT_NUMBER_OF_SAVED_REGISTERS >= 5. However, 4 registers
+  Note: On all supported architectures SLJIT_NUMBER_OF_REGISTERS >= 12
+        and SLJIT_NUMBER_OF_SAVED_REGISTERS >= 6. However, 6 registers
         are virtual on x86-32. See below.
 
-  The purpose of this definition is convenience. Although a register
-  is either scratch register or saved register, SLJIT allows accessing
-  them from the other set. For example, four registers can be used as
-  scratch registers and the fifth one as saved register on the architecture
-  above. Of course the last two scratch registers (R2 and R3) from this
-  four will be saved on the stack, because they are defined as saved
-  registers in the application binary interface. Still R2 and R3 can be
-  used for referencing to these registers instead of S2 and S1, which
-  makes easier to write platform independent code. Scratch registers
-  can be saved registers in a similar way, but these extra saved
-  registers will not be preserved across function calls! Hence the
-  application must save them on those platforms, where the number of
-  saved registers is too low. This can be done by copy them onto
-  the stack and restore them after a function call.
+  The purpose of this definition is convenience: saved registers can
+  be used as extra scratch registers. For example four registers can
+  be specified as scratch registers and the fifth one as saved register
+  on the CPU above and any user code which requires four scratch
+  registers can run unmodified. The SLJIT compiler automatically saves
+  the content of the two extra scrath register on the stack. Scratch
+  registers can also be preserved by saving their value on the stack
+  but this needs to be done manually.
 
   Note: To emphasize that registers assigned to R2-R4 are saved
-        registers, they are enclosed by square brackets. S3-S4
-        are marked in a similar way.
+        registers, they are enclosed by square brackets.
 
   Note: sljit_emit_enter and sljit_set_context defines whether a register
         is S or R register. E.g: when 3 scratches and 1 saved is mapped
         by sljit_emit_enter, the allowed register set will be: R0-R2 and
         S0. Although S2 is mapped to the same position as R2, it does not
-        available in the current configuration. Furthermore the R3 (S1)
-        register does not available as well.
+        available in the current configuration. Furthermore the S1 register
+        is not available at all.
 */
 
 /* When SLJIT_UNUSED is specified as destination, the result is discarded. */
@@ -489,22 +482,27 @@ static SLJIT_INLINE sljit_sw sljit_get_executable_offset(struct sljit_compiler *
 */
 static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler *compiler) { return compiler->executable_size; }
 
-/* Returns with non-zero if the passed SLJIT_HAS_* feature type is supported
-   by the current CPU.
+/* Returns with non-zero if the feature or limitation type passed as its
+   argument is present on the current CPU.
 
    Some features (e.g. floating point operations) require hardware (CPU)
    support while others (e.g. move with update) are emulated if not available.
    However even if a feature is emulated, specialized code paths can be faster
-   than the emulation. */
+   than the emulation. Some limitations are emulated as well so their general
+   case is supported but it has extra performance costs. */
 
 /* [Not emulated] Floating-point support is available. */
 #define SLJIT_HAS_FPU			0
+/* [Limitation] Some registers are virtual registers. */
+#define SLJIT_HAS_VIRTUAL_REGISTERS	1
 /* [Emulated] Some forms of move with pre update is supported. */
-#define SLJIT_HAS_PRE_UPDATE		1
+#define SLJIT_HAS_PRE_UPDATE		2
 /* [Emulated] Count leading zero is supported. */
-#define SLJIT_HAS_CLZ			2
+#define SLJIT_HAS_CLZ			3
 /* [Emulated] Conditional move is supported. */
-#define SLJIT_HAS_CMOV			3
+#define SLJIT_HAS_CMOV			4
+/* [Limitation] [Emulated] Shifting with register is limited to SLJIT_PREF_SHIFT_REG. */
+#define SLJIT_HAS_PREF_SHIFT_REG	5
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] SSE2 support is available on x86. */
@@ -724,8 +722,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler 
    Example: SLJIT_ADD can set the Z, OVERFLOW, CARRY flags hence
 
      sljit_op2(..., SLJIT_ADD, ...)
-       Both the zero and variable flags are undefined so their
-       they hold a random value after the operation is completed.
+       Both the zero and variable flags are undefined so they can
+       have any value after the operation is completed.
 
      sljit_op2(..., SLJIT_ADD | SLJIT_SET_Z, ...)
        Sets the zero flag if the result is zero, clears it otherwise.
@@ -734,10 +732,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler 
      sljit_op2(..., SLJIT_ADD | SLJIT_SET_OVERFLOW, ...)
        Sets the variable flag if an integer overflow occurs, clears
        it otherwise. The zero flag is undefined.
-
-     sljit_op2(..., SLJIT_ADD | SLJIT_SET_NOT_OVERFLOW, ...)
-       Sets the variable flag if an integer overflow does NOT occur,
-       clears it otherwise. The zero flag is undefined.
 
      sljit_op2(..., SLJIT_ADD | SLJIT_SET_Z | SLJIT_SET_CARRY, ...)
        Sets the zero flag if the result is zero, clears it otherwise.
@@ -1091,14 +1085,12 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_SET_OVERFLOW		SLJIT_SET(SLJIT_OVERFLOW)
 #define SLJIT_NOT_OVERFLOW		11
 #define SLJIT_NOT_OVERFLOW32		(SLJIT_NOT_OVERFLOW | SLJIT_I32_OP)
-#define SLJIT_SET_NOT_OVERFLOW		SLJIT_SET(SLJIT_NOT_OVERFLOW)
 
 #define SLJIT_MUL_OVERFLOW		12
 #define SLJIT_MUL_OVERFLOW32		(SLJIT_MUL_OVERFLOW | SLJIT_I32_OP)
 #define SLJIT_SET_MUL_OVERFLOW		SLJIT_SET(SLJIT_MUL_OVERFLOW)
 #define SLJIT_MUL_NOT_OVERFLOW		13
 #define SLJIT_MUL_NOT_OVERFLOW32	(SLJIT_MUL_NOT_OVERFLOW | SLJIT_I32_OP)
-#define SLJIT_SET_MUL_NOT_OVERFLOW	SLJIT_SET(SLJIT_MUL_NOT_OVERFLOW)
 
 /* There is no SLJIT_CARRY or SLJIT_NOT_CARRY. */
 #define SLJIT_SET_CARRY			SLJIT_SET(14)
