@@ -1047,8 +1047,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 		break;
 	case SLJIT_NEG:
 		CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK)
-			|| GET_FLAG_TYPE(op) == SLJIT_OVERFLOW
-			|| GET_FLAG_TYPE(op) == SLJIT_NOT_OVERFLOW);
+			|| GET_FLAG_TYPE(op) == SLJIT_OVERFLOW);
 		break;
 	case SLJIT_MOV:
 	case SLJIT_MOV_U32:
@@ -1132,18 +1131,16 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2(struct sljit_compiler
 	case SLJIT_MUL:
 		CHECK_ARGUMENT(!(op & SLJIT_SET_Z));
 		CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK)
-			|| GET_FLAG_TYPE(op) == SLJIT_MUL_OVERFLOW
-			|| GET_FLAG_TYPE(op) == SLJIT_MUL_NOT_OVERFLOW);
+			|| GET_FLAG_TYPE(op) == SLJIT_MUL_OVERFLOW);
 		break;
 	case SLJIT_ADD:
 		CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK)
 			|| GET_FLAG_TYPE(op) == GET_FLAG_TYPE(SLJIT_SET_CARRY)
-			|| GET_FLAG_TYPE(op) == SLJIT_OVERFLOW
-			|| GET_FLAG_TYPE(op) == SLJIT_NOT_OVERFLOW);
+			|| GET_FLAG_TYPE(op) == SLJIT_OVERFLOW);
 		break;
 	case SLJIT_SUB:
 		CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK)
-			|| (GET_FLAG_TYPE(op) >= SLJIT_LESS && GET_FLAG_TYPE(op) <= SLJIT_NOT_OVERFLOW)
+			|| (GET_FLAG_TYPE(op) >= SLJIT_LESS && GET_FLAG_TYPE(op) <= SLJIT_OVERFLOW)
 			|| GET_FLAG_TYPE(op) == GET_FLAG_TYPE(SLJIT_SET_CARRY));
 		break;
 	case SLJIT_ADDC:
@@ -1428,7 +1425,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_jump(struct sljit_compile
 		if ((type & 0xff) <= SLJIT_NOT_ZERO)
 			CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
 		else
-			CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff));
+			CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff)
+				|| ((type & 0xff) == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW)
+				|| ((type & 0xff) == SLJIT_MUL_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_MUL_OVERFLOW));
 		CHECK_ARGUMENT((type & SLJIT_I32_OP) == (compiler->last_flags & SLJIT_I32_OP));
 	}
 #endif
@@ -1531,7 +1530,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_flags(struct sljit_com
 	if ((type & 0xff) <= SLJIT_NOT_ZERO)
 		CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
 	else
-		CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff));
+		CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff)
+			|| ((type & 0xff) == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW)
+			|| ((type & 0xff) == SLJIT_MUL_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_MUL_OVERFLOW));
 
 	if (GET_OPCODE(op) < SLJIT_ADD) {
 		CHECK_ARGUMENT(src == SLJIT_UNUSED && srcw == 0);
@@ -1573,7 +1574,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_cmov(struct sljit_compile
 	if ((type & 0xff) <= SLJIT_NOT_ZERO)
 		CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
 	else
-		CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff));
+		CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff)
+			|| ((type & 0xff) == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW)
+			|| ((type & 0xff) == SLJIT_MUL_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_MUL_OVERFLOW));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {

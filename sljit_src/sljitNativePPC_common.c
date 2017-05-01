@@ -1342,7 +1342,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	if ((src & SLJIT_IMM) && srcw == 0)
 		src = TMP_ZERO;
 
-	if (GET_FLAG_TYPE(op_flags) == SLJIT_OVERFLOW || GET_FLAG_TYPE(op_flags) == SLJIT_NOT_OVERFLOW)
+	if (GET_FLAG_TYPE(op_flags) == SLJIT_OVERFLOW)
 		FAIL_IF(push_inst(compiler, MTXER | S(TMP_ZERO)));
 
 	if (op_flags & SLJIT_I32_OP) {
@@ -1513,14 +1513,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 			flags |= ALT_SIGN_EXT;
 	}
 #endif
-	if (GET_FLAG_TYPE(op) == SLJIT_OVERFLOW || GET_FLAG_TYPE(op) == SLJIT_NOT_OVERFLOW)
+	if (GET_FLAG_TYPE(op) == SLJIT_OVERFLOW)
 		FAIL_IF(push_inst(compiler, MTXER | S(TMP_ZERO)));
 	if (src2 == TMP_REG2)
 		flags |= ALT_KEEP_CACHE;
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
-		if (GET_FLAG_TYPE(op) == SLJIT_OVERFLOW || GET_FLAG_TYPE(op) == SLJIT_NOT_OVERFLOW)
+		if (GET_FLAG_TYPE(op) == SLJIT_OVERFLOW)
 			return emit_op(compiler, SLJIT_ADD, flags | ALT_FORM1, dst, dstw, src1, src1w, src2, src2w);
 
 		if (!HAS_FLAGS(op) && ((src1 | src2) & SLJIT_IMM)) {
@@ -1582,7 +1582,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 			return emit_op(compiler, SLJIT_SUB, flags | ALT_FORM1 | ALT_FORM3, dst, dstw, src1, src1w, src2, src2w);
 		}
 
-		if (GET_FLAG_TYPE(op) == SLJIT_OVERFLOW || GET_FLAG_TYPE(op) == SLJIT_NOT_OVERFLOW)
+		if (GET_FLAG_TYPE(op) == SLJIT_OVERFLOW)
 			return emit_op(compiler, SLJIT_SUB, flags | ALT_FORM2, dst, dstw, src1, src1w, src2, src2w);
 
 		if (!HAS_FLAGS(op) && ((src1 | src2) & SLJIT_IMM)) {
