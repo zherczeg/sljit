@@ -920,10 +920,8 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 	}
 
 	if (SLJIT_UNLIKELY(dst == SLJIT_UNUSED)) {
-		if (op >= SLJIT_MOV && op <= SLJIT_MOVU_S32 && !(src2 & SLJIT_MEM))
-			return SLJIT_SUCCESS;
-		if (HAS_FLAGS(op))
-			flags |= UNUSED_DEST;
+		SLJIT_ASSERT(HAS_FLAGS(op));
+		flags |= UNUSED_DEST;
 	}
 	else if (FAST_IS_REG(dst)) {
 		dst_r = dst;
@@ -1100,6 +1098,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+		return SLJIT_SUCCESS;
+
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 	if ((op & SLJIT_I32_OP) && GET_OPCODE(op) >= SLJIT_NOT) {
 		flags |= INT_DATA | SIGNED_DATA;
@@ -1203,6 +1204,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
 
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+		return SLJIT_SUCCESS;
+
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 	if (op & SLJIT_I32_OP) {
 		flags |= INT_DATA | SIGNED_DATA;
@@ -1300,9 +1304,6 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 		src <<= 1;
 
 	FAIL_IF(push_inst(compiler, (TRUNC_W_S ^ (flags >> 19)) | FMT(op) | FS(src) | FD(TMP_FREG1), MOVABLE_INS));
-
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
 
 	if (FAST_IS_REG(dst))
 		return push_inst(compiler, MFC1 | flags | T(dst) | FS(TMP_FREG1), MOVABLE_INS);
@@ -1537,10 +1538,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_fast_enter(compiler, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
-
-	/* For UNUSED dst. Uncommon, but possible. */
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
 
 	if (FAST_IS_REG(dst))
 		return push_inst(compiler, ADDU_W | SA(RETURN_ADDR_REG) | TA(0) | D(dst), DR(dst));
@@ -1918,9 +1915,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
-
 	op = GET_OPCODE(op);
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 	if (op == SLJIT_MOV_S32 || op == SLJIT_MOV_U32)
@@ -2078,7 +2072,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	PTR_FAIL_IF(!const_);
 	set_const(const_, compiler);
 
-	reg = SLOW_IS_REG(dst) ? dst : TMP_REG2;
+	reg = FAST_IS_REG(dst) ? dst : TMP_REG2;
 
 	PTR_FAIL_IF(emit_const(compiler, reg, init_value));
 

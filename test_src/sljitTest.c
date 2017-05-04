@@ -3154,7 +3154,7 @@ static void test35(void)
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 0, 2, 2, 0, 0, 0);
 
-	sljit_emit_fast_enter(compiler, SLJIT_UNUSED, 0);
+	sljit_emit_fast_enter(compiler, SLJIT_R1, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 7);
 	sljit_emit_fast_return(compiler, SLJIT_IMM, return_addr);
 
@@ -3629,7 +3629,7 @@ static void test40(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 33);
 	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_GREATER, SLJIT_UNUSED, 0, SLJIT_R0, 0, SLJIT_R1, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_IMM, 0);
-	sljit_emit_op_flags(compiler, SLJIT_OR | SLJIT_SET_Z, SLJIT_UNUSED, 0, SLJIT_UNUSED, 0, SLJIT_GREATER);
+	sljit_emit_op_flags(compiler, SLJIT_OR | SLJIT_SET_Z, SLJIT_R2, 0, SLJIT_R2, 0, SLJIT_GREATER);
 	sljit_emit_op_flags(compiler, SLJIT_OR, SLJIT_S1, 0, SLJIT_S1, 0, SLJIT_EQUAL);
 	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_Z, SLJIT_UNUSED, 0, SLJIT_R0, 0, SLJIT_R1, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S3, 0, SLJIT_IMM, 0x88);
@@ -4576,7 +4576,6 @@ static void test48(void)
 	/* wbuf[1] */
 	sljit_emit_fop1(compiler, SLJIT_CONV_SW_FROM_F64, SLJIT_MEM1(SLJIT_S2), sizeof(sljit_sw), SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f64));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 2);
-	sljit_emit_fop1(compiler, SLJIT_CONV_SW_FROM_F64, SLJIT_UNUSED, 0, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), SLJIT_F64_SHIFT);
 	sljit_emit_fop1(compiler, SLJIT_CONV_SW_FROM_F64, SLJIT_R0, 0, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), SLJIT_F64_SHIFT);
 	/* wbuf[2] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S2), 2 * sizeof(sljit_sw), SLJIT_R0, 0);
@@ -5474,6 +5473,54 @@ static void test56(void)
 	successful_tests++;
 }
 
+static void test57(void)
+{
+	/* Check prefetch instructions. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_label* labels[2];
+
+	if (verbose)
+		printf("Run test57\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, 0, 3, 1, 0, 0, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
+	/* Should never crash. */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_UNUSED, 0, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_sw));
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_UNUSED, 0, SLJIT_MEM1(SLJIT_R0), SLJIT_W(0x1122334455667788));
+#else
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_UNUSED, 0, SLJIT_MEM1(SLJIT_R0), 0x11223344);
+#endif
+
+	labels[0] = sljit_emit_label(compiler);
+	/* Code size should be zero. */
+	sljit_emit_op1(compiler, SLJIT_MOVU, SLJIT_UNUSED, 0, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_sw));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_UNUSED, 0, SLJIT_IMM, 135);
+	sljit_emit_op1(compiler, SLJIT_MOV_S32, SLJIT_UNUSED, 0, SLJIT_R1, 0);
+	sljit_emit_op1(compiler, SLJIT_CLZ, SLJIT_UNUSED, 0, SLJIT_R1, 0);
+	sljit_emit_op1(compiler, SLJIT_NEG, SLJIT_UNUSED, 0, SLJIT_MEM1(SLJIT_R0), 0);
+	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_UNUSED, 0, SLJIT_R1, 0, SLJIT_IMM, 6);
+	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_UNUSED, 0, SLJIT_MEM0(), 0, SLJIT_IMM, 6);
+	labels[1] = sljit_emit_label(compiler);
+
+	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func0();
+
+	FAILED(sljit_get_label_addr(labels[0]) != sljit_get_label_addr(labels[1]), "test57 case 1 failed\n");
+
+	sljit_free_code(code.code);
+	successful_tests++;
+}
+
 void sljit_test(int argc, char* argv[])
 {
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -5542,12 +5589,13 @@ void sljit_test(int argc, char* argv[])
 	test54();
 	test55();
 	test56();
+	test57();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 56
+#	define TEST_COUNT 57
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

@@ -697,12 +697,12 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 			CHECK_NOT_VIRTUAL_REGISTER(OFFS_REG(p)); \
 			CHECK_ARGUMENT(!((i) & ~0x3)); \
 		} \
-		CHECK_ARGUMENT(!((p) & ~(SLJIT_MEM | SLJIT_IMM | REG_MASK | OFFS_REG_MASK))); \
+		CHECK_ARGUMENT(!((p) & ~(SLJIT_MEM | REG_MASK | OFFS_REG_MASK))); \
 	}
 
-#define FUNCTION_CHECK_DST(p, i) \
+#define FUNCTION_CHECK_DST(p, i, unused) \
 	CHECK_ARGUMENT(compiler->scratches != -1 && compiler->saveds != -1); \
-	if (FUNCTION_CHECK_IS_REG_OR_UNUSED(p)) \
+	if (FUNCTION_CHECK_IS_REG(p) || ((unused) && (p) == SLJIT_UNUSED)) \
 		CHECK_ARGUMENT((i) == 0); \
 	else if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
 		CHECK_ARGUMENT((i) >= 0 && (i) < compiler->logical_local_size); \
@@ -716,7 +716,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 			CHECK_NOT_VIRTUAL_REGISTER(OFFS_REG(p)); \
 			CHECK_ARGUMENT(!((i) & ~0x3)); \
 		} \
-		CHECK_ARGUMENT(!((p) & ~(SLJIT_MEM | SLJIT_IMM | REG_MASK | OFFS_REG_MASK))); \
+		CHECK_ARGUMENT(!((p) & ~(SLJIT_MEM | REG_MASK | OFFS_REG_MASK))); \
 	}
 
 #define FUNCTION_FCHECK(p, i) \
@@ -736,7 +736,7 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 			CHECK_NOT_VIRTUAL_REGISTER(OFFS_REG(p)); \
 			CHECK_ARGUMENT(((p) & OFFS_REG_MASK) != TO_OFFS_REG(SLJIT_SP) && !(i & ~0x3)); \
 		} \
-		CHECK_ARGUMENT(!((p) & ~(SLJIT_MEM | SLJIT_IMM | REG_MASK | OFFS_REG_MASK))); \
+		CHECK_ARGUMENT(!((p) & ~(SLJIT_MEM | REG_MASK | OFFS_REG_MASK))); \
 	}
 
 #endif /* SLJIT_ARGUMENT_CHECKS */
@@ -977,7 +977,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_return(struct sljit_compi
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fast_enter(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	FUNCTION_CHECK_DST(dst, dstw);
+	FUNCTION_CHECK_DST(dst, dstw, 0);
 	compiler->last_flags = 0;
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -1064,8 +1064,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 		break;
 	}
 
+	FUNCTION_CHECK_DST(dst, dstw, 1);
 	FUNCTION_CHECK_SRC(src, srcw);
-	FUNCTION_CHECK_DST(dst, dstw);
 
 	if (GET_OPCODE(op) >= SLJIT_NOT)
 		compiler->last_flags = GET_FLAG_TYPE(op) | (op & (SLJIT_I32_OP | SLJIT_SET_Z));
@@ -1155,9 +1155,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2(struct sljit_compiler
 		break;
 	}
 
+	FUNCTION_CHECK_DST(dst, dstw, 1);
 	FUNCTION_CHECK_SRC(src1, src1w);
 	FUNCTION_CHECK_SRC(src2, src2w);
-	FUNCTION_CHECK_DST(dst, dstw);
 	compiler->last_flags = GET_FLAG_TYPE(op) | (op & (SLJIT_I32_OP | SLJIT_SET_Z));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -1314,7 +1314,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_conv_sw_from_f64(str
 	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_CONV_SW_FROM_F64 && GET_OPCODE(op) <= SLJIT_CONV_S32_FROM_F64);
 	CHECK_ARGUMENT(!(op & (SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
 	FUNCTION_FCHECK(src, srcw);
-	FUNCTION_CHECK_DST(dst, dstw);
+	FUNCTION_CHECK_DST(dst, dstw, 0);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1540,7 +1540,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_flags(struct sljit_com
 		CHECK_ARGUMENT(src == dst && srcw == dstw);
 		compiler->last_flags = GET_FLAG_TYPE(op) | (op & (SLJIT_I32_OP | SLJIT_SET_Z));
 	}
-	FUNCTION_CHECK_DST(dst, dstw);
+	FUNCTION_CHECK_DST(dst, dstw, 0);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1597,7 +1597,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_local_base(struct sljit_co
 	SLJIT_UNUSED_ARG(offset);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	FUNCTION_CHECK_DST(dst, dstw);
+	FUNCTION_CHECK_DST(dst, dstw, 0);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1614,7 +1614,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_const(struct sljit_compil
 	SLJIT_UNUSED_ARG(init_value);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	FUNCTION_CHECK_DST(dst, dstw);
+	FUNCTION_CHECK_DST(dst, dstw, 0);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {

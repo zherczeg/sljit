@@ -1169,8 +1169,6 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 
 	/* Destination check. */
 	if (SLJIT_UNLIKELY(dst == SLJIT_UNUSED)) {
-		if (op >= SLJIT_MOV && op <= SLJIT_MOVU_S32 && !(src2 & SLJIT_MEM))
-			return SLJIT_SUCCESS;
 		dst_r = TMP_REG2;
 	}
 	else if (FAST_IS_REG(dst)) {
@@ -1338,6 +1336,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+		return SLJIT_SUCCESS;
+
 	op = GET_OPCODE(op);
 	if ((src & SLJIT_IMM) && srcw == 0)
 		src = TMP_ZERO;
@@ -1495,6 +1496,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
+
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+		return SLJIT_SUCCESS;
 
 	if ((src1 & SLJIT_IMM) && src1w == 0)
 		src1 = TMP_ZERO;
@@ -1751,9 +1755,6 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 	op = GET_OPCODE(op);
 	FAIL_IF(push_inst(compiler, (op == SLJIT_CONV_S32_FROM_F64 ? FCTIWZ : FCTIDZ) | FD(TMP_FREG1) | FB(src)));
 
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
-
 	if (op == SLJIT_CONV_SW_FROM_F64) {
 		if (FAST_IS_REG(dst)) {
 			FAIL_IF(emit_op_mem2(compiler, DOUBLE_DATA, TMP_FREG1, SLJIT_MEM1(SLJIT_SP), FLOAT_TMP_MEM_OFFSET, 0, 0));
@@ -1761,12 +1762,8 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 		}
 		return emit_op_mem2(compiler, DOUBLE_DATA, TMP_FREG1, dst, dstw, 0, 0);
 	}
-
 #else
 	FAIL_IF(push_inst(compiler, FCTIWZ | FD(TMP_FREG1) | FB(src)));
-
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
 #endif
 
 	if (FAST_IS_REG(dst)) {
@@ -2043,10 +2040,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 	CHECK(check_sljit_emit_fast_enter(compiler, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
-	/* For UNUSED dst. Uncommon, but possible. */
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
-
 	if (FAST_IS_REG(dst))
 		return push_inst(compiler, MFLR | D(dst));
 
@@ -2251,9 +2244,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
-
 	op = GET_OPCODE(op);
 	reg = (op < SLJIT_ADD && FAST_IS_REG(dst)) ? dst : TMP_REG2;
 
@@ -2404,7 +2394,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	PTR_FAIL_IF(!const_);
 	set_const(const_, compiler);
 
-	reg = SLOW_IS_REG(dst) ? dst : TMP_REG2;
+	reg = FAST_IS_REG(dst) ? dst : TMP_REG2;
 
 	PTR_FAIL_IF(emit_const(compiler, reg, init_value));
 

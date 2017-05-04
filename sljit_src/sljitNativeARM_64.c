@@ -1313,6 +1313,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+		return SLJIT_SUCCESS;
+
 	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 
 	op = GET_OPCODE(op);
@@ -1466,6 +1469,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+		return SLJIT_SUCCESS;
+
 	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 	flags = HAS_FLAGS(op) ? SET_FLAGS : 0;
 	mem_flags = WORD_SIZE;
@@ -1617,7 +1623,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
-	sljit_s32 dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
+	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 	sljit_ins inv_bits = (op & SLJIT_F32_OP) ? (1 << 22) : 0;
 
 	if (GET_OPCODE(op) == SLJIT_CONV_S32_FROM_F64)
@@ -1630,7 +1636,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 
 	FAIL_IF(push_inst(compiler, (FCVTZS ^ inv_bits) | RD(dst_r) | VN(src)));
 
-	if (dst_r == TMP_REG1 && dst != SLJIT_UNUSED)
+	if (dst & SLJIT_MEM)
 		return emit_op_mem(compiler, ((GET_OPCODE(op) == SLJIT_CONV_S32_FROM_F64) ? INT_SIZE : WORD_SIZE) | STORE, TMP_REG1, dst, dstw);
 	return SLJIT_SUCCESS;
 }
@@ -1787,10 +1793,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_fast_enter(compiler, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
-
-	/* For UNUSED dst. Uncommon, but possible. */
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
 
 	if (FAST_IS_REG(dst))
 		return push_inst(compiler, ORR | RD(dst) | RN(TMP_ZERO) | RM(TMP_LR));
@@ -1990,9 +1992,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
-
 	cc = get_cc(type & 0xff);
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 
@@ -2064,7 +2063,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	PTR_FAIL_IF(!const_);
 	set_const(const_, compiler);
 
-	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 	PTR_FAIL_IF(emit_imm64_const(compiler, dst_r, init_value));
 
 	if (dst & SLJIT_MEM)

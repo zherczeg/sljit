@@ -153,7 +153,11 @@ of sljitConfigInternal.h */
         is not available at all.
 */
 
-/* When SLJIT_UNUSED is specified as destination, the result is discarded. */
+/* When SLJIT_UNUSED is specified as the destination of sljit_emit_op1 and
+   and sljit_emit_op2 operations the result is discarded. If no status
+   flags are set, no instructions are emitted for these operations. Data
+   prefetch is a special exception, see SLJIT_MOV operation. Other SLJIT
+   operations do not support SLJIT_UNUSED as a destination operand. */
 #define SLJIT_UNUSED		0
 
 /* Scratch registers. */
@@ -857,6 +861,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 
    sljit_emit_op1(..., SLJIT_MOVU_U8,
        SLJIT_MEM2(SLJIT_R0, SLJIT_R2), 0, SLJIT_MEM2(SLJIT_R1, SLJIT_R2), 0);
+
+   If the destination of a MOV without update instruction is SLJIT_UNUSED
+   and the source operand is a memory address the compiler emits a prefetch
+   instruction if this instruction is supported by the current CPU.
+   Higher data sizes bring the data closer to the core: a MOV with word
+   size loads the data into a higher level cache than a byte size. Otherwise
+   the type does not affect the prefetch instruction. Furthermore a prefetch
+   instruction never fails, so it can be used to prefetch a data from an
+   address and check whether that address is NULL afterwards.
 */
 
 /* Flags: - (does not modify flags) */
@@ -1195,8 +1208,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
      Performs the binary operation using src as the first, and the value
      represented by type as the second argument.
      Important note: only dst=src and dstw=srcw is supported at the moment!
-     Flags: Z (may destroy flags)
-   Note: sljit_emit_op_flags does nothing, if dst is SLJIT_UNUSED (regardless of op). */
+     Flags: Z (may destroy flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw,
