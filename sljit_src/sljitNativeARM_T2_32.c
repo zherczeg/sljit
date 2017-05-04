@@ -1270,6 +1270,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+		return SLJIT_SUCCESS;
+
 	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 
 	op = GET_OPCODE(op);
@@ -1387,6 +1390,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
+
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+		return SLJIT_SUCCESS;
 
 	dst_reg = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 	flags = HAS_FLAGS(op) ? SET_FLAGS : 0;
@@ -1506,9 +1512,6 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 	}
 
 	FAIL_IF(push_inst32(compiler, VCVT_S32_F32 | (op & SLJIT_F32_OP) | DD4(TMP_FREG1) | DM4(src)));
-
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
 
 	if (FAST_IS_REG(dst))
 		return push_inst32(compiler, VMOV | (1 << 20) | RT4(dst) | DN4(TMP_FREG1));
@@ -1668,10 +1671,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	SLJIT_ASSERT(reg_map[TMP_REG2] == 14);
-
-	/* For UNUSED dst. Uncommon, but possible. */
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
 
 	if (FAST_IS_REG(dst))
 		return push_inst16(compiler, MOV | SET_REGS44(dst, TMP_REG2));
@@ -1847,9 +1846,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	if (dst == SLJIT_UNUSED)
-		return SLJIT_SUCCESS;
-
 	op = GET_OPCODE(op);
 	cc = get_cc(type & 0xff);
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
@@ -1977,7 +1973,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	PTR_FAIL_IF(!const_);
 	set_const(const_, compiler);
 
-	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 	PTR_FAIL_IF(emit_imm32_const(compiler, dst_r, init_value));
 
 	if (dst & SLJIT_MEM)
