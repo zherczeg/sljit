@@ -838,6 +838,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 #define WORD_SIZE	0x00
 #define BYTE_SIZE	0x04
 #define HALF_SIZE	0x08
+#define PRELOAD		0x0c
 
 #define UPDATE		0x10
 
@@ -895,7 +896,7 @@ static const sljit_ins sljit_mem16_imm5[12] = {
 
 #define MEM_IMM8	0xc00
 #define MEM_IMM12	0x800000
-static const sljit_ins sljit_mem32[12] = {
+static const sljit_ins sljit_mem32[13] = {
 /* w u l */ 0xf8500000 /* ldr.w */,
 /* w u s */ 0xf8400000 /* str.w */,
 /* w s l */ 0xf8500000 /* ldr.w */,
@@ -910,6 +911,8 @@ static const sljit_ins sljit_mem32[12] = {
 /* h u s */ 0xf8200000 /* strsh.w */,
 /* h s l */ 0xf9300000 /* ldrsh.w */,
 /* h s s */ 0xf8200000 /* strsh.w */,
+
+/* p u l */ 0xf8100000 /* pld */,
 };
 
 /* Helper function. Dst should be reg + value, using at most 1 instruction, flags does not set. */
@@ -946,6 +949,12 @@ static SLJIT_INLINE sljit_s32 emit_op_mem(struct sljit_compiler *compiler, sljit
 	arg &= ~SLJIT_MEM;
 
 	if (SLJIT_UNLIKELY(!(arg & REG_MASK))) {
+		tmp = get_imm(argw & ~0xfff);
+		if (tmp != INVALID_IMM) {
+			FAIL_IF(push_inst32(compiler, MOV_WI | RD4(tmp_reg) | tmp));
+			return push_inst32(compiler, sljit_mem32[flags] | MEM_IMM12 | RT4(reg) | RN4(tmp_reg) | (argw & 0xfff));
+		}
+
 		FAIL_IF(load_immediate(compiler, tmp_reg, argw));
 		if (IS_2_LO_REGS(reg, tmp_reg) && sljit_mem16_imm5[flags])
 			return push_inst16(compiler, sljit_mem16_imm5[flags] | RD3(reg) | RN3(tmp_reg));
@@ -1270,8 +1279,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op)) {
+		/* Since TMP_PC has index 15, IS_2_LO_REGS and IS_3_LO_REGS checks always fail. */
+		if (op <= SLJIT_MOV_P && (src & SLJIT_MEM))
+			return emit_op_mem(compiler, PRELOAD, TMP_PC, src, srcw, TMP_REG1);
 		return SLJIT_SUCCESS;
+	}
 
 	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 
