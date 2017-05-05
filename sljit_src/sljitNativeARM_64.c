@@ -890,6 +890,10 @@ static sljit_s32 getput_arg_fast(struct sljit_compiler *compiler, sljit_s32 flag
 	}
 
 	arg &= REG_MASK;
+
+	if (arg == SLJIT_UNUSED)
+		return 0;
+
 	if (argw >= 0 && (argw >> shift) <= 0xfff && (argw & ((1 << shift) - 1)) == 0) {
 		if (SLJIT_UNLIKELY(flags & ARG_TEST))
 			return 1;
@@ -950,7 +954,7 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 		next_argw = 0;
 	}
 
-	tmp_r = (flags & STORE) ? TMP_REG3 : reg;
+	tmp_r = ((flags & STORE) || (flags == (WORD_SIZE | SIGNED))) ? TMP_REG3 : reg;
 
 	if (SLJIT_UNLIKELY((flags & UPDATE) && (arg & REG_MASK))) {
 		/* Update only applies if a base register exists. */
@@ -1021,15 +1025,15 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 		}
 	}
 
-	if (argw >= 0 && argw <= 0xffffff && (argw & ((1 << shift) - 1)) == 0) {
-		FAIL_IF(push_inst(compiler, ADDI | (1 << 22) | RD(tmp_r) | RN(arg & REG_MASK) | ((argw >> 12) << 10)));
-		return push_inst(compiler, sljit_mem_imm[flags & 0x3] | (shift << 30)
-			| RT(reg) | RN(tmp_r) | ((argw & 0xfff) << (10 - shift)));
-	}
-
 	diff = argw - next_argw;
 	next_arg = (arg & REG_MASK) && (arg == next_arg) && diff <= 0xfff && diff >= -0xfff && diff != 0;
 	arg &= REG_MASK;
+
+	if (arg != SLJIT_UNUSED && argw >= 0 && argw <= 0xffffff && (argw & ((1 << shift) - 1)) == 0) {
+		FAIL_IF(push_inst(compiler, ADDI | (1 << 22) | RD(tmp_r) | RN(arg) | ((argw >> 12) << 10)));
+		return push_inst(compiler, sljit_mem_imm[flags & 0x3] | (shift << 30)
+			| RT(reg) | RN(tmp_r) | ((argw & 0xfff) << (10 - shift)));
+	}
 
 	if (arg && compiler->cache_arg == SLJIT_MEM) {
 		if (compiler->cache_argw == argw)
@@ -1313,8 +1317,22 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op)) {
+		if (op <= SLJIT_MOV_P && (src & SLJIT_MEM)) {
+			SLJIT_ASSERT(reg_map[1] == 0 && reg_map[3] == 2 && reg_map[5] == 4);
+
+			if (op >= SLJIT_MOV_U8 && op <= SLJIT_MOV_S8)
+				dst = 5;
+			else if (op >= SLJIT_MOV_U16 && op <= SLJIT_MOV_S16)
+				dst = 3;
+			else
+				dst = 1;
+
+			/* Signed word sized load is the prefetch instruction. */
+			return emit_op_mem(compiler, WORD_SIZE | SIGNED, dst, src, srcw);
+		}
 		return SLJIT_SUCCESS;
+	}
 
 	dst_r = SLOW_IS_REG(dst) ? dst : TMP_REG1;
 

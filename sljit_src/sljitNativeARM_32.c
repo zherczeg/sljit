@@ -843,6 +843,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #define WORD_DATA	0x00
 #define BYTE_DATA	0x01
 #define HALF_DATA	0x02
+#define PRELOAD_DATA	0x03
 #define SIGNED_DATA	0x04
 #define LOAD_DATA	0x08
 
@@ -871,7 +872,7 @@ static const sljit_uw data_transfer_insts[16] = {
 /* l u w */ 0xe5100000 /* ldr */,
 /* l u b */ 0xe5500000 /* ldrb */,
 /* l u h */ 0xe11000b0 /* ldrh */,
-/* l u N */ 0x00000000 /* not allowed */,
+/* l u p */ 0xf5500000 /* preload data */,
 /* l s w */ 0xe5100000 /* ldr */,
 /* l s b */ 0xe11000d0 /* ldrsb */,
 /* l s h */ 0xe11000f0 /* ldrsh */,
@@ -879,7 +880,7 @@ static const sljit_uw data_transfer_insts[16] = {
 };
 
 #define EMIT_DATA_TRANSFER(type, add, wb, target_reg, base_reg, arg) \
-	(data_transfer_insts[(type) & 0xf] | ((add) << 23) | ((wb) << (21 - 4)) | (reg_map[target_reg] << 12) | (reg_map[base_reg] << 16) | (arg))
+	(data_transfer_insts[(type) & 0xf] | ((add) << 23) | ((wb) << (21 - 4)) | RD(target_reg) | RN(base_reg) | (arg))
 
 /* Normal ldr/str instruction.
    Type2: ldrsb, ldrh, ldrsh */
@@ -1344,8 +1345,16 @@ static SLJIT_INLINE sljit_s32 emit_op_mem(struct sljit_compiler *compiler, sljit
 
 	if ((arg & REG_MASK) == SLJIT_UNUSED) {
 		/* Write back is not used. */
-		FAIL_IF(load_immediate(compiler, tmp_reg, argw));
-		return push_inst(compiler, EMIT_DATA_TRANSFER(flags, 1, 0, reg, tmp_reg, is_type1_transfer ? 0 : TYPE2_TRANSFER_IMM(0)));
+		if (is_type1_transfer) {
+			FAIL_IF(load_immediate(compiler, tmp_reg, argw & ~0xfff));
+			argw &= 0xfff;
+		}
+		else {
+			FAIL_IF(load_immediate(compiler, tmp_reg, argw & ~0xff));
+			argw &= 0xff;
+		}
+
+		return push_inst(compiler, EMIT_DATA_TRANSFER(flags, 1, 0, reg, tmp_reg, is_type1_transfer ? argw : TYPE2_TRANSFER_IMM(argw)));
 	}
 
 	if (arg & OFFS_REG_MASK) {
@@ -1660,8 +1669,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op)) {
+#if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+		if (op <= SLJIT_MOV_P && (src & SLJIT_MEM))
+			return emit_op_mem(compiler, PRELOAD_DATA | LOAD_DATA, TMP_PC, src, srcw, TMP_REG1);
+#endif
 		return SLJIT_SUCCESS;
+	}
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
