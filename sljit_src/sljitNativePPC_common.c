@@ -154,6 +154,7 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 7] = {
 #define CMPL		(HI(31) | LO(32))
 #define CMPLI		(HI(10))
 #define CROR		(HI(19) | LO(449))
+#define DCBT		(HI(31) | LO(278))
 #define DIVD		(HI(31) | LO(489))
 #define DIVDU		(HI(31) | LO(457))
 #define DIVW		(HI(31) | LO(491))
@@ -1321,6 +1322,31 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 	return SLJIT_SUCCESS;
 }
 
+static sljit_s32 emit_prefetch(struct sljit_compiler *compiler,
+        sljit_s32 src, sljit_sw srcw)
+{
+	if (!(src & OFFS_REG_MASK)) {
+		if (srcw == 0 && (src & REG_MASK) != SLJIT_UNUSED)
+			return push_inst(compiler, DCBT | A(0) | B(src & REG_MASK));
+
+		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
+		/* Works with SLJIT_MEM0() case as well. */
+		return push_inst(compiler, DCBT | A(src & REG_MASK) | B(TMP_REG1));
+	}
+
+	srcw &= 0x3;
+
+	if (srcw == 0)
+		return push_inst(compiler, DCBT | A(src & REG_MASK) | B(OFFS_REG(src)));
+
+#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
+	FAIL_IF(push_inst(compiler, RLWINM | S(OFFS_REG(src)) | A(TMP_REG1) | (srcw << 11) | ((31 - srcw) << 1)));
+#else
+	FAIL_IF(push_inst(compiler, RLDI(TMP_REG1, OFFS_REG(src), srcw, 63 - srcw, 1)));
+#endif
+	return push_inst(compiler, DCBT | A(src & REG_MASK) | B(TMP_REG1));
+}
+
 #define EMIT_MOV(type, type_flags, type_cast) \
 	emit_op(compiler, (src & SLJIT_IMM) ? SLJIT_MOV : type, flags | (type_flags), dst, dstw, TMP_REG1, 0, src, (src & SLJIT_IMM) ? type_cast srcw : srcw)
 
@@ -1336,8 +1362,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op)) {
+		if (op <= SLJIT_MOV_P && (src & SLJIT_MEM))
+			return emit_prefetch(compiler, src, srcw);
+
 		return SLJIT_SUCCESS;
+	}
 
 	op = GET_OPCODE(op);
 	if ((src & SLJIT_IMM) && srcw == 0)

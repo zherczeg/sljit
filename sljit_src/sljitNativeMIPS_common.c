@@ -178,6 +178,8 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 #define MOVT		(HI(0) | (1 << 16) | LO(1))
 #define MOVZ		(HI(0) | LO(10))
 #define MUL		(HI(28) | LO(2))
+#define PREF		(HI(51))
+#define PREFX		(HI(19) | LO(15))
 #define SEB		(HI(31) | (16 << 6) | LO(32))
 #define SEH		(HI(31) | (24 << 6) | LO(32))
 #endif
@@ -1083,6 +1085,29 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 	return SLJIT_SUCCESS;
 }
 
+#if (defined SLJIT_MIPS_R1 && SLJIT_MIPS_R1)
+static sljit_s32 emit_prefetch(struct sljit_compiler *compiler,
+        sljit_s32 src, sljit_sw srcw)
+{
+	if (!(src & OFFS_REG_MASK)) {
+		if (srcw <= SIMM_MAX && srcw >= SIMM_MIN)
+			return push_inst(compiler, PREF | S(src & REG_MASK) | IMM(srcw), MOVABLE_INS);
+
+		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), srcw));
+		return push_inst(compiler, PREFX | S(src & REG_MASK) | T(TMP_REG1), MOVABLE_INS);
+	}
+
+	srcw &= 0x3;
+
+	if (SLJIT_UNLIKELY(srcw != 0)) {
+		FAIL_IF(push_inst(compiler, SLL_W | T(OFFS_REG(src)) | D(TMP_REG1) | SH_IMM(srcw), DR(TMP_REG1)));
+		return push_inst(compiler, PREFX | S(src & REG_MASK) | T(TMP_REG1), MOVABLE_INS);
+	}
+
+	return push_inst(compiler, PREFX | S(src & REG_MASK) | T(OFFS_REG(src)), MOVABLE_INS);
+}
+#endif
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
@@ -1098,8 +1123,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
+	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op)) {
+#if (defined SLJIT_MIPS_R1 && SLJIT_MIPS_R1)
+		if (op <= SLJIT_MOV_P && (src & SLJIT_MEM))
+			return emit_prefetch(compiler, src, srcw);
+#endif
 		return SLJIT_SUCCESS;
+	}
 
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 	if ((op & SLJIT_I32_OP) && GET_OPCODE(op) >= SLJIT_NOT) {
