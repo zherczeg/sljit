@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+06.05.2017 - Non-backward compatible
+    Src argument is removed from sljit_emit_op_flags.
+
 24.04.2017 - Non-backward compatible
     The sljit_is_fpu_available function is replaced
     by sljit_has_cpu_feature.
