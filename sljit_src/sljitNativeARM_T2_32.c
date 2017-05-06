@@ -1848,16 +1848,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
-	sljit_s32 src, sljit_sw srcw,
 	sljit_s32 type)
 {
 	sljit_s32 dst_r, flags = GET_ALL_FLAGS(op);
-	sljit_ins cc, ins;
+	sljit_ins cc;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, src, srcw, type));
+	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, type));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
-	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	op = GET_OPCODE(op);
 	cc = get_cc(type & 0xff);
@@ -1873,56 +1871,34 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 			FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 1));
 			FAIL_IF(push_inst16(compiler, MOVSI | RDN3(dst_r) | 0));
 		}
-		if (dst_r != TMP_REG1)
+		if (!(dst & SLJIT_MEM))
 			return SLJIT_SUCCESS;
 		return emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG1, dst, dstw, TMP_REG2);
 	}
 
-	ins = (op == SLJIT_AND ? ANDI : (op == SLJIT_OR ? ORRI : EORI));
+	if (dst & SLJIT_MEM)
+		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, dst, dstw, TMP_REG2));
 
-	if ((op == SLJIT_OR || op == SLJIT_XOR) && FAST_IS_REG(dst) && dst == src) {
-		/* Does not change the other bits. */
-		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
-		FAIL_IF(push_inst32(compiler, ins | RN4(src) | RD4(dst) | 1));
-		if (flags & SLJIT_SET_Z) {
-			/* The condition must always be set, even if the ORRI/EORI is not executed above. */
-			if (reg_map[dst] <= 7)
-				return push_inst16(compiler, MOVS | RD3(TMP_REG1) | RN3(dst));
-			return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(TMP_REG1) | RM4(dst));
-		}
-		return SLJIT_SUCCESS;
-	}
-
-	if (src & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, src, srcw, TMP_REG2));
-		src = TMP_REG2;
-		srcw = 0;
-	} else if (src & SLJIT_IMM) {
-		FAIL_IF(load_immediate(compiler, TMP_REG2, srcw));
-		src = TMP_REG2;
-		srcw = 0;
-	}
-
-	if (op == SLJIT_AND || src != dst_r) {
+	if (op == SLJIT_AND) {
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | (((cc & 0x1) ^ 0x1) << 3) | 0x4));
-		FAIL_IF(push_inst32(compiler, ins | RN4(src) | RD4(dst_r) | 1));
-		FAIL_IF(push_inst32(compiler, ins | RN4(src) | RD4(dst_r) | 0));
+		FAIL_IF(push_inst32(compiler, ANDI | RN4(dst_r) | RD4(dst_r) | 1));
+		FAIL_IF(push_inst32(compiler, ANDI | RN4(dst_r) | RD4(dst_r) | 0));
 	}
 	else {
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
-		FAIL_IF(push_inst32(compiler, ins | RN4(src) | RD4(dst_r) | 1));
+		FAIL_IF(push_inst32(compiler, ((op == SLJIT_OR) ? ORRI : EORI) | RN4(dst_r) | RD4(dst_r) | 1));
 	}
 
-	if (dst_r == TMP_REG1)
+	if (dst & SLJIT_MEM)
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG1, dst, dstw, TMP_REG2));
 
-	if (flags & SLJIT_SET_Z) {
-		/* The condition must always be set, even if the ORR/EORI is not executed above. */
-		if (reg_map[dst_r] <= 7)
-			return push_inst16(compiler, MOVS | RD3(TMP_REG1) | RN3(dst_r));
-		return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(TMP_REG1) | RM4(dst_r));
-	}
-	return SLJIT_SUCCESS;
+	if (!(flags & SLJIT_SET_Z))
+		return SLJIT_SUCCESS;
+
+	/* The condition must always be set, even if the ORR/EORI is not executed above. */
+	if (reg_map[dst_r] <= 7)
+		return push_inst16(compiler, MOVS | RD3(TMP_REG1) | RN3(dst_r));
+	return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(TMP_REG1) | RM4(dst_r));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,

@@ -1200,18 +1200,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
    represented by the type is 1, if the condition represented by the type
    is fulfilled, and 0 otherwise.
 
-   If op == SLJIT_MOV, SLJIT_MOV_S32, SLJIT_MOV_U32:
+   If op == SLJIT_MOV, SLJIT_MOV32:
      Set dst to the value represented by the type (0 or 1).
-     Src must be SLJIT_UNUSED, and srcw must be 0
      Flags: - (does not modify flags)
    If op == SLJIT_OR, op == SLJIT_AND, op == SLJIT_XOR
-     Performs the binary operation using src as the first, and the value
-     represented by type as the second argument.
-     Important note: only dst=src and dstw=srcw is supported at the moment!
+     Performs the binary operation using dst as the first, and the value
+     represented by type as the second argument. Result is written into dst.
      Flags: Z (may destroy flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
-	sljit_s32 src, sljit_sw srcw,
 	sljit_s32 type);
 
 /* Emit a conditional mov instruction which moves source to destination,
