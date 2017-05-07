@@ -88,24 +88,24 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 3] = {
 
 /* Note: r12 & 0x7 == 0b100, which decoded as SIB byte present
    Note: avoid to use r12 and r13 for memory addessing
-   therefore r12 is better for SAVED_EREG than SAVED_REG. */
+   therefore r12 is better to be a higher saved register. */
 #ifndef _WIN64
-/* 1st passed in rdi, 2nd argument passed in rsi, 3rd in rdx. */
-static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
-	0, 0, 6, 1, 8, 11, 10, 12, 5, 13, 14, 15, 3, 4, 2, 9, 7
+/* Args: rdi(=7), rsi(=6), rdx(=2), rcx(=1), r8, r9. Scratches: rax(=0), r10, r11 */
+static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 4] = {
+	0, 0, 6, 1, 7, 8, 11, 10, 12, 5, 13, 14, 15, 3, 4, 2, 9
 };
 /* low-map. reg_map & 0x7. */
-static const sljit_u8 reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 5] = {
-	0, 0, 6, 1, 0, 3,  2,  4,  5,  5,  6,  7, 3, 4, 2, 1, 7
+static const sljit_u8 reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 4] = {
+	0, 0, 6, 1, 7, 0, 3,  2,  4,  5,  5,  6,  7, 3, 4, 2, 1
 };
 #else
-/* 1st passed in rcx, 2nd argument passed in rdx, 3rd in r8. */
-static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
-	0, 0, 2, 1, 11, 12, 5, 13, 14, 15, 7, 6, 3, 4, 10, 9, 8
+/* Args: rcx(=1), rdx(=2), r8, r9. Scratches: rax(=0), r10, r11 */
+static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 4] = {
+	0, 0, 2, 1, 10, 11, 12, 5, 13, 14, 15, 7, 6, 3, 4, 8, 9
 };
 /* low-map. reg_map & 0x7. */
-static const sljit_u8 reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 5] = {
-	0, 0, 2, 1, 3,  4,  5,  5, 6,  7,  7, 6, 3, 4, 2,  1, 0
+static const sljit_u8 reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 4] = {
+	0, 0, 2, 1, 2,  3,  4,  5,  5, 6,  7,  7, 6, 3, 4, 0, 1
 };
 #endif
 
@@ -2534,6 +2534,14 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	return jump;
 }
 
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#ifndef _WIN64
+#define IS_REG_CHANGED_BY_CALL(src, type) ((src) == SLJIT_R3)
+#else
+#define IS_REG_CHANGED_BY_CALL(src, type) ((src) == SLJIT_R2)
+#endif
+#endif
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 src, sljit_sw srcw)
 {
 	sljit_u8 *inst;
@@ -2555,11 +2563,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 		if (src == SLJIT_MEM1(SLJIT_SP) && type >= SLJIT_CALL3)
 			srcw += sizeof(sljit_sw);
 #endif
-#endif
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) && defined(_WIN64)
-		if (src == SLJIT_R2) {
-			EMIT_MOV(compiler, TMP_REG1, 0, src, 0);
-			src = TMP_REG1;
+#else
+		if ((src & SLJIT_MEM) || IS_REG_CHANGED_BY_CALL(src, type)) {
+			EMIT_MOV(compiler, TMP_REG2, 0, src, srcw);
+			src = TMP_REG2;
 		}
 #endif
 		FAIL_IF(call_with_args(compiler, type));
