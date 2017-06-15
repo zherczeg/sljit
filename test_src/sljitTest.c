@@ -5151,7 +5151,7 @@ static void test53(void)
 
 static void test54(void)
 {
-	/* Check x86 cmov. */
+	/* Check cmov. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
@@ -5301,7 +5301,6 @@ static void test54(void)
 
 	code.func3((sljit_sw)&buf, (sljit_sw)&ibuf, (sljit_sw)&sbuf);
 
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	FAILED(buf[0] != 17, "test54 case 1 failed\n");
 	FAILED(buf[1] != 34, "test54 case 2 failed\n");
 	FAILED(buf[2] != 24, "test54 case 3 failed\n");
@@ -5329,7 +5328,6 @@ static void test54(void)
 	FAILED(ibuf[1] != 95, "test54 case 13 failed\n");
 	FAILED(ibuf[2] != 56, "test54 case 14 failed\n");
 	FAILED(ibuf[3] != -63, "test54 case 15 failed\n");
-#endif
 
 	sljit_free_code(code.code);
 	successful_tests++;
