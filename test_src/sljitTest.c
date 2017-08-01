@@ -4514,10 +4514,10 @@ static void test48(void)
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	int i;
-	sljit_f64 dbuf[9];
-	sljit_f32 sbuf[9];
-	sljit_sw wbuf[9];
-	sljit_s32 ibuf[9];
+	sljit_f64 dbuf[10];
+	sljit_f32 sbuf[10];
+	sljit_sw wbuf[10];
+	sljit_s32 ibuf[10];
 
 	if (verbose)
 		printf("Run test48\n");
@@ -4532,7 +4532,7 @@ static void test48(void)
 	}
 
 	FAILED(!compiler, "cannot create compiler\n");
-	for (i = 0; i < 9; i++) {
+	for (i = 0; i < 10; i++) {
 		dbuf[i] = 0.0;
 		sbuf[i] = 0.0;
 		wbuf[i] = 0;
@@ -4605,6 +4605,8 @@ static void test48(void)
 	sljit_emit_fop1(compiler, SLJIT_CONV_F64_FROM_S32, SLJIT_FR1, 0, SLJIT_R0, 0);
 	/* dbuf[8] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 8 * sizeof(sljit_f64), SLJIT_FR1, 0);
+	/* dbuf[9] */
+	sljit_emit_fop1(compiler, SLJIT_CONV_F64_FROM_SW, SLJIT_MEM0(), (sljit_sw)(dbuf + 9), SLJIT_IMM, -77);
 	/* sbuf[5] */
 	sljit_emit_fop1(compiler, SLJIT_CONV_F32_FROM_SW, SLJIT_MEM1(SLJIT_S1), 5 * sizeof(sljit_f32), SLJIT_IMM, -123);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 7190);
@@ -4620,6 +4622,8 @@ static void test48(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 3812);
 	/* sbuf[8] */
 	sljit_emit_fop1(compiler, SLJIT_CONV_F32_FROM_S32, SLJIT_MEM2(SLJIT_S1, SLJIT_R0), SLJIT_F32_SHIFT, SLJIT_R1, 0);
+	/* sbuf[9] */
+	sljit_emit_fop1(compiler, SLJIT_CONV_F32_FROM_SW, SLJIT_MEM0(), (sljit_sw)(sbuf + 9), SLJIT_IMM, -79);
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
@@ -4634,22 +4638,24 @@ static void test48(void)
 	FAILED(dbuf[6] != -6213.0, "test48 case 4 failed\n");
 	FAILED(dbuf[7] != 312.0, "test48 case 5 failed\n");
 	FAILED(dbuf[8] != -9324.0, "test48 case 6 failed\n");
+	FAILED(dbuf[9] != -77.0, "test48 case 7 failed\n");
 
-	FAILED(sbuf[2] != 123.5, "test48 case 7 failed\n");
-	FAILED(sbuf[3] != 123.5, "test48 case 8 failed\n");
-	FAILED(sbuf[4] != 476.25, "test48 case 9 failed\n");
-	FAILED(sbuf[5] != -123, "test48 case 10 failed\n");
-	FAILED(sbuf[6] != 7190, "test48 case 11 failed\n");
-	FAILED(sbuf[7] != 312, "test48 case 12 failed\n");
-	FAILED(sbuf[8] != 3812, "test48 case 13 failed\n");
+	FAILED(sbuf[2] != 123.5, "test48 case 8 failed\n");
+	FAILED(sbuf[3] != 123.5, "test48 case 9 failed\n");
+	FAILED(sbuf[4] != 476.25, "test48 case 10 failed\n");
+	FAILED(sbuf[5] != -123, "test48 case 11 failed\n");
+	FAILED(sbuf[6] != 7190, "test48 case 12 failed\n");
+	FAILED(sbuf[7] != 312, "test48 case 13 failed\n");
+	FAILED(sbuf[8] != 3812, "test48 case 14 failed\n");
+	FAILED(sbuf[9] != -79.0, "test48 case 15 failed\n");
 
-	FAILED(wbuf[1] != -367, "test48 case 14 failed\n");
-	FAILED(wbuf[2] != 917, "test48 case 15 failed\n");
-	FAILED(wbuf[3] != 476, "test48 case 16 failed\n");
-	FAILED(wbuf[4] != -476, "test48 case 17 failed\n");
+	FAILED(wbuf[1] != -367, "test48 case 16 failed\n");
+	FAILED(wbuf[2] != 917, "test48 case 17 failed\n");
+	FAILED(wbuf[3] != 476, "test48 case 18 failed\n");
+	FAILED(wbuf[4] != -476, "test48 case 19 failed\n");
 
-	FAILED(ibuf[2] != -917, "test48 case 18 failed\n");
-	FAILED(ibuf[3] != -1689, "test48 case 19 failed\n");
+	FAILED(ibuf[2] != -917, "test48 case 20 failed\n");
+	FAILED(ibuf[3] != -1689, "test48 case 21 failed\n");
 
 	sljit_free_code(code.code);
 	successful_tests++;
