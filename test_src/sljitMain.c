@@ -39,7 +39,7 @@ void error(const char* str)
 
 union executable_code {
 	void* code;
-	sljit_sw (SLJIT_CALL *func)(sljit_sw* a);
+	sljit_sw (SLJIT_FUNC *func)(sljit_sw* a);
 };
 typedef union executable_code executable_code;
 

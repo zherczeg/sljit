@@ -414,7 +414,11 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 			}
 		}
 	}
-	else if (!(flags & EX86_SSE2_OP2) && reg_map[b] >= 8)
+	else if (!(flags & EX86_SSE2_OP2)) {
+		if (reg_map[b] >= 8)
+			rex |= REX_B;
+	}
+	else if (freg_map[b] >= 8)
 		rex |= REX_B;
 
 	if (a & SLJIT_IMM) {
@@ -441,7 +445,11 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 	else {
 		SLJIT_ASSERT(!(flags & EX86_SHIFT_INS) || a == SLJIT_PREF_SHIFT_REG);
 		/* reg_map[SLJIT_PREF_SHIFT_REG] is less than 8. */
-		if (!(flags & EX86_SSE2_OP1) && reg_map[a] >= 8)
+		if (!(flags & EX86_SSE2_OP1)) {
+			if (reg_map[a] >= 8)
+				rex |= REX_R;
+		}
+		else if (freg_map[a] >= 8)
 			rex |= REX_R;
 	}
 
@@ -468,12 +476,12 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 		if ((flags & EX86_BIN_INS) && (a & SLJIT_IMM))
 			*inst = (flags & EX86_BYTE_ARG) ? GROUP_BINARY_83 : GROUP_BINARY_81;
 
-		if ((a & SLJIT_IMM) || (a == 0))
+		if (a & SLJIT_IMM)
 			*buf_ptr = 0;
 		else if (!(flags & EX86_SSE2_OP1))
 			*buf_ptr = reg_lmap[a] << 3;
 		else
-			*buf_ptr = a << 3;
+			*buf_ptr = freg_lmap[a] << 3;
 	}
 	else {
 		if (a & SLJIT_IMM) {
@@ -487,7 +495,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 	}
 
 	if (!(b & SLJIT_MEM))
-		*buf_ptr++ |= MOD_REG + ((!(flags & EX86_SSE2_OP2)) ? reg_lmap[b] : b);
+		*buf_ptr++ |= MOD_REG + ((!(flags & EX86_SSE2_OP2)) ? reg_lmap[b] : freg_lmap[b]);
 	else if ((b & REG_MASK) != SLJIT_UNUSED) {
 		if ((b & OFFS_REG_MASK) == SLJIT_UNUSED || (b & OFFS_REG_MASK) == TO_OFFS_REG(SLJIT_SP)) {
 			if (immb != 0 || reg_lmap[b & REG_MASK] == 5) {
@@ -545,18 +553,35 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 /*  Call / return instructions                                           */
 /* --------------------------------------------------------------------- */
 
-static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 type)
+static sljit_s32 get_word_arg_count(sljit_s32 arg_types)
+{
+	sljit_s32 word_arg_count = 0;
+
+	/* Remove return value. */
+	arg_types >>= SLJIT_DEF_SHIFT;
+
+	while (arg_types) {
+		if ((arg_types & SLJIT_DEF_MASK) < SLJIT_ARG_TYPE_F32)
+			word_arg_count++;
+		arg_types >>= SLJIT_DEF_SHIFT;
+	}
+
+	return word_arg_count;
+}
+
+static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 word_arg_count)
 {
 	sljit_u8 *inst;
 
-	/* After any change update IS_REG_CHANGED_BY_CALL as well. */
+	SLJIT_ASSERT(word_arg_count > 0);
+
 #ifndef _WIN64
 	SLJIT_ASSERT(reg_map[SLJIT_R1] == 6 && reg_map[SLJIT_R0] < 8 && reg_map[SLJIT_R2] < 8 && reg_map[TMP_REG1] == 2);
 
-	inst = (sljit_u8*)ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + ((word_arg_count < 3) ? 3 : 6));
 	FAIL_IF(!inst);
-	INC_SIZE((type < SLJIT_CALL3) ? 3 : 6);
-	if (type >= SLJIT_CALL3) {
+	INC_SIZE((word_arg_count < 3) ? 3 : 6);
+	if (word_arg_count >= 3) {
 		/* Move third argument to TMP_REG1. */
 		*inst++ = REX_W;
 		*inst++ = MOV_r_rm;
@@ -568,10 +593,10 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 type)
 #else
 	SLJIT_ASSERT(reg_map[SLJIT_R1] == 2 && reg_map[SLJIT_R0] < 8 && reg_map[SLJIT_R2] < 8 && reg_map[TMP_REG1] == 8);
 
-	inst = (sljit_u8*)ensure_buf(compiler, 1 + ((type < SLJIT_CALL3) ? 3 : 6));
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + ((word_arg_count < 3) ? 3 : 6));
 	FAIL_IF(!inst);
-	INC_SIZE((type < SLJIT_CALL3) ? 3 : 6);
-	if (type >= SLJIT_CALL3) {
+	INC_SIZE((word_arg_count < 3) ? 3 : 6);
+	if (word_arg_count >= 3) {
 		/* Move third argument to TMP_REG1. */
 		*inst++ = REX_W | REX_R;
 		*inst++ = MOV_r_rm;
@@ -582,6 +607,60 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 type)
 	*inst++ = MOD_REG | (0x1 /* rcx */ << 3) | reg_lmap[SLJIT_R0];
 #endif
 	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 arg_types)
+{
+	sljit_s32 word_arg_count;
+
+	CHECK_ERROR_PTR();
+	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
+
+	word_arg_count = get_word_arg_count(arg_types);
+
+	if (word_arg_count > 0)
+		PTR_FAIL_IF(call_with_args(compiler, word_arg_count));
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
+		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	compiler->skip_checks = 1;
+#endif
+
+	return sljit_emit_jump(compiler, type);
+}
+
+#ifndef _WIN64
+#define REG_CHANGED_BY_CALL SLJIT_R3
+#else
+#define REG_CHANGED_BY_CALL SLJIT_R2
+#endif
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 arg_types,
+	sljit_s32 src, sljit_sw srcw)
+{
+	sljit_s32 word_arg_count;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
+
+	word_arg_count = get_word_arg_count(arg_types);
+
+	if (word_arg_count > 0) {
+		if (((src) & REG_MASK) == REG_CHANGED_BY_CALL || OFFS_REG(src) == REG_CHANGED_BY_CALL) {
+			EMIT_MOV(compiler, TMP_REG2, 0, src, srcw);
+			src = TMP_REG2;
+		}
+		FAIL_IF(call_with_args(compiler, word_arg_count));
+	}
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
+		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	compiler->skip_checks = 1;
+#endif
+
+	return sljit_emit_ijump(compiler, type, src, srcw);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)

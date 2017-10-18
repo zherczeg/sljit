@@ -109,6 +109,15 @@ static const sljit_u8 reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 4] = {
 };
 #endif
 
+/* Args: xmm0-xmm3 */
+static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
+	4, 0, 1, 2, 3, 5, 6
+};
+/* low-map. freg_map & 0x7. */
+static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
+	4, 0, 1, 2, 3, 5, 6
+};
+
 #define REX_W		0x48
 #define REX_R		0x44
 #define REX_X		0x42
@@ -178,6 +187,8 @@ static const sljit_u8 reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 4] = {
 #define CVTTSD2SI_r_xm	0x2c
 #define DIV		(/* GROUP_F7 */ 6 << 3)
 #define DIVSD_x_xm	0x5e
+#define FSTPS		0xd9
+#define FSTPD		0xdd
 #define INT3		0xcc
 #define IDIV		(/* GROUP_F7 */ 7 << 3)
 #define IMUL		(/* GROUP_F7 */ 5 << 3)
@@ -653,10 +664,16 @@ static sljit_s32 emit_mov(struct sljit_compiler *compiler,
 #define EMIT_MOV(compiler, dst, dstw, src, srcw) \
 	FAIL_IF(emit_mov(compiler, dst, dstw, src, srcw));
 
+static SLJIT_INLINE sljit_s32 emit_sse2_store(struct sljit_compiler *compiler,
+	sljit_s32 single, sljit_s32 dst, sljit_sw dstw, sljit_s32 src);
+
+static SLJIT_INLINE sljit_s32 emit_sse2_load(struct sljit_compiler *compiler,
+	sljit_s32 single, sljit_s32 dst, sljit_s32 src, sljit_sw srcw);
+
 #ifdef _WIN32
 #include <malloc.h>
 
-static void SLJIT_CALL sljit_grow_stack(sljit_sw local_size)
+static void SLJIT_FUNC sljit_grow_stack(sljit_sw local_size)
 {
 	/* Workaround for calling the internal _chkstk() function on Windows.
 	This function touches all 4k pages belongs to the requested stack space,
@@ -2203,7 +2220,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 reg)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
 {
 	CHECK_REG_INDEX(check_sljit_get_float_register_index(reg));
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	return reg;
+#else
+	return freg_map[reg];
+#endif
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
@@ -2345,6 +2366,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 		FAIL_IF(emit_sse2_load(compiler, op & SLJIT_F32_OP, TMP_FREG, src1, src1w));
 		src1 = TMP_FREG;
 	}
+
 	return emit_sse2_logic(compiler, UCOMISD_x_xm, !(op & SLJIT_F32_OP), src1, src2, src2w);
 }
 
@@ -2516,9 +2538,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 	type &= 0xff;
 
-	if (type >= SLJIT_CALL1)
-		PTR_FAIL_IF(call_with_args(compiler, type));
-
 	/* Worst case size. */
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	compiler->size += (type >= SLJIT_JUMP) ? 5 : 6;
@@ -2534,14 +2553,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	return jump;
 }
 
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-#ifndef _WIN64
-#define IS_REG_CHANGED_BY_CALL(src, type) ((src) == SLJIT_R3)
-#else
-#define IS_REG_CHANGED_BY_CALL(src, type) ((src) == SLJIT_R2)
-#endif
-#endif
-
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 src, sljit_sw srcw)
 {
 	sljit_u8 *inst;
@@ -2552,25 +2563,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	CHECK_EXTRA_REGS(src, srcw, (void)0);
-
-	if (type >= SLJIT_CALL1) {
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-		if (src == SLJIT_R2) {
-			EMIT_MOV(compiler, TMP_REG1, 0, src, 0);
-			src = TMP_REG1;
-		}
-		if (src == SLJIT_MEM1(SLJIT_SP) && type >= SLJIT_CALL3)
-			srcw += sizeof(sljit_sw);
-#endif
-#else
-		if ((src & SLJIT_MEM) || IS_REG_CHANGED_BY_CALL(src, type)) {
-			EMIT_MOV(compiler, TMP_REG2, 0, src, srcw);
-			src = TMP_REG2;
-		}
-#endif
-		FAIL_IF(call_with_args(compiler, type));
-	}
 
 	if (src == SLJIT_IMM) {
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
