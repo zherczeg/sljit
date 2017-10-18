@@ -61,7 +61,7 @@ struct regex_machine
 
 	union {
 		void *init_match;
-		sljit_sw (SLJIT_CALL *call_init)(void *next, void* match);
+		sljit_sw (SLJIT_FUNC *call_init)(void *next, void* match);
 	} u;
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
 	struct sljit_function_context context;
@@ -94,7 +94,7 @@ struct regex_match
 
 	union {
 		void *continue_match;
-		void (SLJIT_CALL *call_continue)(struct regex_match *match, const regex_char_t *input_string, int length);
+		void (SLJIT_FUNC *call_continue)(struct regex_match *match, const regex_char_t *input_string, int length);
 	} u;
 
 	/* Variable sized array to contain the state arrays. */
