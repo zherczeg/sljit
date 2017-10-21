@@ -40,8 +40,8 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 #define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
 #define TMP_PC		(SLJIT_NUMBER_OF_REGISTERS + 4)
 
-#define TMP_FREG1	(0)
-#define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
+#define TMP_FREG1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
+#define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
 
 /* In ARM instruction words.
    Cache lines are usually 32 byte aligned. */
@@ -56,6 +56,10 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 /* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
 static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 	0, 0, 1, 2, 3, 11, 10, 9, 8, 7, 6, 5, 4, 13, 14, 12, 15
+};
+
+static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
+	0, 0, 1, 2, 3, 4, 5, 6, 7
 };
 
 #define RM(rm) (reg_map[rm])
@@ -1785,7 +1789,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 reg)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
 {
 	CHECK_REG_INDEX(check_sljit_get_float_register_index(reg));
-	return reg << 1;
+	return (freg_map[reg] << 1);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
@@ -1804,9 +1808,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 
 #define FPU_LOAD (1 << 20)
 #define EMIT_FPU_DATA_TRANSFER(inst, add, base, freg, offs) \
-	((inst) | ((add) << 23) | (reg_map[base] << 16) | (freg << 12) | (offs))
+	((inst) | ((add) << 23) | (reg_map[base] << 16) | (freg_map[freg] << 12) | (offs))
 #define EMIT_FPU_OPERATION(opcode, mode, dst, src1, src2) \
-	((opcode) | (mode) | ((dst) << 12) | (src1) | ((src2) << 16))
+	((opcode) | (mode) | (freg_map[dst] << 12) | freg_map[src1] | (freg_map[src2] << 16))
 
 static sljit_s32 emit_fop_mem(struct sljit_compiler *compiler, sljit_s32 flags, sljit_s32 reg, sljit_s32 arg, sljit_sw argw)
 {
@@ -1866,7 +1870,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 	FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VCVT_S32_F32, op & SLJIT_F32_OP, TMP_FREG1, src, 0)));
 
 	if (FAST_IS_REG(dst))
-		return push_inst(compiler, VMOV | (1 << 20) | RD(dst) | (TMP_FREG1 << 16));
+		return push_inst(compiler, VMOV | (1 << 20) | RD(dst) | (freg_map[TMP_FREG1] << 16));
 
 	/* Store the integer value from a VFP register. */
 	return emit_fop_mem(compiler, 0, TMP_FREG1, dst, dstw);
@@ -1881,14 +1885,14 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_sw(struct sljit_comp
 	op ^= SLJIT_F32_OP;
 
 	if (FAST_IS_REG(src))
-		FAIL_IF(push_inst(compiler, VMOV | RD(src) | (TMP_FREG1 << 16)));
+		FAIL_IF(push_inst(compiler, VMOV | RD(src) | (freg_map[TMP_FREG1] << 16)));
 	else if (src & SLJIT_MEM) {
 		/* Load the integer value into a VFP register. */
 		FAIL_IF(emit_fop_mem(compiler, FPU_LOAD, TMP_FREG1, src, srcw));
 	}
 	else {
 		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
-		FAIL_IF(push_inst(compiler, VMOV | RD(TMP_REG1) | (TMP_FREG1 << 16)));
+		FAIL_IF(push_inst(compiler, VMOV | RD(TMP_REG1) | (freg_map[TMP_FREG1] << 16)));
 	}
 
 	FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VCVT_F32_S32, op & SLJIT_F32_OP, dst_r, TMP_FREG1, 0)));
@@ -2018,7 +2022,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 
 #undef FPU_LOAD
 #undef EMIT_FPU_DATA_TRANSFER
-#undef EMIT_FPU_OPERATION
 
 /* --------------------------------------------------------------------- */
 /*  Other instructions                                                   */
@@ -2111,7 +2114,7 @@ static sljit_uw get_cc(sljit_s32 type)
 		return 0x70000000;
 
 	default:
-		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL3);
+		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL_CDECL);
 		return 0xe0000000;
 	}
 }
@@ -2144,7 +2147,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 	type &= 0xff;
 
-	/* In ARM, we don't need to touch the arguments. */
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	if (type >= SLJIT_FAST_CALL)
 		PTR_FAIL_IF(prepare_blx(compiler));
@@ -2173,6 +2175,71 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	return jump;
 }
 
+static sljit_s32 hardfloat_call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types)
+{
+	sljit_u32 remap = 0;
+	sljit_u32 offset = 0;
+	sljit_u32 new_offset, mask;
+
+	/* Remove return value. */
+	arg_types >>= SLJIT_DEF_SHIFT;
+
+	while (arg_types) {
+		if ((arg_types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F32) {
+			new_offset = 0;
+			mask = 1;
+
+			while (remap & mask) {
+				new_offset++;
+				mask <<= 1;
+			}
+			remap |= mask;
+
+			if (offset != new_offset)
+				FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VMOV_F32,
+					0, (new_offset >> 1) + 1, (offset >> 1) + 1, 0) | ((new_offset & 0x1) ? 0x400000 : 0)));
+
+			offset += 2;
+		}
+		else if ((arg_types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F64) {
+			new_offset = 0;
+			mask = 3;
+
+			while (remap & mask) {
+				new_offset += 2;
+				mask <<= 2;
+			}
+			remap |= mask;
+
+			if (offset != new_offset)
+				FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VMOV_F32, SLJIT_F32_OP, (new_offset >> 1) + 1, (offset >> 1) + 1, 0)));
+
+			offset += 2;
+		}
+		arg_types >>= SLJIT_DEF_SHIFT;
+	}
+
+	return SLJIT_SUCCESS;
+}
+
+#undef EMIT_FPU_OPERATION
+
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 arg_types)
+{
+	CHECK_ERROR_PTR();
+	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
+
+	PTR_FAIL_IF(hardfloat_call_with_args(compiler, arg_types));
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
+		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	compiler->skip_checks = 1;
+#endif
+
+	return sljit_emit_jump(compiler, type);
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 src, sljit_sw srcw)
 {
 	struct sljit_jump *jump;
@@ -2191,6 +2258,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 		return push_inst(compiler, (type <= SLJIT_JUMP ? BX : BLX) | RM(TMP_REG2));
 	}
 
+	/* These jumps are converted to jump/call instructions when possible. */
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	FAIL_IF(!jump);
 	set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_FAST_CALL) ? IS_BL : 0));
@@ -2208,6 +2276,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 #endif
 	jump->addr = compiler->size;
 	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 arg_types,
+	sljit_s32 src, sljit_sw srcw)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
+
+	FAIL_IF(hardfloat_call_with_args(compiler, arg_types));
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
+		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	compiler->skip_checks = 1;
+#endif
+
+	return sljit_emit_ijump(compiler, type, src, srcw);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,

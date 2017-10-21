@@ -37,12 +37,16 @@ typedef sljit_u32 sljit_ins;
 #define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
 #define TMP_PC		(SLJIT_NUMBER_OF_REGISTERS + 4)
 
-#define TMP_FREG1	(0)
-#define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
+#define TMP_FREG1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
+#define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
 
 /* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
 static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 	0, 0, 1, 2, 12, 11, 10, 9, 8, 7, 6, 5, 4, 13, 3, 14, 15
+};
+
+static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
+	0, 0, 1, 2, 3, 4, 5, 6, 7
 };
 
 #define COPY_BITS(src, from, to, bits) \
@@ -69,9 +73,9 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 #define RN4(rn) (reg_map[rn] << 16)
 #define RM4(rm) (reg_map[rm])
 #define RT4(rt) (reg_map[rt] << 12)
-#define DD4(dd) ((dd) << 12)
-#define DN4(dn) ((dn) << 16)
-#define DM4(dm) (dm)
+#define DD4(dd) (freg_map[dd] << 12)
+#define DN4(dn) (freg_map[dn] << 16)
+#define DM4(dm) (freg_map[dm])
 #define IMM5(imm) \
 	(COPY_BITS(imm, 2, 12, 3) | ((imm & 0x3) << 6))
 #define IMM12(imm) \
@@ -1448,7 +1452,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 reg)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
 {
 	CHECK_REG_INDEX(check_sljit_get_float_register_index(reg));
-	return reg << 1;
+	return (freg_map[reg] << 1);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
@@ -1798,7 +1802,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 	type &= 0xff;
 
-	/* In ARM, we don't need to touch the arguments. */
 	PTR_FAIL_IF(emit_imm32_const(compiler, TMP_REG1, 0));
 	if (type < SLJIT_JUMP) {
 		jump->flags |= IS_COND;
@@ -1818,6 +1821,69 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	return jump;
 }
 
+static sljit_s32 hardfloat_call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types)
+{
+	sljit_u32 remap = 0;
+	sljit_u32 offset = 0;
+	sljit_u32 new_offset, mask;
+
+	/* Remove return value. */
+	arg_types >>= SLJIT_DEF_SHIFT;
+
+	while (arg_types) {
+		if ((arg_types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F32) {
+			new_offset = 0;
+			mask = 1;
+
+			while (remap & mask) {
+				new_offset++;
+				mask <<= 1;
+			}
+			remap |= mask;
+
+			if (offset != new_offset)
+				FAIL_IF(push_inst32(compiler, VMOV_F32 | DD4((new_offset >> 1) + 1) |
+					((new_offset & 0x1) ? 0x400000 : 0) | DM4((offset >> 1) + 1)));
+
+			offset += 2;
+		}
+		else if ((arg_types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F64) {
+			new_offset = 0;
+			mask = 3;
+
+			while (remap & mask) {
+				new_offset += 2;
+				mask <<= 2;
+			}
+			remap |= mask;
+
+			if (offset != new_offset)
+				FAIL_IF(push_inst32(compiler, VMOV_F32 | SLJIT_F32_OP | DD4((new_offset >> 1) + 1) | DM4((offset >> 1) + 1)));
+
+			offset += 2;
+		}
+		arg_types >>= SLJIT_DEF_SHIFT;
+	}
+
+	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 arg_types)
+{
+	CHECK_ERROR_PTR();
+	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
+
+	PTR_FAIL_IF(hardfloat_call_with_args(compiler, arg_types));
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
+		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	compiler->skip_checks = 1;
+#endif
+
+	return sljit_emit_jump(compiler, type);
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 src, sljit_sw srcw)
 {
 	struct sljit_jump *jump;
@@ -1826,7 +1892,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 	CHECK(check_sljit_emit_ijump(compiler, type, src, srcw));
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	/* In ARM, we don't need to touch the arguments. */
 	if (!(src & SLJIT_IMM)) {
 		if (FAST_IS_REG(src))
 			return push_inst16(compiler, (type <= SLJIT_JUMP ? BX : BLX) | RN3(src));
@@ -1836,6 +1901,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 			return push_inst16(compiler, BLX | RN3(TMP_REG1));
 	}
 
+	/* These jumps are converted to jump/call instructions when possible. */
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	FAIL_IF(!jump);
 	set_jump(jump, compiler, JUMP_ADDR | ((type >= SLJIT_FAST_CALL) ? IS_BL : 0));
@@ -1844,6 +1910,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 	FAIL_IF(emit_imm32_const(compiler, TMP_REG1, 0));
 	jump->addr = compiler->size;
 	return push_inst16(compiler, (type <= SLJIT_JUMP ? BX : BLX) | RN3(TMP_REG1));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 arg_types,
+	sljit_s32 src, sljit_sw srcw)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
+
+	FAIL_IF(hardfloat_call_with_args(compiler, arg_types));
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
+		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	compiler->skip_checks = 1;
+#endif
+
+	return sljit_emit_ijump(compiler, type, src, srcw);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
