@@ -1389,21 +1389,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	if (GET_FLAG_TYPE(op_flags) == SLJIT_OVERFLOW)
 		FAIL_IF(push_inst(compiler, MTXER | S(TMP_ZERO)));
 
+	if (op < SLJIT_NOT && FAST_IS_REG(src) && src == dst) {
+		if (!TYPE_CAST_NEEDED(op))
+			return SLJIT_SUCCESS;
+	}
+
 	if (op_flags & SLJIT_I32_OP) {
 		if (op < SLJIT_NOT) {
-			if (FAST_IS_REG(src) && src == dst) {
-				if (!TYPE_CAST_NEEDED(op))
-					return SLJIT_SUCCESS;
-			}
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-			if (op == SLJIT_MOV_S32 && (src & SLJIT_MEM))
-				op = SLJIT_MOV_U32;
-			if (op == SLJIT_MOVU_S32 && (src & SLJIT_MEM))
-				op = SLJIT_MOVU_U32;
-			if (op == SLJIT_MOV_U32 && (src & SLJIT_IMM))
-				op = SLJIT_MOV_S32;
-			if (op == SLJIT_MOVU_U32 && (src & SLJIT_IMM))
-				op = SLJIT_MOVU_S32;
+			if (src & SLJIT_MEM) {
+				if (op == SLJIT_MOV_S32)
+					op = SLJIT_MOV_U32;
+				if (op == SLJIT_MOVU_S32)
+					op = SLJIT_MOVU_U32;
+			}
+			else if (src & SLJIT_IMM) {
+				if (op == SLJIT_MOV_U32)
+					op = SLJIT_MOV_S32;
+				if (op == SLJIT_MOVU_U32)
+					op = SLJIT_MOVU_S32;
+			}
 #endif
 		}
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)

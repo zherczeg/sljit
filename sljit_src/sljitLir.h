@@ -213,14 +213,6 @@ of sljitConfigInternal.h */
 
 #define SLJIT_RETURN_REG	SLJIT_R0
 
-/* x86 prefers specific registers for special purposes. In case of shift
-   by register it supports only SLJIT_R2 for shift argument
-   (which is the src2 argument of sljit_emit_op2). If another register is
-   used, sljit must exchange data between registers which cause a minor
-   slowdown. Other architectures has no such limitation. */
-
-#define SLJIT_PREF_SHIFT_REG	SLJIT_R2
-
 /* --------------------------------------------------------------------- */
 /*  Floating point registers                                             */
 /* --------------------------------------------------------------------- */
@@ -506,8 +498,6 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_HAS_CLZ			3
 /* [Emulated] Conditional move is supported. */
 #define SLJIT_HAS_CMOV			4
-/* [Limitation] [Emulated] Shifting with register is limited to SLJIT_PREF_SHIFT_REG. */
-#define SLJIT_HAS_PREF_SHIFT_REG	5
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] SSE2 support is available on x86. */
@@ -1159,13 +1149,38 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
    Used by SLJIT_[DEF_]ARGx and SLJIT_[DEF]_RET macros. */
 
 #define SLJIT_ARG_TYPE_VOID 0
-#define SLJIT_ARG_TYPE_W 1
-#define SLJIT_ARG_TYPE_I32 2
-#define SLJIT_ARG_TYPE_F32 3
-#define SLJIT_ARG_TYPE_F64 4
+#define SLJIT_ARG_TYPE_SW 1
+#define SLJIT_ARG_TYPE_UW 2
+#define SLJIT_ARG_TYPE_S32 3
+#define SLJIT_ARG_TYPE_U32 4
+#define SLJIT_ARG_TYPE_F32 5
+#define SLJIT_ARG_TYPE_F64 6
 
 /* Define the argument types and return value type
    for sljit_emit_call and sljit_emit_icall instructions.
+
+   The first integer argument must be placed in SLJIT_R0, the second
+   in SLJIT_R1, and so on. Similarly the first floating point argument
+   must be placed in SLJIT_FR0, the second in SLJIT_FR1, and so on.
+
+   Example function definition:
+     sljit_f32 SLJIT_FUNC example_c_callback(sljit_sw arg_a,
+         sljit_f64 arg_b, sljit_u32 arg_c, sljit_f32 arg_d);
+
+   Argument type definition:
+     SLJIT_DEF_RET(SLJIT_ARG_TYPE_F32)
+        | SLJIT_DEF_ARG1(SLJIT_ARG_TYPE_SW) | SLJIT_DEF_ARG2(SLJIT_ARG_TYPE_F64)
+        | SLJIT_DEF_ARG3(SLJIT_ARG_TYPE_U32) | SLJIT_DEF_ARG2(SLJIT_ARG_TYPE_F32)
+
+   Short form of argument type definition:
+     SLJIT_RET(F32) | SLJIT_ARG1(SW) | SLJIT_ARG2(F64)
+        | SLJIT_ARG3(S32) | SLJIT_ARG4(F32)
+
+   Argument passing:
+     arg_a must be placed in SLJIT_R0
+     arg_c must be placed in SLJIT_R1
+     arg_b must be placed in SLJIT_FR0
+     arg_d must be placed in SLJIT_FR1
 
 Note:
    The SLJIT_ARG_TYPE_VOID type is only supported by
@@ -1176,14 +1191,15 @@ Note:
 #define SLJIT_DEF_ARG1(type) ((type) << SLJIT_DEF_SHIFT)
 #define SLJIT_DEF_ARG2(type) ((type) << (2 * SLJIT_DEF_SHIFT))
 #define SLJIT_DEF_ARG3(type) ((type) << (3 * SLJIT_DEF_SHIFT))
+#define SLJIT_DEF_ARG4(type) ((type) << (4 * SLJIT_DEF_SHIFT))
 
 /* Short form of the macros above.
 
    For example the following definition:
-   SLJIT_DEF_RET(SLJIT_ARG_TYPE_W) | SLJIT_DEF_ARG1(SLJIT_ARG_TYPE_F32)
+   SLJIT_DEF_RET(SLJIT_ARG_TYPE_SW) | SLJIT_DEF_ARG1(SLJIT_ARG_TYPE_F32)
 
    can be shortened to:
-   SLJIT_RET(W) | SLJIT_ARG1(F32)
+   SLJIT_RET(SW) | SLJIT_ARG1(F32)
 
 Note:
    The VOID type is only supported by SLJIT_RET, and
@@ -1193,6 +1209,7 @@ Note:
 #define SLJIT_ARG1(type) SLJIT_DEF_ARG1(SLJIT_ARG_TYPE_ ## type)
 #define SLJIT_ARG2(type) SLJIT_DEF_ARG2(SLJIT_ARG_TYPE_ ## type)
 #define SLJIT_ARG3(type) SLJIT_DEF_ARG3(SLJIT_ARG_TYPE_ ## type)
+#define SLJIT_ARG4(type) SLJIT_DEF_ARG4(SLJIT_ARG_TYPE_ ## type)
 
 /* Emit a C (ABI) compatible function call.
     type must be SLJIT_CALL or SLJIT_CALL_CDECL
