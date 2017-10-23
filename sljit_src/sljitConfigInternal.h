@@ -60,6 +60,8 @@
                        a single precision floating point array by index
      SLJIT_F64_SHIFT : the shift required to apply when accessing
                        a double precision floating point array by index
+     SLJIT_PREF_SHIFT_REG : x86 systems prefers ecx for shifting by register
+                            the scratch register index of ecx is stored in this variable
      SLJIT_LOCALS_OFFSET : local space starting offset (SLJIT_SP + SLJIT_LOCALS_OFFSET)
      SLJIT_RETURN_ADDRESS_OFFSET : a return instruction always adds this offset to the return address
 
@@ -557,24 +559,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 
 #define SLJIT_NUMBER_OF_REGISTERS 12
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 9
-#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 #define SLJIT_LOCALS_OFFSET_BASE (compiler->locals_offset)
-#else
-/* Maximum 3 arguments are passed on the stack, +1 for double alignment. */
-#define SLJIT_LOCALS_OFFSET_BASE (compiler->locals_offset)
-#endif /* SLJIT_X86_32_FASTCALL */
+#define SLJIT_PREF_SHIFT_REG SLJIT_R2
 
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 
-#ifndef _WIN64
 #define SLJIT_NUMBER_OF_REGISTERS 13
+#ifndef _WIN64
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 6
 #define SLJIT_LOCALS_OFFSET_BASE 0
-#else
-#define SLJIT_NUMBER_OF_REGISTERS 13
+#else /* _WIN64 */
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 8
 #define SLJIT_LOCALS_OFFSET_BASE (compiler->locals_offset)
-#endif /* _WIN64 */
+#endif /* !_WIN64 */
+#define SLJIT_PREF_SHIFT_REG SLJIT_R3
 
 #elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 

@@ -97,8 +97,13 @@
 #define GET_ALL_FLAGS(op) \
 	((op) & (SLJIT_I32_OP | SLJIT_SET_Z | VARIABLE_FLAG_MASK))
 
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#define TYPE_CAST_NEEDED(op) \
+	(((op) >= SLJIT_MOV_U8 && (op) <= SLJIT_MOV_S32) || ((op) >= SLJIT_MOVU_U8 && (op) <= SLJIT_MOVU_S32))
+#else
 #define TYPE_CAST_NEEDED(op) \
 	(((op) >= SLJIT_MOV_U8 && (op) <= SLJIT_MOV_S16) || ((op) >= SLJIT_MOVU_U8 && (op) <= SLJIT_MOVU_S16))
+#endif
 
 #define BUF_SIZE	4096
 
@@ -871,7 +876,7 @@ static char* jump_names[] = {
 };
 
 static char* call_arg_names[] = {
-	(char*)"void", (char*)"w", (char*)"i32", (char*)"f32", (char*)"f64"
+	(char*)"void", (char*)"sw", (char*)"uw", (char*)"s32", (char*)"u32", (char*)"f32", (char*)"f64"
 };
 
 #endif /* SLJIT_VERBOSE */
@@ -1457,7 +1462,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_call(struct sljit_compile
 	types = arg_types;
 	scratches = 0;
 	fscratches = 0;
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 5; i++) {
 		curr_type = (types & SLJIT_DEF_MASK);
 		CHECK_ARGUMENT(curr_type <= SLJIT_ARG_TYPE_F64);
 		if (i > 0) {
@@ -1471,7 +1476,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_call(struct sljit_compile
 		} else {
 			if (curr_type >= SLJIT_ARG_TYPE_F32) {
 				CHECK_ARGUMENT(compiler->fscratches > 0);
-			} else if (curr_type >= SLJIT_ARG_TYPE_W) {
+			} else if (curr_type >= SLJIT_ARG_TYPE_SW) {
 				CHECK_ARGUMENT(compiler->scratches > 0);
 			}
 		}
@@ -1586,7 +1591,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_icall(struct sljit_compil
 	types = arg_types;
 	scratches = 0;
 	fscratches = 0;
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 5; i++) {
 		curr_type = (types & SLJIT_DEF_MASK);
 		CHECK_ARGUMENT(curr_type <= SLJIT_ARG_TYPE_F64);
 		if (i > 0) {
@@ -1600,7 +1605,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_icall(struct sljit_compil
 		} else {
 			if (curr_type >= SLJIT_ARG_TYPE_F32) {
 				CHECK_ARGUMENT(compiler->fscratches > 0);
-			} else if (curr_type >= SLJIT_ARG_TYPE_W) {
+			} else if (curr_type >= SLJIT_ARG_TYPE_SW) {
 				CHECK_ARGUMENT(compiler->scratches > 0);
 			}
 		}

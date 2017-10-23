@@ -576,7 +576,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 word_
 	SLJIT_ASSERT(word_arg_count > 0);
 
 #ifndef _WIN64
-	SLJIT_ASSERT(reg_map[SLJIT_R1] == 6 && reg_map[SLJIT_R0] < 8 && reg_map[SLJIT_R2] < 8 && reg_map[TMP_REG1] == 2);
+	SLJIT_ASSERT(reg_map[SLJIT_R1] == 6 && reg_map[SLJIT_R3] == 1 && reg_map[SLJIT_R0] < 8 && reg_map[SLJIT_R2] < 8 && reg_map[TMP_REG1] == 2);
 
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + ((word_arg_count < 3) ? 3 : 6));
 	FAIL_IF(!inst);
@@ -591,16 +591,16 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 word_
 	*inst++ = MOV_r_rm;
 	*inst++ = MOD_REG | (0x7 /* rdi */ << 3) | reg_lmap[SLJIT_R0];
 #else
-	SLJIT_ASSERT(reg_map[SLJIT_R1] == 2 && reg_map[SLJIT_R0] < 8 && reg_map[SLJIT_R2] < 8 && reg_map[TMP_REG1] == 8);
+	SLJIT_ASSERT(reg_map[SLJIT_R1] == 2 && reg_map[SLJIT_R2] == 8 && reg_map[SLJIT_R0] < 8 && reg_map[SLJIT_R3] < 8 && reg_map[TMP_REG1] == 9);
 
-	inst = (sljit_u8*)ensure_buf(compiler, 1 + ((word_arg_count < 3) ? 3 : 6));
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + ((word_arg_count < 4) ? 3 : 6));
 	FAIL_IF(!inst);
-	INC_SIZE((word_arg_count < 3) ? 3 : 6);
-	if (word_arg_count >= 3) {
-		/* Move third argument to TMP_REG1. */
+	INC_SIZE((word_arg_count < 4) ? 3 : 6);
+	if (word_arg_count >= 4) {
+		/* Move fourth argument to TMP_REG1. */
 		*inst++ = REX_W | REX_R;
 		*inst++ = MOV_r_rm;
-		*inst++ = MOD_REG | (0x0 /* r8 */ << 3) | reg_lmap[SLJIT_R2];
+		*inst++ = MOD_REG | (0x1 /* r9 */ << 3) | reg_lmap[SLJIT_R3];
 	}
 	*inst++ = REX_W;
 	*inst++ = MOV_r_rm;
@@ -631,9 +631,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 }
 
 #ifndef _WIN64
-#define REG_CHANGED_BY_CALL SLJIT_R3
-#else
 #define REG_CHANGED_BY_CALL SLJIT_R2
+#else
+#define REG_CHANGED_BY_CALL SLJIT_R3
 #endif
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
@@ -648,7 +648,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	word_arg_count = get_word_arg_count(arg_types);
 
 	if (word_arg_count > 0) {
-		if (((src) & REG_MASK) == REG_CHANGED_BY_CALL || OFFS_REG(src) == REG_CHANGED_BY_CALL) {
+		if (src == REG_CHANGED_BY_CALL && word_arg_count >= REG_CHANGED_BY_CALL)
+			src = TMP_REG1;
+		else if ((src & REG_MASK) == REG_CHANGED_BY_CALL || OFFS_REG(src) == REG_CHANGED_BY_CALL) {
 			EMIT_MOV(compiler, TMP_REG2, 0, src, srcw);
 			src = TMP_REG2;
 		}
