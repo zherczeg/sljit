@@ -2181,7 +2181,7 @@ static sljit_s32 softfloat_call_with_args(struct sljit_compiler *compiler, sljit
 	sljit_s32 arg_count = 0;
 	sljit_s32 word_arg_offset = 0;
 	sljit_s32 float_arg_count = 0;
-	sljit_s32 types;
+	sljit_s32 types = 0;
 	sljit_s32 src_offset = 4 * sizeof(sljit_sw);
 	sljit_u8 offsets[4];
 
@@ -2189,8 +2189,6 @@ static sljit_s32 softfloat_call_with_args(struct sljit_compiler *compiler, sljit
 		src_offset = reg_map[*src] * sizeof(sljit_sw);
 
 	arg_types >>= SLJIT_DEF_SHIFT;
-
-	types = 0;
 
 	while (arg_types) {
 		types = (types << SLJIT_DEF_SHIFT) | (arg_types & SLJIT_DEF_MASK);
@@ -2239,7 +2237,7 @@ static sljit_s32 softfloat_call_with_args(struct sljit_compiler *compiler, sljit
 				}
 				FAIL_IF(push_inst(compiler, VMOV | 0x100000 | (float_arg_count << 16) | (stack_offset << 10)));
 			} else
-				FAIL_IF(push_inst(compiler, VSTR_F32 | 0x800000 | RN(SLJIT_SP) | (float_arg_count << 12) | (stack_offset - 16)));
+				FAIL_IF(push_inst(compiler, VSTR_F32 | 0x800000 | RN(SLJIT_SP) | (float_arg_count << 12) | ((stack_offset - 16) >> 2)));
 			break;
 		case SLJIT_ARG_TYPE_F64:
 			arg_count--;
@@ -2255,7 +2253,7 @@ static sljit_s32 softfloat_call_with_args(struct sljit_compiler *compiler, sljit
 				}
 				FAIL_IF(push_inst(compiler, VMOV2 | 0x100000 | (stack_offset << 10) | ((stack_offset + sizeof(sljit_sw)) << 14) | float_arg_count));
 			} else
-				FAIL_IF(push_inst(compiler, VSTR_F32 | 0x800100 | RN(SLJIT_SP) | (float_arg_count << 12) | (stack_offset - 16)));
+				FAIL_IF(push_inst(compiler, VSTR_F32 | 0x800100 | RN(SLJIT_SP) | (float_arg_count << 12) | ((stack_offset - 16) >> 2)));
 			break;
 		default:
 			arg_count--;

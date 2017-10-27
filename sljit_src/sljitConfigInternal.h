@@ -620,8 +620,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #define SLJIT_NUMBER_OF_REGISTERS 18
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 14
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-/* Add +1 for double alignment. */
-#define SLJIT_LOCALS_OFFSET_BASE ((23 + 1) * sizeof(sljit_sw))
+/* saved registers (16), return struct pointer (1), space for 6 argument words (1),
+   4th double arg (2), double alignment (1). */
+#define SLJIT_LOCALS_OFFSET_BASE ((16 + 1 + 6 + 2 + 1) * sizeof(sljit_sw))
 #endif
 
 #elif (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
