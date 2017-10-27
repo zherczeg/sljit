@@ -5695,12 +5695,12 @@ static void test58(void)
 
 static sljit_sw SLJIT_FUNC test59_f1(sljit_sw a, sljit_s32 b, sljit_sw c, sljit_sw d)
 {
-	return (sljit_sw)(a + b + c + d);
+	return (sljit_sw)(a + b + c + d - SLJIT_FUNC_OFFSET(test59_f1));
 }
 
 static sljit_sw test59_f2(sljit_sw a, sljit_s32 b, sljit_sw c, sljit_sw d)
 {
-	return (sljit_sw)(a + b + c + d);
+	return (sljit_sw)(a + b + c + d - SLJIT_FUNC_OFFSET(test59_f2));
 }
 
 static sljit_s32 SLJIT_FUNC test59_f3(sljit_f64 a, sljit_f32 b, sljit_f64 c, sljit_sw d)
@@ -5729,7 +5729,7 @@ static void test59(void)
 	sljit_f32 sbuf[4];
 
 	if (verbose)
-		printf("Run test58\n");
+		printf("Run test59\n");
 
 	wbuf[0] = 0;
 	wbuf[1] = 0;
@@ -5780,7 +5780,7 @@ static void test59(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_S0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 231);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 3);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R3, 0, SLJIT_IMM, -100);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R3, 0, SLJIT_IMM, SLJIT_FUNC_OFFSET(test59_f1) - 100);
 	sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_RET(SW) | SLJIT_ARG1(SW) | SLJIT_ARG2(S32) | SLJIT_ARG3(SW) | SLJIT_ARG4(SW), SLJIT_MEM2(SLJIT_R0, SLJIT_R2), SLJIT_WORD_SHIFT);
 	/* wbuf[4] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_sw), SLJIT_R0, 0);
@@ -5822,9 +5822,9 @@ static void test59(void)
 
 	code.func3((sljit_sw)&wbuf, (sljit_sw)&dbuf, (sljit_sw)&sbuf);
 
-	FAILED(wbuf[0] != SLJIT_FUNC_OFFSET(test59_f1) - 27, "test59 case 1 failed\n");
-	FAILED(wbuf[1] != SLJIT_FUNC_OFFSET(test59_f2) + 36, "test59 case 2 failed\n");
-	FAILED(wbuf[2] != SLJIT_FUNC_OFFSET(test59_f1) + 65, "test59 case 3 failed\n");
+	FAILED(wbuf[0] != -27, "test59 case 1 failed\n");
+	FAILED(wbuf[1] != 36, "test59 case 2 failed\n");
+	FAILED(wbuf[2] != 65, "test59 case 3 failed\n");
 	FAILED(wbuf[4] != (sljit_sw)wbuf + 134, "test59 case 4 failed\n");
 
 	if (sljit_has_cpu_feature(SLJIT_HAS_FPU)) {

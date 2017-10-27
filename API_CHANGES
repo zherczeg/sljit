@@ -1,5 +1,11 @@
 This file is the short summary of the API changes:
 
+18.10.2017 - Non-backward compatible
+    The SLJIT_CALL0 - SLJIT_CALL3 jump types are
+    replaced by sljit_emit_call and sljit_emit_icall
+    function calls. These functions allows declaring
+    the argument types.
+
 06.05.2017 - Non-backward compatible
     Src argument is removed from sljit_emit_op_flags.
 
