@@ -646,14 +646,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 /*  Operators                                                            */
 /* --------------------------------------------------------------------- */
 
+#define BINARY_OPCODE(opcode) (((opcode ## _EAX_i32) << 24) | ((opcode ## _r_rm) << 16) | ((opcode ## _rm_r) << 8) | (opcode))
+
 static sljit_s32 emit_cum_binary(struct sljit_compiler *compiler,
-	sljit_u8 op_rm, sljit_u8 op_mr, sljit_u8 op_imm, sljit_u8 op_eax_imm,
+	sljit_u32 op_types,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w);
 
 static sljit_s32 emit_non_cum_binary(struct sljit_compiler *compiler,
-	sljit_u8 op_rm, sljit_u8 op_mr, sljit_u8 op_imm, sljit_u8 op_eax_imm,
+	sljit_u32 op_types,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w);
@@ -1395,22 +1397,22 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 		if (SLJIT_UNLIKELY(update) && (src & SLJIT_MEM) && !src_is_ereg && (src & REG_MASK)) {
 			if ((src & OFFS_REG_MASK) != 0) {
-				FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
+				FAIL_IF(emit_cum_binary(compiler, BINARY_OPCODE(ADD),
 						(src & REG_MASK), 0, (src & REG_MASK), 0, OFFS_REG(dst), 0));
 			}
 			else if (srcw != 0) {
-				FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
+				FAIL_IF(emit_cum_binary(compiler, BINARY_OPCODE(ADD),
 						(src & REG_MASK), 0, (src & REG_MASK), 0, SLJIT_IMM, srcw));
 			}
 		}
 
 		if (SLJIT_UNLIKELY(update) && (dst & SLJIT_MEM) && (dst & REG_MASK)) {
 			if ((dst & OFFS_REG_MASK) != 0) {
-				FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
+				FAIL_IF(emit_cum_binary(compiler, BINARY_OPCODE(ADD),
 						(dst & REG_MASK), 0, (dst & REG_MASK), 0, OFFS_REG(dst), 0));
 			}
 			else if (dstw != 0) {
-				FAIL_IF(emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
+				FAIL_IF(emit_cum_binary(compiler, BINARY_OPCODE(ADD),
 						(dst & REG_MASK), 0, (dst & REG_MASK), 0, SLJIT_IMM, dstw));
 			}
 		}
@@ -1468,12 +1470,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 #endif
 
 static sljit_s32 emit_cum_binary(struct sljit_compiler *compiler,
-	sljit_u8 op_rm, sljit_u8 op_mr, sljit_u8 op_imm, sljit_u8 op_eax_imm,
+	sljit_u32 op_types,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
 	sljit_u8* inst;
+	sljit_u8 op_eax_imm = (op_types >> 24);
+	sljit_u8 op_rm = (op_types >> 16) & 0xff;
+	sljit_u8 op_mr = (op_types >> 8) & 0xff;
+	sljit_u8 op_imm = op_types & 0xff;
 
 	if (dst == SLJIT_UNUSED) {
 		EMIT_MOV(compiler, TMP_REG1, 0, src1, src1w);
@@ -1584,12 +1590,16 @@ static sljit_s32 emit_cum_binary(struct sljit_compiler *compiler,
 }
 
 static sljit_s32 emit_non_cum_binary(struct sljit_compiler *compiler,
-	sljit_u8 op_rm, sljit_u8 op_mr, sljit_u8 op_imm, sljit_u8 op_eax_imm,
+	sljit_u32 op_types,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
 	sljit_u8* inst;
+	sljit_u8 op_eax_imm = (op_types >> 24);
+	sljit_u8 op_rm = (op_types >> 16) & 0xff;
+	sljit_u8 op_mr = (op_types >> 8) & 0xff;
+	sljit_u8 op_imm = op_types & 0xff;
 
 	if (dst == SLJIT_UNUSED) {
 		EMIT_MOV(compiler, TMP_REG1, 0, src1, src1w);
@@ -2121,7 +2131,7 @@ static sljit_s32 emit_shift_with_flags(struct sljit_compiler *compiler,
 		if (!set_flags)
 			return emit_mov(compiler, dst, dstw, src1, src1w);
 		/* OR dst, src, 0 */
-		return emit_cum_binary(compiler, OR_r_rm, OR_rm_r, OR, OR_EAX_i32,
+		return emit_cum_binary(compiler, BINARY_OPCODE(OR),
 			dst, dstw, src1, src1w, SLJIT_IMM, 0);
 	}
 
@@ -2165,10 +2175,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 			if (emit_lea_binary(compiler, dst, dstw, src1, src1w, src2, src2w) != SLJIT_ERR_UNSUPPORTED)
 				return compiler->error;
 		}
-		return emit_cum_binary(compiler, ADD_r_rm, ADD_rm_r, ADD, ADD_EAX_i32,
+		return emit_cum_binary(compiler, BINARY_OPCODE(ADD),
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_ADDC:
-		return emit_cum_binary(compiler, ADC_r_rm, ADC_rm_r, ADC, ADC_EAX_i32,
+		return emit_cum_binary(compiler, BINARY_OPCODE(ADC),
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_SUB:
 		if (!HAS_FLAGS(op)) {
@@ -2178,23 +2188,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 
 		if (dst == SLJIT_UNUSED)
 			return emit_cmp_binary(compiler, src1, src1w, src2, src2w);
-		return emit_non_cum_binary(compiler, SUB_r_rm, SUB_rm_r, SUB, SUB_EAX_i32,
+		return emit_non_cum_binary(compiler, BINARY_OPCODE(SUB),
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_SUBC:
-		return emit_non_cum_binary(compiler, SBB_r_rm, SBB_rm_r, SBB, SBB_EAX_i32,
+		return emit_non_cum_binary(compiler, BINARY_OPCODE(SBB),
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_MUL:
 		return emit_mul(compiler, dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_AND:
 		if (dst == SLJIT_UNUSED)
 			return emit_test_binary(compiler, src1, src1w, src2, src2w);
-		return emit_cum_binary(compiler, AND_r_rm, AND_rm_r, AND, AND_EAX_i32,
+		return emit_cum_binary(compiler, BINARY_OPCODE(AND),
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_OR:
-		return emit_cum_binary(compiler, OR_r_rm, OR_rm_r, OR, OR_EAX_i32,
+		return emit_cum_binary(compiler, BINARY_OPCODE(OR),
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_XOR:
-		return emit_cum_binary(compiler, XOR_r_rm, XOR_rm_r, XOR, XOR_EAX_i32,
+		return emit_cum_binary(compiler, BINARY_OPCODE(XOR),
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_SHL:
 		return emit_shift_with_flags(compiler, SHL, HAS_FLAGS(op),
