@@ -67,9 +67,19 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 	0, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 24, 23, 22, 21, 20, 19, 18, 17, 16, 29, 3, 25, 4
 };
 
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+
+static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
+	0, 0, 14, 2, 4, 6, 8, 12, 10
+};
+
+#else
+
 static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 	0, 0, 13, 14, 15, 16, 17, 12, 18
 };
+
+#endif
 
 /* --------------------------------------------------------------------- */
 /*  Instrucion forms                                                     */
@@ -159,6 +169,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define OR		(HI(0) | LO(37))
 #define ORI		(HI(13))
 #define SD		(HI(63))
+#define SDC1		(HI(61))
 #define SLT		(HI(0) | LO(42))
 #define SLTI		(HI(10))
 #define SLTIU		(HI(11))
@@ -172,6 +183,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SUB_S		(HI(17) | FMT_S | LO(1))
 #define SUBU		(HI(0) | LO(35))
 #define SW		(HI(43))
+#define SWC1		(HI(57))
 #define TRUNC_W_S	(HI(17) | FMT_S | LO(13))
 #define XOR		(HI(0) | LO(38))
 #define XORI		(HI(14))
