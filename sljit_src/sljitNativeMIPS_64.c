@@ -563,19 +563,11 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 		default:
 			arg_count++;
 			word_arg_count++;
-
-			if (arg_count != word_arg_count) {
-				SLJIT_ASSERT(arg_count > 1);
-
-			}
 			break;
 		}
 
 		arg_types >>= SLJIT_DEF_SHIFT;
 	}
-
-	if (arg_count == 0)
-		return SLJIT_SUCCESS;
 
 	while (types) {
 		switch (types & SLJIT_DEF_MASK) {
