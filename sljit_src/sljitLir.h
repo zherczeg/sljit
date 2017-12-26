@@ -898,43 +898,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
    S32 - signed int (32 bit) data transfer
    P   - pointer (sljit_p) data transfer
 
-   U = move with update (pre form). If source or destination defined as
-       SLJIT_MEM1(r1) or SLJIT_MEM2(r1, r2), r1 is increased by the
-       offset part of the address.
-
-   Register arguments and base registers can only be used once for move
-   with update instructions. The shift value of SLJIT_MEM2 addressing
-   mode must also be 0. Reason: SLJIT_MOVU instructions are expected to
-   be in high-performance loops where complex instruction emulation
-   would be too costly.
-
-   Examples for invalid move with update instructions:
-
-   sljit_emit_op1(..., SLJIT_MOVU_U8,
-       SLJIT_R0, 0, SLJIT_MEM1(SLJIT_R0), 8);
-   sljit_emit_op1(..., SLJIT_MOVU_U8,
-       SLJIT_MEM2(SLJIT_R1, SLJIT_R0), 0, SLJIT_R0, 0);
-   sljit_emit_op1(..., SLJIT_MOVU_U8,
-       SLJIT_MEM2(SLJIT_R0, SLJIT_R1), 0, SLJIT_MEM1(SLJIT_R0), 8);
-   sljit_emit_op1(..., SLJIT_MOVU_U8,
-       SLJIT_MEM2(SLJIT_R0, SLJIT_R1), 0, SLJIT_MEM2(SLJIT_R1, SLJIT_R0), 0);
-   sljit_emit_op1(..., SLJIT_MOVU_U8,
-       SLJIT_R2, 0, SLJIT_MEM2(SLJIT_R0, SLJIT_R1), 1);
-
-   The following example is valid, since only the offset register is
-   used multiple times:
-
-   sljit_emit_op1(..., SLJIT_MOVU_U8,
-       SLJIT_MEM2(SLJIT_R0, SLJIT_R2), 0, SLJIT_MEM2(SLJIT_R1, SLJIT_R2), 0);
-
-   If the destination of a MOV without update instruction is SLJIT_UNUSED
-   and the source operand is a memory address the compiler emits a prefetch
-   instruction if this instruction is supported by the current CPU.
-   Higher data sizes bring the data closer to the core: a MOV with word
-   size loads the data into a higher level cache than a byte size. Otherwise
-   the type does not affect the prefetch instruction. Furthermore a prefetch
-   instruction never fails, so it can be used to prefetch a data from an
-   address and check whether that address is NULL afterwards.
+   If the destination of a MOV instruction is SLJIT_UNUSED and the source
+   operand is a memory address the compiler emits a prefetch instruction
+   if this instruction is supported by the current CPU. Higher data sizes
+   bring the data closer to the core: a MOV with word size loads the data
+   into a higher level cache than a byte size. Otherwise the type does not
+   affect the prefetch instruction. Furthermore a prefetch instruction
+   never fails, so it can be used to prefetch a data from an address and
+   check whether that address is NULL afterwards.
 */
 
 /* Flags: - (does not modify flags) */
@@ -959,41 +930,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 #define SLJIT_MOV_S32			(SLJIT_OP1_BASE + 6)
 /* Flags: - (does not modify flags) */
 #define SLJIT_MOV32			(SLJIT_MOV_S32 | SLJIT_I32_OP)
-/* Flags: - (does not modify flags) */
+/* Flags: - (does not modify flags)
+   Note: load a pointer sized data, useful on x32 (a 32 bit mode on x86-64
+         where all x64 features are available, e.g. 16 register) or similar
+         compiling modes */
 #define SLJIT_MOV_P			(SLJIT_OP1_BASE + 7)
-/* Flags: - (may destroy flags) */
-#define SLJIT_MOVU			(SLJIT_OP1_BASE + 8)
-/* Flags: - (may destroy flags) */
-#define SLJIT_MOVU_U8			(SLJIT_OP1_BASE + 9)
-#define SLJIT_MOVU32_U8			(SLJIT_MOVU_U8 | SLJIT_I32_OP)
-/* Flags: - (may destroy flags) */
-#define SLJIT_MOVU_S8			(SLJIT_OP1_BASE + 10)
-#define SLJIT_MOVU32_S8			(SLJIT_MOVU_S8 | SLJIT_I32_OP)
-/* Flags: - (may destroy flags) */
-#define SLJIT_MOVU_U16			(SLJIT_OP1_BASE + 11)
-#define SLJIT_MOVU32_U16			(SLJIT_MOVU_U16 | SLJIT_I32_OP)
-/* Flags: - (may destroy flags) */
-#define SLJIT_MOVU_S16			(SLJIT_OP1_BASE + 12)
-#define SLJIT_MOVU32_S16		(SLJIT_MOVU_S16 | SLJIT_I32_OP)
-/* Flags: - (may destroy flags)
-   Note: no SLJIT_MOVU32_U32 form, since it is the same as SLJIT_MOVU32 */
-#define SLJIT_MOVU_U32			(SLJIT_OP1_BASE + 13)
-/* Flags: - (may destroy flags)
-   Note: no SLJIT_MOVU32_S32 form, since it is the same as SLJIT_MOVU32 */
-#define SLJIT_MOVU_S32			(SLJIT_OP1_BASE + 14)
-/* Flags: - (may destroy flags) */
-#define SLJIT_MOVU32			(SLJIT_MOVU_S32 | SLJIT_I32_OP)
-/* Flags: - (may destroy flags) */
-#define SLJIT_MOVU_P			(SLJIT_OP1_BASE + 15)
 /* Flags: Z */
-#define SLJIT_NOT			(SLJIT_OP1_BASE + 16)
+#define SLJIT_NOT			(SLJIT_OP1_BASE + 8)
 #define SLJIT_NOT32			(SLJIT_NOT | SLJIT_I32_OP)
 /* Flags: Z | OVERFLOW */
-#define SLJIT_NEG			(SLJIT_OP1_BASE + 17)
+#define SLJIT_NEG			(SLJIT_OP1_BASE + 9)
 #define SLJIT_NEG32			(SLJIT_NEG | SLJIT_I32_OP)
 /* Count leading zeroes
    Flags: - (may destroy flags) */
-#define SLJIT_CLZ			(SLJIT_OP1_BASE + 18)
+#define SLJIT_CLZ			(SLJIT_OP1_BASE + 10)
 #define SLJIT_CLZ32			(SLJIT_CLZ | SLJIT_I32_OP)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
@@ -1358,9 +1308,9 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void);
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
 
 /* The sljit_stack is a utility extension of sljit, which provides
-   a top-down stack. The stack starts at base and goes down to
-   max_limit, so the memory region for this stack is between
-   max_limit (inclusive) and base (exclusive). However the
+   a top-down stack. The stack top is stored in base and the stack
+   goes down to max_limit, so the memory region for this stack is
+   between max_limit (inclusive) and base (exclusive). However the
    application can only use the region between limit (inclusive)
    and base (exclusive). The sljit_stack_resize can be used to
    extend this region up to max_limit.
@@ -1368,8 +1318,8 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void);
    This feature uses the "address space reserve" feature of modern
    operating systems, so instead of allocating a huge memory block
    applications can allocate a small region and extend it later
-   without moving the memory area. Hence pointers can be stored
-   in this area. */
+   without moving the memory area. Hence the region is never moved
+   so pointers are valid after resize. */
 
 /* Note: base and max_limit fields are aligned to PAGE_SIZE bytes
      (usually 4 Kbyte or more).
@@ -1389,9 +1339,13 @@ struct sljit_stack {
 };
 
 /* Returns NULL if unsuccessful.
-   Note: max_limit contains the maximum stack size in bytes.
-   Note: limit contains the starting stack size in bytes.
-   Note: the top field is initialized to base.
+
+   Note:
+     max_limit field contains the lower bound adress of the stack.
+     limit field contains the current starting address of the stack.
+     base field contains the end address of the stack.
+     top field is initialized to base.
+
    Note: see sljit_create_compiler for the explanation of allocator_data. */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(sljit_uw limit, sljit_uw max_limit, void *allocator_data);
 SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_free_stack(struct sljit_stack *stack, void *allocator_data);
