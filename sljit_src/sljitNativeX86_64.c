@@ -41,24 +41,31 @@ static sljit_s32 emit_load_imm64(struct sljit_compiler *compiler, sljit_s32 reg,
 
 static sljit_u8* generate_far_jump_code(struct sljit_jump *jump, sljit_u8 *code_ptr, sljit_s32 type)
 {
+	/* The relative jump below specialized for this case. */
+	SLJIT_ASSERT(reg_map[TMP_REG2] >= 8);
+
+	int short_addr = !(jump->flags & SLJIT_REWRITABLE_JUMP) && !(jump->flags & JUMP_LABEL) && (jump->u.target <= 0xffffffff);
+
 	if (type < SLJIT_JUMP) {
 		/* Invert type. */
 		*code_ptr++ = get_jump_code(type ^ 0x1) - 0x10;
-		*code_ptr++ = 10 + 3;
+		*code_ptr++ = short_addr ? (6 + 3) : (10 + 3);
 	}
 
-	*code_ptr++ = REX_W | ((reg_map[TMP_REG2] <= 7) ? 0 : REX_B);
+	*code_ptr++ = short_addr ? REX_B : (REX_W | REX_B);
 	*code_ptr++ = MOV_r_i32 | reg_lmap[TMP_REG2];
 	jump->addr = (sljit_uw)code_ptr;
 
 	if (jump->flags & JUMP_LABEL)
 		jump->flags |= PATCH_MD;
+	else if (short_addr)
+		sljit_unaligned_store_s32(code_ptr, (sljit_s32)jump->u.target);
 	else
 		sljit_unaligned_store_sw(code_ptr, jump->u.target);
 
-	code_ptr += sizeof(sljit_sw);
-	if (reg_map[TMP_REG2] >= 8)
-		*code_ptr++ = REX_B;
+	code_ptr += short_addr ? sizeof(sljit_s32) : sizeof(sljit_sw);
+
+	*code_ptr++ = REX_B;
 	*code_ptr++ = GROUP_FF;
 	*code_ptr++ = MOD_REG | (type >= SLJIT_FAST_CALL ? CALL_rm : JMP_rm) | reg_lmap[TMP_REG2];
 
