@@ -588,7 +588,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 
 #elif (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
 
-#define SLJIT_NUMBER_OF_REGISTERS 25
+#define SLJIT_NUMBER_OF_REGISTERS 26
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 10
 #define SLJIT_LOCALS_OFFSET_BASE (2 * sizeof(sljit_sw))
 
