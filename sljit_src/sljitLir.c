@@ -825,7 +825,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *comp
 					fprintf(compiler->verbose, "%d", 1 << (i)); \
 			} \
 			else if (i) \
-				fprintf(compiler->verbose, "%" SLJIT_PRINT_D "d", (i)); \
+				fprintf(compiler->verbose, " + %" SLJIT_PRINT_D "d", (i)); \
 			fputc(']', compiler->verbose); \
 		} \
 		else \

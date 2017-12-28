@@ -422,11 +422,6 @@ struct sljit_compiler {
 	sljit_uw shift_imm;
 #endif
 
-#if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
-	sljit_s32 cache_arg;
-	sljit_sw cache_argw;
-#endif
-
 #if (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 	sljit_sw imm;
 	sljit_s32 cache_arg;
