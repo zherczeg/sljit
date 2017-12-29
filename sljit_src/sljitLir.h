@@ -560,12 +560,10 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_HAS_FPU			0
 /* [Limitation] Some registers are virtual registers. */
 #define SLJIT_HAS_VIRTUAL_REGISTERS	1
-/* [Emulated] Some forms of move with pre update is supported. */
-#define SLJIT_HAS_PRE_UPDATE		2
 /* [Emulated] Count leading zero is supported. */
-#define SLJIT_HAS_CLZ			3
+#define SLJIT_HAS_CLZ			2
 /* [Emulated] Conditional move is supported. */
-#define SLJIT_HAS_CMOV			4
+#define SLJIT_HAS_CMOV			3
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] SSE2 support is available on x86. */
