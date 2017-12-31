@@ -1,11 +1,9 @@
 This file is the short summary of the API changes:
 
 26.12.2017 - Non-backward compatible
-    The MOVU opcodes are removed because the pre-from
-    emulation is inefficient. Adding the offset after
-    the load instruction is better since no data
-    dependency occures and parallel execution is
-    possible.
+    The MOVU opcodes are removed because the emulation
+    is inefficient. The sljit_emit_mem() operation is
+    added instead.
 
 18.10.2017 - Non-backward compatible
     The SLJIT_CALL0 - SLJIT_CALL3 jump types are

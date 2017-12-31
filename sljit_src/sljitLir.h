@@ -1235,7 +1235,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 
 /* Emit a conditional mov instruction which moves source to destination,
    if the condition is satisfied. Unlike other arithmetic operations this
-   instruction does not support memory accesses.
+   instruction does not support memory access.
 
    type must be between SLJIT_EQUAL and SLJIT_ORDERED_F64
    dst_reg must be a valid register and it can be combined
@@ -1246,6 +1246,40 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 dst_reg,
 	sljit_s32 src, sljit_sw srcw);
+
+/* The following flags are used by sljit_emit_mem(). */
+
+/* When SLJIT_MEM_SUPP is passed, the sljit_emit_mem() function does
+   not emit any instructions, only checks whether the instruction
+   form is supported. The returned value is SLJIT_SUCCESS, if it is
+   supported and SLJIT_ERR_UNSUPPORTED otherwise. */
+#define SLJIT_MEM_SUPP		0x0200
+/* Memory load operation. This is the default. */
+#define SLJIT_MEM_LOAD		0x0000
+/* Memory store operation. */
+#define SLJIT_MEM_STORE		0x0400
+/* Base register is updated before the memory access. */
+#define SLJIT_MEM_PRE		0x0800
+/* Base register is updated after the memory access. */
+#define SLJIT_MEM_POST		0x1000
+
+/* Emit a single memory load or store with update instruction. When the
+   requested instruction from is not supported by the CPU, it returns
+   with SLJIT_ERR_UNSUPPORTED instead of emulating the instruction. This
+   allows specializing tight loops based on the supported instruction
+   forms (see SLJIT_MEM_SUPP flag).
+
+   type must be between SLJIT_MOV and SLJIT_MOV_P and can be
+     combined with SLJIT_MEM_* flags. Either SLJIT_MEM_PRE
+     or SLJIT_MEM_POST must be specified.
+   dst_reg must be a register, and must be different from the base
+     register of the mem operand
+   mem must be SLJIT_MEM1() or SLJIT_MEM2() operand
+
+   Flags: - (does not modify flags) */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_reg,
+	sljit_s32 mem, sljit_sw memw);
 
 /* Copies the base address of SLJIT_SP + offset to dst. The offset can be
    anything to negate the effect of relative addressing. For example if an
