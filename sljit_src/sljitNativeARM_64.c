@@ -1786,6 +1786,56 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	return push_inst(compiler, (CSEL ^ inv_bits) | (cc << 12) | RD(dst_reg) | RN(dst_reg) | RM(src));
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_reg,
+	sljit_s32 mem, sljit_sw memw)
+{
+	sljit_u32 sign = 0, inst;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_mem(compiler, type, dst_reg, mem, memw));
+
+	if ((mem & OFFS_REG_MASK) || (memw > 255 && memw < -256))
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_MEM_SUPP)
+		return SLJIT_SUCCESS;
+
+	switch (type & 0xff) {
+	case SLJIT_MOV:
+	case SLJIT_MOV_P:
+		inst = STURBI | (MEM_SIZE_SHIFT(WORD_SIZE) << 30) | 0x400;
+		break;
+	case SLJIT_MOV_S8:
+		sign = 1;
+	case SLJIT_MOV_U8:
+		inst = STURBI | (MEM_SIZE_SHIFT(BYTE_SIZE) << 30) | 0x400;
+		break;
+	case SLJIT_MOV_S16:
+		sign = 1;
+	case SLJIT_MOV_U16:
+		inst = STURBI | (MEM_SIZE_SHIFT(HALF_SIZE) << 30) | 0x400;
+		break;
+	case SLJIT_MOV_S32:
+		sign = 1;
+	case SLJIT_MOV_U32:
+		inst = STURBI | (MEM_SIZE_SHIFT(INT_SIZE) << 30) | 0x400;
+		break;
+	default:
+		SLJIT_UNREACHABLE();
+		inst = STURBI | (MEM_SIZE_SHIFT(WORD_SIZE) << 30) | 0x400;
+		break;
+	}
+
+	if (!(type & SLJIT_MEM_STORE))
+		inst |= sign ? 0x00800000 : 0x00400000;
+
+	if (type & SLJIT_MEM_PRE)
+		inst |= 0x800;
+
+	return push_inst(compiler, inst | RT(dst_reg) | RN(mem & REG_MASK) | ((memw & 0x1ff) << 12));
+}
+
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
 {
 	struct sljit_const *const_;
