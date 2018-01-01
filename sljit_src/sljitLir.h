@@ -153,8 +153,8 @@ of sljitConfigInternal.h */
         is not available at all.
 */
 
-/* When SLJIT_UNUSED is specified as the destination of sljit_emit_op1 and
-   and sljit_emit_op2 operations the result is discarded. If no status
+/* When SLJIT_UNUSED is specified as the destination of sljit_emit_op1
+   or sljit_emit_op2 operations the result is discarded. If no status
    flags are set, no instructions are emitted for these operations. Data
    prefetch is a special exception, see SLJIT_MOV operation. Other SLJIT
    operations do not support SLJIT_UNUSED as a destination operand. */
@@ -667,7 +667,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src, sljit_sw srcw);
 
 /*
-   Source and destination values for arithmetical instructions
+   Source and destination operands for arithmetical instructions
     imm              - a simple immediate value (cannot be used as a destination)
     reg              - any of the registers (immediate argument must be 0)
     [imm]            - absolute immediate memory address
@@ -708,6 +708,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler 
    arm-t2: [reg+imm], -255 <= imm <= 4095
            [reg+(reg<<imm)] is supported
            Write back is supported only for [reg+imm], where -255 <= imm <= 255
+   arm64:  [reg+imm], -256 <= imm <= 255, 0 <= aligned imm <= 4095 * alignment
+           [reg+(reg<<imm)] is supported
+           Write back is supported only for [reg+imm], where -256 <= imm <= 255
    ppc:    [reg+imm], -65536 <= imm <= 65535. 64 bit loads/stores and 32 bit
                 signed load on 64 bit requires immediates divisible by 4.
                 [reg+imm] is not supported for signed 8 bit values.
@@ -719,8 +722,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler 
            [reg+reg] is supported
 */
 
-/* Register output: simply the name of the register.
-   For destination, you can use SLJIT_UNUSED as well. */
+/* Macros for specifying operand types. */
 #define SLJIT_MEM		0x80
 #define SLJIT_MEM0()		(SLJIT_MEM)
 #define SLJIT_MEM1(r1)		(SLJIT_MEM | (r1))
@@ -1272,13 +1274,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
    type must be between SLJIT_MOV and SLJIT_MOV_P and can be
      combined with SLJIT_MEM_* flags. Either SLJIT_MEM_PRE
      or SLJIT_MEM_POST must be specified.
-   dst_reg must be a register, and must be different from the base
-     register of the mem operand
-   mem must be SLJIT_MEM1() or SLJIT_MEM2() operand
+   reg is the source or destination register, and must be
+     different from the base register of the mem operand
+   mem must be a SLJIT_MEM1() or SLJIT_MEM2() operand
 
    Flags: - (does not modify flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 dst_reg,
+	sljit_s32 reg,
 	sljit_s32 mem, sljit_sw memw);
 
 /* Copies the base address of SLJIT_SP + offset to dst. The offset can be

@@ -1787,7 +1787,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_cmov(struct sljit_compile
 }
 
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 dst_reg,
+	sljit_s32 reg,
 	sljit_s32 mem, sljit_sw memw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
@@ -1798,13 +1798,13 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 	CHECK_ARGUMENT((type & ~(0xff | SLJIT_I32_OP | SLJIT_MEM_STORE | SLJIT_MEM_SUPP | SLJIT_MEM_PRE | SLJIT_MEM_POST)) == 0);
 
 	FUNCTION_CHECK_SRC_MEM(mem, memw);
-	CHECK_ARGUMENT((mem & REG_MASK) != SLJIT_UNUSED && (mem & REG_MASK) != dst_reg);
+	CHECK_ARGUMENT((mem & REG_MASK) != SLJIT_UNUSED && (mem & REG_MASK) != reg);
 
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(dst_reg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(reg));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (!(type & SLJIT_MEM_SUPP) && SLJIT_UNLIKELY(!!compiler->verbose)) {
-		if (sljit_emit_mem(compiler, type | SLJIT_MEM_SUPP, dst_reg, mem, memw) == SLJIT_ERR_UNSUPPORTED)
+		if (sljit_emit_mem(compiler, type | SLJIT_MEM_SUPP, reg, mem, memw) == SLJIT_ERR_UNSUPPORTED)
 			fprintf(compiler->verbose, "  //");
 
 		fprintf(compiler->verbose, "  mem%s.%s%s%s ",
@@ -1812,7 +1812,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 			(type & SLJIT_MEM_STORE) ? "st" : "ld",
 			op1_names[(type & 0xff) - SLJIT_OP1_BASE],
 			(type & SLJIT_MEM_PRE) ? ".pre" : ".post");
-		sljit_verbose_reg(compiler, dst_reg);
+		sljit_verbose_reg(compiler, reg);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, mem, memw);
 		fprintf(compiler->verbose, "\n");
@@ -2094,20 +2094,21 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 	return sljit_emit_jump(compiler, type);
 }
 
-#if !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
+#if !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
+	&& !(defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 dst_reg,
+	sljit_s32 reg,
 	sljit_s32 mem, sljit_sw memw)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(type);
-	SLJIT_UNUSED_ARG(dst_reg);
+	SLJIT_UNUSED_ARG(reg);
 	SLJIT_UNUSED_ARG(mem);
 	SLJIT_UNUSED_ARG(memw);
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_mem(compiler, type, dst_reg, mem, memw));
+	CHECK(check_sljit_emit_mem(compiler, type, reg, mem, memw));
 
 	return SLJIT_ERR_UNSUPPORTED;
 }
@@ -2466,11 +2467,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 dst_reg, sljit_s32 mem, sljit_sw memw)
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 reg, sljit_s32 mem, sljit_sw memw)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(type);
-	SLJIT_UNUSED_ARG(dst_reg);
+	SLJIT_UNUSED_ARG(reg);
 	SLJIT_UNUSED_ARG(mem);
 	SLJIT_UNUSED_ARG(memw);
 	SLJIT_UNREACHABLE();
