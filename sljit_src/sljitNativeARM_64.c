@@ -1787,13 +1787,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 dst_reg,
+	sljit_s32 reg,
 	sljit_s32 mem, sljit_sw memw)
 {
 	sljit_u32 sign = 0, inst;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_mem(compiler, type, dst_reg, mem, memw));
+	CHECK(check_sljit_emit_mem(compiler, type, reg, mem, memw));
 
 	if ((mem & OFFS_REG_MASK) || (memw > 255 && memw < -256))
 		return SLJIT_ERR_UNSUPPORTED;
@@ -1833,7 +1833,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 	if (type & SLJIT_MEM_PRE)
 		inst |= 0x800;
 
-	return push_inst(compiler, inst | RT(dst_reg) | RN(mem & REG_MASK) | ((memw & 0x1ff) << 12));
+	return push_inst(compiler, inst | RT(reg) | RN(mem & REG_MASK) | ((memw & 0x1ff) << 12));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
