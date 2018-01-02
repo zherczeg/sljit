@@ -1131,7 +1131,7 @@ static sljit_s32 emit_unary(struct sljit_compiler *compiler, sljit_u8 opcode,
 		return SLJIT_SUCCESS;
 	}
 
-	if (dst == SLJIT_UNUSED)
+	if (SLJIT_UNLIKELY(dst == SLJIT_UNUSED))
 		dst = TMP_REG1;
 
 	if (FAST_IS_REG(dst)) {
@@ -1197,12 +1197,6 @@ static sljit_s32 emit_clz(struct sljit_compiler *compiler, sljit_s32 op_flags,
 	sljit_s32 dst_r;
 
 	SLJIT_UNUSED_ARG(op_flags);
-
-	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {
-		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, srcw);
-		src = TMP_REG1;
-		srcw = 0;
-	}
 
 	if (cpu_has_cmov == -1)
 		get_cpu_features();

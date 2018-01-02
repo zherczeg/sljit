@@ -1290,20 +1290,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 	flags = HAS_FLAGS(op_flags) ? SET_FLAGS : 0;
 
-	if (src & SLJIT_IMM)
-		flags |= ARG2_IMM;
-	else if (src & SLJIT_MEM) {
+	if (src & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, src, srcw, TMP_REG1));
-		srcw = TMP_REG1;
+		src = TMP_REG1;
 	}
-	else
-		srcw = src;
 
-	emit_op_imm(compiler, flags | op, dst_r, TMP_REG2, srcw);
+	emit_op_imm(compiler, flags | op, dst_r, TMP_REG2, src);
 
-	if (!(dst & SLJIT_MEM))
-		return SLJIT_SUCCESS;
-	return emit_op_mem(compiler, flags | STORE, dst_r, dst, dstw, TMP_REG2);
+	if (SLJIT_UNLIKELY(dst & SLJIT_MEM))
+		return emit_op_mem(compiler, flags | STORE, dst_r, dst, dstw, TMP_REG2);
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
