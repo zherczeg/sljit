@@ -3112,7 +3112,6 @@ static void test35(void)
 
 	codeA.code = sljit_generate_code(compiler);
 	CHECK(compiler);
-	return_addr = sljit_get_label_addr(label) - SLJIT_RETURN_ADDRESS_OFFSET;
 	executable_offset = sljit_get_executable_offset(compiler);
 	jump_addr = sljit_get_jump_addr(jump);
 	sljit_free_compiler(compiler);
@@ -3124,7 +3123,7 @@ static void test35(void)
 
 	sljit_emit_fast_enter(compiler, SLJIT_R1, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 7);
-	sljit_emit_fast_return(compiler, SLJIT_IMM, return_addr);
+	sljit_emit_fast_return(compiler, SLJIT_R1, 0);
 
 	codeB.code = sljit_generate_code(compiler);
 	CHECK(compiler);

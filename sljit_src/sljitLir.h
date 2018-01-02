@@ -648,20 +648,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 src, sljit_sw srcw);
 
-/* Fast calling mechanism for utility functions (see SLJIT_FAST_CALL). All registers and
-   even the stack frame is passed to the callee. The return address is preserved in
-   dst/dstw by sljit_emit_fast_enter (the type of the value stored by this function
-   is sljit_p), and sljit_emit_fast_return can use this as a return value later. */
+/* Generating entry and exit points for fast call functions (see SLJIT_FAST_CALL).
+   Both sljit_emit_fast_enter and sljit_emit_fast_return functions preserve the
+   values of all registers and stack frame. The return address is stored in the
+   dst argument of sljit_emit_fast_enter, and this return address can be passed
+   to sljit_emit_fast_return to continue the execution after the fast call.
 
-/* Note: only for sljit specific, non ABI compilant calls. Fast, since only a few machine
-   instructions are needed. Excellent for small uility functions, where saving registers
-   and setting up a new stack frame would cost too much performance. However, it is still
-   possible to return to the address of the caller (or anywhere else). */
+   Fast calls are cheap operations (usually only a single call instruction is
+   emitted) but they do not preserve any registers. However the callee function
+   can freely use / update any registers and stack values which can be
+   efficiently exploited by various optimizations. Registers can be saved
+   manually by the callee function if needed.
 
-/* Note: may destroy flags. */
+   Although returning to different address by sljit_emit_fast_return is possible,
+   this address usually cannot be predicted by the return address predictor of
+   modern CPUs which may reduce performance. Furthermore using sljit_emit_ijump
+   to return is also inefficient since return address prediction is usually
+   triggered by a specific form of ijump.
 
-/* Note: although sljit_emit_fast_return could be replaced by an ijump, it is not suggested,
-   since many architectures do clever branch prediction on call / return instruction pairs. */
+   Flags: - (does not modify flags). */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw);
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src, sljit_sw srcw);
@@ -928,14 +933,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
          where all x64 features are available, e.g. 16 register) or similar
          compiling modes */
 #define SLJIT_MOV_P			(SLJIT_OP1_BASE + 7)
-/* Flags: Z */
+/* Flags: Z
+   Note: immediate source argument is not supported */
 #define SLJIT_NOT			(SLJIT_OP1_BASE + 8)
 #define SLJIT_NOT32			(SLJIT_NOT | SLJIT_I32_OP)
-/* Flags: Z | OVERFLOW */
+/* Flags: Z | OVERFLOW
+   Note: immediate source argument is not supported */
 #define SLJIT_NEG			(SLJIT_OP1_BASE + 9)
 #define SLJIT_NEG32			(SLJIT_NEG | SLJIT_I32_OP)
 /* Count leading zeroes
-   Flags: - (may destroy flags) */
+   Flags: - (may destroy flags)
+   Note: immediate source argument is not supported */
 #define SLJIT_CLZ			(SLJIT_OP1_BASE + 10)
 #define SLJIT_CLZ32			(SLJIT_CLZ | SLJIT_I32_OP)
 

@@ -1534,10 +1534,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler 
 
 	if (FAST_IS_REG(src))
 		FAIL_IF(push_inst(compiler, ADDU_W | S(src) | TA(0) | DA(RETURN_ADDR_REG), RETURN_ADDR_REG));
-	else if (src & SLJIT_MEM)
+	else
 		FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, RETURN_ADDR_REG, src, srcw));
-	else if (src & SLJIT_IMM)
-		FAIL_IF(load_immediate(compiler, RETURN_ADDR_REG, srcw));
 
 	FAIL_IF(push_inst(compiler, JR | SA(RETURN_ADDR_REG), UNMOVABLE_INS));
 	return push_inst(compiler, NOP, UNMOVABLE_INS);
