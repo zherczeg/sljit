@@ -2,8 +2,9 @@ This file is the short summary of the API changes:
 
 02.01.2018 - Non-backward compatible
     Immediate source argument has not been supported
-    for NOT, NEG, and CLZ opcodes anymore. No CPU
-    supports immedate arguments for these opcodes.
+    for NOT, NEG, CLZ, and fast_return instructions
+    anymore. No CPU supports immedate arguments for
+    these opcodes.
 
 26.12.2017 - Non-backward compatible
     The MOVU opcodes are removed because the emulation
