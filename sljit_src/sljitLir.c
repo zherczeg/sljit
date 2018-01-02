@@ -1167,8 +1167,10 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	FUNCTION_CHECK_DST(dst, dstw, 1);
 	FUNCTION_CHECK_SRC(src, srcw);
 
-	if (GET_OPCODE(op) >= SLJIT_NOT)
+	if (GET_OPCODE(op) >= SLJIT_NOT) {
+		SLJIT_ASSERT(src != SLJIT_IMM);
 		compiler->last_flags = GET_FLAG_TYPE(op) | (op & (SLJIT_I32_OP | SLJIT_SET_Z));
+	}
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {

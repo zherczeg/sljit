@@ -1135,9 +1135,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 			return SLJIT_SUCCESS;
 	}
 
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (op_flags & SLJIT_I32_OP) {
 		if (op < SLJIT_NOT) {
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 			if (src & SLJIT_MEM) {
 				if (op == SLJIT_MOV_S32)
 					op = SLJIT_MOV_U32;
@@ -1146,19 +1146,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 				if (op == SLJIT_MOV_U32)
 					op = SLJIT_MOV_S32;
 			}
-#endif
 		}
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		else {
 			/* Most operations expect sign extended arguments. */
 			flags |= INT_DATA | SIGNED_DATA;
-			if (src & SLJIT_IMM)
-				srcw = (sljit_s32)srcw;
 			if (HAS_FLAGS(op_flags))
 				flags |= ALT_SIGN_EXT;
 		}
-#endif
 	}
+#endif
 
 	switch (op) {
 	case SLJIT_MOV:

@@ -1125,11 +1125,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	}
 
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
-	if ((op & SLJIT_I32_OP) && GET_OPCODE(op) >= SLJIT_NOT) {
+	if ((op & SLJIT_I32_OP) && GET_OPCODE(op) >= SLJIT_NOT)
 		flags |= INT_DATA | SIGNED_DATA;
-		if (src & SLJIT_IMM)
-			srcw = (sljit_s32)srcw;
-	}
 #endif
 
 	switch (GET_OPCODE(op)) {
