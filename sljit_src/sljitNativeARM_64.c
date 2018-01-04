@@ -1281,7 +1281,7 @@ static sljit_s32 emit_fop_mem(struct sljit_compiler *compiler, sljit_s32 flags, 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 
 	if (!(flags & STORE))
-		type |= 1 << 22;
+		type |= 0x00400000;
 
 	if (arg & OFFS_REG_MASK) {
 		argw &= 3;
@@ -1825,6 +1825,35 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 		inst |= 0x800;
 
 	return push_inst(compiler, inst | RT(reg) | RN(mem & REG_MASK) | ((memw & 0x1ff) << 12));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 mem, sljit_sw memw)
+{
+	sljit_u32 inst;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fmem(compiler, type, freg, mem, memw));
+
+	if ((mem & OFFS_REG_MASK) || (memw > 255 && memw < -256))
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_MEM_SUPP)
+		return SLJIT_SUCCESS;
+
+	inst = STUR_FI | 0x80000400;
+
+	if (!(type & SLJIT_F32_OP))
+		inst |= 0x40000000;
+
+	if (!(type & SLJIT_MEM_STORE))
+		inst |= 0x00400000;
+
+	if (type & SLJIT_MEM_PRE)
+		inst |= 0x800;
+
+	return push_inst(compiler, inst | VT(freg) | RN(mem & REG_MASK) | ((memw & 0x1ff) << 12));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
