@@ -685,8 +685,12 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 
 #define FUNCTION_CHECK_IS_REG(r) \
-	(((r) >= SLJIT_R0 && (r) < (SLJIT_R0 + compiler->scratches)) || \
-	((r) > (SLJIT_S0 - compiler->saveds) && (r) <= SLJIT_S0))
+	(((r) >= SLJIT_R0 && (r) < (SLJIT_R0 + compiler->scratches)) \
+	|| ((r) > (SLJIT_S0 - compiler->saveds) && (r) <= SLJIT_S0))
+
+#define FUNCTION_CHECK_IS_FREG(fr) \
+	(((fr) >= SLJIT_FR0 && (fr) < (SLJIT_FR0 + compiler->fscratches)) \
+	|| ((fr) > (SLJIT_FS0 - compiler->fsaveds) && (fr) <= SLJIT_FS0))
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 #define CHECK_IF_VIRTUAL_REGISTER(p) ((p) <= SLJIT_S3 && (p) >= SLJIT_S8)
@@ -770,8 +774,7 @@ static sljit_s32 function_fcheck(struct sljit_compiler *compiler, sljit_s32 p, s
 	if (compiler->scratches == -1 || compiler->saveds == -1)
 		return 0;
 
-	if ((p >= SLJIT_FR0 && p < (SLJIT_FR0 + compiler->fscratches)) ||
-			(p > (SLJIT_FS0 - compiler->fsaveds) && p <= SLJIT_FS0))
+	if (FUNCTION_CHECK_IS_FREG(p))
 		return (i == 0);
 
 	if (p == SLJIT_MEM1(SLJIT_SP))
@@ -804,12 +807,20 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *comp
 
 static void sljit_verbose_reg(struct sljit_compiler *compiler, sljit_s32 r)
 {
-	if ((r) < (SLJIT_R0 + compiler->scratches))
-		fprintf(compiler->verbose, "r%d", (r) - SLJIT_R0);
-	else if ((r) != SLJIT_SP)
-		fprintf(compiler->verbose, "s%d", SLJIT_NUMBER_OF_REGISTERS - (r));
+	if (r < (SLJIT_R0 + compiler->scratches))
+		fprintf(compiler->verbose, "r%d", r - SLJIT_R0);
+	else if (r != SLJIT_SP)
+		fprintf(compiler->verbose, "s%d", SLJIT_NUMBER_OF_REGISTERS - r);
 	else
 		fprintf(compiler->verbose, "sp");
+}
+
+static void sljit_verbose_freg(struct sljit_compiler *compiler, sljit_s32 r)
+{
+	if (r < (SLJIT_FR0 + compiler->fscratches))
+		fprintf(compiler->verbose, "fr%d", r - SLJIT_FR0);
+	else
+		fprintf(compiler->verbose, "fs%d", SLJIT_NUMBER_OF_FLOAT_REGISTERS - r);
 }
 
 static void sljit_verbose_param(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i)
@@ -857,12 +868,8 @@ static void sljit_verbose_fparam(struct sljit_compiler *compiler, sljit_s32 p, s
 		else
 			fprintf(compiler->verbose, "[#%" SLJIT_PRINT_D "d]", (i));
 	}
-	else {
-		if ((p) < (SLJIT_FR0 + compiler->fscratches))
-			fprintf(compiler->verbose, "fr%d", (p) - SLJIT_FR0);
-		else
-			fprintf(compiler->verbose, "fs%d", SLJIT_NUMBER_OF_FLOAT_REGISTERS - (p));
-	}
+	else
+		sljit_verbose_freg(compiler, p);
 }
 
 static const char* op0_names[] = {
@@ -1801,9 +1808,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 	CHECK_ARGUMENT((type & ~(0xff | SLJIT_I32_OP | SLJIT_MEM_STORE | SLJIT_MEM_SUPP | SLJIT_MEM_PRE | SLJIT_MEM_POST)) == 0);
 
 	FUNCTION_CHECK_SRC_MEM(mem, memw);
-	CHECK_ARGUMENT((mem & REG_MASK) != SLJIT_UNUSED && (mem & REG_MASK) != reg);
-
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(reg));
+
+	CHECK_ARGUMENT((mem & REG_MASK) != SLJIT_UNUSED && (mem & REG_MASK) != reg);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (!(type & SLJIT_MEM_SUPP) && SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1816,6 +1823,37 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 			op1_names[(type & 0xff) - SLJIT_OP1_BASE],
 			(type & SLJIT_MEM_PRE) ? ".pre" : ".post");
 		sljit_verbose_reg(compiler, reg);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_param(compiler, mem, memw);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+	CHECK_RETURN_OK;
+}
+
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 mem, sljit_sw memw)
+{
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT((type & 0xff) == SLJIT_MOV_F64);
+	CHECK_ARGUMENT((type & SLJIT_MEM_PRE) || (type & SLJIT_MEM_POST));
+	CHECK_ARGUMENT((type & (SLJIT_MEM_PRE | SLJIT_MEM_POST)) != (SLJIT_MEM_PRE | SLJIT_MEM_POST));
+	CHECK_ARGUMENT((type & ~(0xff | SLJIT_I32_OP | SLJIT_MEM_STORE | SLJIT_MEM_SUPP | SLJIT_MEM_PRE | SLJIT_MEM_POST)) == 0);
+
+	FUNCTION_CHECK_SRC_MEM(mem, memw);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (!(type & SLJIT_MEM_SUPP) && SLJIT_UNLIKELY(!!compiler->verbose)) {
+		if (sljit_emit_fmem(compiler, type | SLJIT_MEM_SUPP, freg, mem, memw) == SLJIT_ERR_UNSUPPORTED)
+			fprintf(compiler->verbose, "  //");
+
+		fprintf(compiler->verbose, "  fmem.%s%s%s ",
+			(type & SLJIT_MEM_STORE) ? "st" : "ld",
+			!(type & SLJIT_I32_OP) ? ".f64" : ".f32",
+			(type & SLJIT_MEM_PRE) ? ".pre" : ".post");
+		sljit_verbose_freg(compiler, freg);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, mem, memw);
 		fprintf(compiler->verbose, "\n");
@@ -2113,6 +2151,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_mem(compiler, type, reg, mem, memw));
+
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+#endif
+
+#if !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 mem, sljit_sw memw)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(freg);
+	SLJIT_UNUSED_ARG(mem);
+	SLJIT_UNUSED_ARG(memw);
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fmem(compiler, type, freg, mem, memw));
 
 	return SLJIT_ERR_UNSUPPORTED;
 }
@@ -2476,6 +2534,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(type);
 	SLJIT_UNUSED_ARG(reg);
+	SLJIT_UNUSED_ARG(mem);
+	SLJIT_UNUSED_ARG(memw);
+	SLJIT_UNREACHABLE();
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 freg, sljit_s32 mem, sljit_sw memw)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(freg);
 	SLJIT_UNUSED_ARG(mem);
 	SLJIT_UNUSED_ARG(memw);
 	SLJIT_UNREACHABLE();

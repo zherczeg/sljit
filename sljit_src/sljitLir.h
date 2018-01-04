@@ -1257,12 +1257,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	sljit_s32 dst_reg,
 	sljit_s32 src, sljit_sw srcw);
 
-/* The following flags are used by sljit_emit_mem(). */
+/* The following flags are used by sljit_emit_mem() and sljit_emit_fmem(). */
 
-/* When SLJIT_MEM_SUPP is passed, the sljit_emit_mem() function does
-   not emit any instructions, only checks whether the instruction
-   form is supported. The returned value is SLJIT_SUCCESS, if it is
-   supported and SLJIT_ERR_UNSUPPORTED otherwise. */
+/* When SLJIT_MEM_SUPP is passed, no instructions are emitted.
+   Instead the function returns with SLJIT_SUCCESS if the instruction
+   form is supported and SLJIT_ERR_UNSUPPORTED otherwise. This flag
+   allows runtime checking of available instruction forms. */
 #define SLJIT_MEM_SUPP		0x0200
 /* Memory load operation. This is the default. */
 #define SLJIT_MEM_LOAD		0x0000
@@ -1289,6 +1289,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
    Flags: - (does not modify flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 reg,
+	sljit_s32 mem, sljit_sw memw);
+
+/* Same as sljit_emit_mem except the followings:
+
+   type must be SLJIT_MOV_F64 or SLJIT_MOV_F32 and can be
+     combined with SLJIT_MEM_* flags. Either SLJIT_MEM_PRE
+     or SLJIT_MEM_POST must be specified.
+   freg is the source or destination floating point register */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
 	sljit_s32 mem, sljit_sw memw);
 
 /* Copies the base address of SLJIT_SP + offset to dst. The offset can be
