@@ -2157,7 +2157,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 
 #endif
 
-#if !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
+#if !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
+	&& !(defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
