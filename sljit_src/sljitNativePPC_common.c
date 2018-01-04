@@ -1747,7 +1747,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
-#undef FLOAT_DATA
 #undef SELECT_FOP
 
 /* --------------------------------------------------------------------- */
@@ -2196,7 +2195,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 			return SLJIT_SUCCESS;
 
 		inst = updated_data_transfer_insts[mem_flags | INDEXED];
-		FAIL_IF(push_inst(compiler, INST_CODE_AND_DST(inst, mem_flags, reg) | A(mem & REG_MASK) | B(OFFS_REG(mem))));
+		FAIL_IF(push_inst(compiler, INST_CODE_AND_DST(inst, 0, reg) | A(mem & REG_MASK) | B(OFFS_REG(mem))));
 	}
 	else {
 		if (memw > SIMM_MAX || memw < SIMM_MIN)
@@ -2212,12 +2211,51 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 		if (type & SLJIT_MEM_SUPP)
 			return SLJIT_SUCCESS;
 
-		FAIL_IF(push_inst(compiler, INST_CODE_AND_DST(inst, mem_flags, reg) | A(mem & REG_MASK) | IMM(memw)));
+		FAIL_IF(push_inst(compiler, INST_CODE_AND_DST(inst, 0, reg) | A(mem & REG_MASK) | IMM(memw)));
 	}
 
 	if ((mem_flags & LOAD_DATA) && (type & 0xff) == SLJIT_MOV_S8)
 		return push_inst(compiler, EXTSB | S(reg) | A(reg));
 	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 mem, sljit_sw memw)
+{
+	sljit_s32 mem_flags;
+	sljit_ins inst;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fmem(compiler, type, freg, mem, memw));
+
+	if (type & SLJIT_MEM_POST)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (SLJIT_UNLIKELY(mem & OFFS_REG_MASK)) {
+		if (memw != 0)
+			return SLJIT_ERR_UNSUPPORTED;
+	}
+	else {
+		if (memw > SIMM_MAX || memw < SIMM_MIN)
+			return SLJIT_ERR_UNSUPPORTED;
+	}
+
+	if (type & SLJIT_MEM_SUPP)
+		return SLJIT_SUCCESS;
+
+	mem_flags = FLOAT_DATA(type);
+
+	if (!(type & SLJIT_MEM_STORE))
+		mem_flags |= LOAD_DATA;
+
+	if (SLJIT_UNLIKELY(mem & OFFS_REG_MASK)) {
+		inst = updated_data_transfer_insts[mem_flags | INDEXED];
+		return push_inst(compiler, INST_CODE_AND_DST(inst, DOUBLE_DATA, freg) | A(mem & REG_MASK) | B(OFFS_REG(mem)));
+	}
+
+	inst = updated_data_transfer_insts[mem_flags];
+	return push_inst(compiler, INST_CODE_AND_DST(inst, DOUBLE_DATA, freg) | A(mem & REG_MASK) | IMM(memw));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
