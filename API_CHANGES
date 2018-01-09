@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+08.01.2018 - Non-backward compatible
+    Fields of sljit_stack are renamed to fit a
+    top-down stack better.
+
 02.01.2018 - Non-backward compatible
     Immediate source argument has not been supported
     for NOT, NEG, CLZ, and fast_return instructions
