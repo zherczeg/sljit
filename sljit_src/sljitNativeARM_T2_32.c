@@ -339,8 +339,8 @@ static SLJIT_INLINE void set_jump_instruction(struct sljit_jump *jump, sljit_sw 
 
 	/* Really complex instruction form for branches. */
 	s = (diff >> 23) & 0x1;
-	j1 = (~(diff >> 21) ^ s) & 0x1;
-	j2 = (~(diff >> 22) ^ s) & 0x1;
+	j1 = (~(diff >> 22) ^ s) & 0x1;
+	j2 = (~(diff >> 21) ^ s) & 0x1;
 	jump_inst[0] = 0xf000 | (s << 10) | COPY_BITS(diff, 11, 0, 10);
 	jump_inst[1] = (j1 << 13) | (j2 << 11) | (diff & 0x7ff);
 
