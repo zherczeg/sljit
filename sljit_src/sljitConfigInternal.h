@@ -147,17 +147,23 @@
 #define SLJIT_CONFIG_UNSUPPORTED 1
 #endif
 
-#else /* !_WIN32 */
+#else /* _WIN32 */
 
 #if defined(_M_X64) || defined(__x86_64__)
 #define SLJIT_CONFIG_X86_64 1
+#elif (defined(_M_ARM) && _M_ARM >= 7 && defined(_M_ARMT)) || defined(__thumb2__)
+#define SLJIT_CONFIG_ARM_THUMB2 1
+#elif (defined(_M_ARM) && _M_ARM >= 7)
+#define SLJIT_CONFIG_ARM_V7 1
 #elif defined(_ARM_)
 #define SLJIT_CONFIG_ARM_V5 1
+#elif defined(_M_ARM64) || defined(__aarch64__)
+#define SLJIT_CONFIG_ARM_64 1
 #else
 #define SLJIT_CONFIG_X86_32 1
 #endif
 
-#endif /* !WIN32 */
+#endif /* !_WIN32 */
 #endif /* SLJIT_CONFIG_AUTO */
 
 #if (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)

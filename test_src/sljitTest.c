@@ -1578,7 +1578,7 @@ static void test20(void)
 	sljit_free_code(code.code);
 
 	compiler = sljit_create_compiler(NULL);
-	sljit_emit_enter(compiler, 0, 0, 3, 0, 0, 0, SLJIT_MAX_LOCAL_SIZE);
+	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW) | SLJIT_ARG3(SW), 3, 3, 0, 0, SLJIT_MAX_LOCAL_SIZE);
 
 	sljit_get_local_base(compiler, SLJIT_R0, 0, SLJIT_MAX_LOCAL_SIZE - sizeof(sljit_sw));
 	sljit_get_local_base(compiler, SLJIT_R1, 0, -(sljit_sw)sizeof(sljit_sw));
@@ -1590,13 +1590,16 @@ static void test20(void)
 	jump = sljit_emit_jump(compiler, SLJIT_NOT_EQUAL);
 	sljit_set_label(jump, label);
 
-	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_IMM, 0x5387);
+	/* Saved registers should keep their value. */
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_S0, 0, SLJIT_S0, 0, SLJIT_S1, 0);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_S2, 0);
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
 
 	code.code = sljit_generate_code(compiler);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
-	FAILED(code.func0() != 0x5387, "test20 case 5 failed\n");
+	FAILED(code.func3(1234, 5678, 9012) != 15924, "test20 case 5 failed\n");
 
 	sljit_free_code(code.code);
 
