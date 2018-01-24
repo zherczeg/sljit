@@ -1123,7 +1123,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 extern "C" {
 #endif
 
-#if defined(__GNUC__)
+#ifdef _WIN32
+extern unsigned long long __rt_udiv(unsigned int denominator, unsigned int numerator);
+extern long long __rt_sdiv(int denominator, int numerator);
+#elif defined(__GNUC__)
 extern unsigned int __aeabi_uidivmod(unsigned int numerator, int unsigned denominator);
 extern int __aeabi_idivmod(int numerator, int denominator);
 #else
@@ -1183,7 +1186,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 			}
 		}
 
-#if defined(__GNUC__)
+#ifdef _WIN32
+		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(TMP_REG1, SLJIT_R0)));
+		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_R0, SLJIT_R1)));
+		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_R1, TMP_REG1)));
+		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM,
+			((op | 0x2) == SLJIT_DIV_UW ? SLJIT_FUNC_OFFSET(__rt_udiv) : SLJIT_FUNC_OFFSET(__rt_sdiv))));
+#elif defined(__GNUC__)
 		FAIL_IF(sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM,
 			((op | 0x2) == SLJIT_DIV_UW ? SLJIT_FUNC_OFFSET(__aeabi_uidivmod) : SLJIT_FUNC_OFFSET(__aeabi_idivmod))));
 #else
