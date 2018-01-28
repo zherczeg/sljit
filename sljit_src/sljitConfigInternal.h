@@ -382,12 +382,18 @@ typedef int sljit_sw;
 #define SLJIT_64BIT_ARCHITECTURE 1
 #define SLJIT_WORD_SHIFT 3
 #ifdef _WIN32
+#ifdef __GNUC__
+/* These types do not require windows.h */
+typedef unsigned long long sljit_uw;
+typedef long long sljit_sw;
+#else
 typedef unsigned __int64 sljit_uw;
 typedef __int64 sljit_sw;
-#else
+#endif
+#else /* !_WIN32 */
 typedef unsigned long int sljit_uw;
 typedef long int sljit_sw;
-#endif
+#endif /* _WIN32 */
 #endif
 
 typedef sljit_uw sljit_p;
