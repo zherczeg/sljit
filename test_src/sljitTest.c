@@ -4864,6 +4864,9 @@ static void test51(void)
 	sljit_sw buf[2];
 	sljit_s32 i;
 
+	if (verbose)
+		printf("Run test51\n");
+
 	FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 39;
@@ -4992,6 +4995,9 @@ static void test52(void)
 	struct sljit_jump* jump;
 	sljit_f64 buf[3];
 	sljit_s32 i;
+
+	if (verbose)
+		printf("Run test52\n");
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
