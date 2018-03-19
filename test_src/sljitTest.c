@@ -6124,6 +6124,55 @@ static void test61(void)
 	successful_tests++;
 }
 
+static void test62(void)
+{
+	/* Test fast calls flag preservation. */
+	executable_code code1;
+	executable_code code2;
+	struct sljit_compiler* compiler;
+
+	if (verbose)
+		printf("Run test62\n");
+
+	/* A */
+	compiler = sljit_create_compiler(NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+	sljit_set_context(compiler, 0, SLJIT_ARG1(SW), 1, 1, 0, 0, 0);
+
+	sljit_emit_fast_enter(compiler, SLJIT_R0, 0);
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_Z | SLJIT_SET_LESS, SLJIT_UNUSED, 0, SLJIT_S0, 0, SLJIT_IMM, 42);
+	sljit_emit_fast_return(compiler, SLJIT_R0, 0);
+
+	code1.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	/* B */
+	compiler = sljit_create_compiler(NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 1, 1, 0, 0, 0);
+	sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM, SLJIT_FUNC_OFFSET(code1.code));
+	sljit_set_current_flags(compiler, SLJIT_SET_Z | SLJIT_SET_LESS);
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_ZERO);
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_S0, 0, SLJIT_LESS);
+	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_S0, 0, SLJIT_S0, 0, SLJIT_IMM, 1);
+	sljit_emit_op2(compiler, SLJIT_OR, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_S0, 0);
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
+
+	code2.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	FAILED(code2.func1(88) != 0, "test62 case 1 failed\n");
+	FAILED(code2.func1(42) != 1, "test62 case 2 failed\n");
+	FAILED(code2.func1(0)  != 2, "test62 case 3 failed\n");
+
+	sljit_free_code(code1.code);
+	sljit_free_code(code2.code);
+	successful_tests++;
+}
+
 void sljit_test(int argc, char* argv[])
 {
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -6197,12 +6246,13 @@ void sljit_test(int argc, char* argv[])
 	test59();
 	test60();
 	test61();
+	test62();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 61
+#	define TEST_COUNT 62
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
