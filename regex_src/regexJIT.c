@@ -43,9 +43,6 @@
    which ends with [\r\n] character range. */
 #define REGEX_FAKE_MATCH_END	0x400
 
-/* Check match completition after every (FINISH_TEST + 1) steps. */
-#define FINISH_TEST	0x7
-
 /* --------------------------------------------------------------------- */
 /*  Structures for JIT-ed pattern matching                               */
 /* --------------------------------------------------------------------- */
