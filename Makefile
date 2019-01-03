@@ -52,10 +52,10 @@ $(BINDIR)/sljitTest.o : $(TESTDIR)/sljitTest.c $(BINDIR) $(SLJIT_HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $(TESTDIR)/sljitTest.c
 
 $(BINDIR)/regexMain.o : $(REGEXDIR)/regexMain.c $(BINDIR) $(SLJIT_HEADERS)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(REGEX_CFLAGS) -c -o $@ $(REGEXDIR)/regexMain.c
+	$(CC) $(CPPFLAGS) $(REGEX_CFLAGS) -c -o $@ $(REGEXDIR)/regexMain.c
 
 $(BINDIR)/regexJIT.o : $(REGEXDIR)/regexJIT.c $(BINDIR) $(SLJIT_HEADERS) $(REGEXDIR)/regexJIT.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(REGEX_CFLAGS) -c -o $@ $(REGEXDIR)/regexJIT.c
+	$(CC) $(CPPFLAGS) $(REGEX_CFLAGS) -c -o $@ $(REGEXDIR)/regexJIT.c
 
 clean:
 	rm -f $(BINDIR)/*.o $(BINDIR)/sljit_test $(BINDIR)/regex_test
