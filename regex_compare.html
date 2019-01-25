@@ -1,0 +1,207 @@
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Comparison of regular expression types</title>
+
+  <style type="text/css">
+    body {
+	background-color: #707070;
+	color: #000000;
+	font-family: "garamond"
+    }
+    td.main {
+      background-color: white;
+      color: black;
+      font-family: "garamond"
+    }
+	ul.list { margin: 0; }
+  </style>
+
+</head>
+
+<body>
+
+<center>
+<table width="760" cellspacing=0 cellpadding=0>
+<tr height=20><td width=20 class="main"></td><td width=720 class="main"></td><td width=20 class="main"></td></tr>
+<tr><td width=20 class="main"></td><td width=720 class="main">
+
+<h1><center><b>Comparison of regular expression engine types</b></center></h1>
+
+<i>This page is under development, I plan to add more information in the future.</i><br>
+
+<h3>Introduction</h3>
+Matching regular expressions is not considered a complex task and many people think
+that this problem was solved a long time ago. The reason of this belief is a great deal
+of misinformation which has been spread across the internet and the education. On the
+contrary there is no best solution for matching a pattern at the moment, and choosing
+the right regular expression engine is as difficult as choosing the right programming
+language. This page aims for showing the advantages and disadvantages of different
+engine types.<br>
+<br>
+In general we have two engine types:
+<ul>
+  <li><b>Performance oriented engines:</b> very fast in general, and very slow in special
+    (called pathological) cases.</i>
+  <li><b>Balanced engines:</b> no weaknesses, no strengths. Usually predictable worst case runtime.</i>
+</ul>
+Balanced engines are slower than performance oriented engines, but adding some
+pathological patterns to the benchmark set can quickly turn the tide.<br>
+<br>
+
+From technical point of view, we have several engine types:
+
+<h2>Multiple choice engine with backtracking</h2>
+
+<table border=1 width="100%">
+
+<tr><td>
+  <b>Type:</b>
+</td><td>
+  Usually performance oriented engines
+</td></tr>
+
+<tr><td>
+  <b>Advantages:</b>
+</td><td>
+  <ul class="list">
+    <li>Large feature set (assertions, conditional blocks, executing code blocks,
+       backtracking control).</li>
+	<li>Submatch capture</li>
+	<li>Lots of optimization opportunities (mostly backtracking
+	   elimination).</li>
+  </ul>
+</td></tr>
+
+<tr><td>
+  <b>Disadvantages:</b>
+</td><td>
+  <ul class="list">
+    <li>Large and complex code base</li>
+    <li>May use a large amount of stack</li>
+    <li>Examples for pathological cases:
+      <ul class="list">
+        <li>/(a*)*b/</li>
+	    <li>/(?:a?){N}a{N}/ (N is a positive integer number)</li>
+      </ul>
+	</li>
+  </ul>
+</td></tr>
+
+<tr><td>
+  <b>Execution modes:</b>
+</td><td>
+  Depth-first search algorithm
+  <ul class="list">
+    <li>Interpreted execution of Nondeterministic Finite Automaton (NFA).<br> Example: <a href="http://www.pcre.org/">PCRE interpreter</a>.</li>
+    <li>Generating machine code from NFA.<br> Example: <a href="http://blog.chromium.org/2009/02/irregexp-google-chromes-new-regexp.html">Irregexp engine</a>.</li>
+    <li>Generating machine code from Abstract Syntax Tree (AST).<br> Example: <a href="http://sljit.sourceforge.net/pcre.html">PCRE JIT</a> compiler.</li>
+  </ul>
+</td></tr>
+
+</table>
+
+<h2>Single choice engine with pre-generated state machine</h2>
+
+<table border=1 width="100%">
+
+<tr><td>
+  <b>Type:</b>
+</td><td>
+  Usually performance oriented engines
+</td></tr>
+
+<tr><td>
+  <b>Advantages:</b>
+</td><td>
+  <ul class="list">
+    <li>Simple and very fast matching algorithm</li>
+    <li>Partial matching support is easy</li>
+    <li>Multiple patterns can be matched at the same time (on a single core)</li>
+  </ul>
+</td></tr>
+
+<tr><td>
+  <b>Disadvantages:</b>
+</td><td>
+  <ul class="list">
+    <li>Large memory consumption (can be limited at the expense of performance)</li>
+    <li>Limited feature set (and this feature set is not fully supported, sometimes
+	  requires fallback to other processing modes)</li>
+    <li>Examples for pathological cases:
+      <ul class="list">
+        <li>/a[^b]{N}a/ (N is a positive integer number)</li>
+        <li>/a[^b]{1,N}abcde/ (N is a positive integer number)</li>
+      </ul>
+	</li>
+</td></tr>
+
+<tr><td>
+  <b>Execution modes:</b>
+</td><td>
+  Linear search time, exponential state machine build time (especially for combining multiple
+  patterns into a single state machine)
+  <ul class="list">
+    <li>Following the state transitions of a Deterministic Finite Automaton (DFA)<br> Example: <a href="http://code.google.com/p/re2/">RE2 engine</a>.</li>
+	<li>DFA based Multi Pattern Matching<br> Example: <a href="https://github.com/zherczeg/mpm">MPM library</a></li>
+  </ul>
+</td></tr>
+
+</table>
+
+<h2>Single choice engine with state tracking</h2>
+
+<table border=1 width="100%">
+
+<tr><td>
+  <b>Type:</b>
+</td><td>
+  Usually balanced engines
+</td></tr>
+
+<tr><td>
+  <b>Advantages:</b>
+</td><td>
+  <ul class="list">
+    <li>No pathological cases</li>
+    <li>Partial matching support is not difficult</li>
+  </ul>
+</td></tr>
+
+<tr><td>
+  <b>Disadvantages:</b>
+</td><td>
+  <ul class="list">
+    <li>Matching speed is generally low due to the complex state update mechanism</li>
+	<li>Limited feature set (due to syncronization issues, they have a similar
+	  feature set as the engines with pre-generated state machine)</li>
+  </ul>
+</td></tr>
+
+<tr><td>
+  <b>Execution modes:</b>
+</td><td>
+  Linear search time
+  <ul class="list">
+    <li>Interpreted execution of Deterministic Finite Automaton (DFA)<br> Example: <a href="http://www.pcre.org/">PCRE-DFA</a> interpreter</li>
+    <li>Parallel matching of NFA<br> Example: <a href="http://laurikari.net/tre/">TRE engine</a></li>
+  </ul>
+</td></tr>
+
+</table>
+
+<br>
+A performance comparison of some engines can be found <a href = "regex_perf.html">here</a>.
+<br>
+
+<table width="100%" cellspacing=0 cellpadding=0>
+<tr><td align=right>Last modification: 22.8.2013</td></tr></table>
+
+</td><td width=20 class="main"></td></tr>
+<tr height=20><td width=20 class="main"></td><td width=720 class="main"></td><td width=20 class="main"></td></tr>
+</table>
+</center>
+
+</body>
+</html>

@@ -1,0 +1,168 @@
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>sljit - stack-less jit compiler</title>
+
+  <style type="text/css">
+    body {
+      background-color: #707070;
+      color: #000000;
+      font-family: "garamond"
+    }
+    td.main {
+      background-color: #ffffff;
+      color: #000000;
+      font-family: "garamond"
+    }
+  </style>
+</head>
+
+<body>
+
+<center>
+<table width="760" cellspacing=0 cellpadding=0>
+<tr height=20><td width=20 class="main"></td><td width=720 class="main"></td><td width=20 class="main"></td></tr>
+<tr><td width=20 class="main"></td><td width=720 class="main">
+
+<h1><center>sljit</center></h1>
+
+<h3>What is sljit?</h3>
+
+The sljit compiler is a stack-less platform independent JIT compiler, or
+perhaps a platform independent assembler is even a better name. The key
+design principle of sljit is that it does not try to be smarter than the
+developer. This principle is achieved by providing control over the generated
+machine code like assembly languages. Unlike other assembly languages
+however, sljit LIR (low-level intermediate representation) is CPU independent,
+which greatly improves portability.<br>
+<br>
+The engine strikes a good balance between performance and maintainability.
+The LIR code can be compiled to many CPU architectures, and the performance
+of the generated code is very close to code written in assembly languages.
+Although sljit does not support higher level features such as automatic
+register allocation, it can be a code generator backend for other JIT
+compiler libraries. Developing these intermediate libraries takes far less
+time, because they only needs to support a single backend.<br>
+<br>
+Defining a LIR which provides wide range of optimization opportunities and
+still can be efficiently translated to machine code on all CPUs is the
+biggest challenge of this project. Those instruction forms and features
+which are supported on many (but not necessarily on all) architectures
+are carefully selected and a LIR is created from them. These features
+are also emulated by the remaining architectures with low overhead. For
+example, sljit supports various memory addressing modes and setting
+status register bits.<br>
+<br>
+This approach is very effective for byte-code interpreters since their machine
+independent byte code (middle level representation) typically contains instructions
+which either can be easly translated to machine code, or does not worth to translate
+them at all.
+<ul>
+   <u>Interpreter byte-code instruction examples</u><br>
+   <ul>
+      <b>pop</b> - pop from stack<br>
+         <ul>Very easy to implement in sljit level, since it just decrease
+         the stack pointer by 1.</ul>
+      <b>add</b> - add<br>
+         <ul>Fast case for integer addition, and slow case for anything else.</ul>
+      <b>resolve</b> - resolve an identifier<br>
+         <ul>Not suitable to do it in JIT level, just call a native C++ helper.</ul>
+   </ul>
+</ul>
+
+<h3>Download</h3>
+<a href="https://github.com/zherczeg/sljit/">https://github.com/zherczeg/sljit/</a>
+
+<h3>Supported architectures</h3>
+<ul>
+   Intel-x86 32<br>
+   AMD-x86 64<br>
+   ARM 32 (ARM-v5, ARM-v7 and Thumb2 instruction sets)<br>
+   ARM 64<br>
+   PowerPC 32<br>
+   PowerPC 64<br>
+   MIPS 32 (III, R1)<br>
+   MIPS 64 (III, R1)<br>
+   SPARC 32<br>
+</ul>
+
+<h3>Pattern matching: JIT-ing regular expressions</h3>
+<ul>
+    PCRE-sljit combines the well known PCRE regular expression library
+    with the performance boost provided by sljit, creating a lightning fast,
+    PERL compatible backtracking engine. More about this project
+    can be found <a href="pcre.html">here</a>. Comparing the PCRE-sljit
+    with other engines can be found <a href="regex_perf.html">here</a>.
+</ul>
+
+<h3>What a JIT ...</h3>
+<ul>
+    <b>... can do</b><br>
+       <ul>decrease the number of executed instructions, which speeds up the
+       execution. You can embed constants and constant pointers into the JIT
+       code, so you don't need to access them before use (eliminates several loads).
+       However, its trade-off is the extra memory space consumed by the jitted
+       code. On embedded systems, large amount of JIT-ed code might decrease the
+       efficiency of the instruction cache.</ul>
+    <b>... can't do</b><br>
+       <ul>miracles. JIT is a good thing if you know what you are doing.</ul>
+</ul>
+
+<h3>My practical experiences</h3>
+<ul>
+    <table><tr><td>-</td><td>
+    JIT is kind of a <b>code inlining</b> (static compiler optimization).
+    It basically has the same disadvantages as well.
+    </td></tr><tr><td>-</td><td>
+    <b>focus</b> on the most frequently executed part of your program.
+    Profiling can help. Never compile generic (especially complex)
+    algorithms by JIT code generators. Their C/C++ counterpart usually
+    performs better.
+    </td></tr></table>
+</ul>
+
+<h3>SL-JIT Advantages</h3>
+<ul>
+   The execution can be continued from any LIR instruction
+      In other words, jump into and out of the code is safe.<br>
+   Target of (conditional) jump and call instructions can be
+      dynamically modified during the execution of the code.<br>
+   Constants can be modified during the execution of the code.<br>
+   Fast, non-ABI compilant function call (when a JIT code calls
+   anoher JIT code). Requires only a few machine instructions,
+   and all registers are keeping their values.<br>
+   Move with update instructions. It means the base register is updated
+   before the actual load or store.<br>
+</ul>
+<h3>SL-JIT Disadvantages</h3>
+<ul>
+   Limited (3 machine words) number of arguments for ABI compatible
+   function calls.<br>
+</ul>
+
+<h3>More about the project</h3>
+The source package contains a readme, which describes how to add sljit to
+an existing project. The details about the sljit LIR (low-level intermediate
+representation) is found in sljitLir.h, which is the only file, you need to
+know to use sljit.
+
+<h3>Help needed</h3>
+I have limited access to various software tools and hardware, which makes
+testing difficult. You could help me by trying sljit with various compilers
+(ARM RVCT) and various CPUs, especially mips ppc, and sparc.
+
+<h3>Contribution</h3>
+Please open issues or submit pull requests to <a href="https://github.com/zherczeg/sljit/">https://github.com/zherczeg/sljit/</a>
+<br>
+<br>
+<table width="100%" cellspacing=0 cellpadding=0>
+<tr><td align=right>Last modification: 18.7.2014</td></tr></table>
+
+</td><td width=20 class="main"></td></tr>
+<tr height=20><td width=20 class="main"></td><td width=720 class="main"></td><td width=20 class="main"></td></tr>
+</table>
+</center>
+
+</body>
+</html>
