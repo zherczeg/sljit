@@ -144,6 +144,7 @@
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 #	define PATCH_MD		0x10
 #endif
+#	define TYPE_SHIFT	13
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
@@ -521,6 +522,12 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw
 	}
 }
 
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_put_label(struct sljit_put_label *put_label, struct sljit_label *label)
+{
+	if (SLJIT_LIKELY(!!put_label))
+		put_label->label = label;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler, sljit_s32 current_flags)
 {
 	SLJIT_UNUSED_ARG(compiler);
@@ -685,6 +692,18 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	else
 		compiler->consts = const_;
 	compiler->last_const = const_;
+}
+
+static SLJIT_INLINE void set_put_label(struct sljit_put_label *put_label, struct sljit_compiler *compiler)
+{
+	put_label->next = NULL;
+	put_label->addr = compiler->size;
+	put_label->flags = 0;
+	if (compiler->last_put_label)
+		compiler->last_put_label->next = put_label;
+	else
+		compiler->put_labels = put_label;
+	compiler->last_put_label = put_label;
 }
 
 #define ADDRESSING_DEPENDS_ON(exp, reg) \
@@ -1905,6 +1924,20 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_const(struct sljit_compil
 	CHECK_RETURN_OK;
 }
 
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_put_label(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
+{
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	FUNCTION_CHECK_DST(dst, dstw, 0);
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  put_label ");
+		sljit_verbose_param(compiler, dst, dstw);
+	}
+#endif
+	CHECK_RETURN_OK;
+}
+
 #endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_VERBOSE */
 
 #define SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw) \
@@ -2581,6 +2614,14 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	return NULL;
 }
 
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label* sljit_emit_put_label(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(dst);
+	SLJIT_UNUSED_ARG(dstw);
+	return NULL;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset)
 {
 	SLJIT_UNUSED_ARG(addr);
@@ -2597,4 +2638,4 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 	SLJIT_UNREACHABLE();
 }
 
-#endif
+#endif /* !SLJIT_CONFIG_UNSUPPORTED */
