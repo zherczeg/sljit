@@ -161,7 +161,7 @@ static SLJIT_INLINE void modify_imm64_const(sljit_ins* inst, sljit_uw new_imm)
 	inst[3] = MOVK | dst | ((new_imm >> 48) << 5) | (3 << 21);
 }
 
-static SLJIT_INLINE sljit_s32 detect_jump_type(struct sljit_jump *jump, sljit_ins *code_ptr, sljit_ins *code, sljit_sw executable_offset)
+static SLJIT_INLINE sljit_sw detect_jump_type(struct sljit_jump *jump, sljit_ins *code_ptr, sljit_ins *code, sljit_sw executable_offset)
 {
 	sljit_sw diff;
 	sljit_uw target_addr;
@@ -196,14 +196,14 @@ static SLJIT_INLINE sljit_s32 detect_jump_type(struct sljit_jump *jump, sljit_in
 		return 4;
 	}
 
-	if (target_addr <= 0xffffffffl) {
+	if (target_addr < 0x100000000l) {
 		if (jump->flags & IS_COND)
 			code_ptr[-5] -= (2 << 5);
 		code_ptr[-2] = code_ptr[0];
 		return 2;
 	}
 
-	if (target_addr <= 0xffffffffffffl) {
+	if (target_addr < 0x1000000000000l) {
 		if (jump->flags & IS_COND)
 			code_ptr[-5] -= (1 << 5);
 		jump->flags |= PATCH_ABS48;
@@ -215,14 +215,14 @@ static SLJIT_INLINE sljit_s32 detect_jump_type(struct sljit_jump *jump, sljit_in
 	return 0;
 }
 
-static SLJIT_INLINE sljit_s32 detect_put_label_length(struct sljit_put_label *put_label, sljit_uw max_label)
+static SLJIT_INLINE sljit_sw put_label_get_length(struct sljit_put_label *put_label, sljit_uw max_label)
 {
-	if (max_label <= 0xffffffffl) {
+	if (max_label < 0x100000000l) {
 		put_label->flags = 0;
 		return 2;
 	}
 
-	if (max_label <= 0xffffffffffffl) {
+	if (max_label < 0x1000000000000l) {
 		put_label->flags = 1;
 		return 1;
 	}
@@ -296,7 +296,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				if (put_label && put_label->addr == word_count) {
 					SLJIT_ASSERT(put_label->label);
 					put_label->addr = (sljit_uw)(code_ptr - 3);
-					code_ptr -= detect_put_label_length(put_label, (sljit_uw)(SLJIT_ADD_EXEC_OFFSET(code, executable_offset) + put_label->label->size));
+					code_ptr -= put_label_get_length(put_label, (sljit_uw)(SLJIT_ADD_EXEC_OFFSET(code, executable_offset) + put_label->label->size));
 					put_label = put_label->next;
 				}
 				next_addr = compute_next_addr(label, jump, const_, put_label);

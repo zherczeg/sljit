@@ -830,8 +830,9 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 	put_label = compiler->put_labels;
 	while (put_label) {
-		buf_ptr = (sljit_uw*)put_label->addr;
 		addr = put_label->label->addr;
+		buf_ptr = (sljit_uw*)put_label->addr;
+
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 		SLJIT_ASSERT((buf_ptr[0] & 0xffff0000) == 0xe59f0000);
 		buf_ptr[((buf_ptr[0] & 0xfff) >> 2) + 2] = addr;
