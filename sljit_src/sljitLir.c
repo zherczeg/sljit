@@ -627,6 +627,30 @@ static SLJIT_INLINE sljit_s32 get_arg_count(sljit_s32 arg_types)
 	return arg_count;
 }
 
+#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+
+static SLJIT_INLINE sljit_uw compute_next_addr(struct sljit_label *label, struct sljit_jump *jump,
+	struct sljit_const *const_, struct sljit_put_label *put_label)
+{
+	sljit_uw result = ~(sljit_uw)0;
+
+	if (label)
+		result = label->size;
+
+	if (jump && jump->addr < result)
+		result = jump->addr;
+
+	if (const_ && const_->addr < result)
+		result = const_->addr;
+
+	if (put_label && put_label->addr < result)
+		result = put_label->addr;
+
+	return result;
+}
+
+#endif /* !SLJIT_CONFIG_X86 */
+
 static SLJIT_INLINE void set_emit_enter(struct sljit_compiler *compiler,
 	sljit_s32 options, sljit_s32 args, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
@@ -694,10 +718,10 @@ static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_comp
 	compiler->last_const = const_;
 }
 
-static SLJIT_INLINE void set_put_label(struct sljit_put_label *put_label, struct sljit_compiler *compiler)
+static SLJIT_INLINE void set_put_label(struct sljit_put_label *put_label, struct sljit_compiler *compiler, sljit_uw offset)
 {
 	put_label->next = NULL;
-	put_label->addr = compiler->size;
+	put_label->addr = compiler->size - offset;
 	put_label->flags = 0;
 	if (compiler->last_put_label)
 		compiler->last_put_label->next = put_label;
@@ -1933,6 +1957,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_put_label(struct sljit_co
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  put_label ");
 		sljit_verbose_param(compiler, dst, dstw);
+		fprintf(compiler->verbose, "\n");
 	}
 #endif
 	CHECK_RETURN_OK;

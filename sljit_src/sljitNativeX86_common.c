@@ -531,7 +531,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 			else {
 				switch (*buf_ptr) {
 				case 0:
-					label->addr = ((sljit_uw)code_ptr) + executable_offset;
+					label->addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 					label->size = code_ptr - code;
 					label = label->next;
 					break;
@@ -557,7 +557,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 					SLJIT_ASSERT(put_label->label);
 					put_label->addr = (sljit_uw)code_ptr;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-					code_ptr = generate_put_label_code(put_label, code_ptr, (sljit_uw)(code + executable_offset + put_label->label->size));
+					code_ptr = generate_put_label_code(put_label, code_ptr, (sljit_uw)(SLJIT_ADD_EXEC_OFFSET(code, executable_offset) + put_label->label->size));
 #endif
 					put_label = put_label->next;
 					break;
@@ -2877,8 +2877,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label* sljit_emit_put_label(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
 {
-	sljit_u8 *inst;
 	struct sljit_put_label *put_label;
+	sljit_u8 *inst;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	sljit_s32 reg;
 	sljit_uw start_size;
@@ -2892,7 +2892,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label* sljit_emit_put_label(struct slj
 
 	put_label = (struct sljit_put_label*)ensure_abuf(compiler, sizeof(struct sljit_put_label));
 	PTR_FAIL_IF(!put_label);
-	set_put_label(put_label, compiler);
+	set_put_label(put_label, compiler, 0);
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	compiler->mode32 = 0;
