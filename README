@@ -17,7 +17,7 @@ Using sljit:
   rename sljitLir.c to sljitLir.cpp.
 
 More info:
-  http://sljit.sourceforge.net/
+  https://zherczeg.github.io/sljit/
 
 Contact:
   hzmester@freemail.hu
