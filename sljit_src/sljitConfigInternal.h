@@ -287,7 +287,7 @@
 #if __has_builtin(__builtin___clear_cache)
 
 #define SLJIT_CACHE_FLUSH(from, to) \
-	__builtin___clear_cache((char*)from, (char*)to)
+	__builtin___clear_cache((char*)(from), (char*)(to))
 
 #endif /* __has_builtin(__builtin___clear_cache) */
 #endif /* (!defined SLJIT_CACHE_FLUSH && defined __has_builtin) */
@@ -318,7 +318,7 @@
 #elif (defined(__GNUC__) && (__GNUC__ >= 5 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)))
 
 #define SLJIT_CACHE_FLUSH(from, to) \
-	__builtin___clear_cache((char*)from, (char*)to)
+	__builtin___clear_cache((char*)(from), (char*)(to))
 
 #elif defined __ANDROID__
 
