@@ -6342,6 +6342,96 @@ static void test64(void)
 	successful_tests++;
 }
 
+static void test65(void)
+{
+	/* Test jump tables. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	sljit_s32 i;
+	/* Normally this table is allocated on the heap. */
+	sljit_uw addr[64];
+	struct sljit_label *labels[64];
+	struct sljit_jump *jump;
+
+	if (verbose)
+		printf("Run test65\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW), 1, 2, 0, 0, 0);
+
+	jump = sljit_emit_cmp(compiler, SLJIT_GREATER_EQUAL, SLJIT_S0, 0, SLJIT_IMM, 64);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)addr);
+	sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_MEM2(SLJIT_R0, SLJIT_S0), SLJIT_WORD_SHIFT);
+
+	for (i = 0; i < 64; i++) {
+		labels[i] = sljit_emit_label(compiler);
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_S1, 0, SLJIT_IMM, i * 2);
+		sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
+	}
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_IMM, -1);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+
+	for (i = 0; i < 64; i++) {
+		addr[i] = sljit_get_label_addr(labels[i]);
+	}
+
+	sljit_free_compiler(compiler);
+
+	FAILED(code.func2(64, 0) != -1, "test65 case 1 failed\n");
+
+	for (i = 0; i < 64; i++) {
+		FAILED(code.func2(i, i * 2) != i * 4, "test65 case 2 failed\n");
+	}
+
+	sljit_free_code(code.code);
+	successful_tests++;
+}
+
+static void test66(void)
+{
+	/* Test direct jumps (computed goto). */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	sljit_s32 i;
+	sljit_uw addr[64];
+	struct sljit_label *labels[64];
+
+	if (verbose)
+		printf("Run test66\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW), 1, 2, 0, 0, 0);
+	sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_S0, 0);
+
+	for (i = 0; i < 64; i++) {
+		labels[i] = sljit_emit_label(compiler);
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_S1, 0, SLJIT_IMM, i * 2);
+		sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
+	}
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+
+	for (i = 0; i < 64; i++) {
+		addr[i] = sljit_get_label_addr(labels[i]);
+	}
+
+	sljit_free_compiler(compiler);
+
+	for (i = 0; i < 64; i++) {
+		FAILED(code.func2(addr[i], i) != i * 3, "test66 case 1 failed\n");
+	}
+
+	sljit_free_code(code.code);
+	successful_tests++;
+}
+
 void sljit_test(int argc, char* argv[])
 {
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -6418,12 +6508,14 @@ void sljit_test(int argc, char* argv[])
 	test62();
 	test63();
 	test64();
+	test65();
+	test66();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 64
+#	define TEST_COUNT 66
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
