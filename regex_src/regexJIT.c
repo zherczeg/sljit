@@ -1986,6 +1986,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 
 	/* Step 4.2: Generate code for state 0. */
 	EMIT_LABEL(label);
+	sljit_emit_op0(compiler_common.compiler, SLJIT_ENDBR);
 	compiler_common.machine->entry_addrs[0] = (sljit_uw)label;
 
 	/* Swapping current and next. */
@@ -2188,6 +2189,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 		if (compiler_common.search_states[ind].type >= 0) {
 			SLJIT_ASSERT(compiler_common.search_states[ind].type < compiler_common.terms_size);
 			EMIT_LABEL(label);
+			sljit_emit_op0(compiler_common.compiler, SLJIT_ENDBR);
 			compiler_common.machine->entry_addrs[compiler_common.search_states[ind].type] = (sljit_uw)label;
 
 			if (compiler_common.dfa_transitions[ind].type == type_char) {
