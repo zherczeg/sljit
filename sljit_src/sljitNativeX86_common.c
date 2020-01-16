@@ -702,6 +702,28 @@ static SLJIT_INLINE sljit_s32 emit_sse2_store(struct sljit_compiler *compiler,
 static SLJIT_INLINE sljit_s32 emit_sse2_load(struct sljit_compiler *compiler,
 	sljit_s32 single, sljit_s32 dst, sljit_s32 src, sljit_sw srcw);
 
+static SLJIT_INLINE sljit_s32 emit_endbranch(struct sljit_compiler *compiler)
+{
+#if (defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET)
+	/* Emit endbr32/endbr64 when CET is enabled.  */
+	sljit_u8 *inst;
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + 4);
+	FAIL_IF(!inst);
+	INC_SIZE(4);
+	*inst++ = 0xf3;
+	*inst++ = 0x0f;
+	*inst++ = 0x1e;
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+	*inst = 0xfb;
+#else
+	*inst = 0xfa;
+#endif
+#else
+	(void)compiler;
+#endif
+	return SLJIT_SUCCESS;
+}
+
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 #include "sljitNativeX86_32.c"
 #else
@@ -905,6 +927,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 			EMIT_MOV(compiler, SLJIT_R1, 0, TMP_REG1, 0);
 #endif
 		break;
+	case SLJIT_ENDBR:
+		return emit_endbranch(compiler);
 	}
 
 	return SLJIT_SUCCESS;

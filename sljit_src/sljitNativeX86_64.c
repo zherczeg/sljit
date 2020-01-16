@@ -135,6 +135,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
+	/* Emit ENDBR64 at function entry if needed.  */
+	FAIL_IF(emit_endbranch(compiler));
+
 	compiler->mode32 = 0;
 
 #ifdef _WIN64

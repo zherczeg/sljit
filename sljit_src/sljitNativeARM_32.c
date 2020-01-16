@@ -1678,6 +1678,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 						| (saved_reg_list[0] << 12) /* ldr rX, [sp], #8/16 */);
 		}
 		return SLJIT_SUCCESS;
+	case SLJIT_ENDBR:
+		return SLJIT_SUCCESS;
 	}
 
 	return SLJIT_SUCCESS;

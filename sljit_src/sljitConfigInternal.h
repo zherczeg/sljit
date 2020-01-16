@@ -191,6 +191,16 @@
 #define SLJIT_CONFIG_SPARC 1
 #endif
 
+/***********************************************************/
+/* Intel Control-flow Enforcement Technology (CET) spport. */
+/***********************************************************/
+
+#ifdef SLJIT_CONFIG_X86
+#if defined(__CET__)
+#define SLJIT_CONFIG_X86_CET 1
+#endif
+#endif
+
 /**********************************/
 /* External function definitions. */
 /**********************************/

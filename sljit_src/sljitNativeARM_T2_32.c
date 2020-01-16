@@ -1328,6 +1328,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 		}
 		return SLJIT_SUCCESS;
 #endif /* __ARM_FEATURE_IDIV || __ARM_ARCH_EXT_IDIV__ */
+	case SLJIT_ENDBR:
+		return SLJIT_SUCCESS;
 	}
 
 	return SLJIT_SUCCESS;
