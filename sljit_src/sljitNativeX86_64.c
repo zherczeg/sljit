@@ -364,6 +364,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 		POP_REG(reg_lmap[i]);
 	}
 
+	/* Adjust shadow stack if needed.  */
+	FAIL_IF(adjust_shadow_stack(compiler, 0));
+
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
 	FAIL_IF(!inst);
 	INC_SIZE(1);

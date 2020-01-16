@@ -310,26 +310,39 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 		SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, compiler->local_size));
 #endif
 
-	size = 2 + (compiler->scratches > 7 ? (compiler->scratches - 7) : 0) +
+	size = (compiler->scratches > 9 ? (compiler->scratches - 9) : 0) +
 		(compiler->saveds <= 3 ? compiler->saveds : 3);
+	if (size) {
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
+		FAIL_IF(!inst);
+
+		INC_SIZE(size);
+
+		if (compiler->saveds > 0 || compiler->scratches > 11)
+			POP_REG(reg_map[SLJIT_S0]);
+		if (compiler->saveds > 1 || compiler->scratches > 10)
+			POP_REG(reg_map[SLJIT_S1]);
+		if (compiler->saveds > 2 || compiler->scratches > 9)
+			POP_REG(reg_map[SLJIT_S2]);
+	}
+
+	/* Adjust shadow stack if needed.  NB: Since TMP_REG1 is used
+	   to adjust shadow stack, use 4(%esp) to load return address.  */
+	FAIL_IF(adjust_shadow_stack(compiler, 4));
+
+	size = 2;
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 	if (compiler->args > 2)
 		size += 2;
 #else
-	if (compiler->args > 0)
+	/* FIXME: Is this correct?  */
+	if (0 && compiler->args > 0)
 		size += 2;
 #endif
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
 	FAIL_IF(!inst);
-
 	INC_SIZE(size);
 
-	if (compiler->saveds > 0 || compiler->scratches > 11)
-		POP_REG(reg_map[SLJIT_S0]);
-	if (compiler->saveds > 1 || compiler->scratches > 10)
-		POP_REG(reg_map[SLJIT_S1]);
-	if (compiler->saveds > 2 || compiler->scratches > 9)
-		POP_REG(reg_map[SLJIT_S2]);
 	POP_REG(reg_map[TMP_REG1]);
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 	if (compiler->args > 2)
@@ -379,12 +392,15 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 	if (flags & EX86_PREF_66)
 		inst_size++;
 
+	/* Need immediate operand for (%ebp). */
+	sljit_s32 need_immb = (immb != 0 || reg_map[b & REG_MASK] == 5);
+
 	/* Calculate size of b. */
 	inst_size += 1; /* mod r/m byte. */
 	if (b & SLJIT_MEM) {
 		if ((b & REG_MASK) == SLJIT_UNUSED)
 			inst_size += sizeof(sljit_sw);
-		else if (immb != 0 && !(b & OFFS_REG_MASK)) {
+		else if (need_immb  && !(b & OFFS_REG_MASK)) {
 			/* Immediate operand. */
 			if (immb <= 127 && immb >= -128)
 				inst_size += sizeof(sljit_s8);
@@ -465,7 +481,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 		*buf_ptr++ |= MOD_REG + ((!(flags & EX86_SSE2_OP2)) ? reg_map[b] : b);
 	else if ((b & REG_MASK) != SLJIT_UNUSED) {
 		if ((b & OFFS_REG_MASK) == SLJIT_UNUSED || (b & OFFS_REG_MASK) == TO_OFFS_REG(SLJIT_SP)) {
-			if (immb != 0) {
+			if (need_immb) {
 				if (immb <= 127 && immb >= -128)
 					*buf_ptr |= 0x40;
 				else
@@ -479,7 +495,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 				*buf_ptr++ = reg_map[b & REG_MASK] | (reg_map[OFFS_REG(b)] << 3);
 			}
 
-			if (immb != 0) {
+			if (need_immb) {
 				if (immb <= 127 && immb >= -128)
 					*buf_ptr++ = immb; /* 8 bit displacement. */
 				else {

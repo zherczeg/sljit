@@ -199,6 +199,14 @@
 #if defined(__CET__)
 #define SLJIT_CONFIG_X86_CET 1
 #endif
+#if (defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET)
+#if defined(__GNUC__)
+#if !defined (__SHSTK__)
+#error "-mshstk is needed to compile with -fcf-protection"
+#endif
+#include <x86intrin.h>
+#endif
+#endif
 #endif
 
 /**********************************/
