@@ -890,3 +890,37 @@ static sljit_s32 emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src
 	RET();
 	return SLJIT_SUCCESS;
 }
+
+static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
+{
+	sljit_s32 size, base;
+	sljit_s32 has_f64_aligment;
+
+	SLJIT_ASSERT(compiler->args >= 0);
+	SLJIT_ASSERT(compiler->local_size > 0);
+
+#if !defined(__APPLE__)
+	has_f64_aligment = compiler->options & SLJIT_F64_ALIGNMENT;
+#else
+	has_f64_aligment = 0;
+#endif
+
+	size = compiler->local_size;
+	if (has_f64_aligment) {
+		/* Use ECX as base register to check return address.
+		   ECX is a scratch register for normal return. */
+		base = 3;
+		/* mov base, [esp + compiler->local_size].  */
+		EMIT_MOV(compiler, base, 0, SLJIT_MEM1(SLJIT_SP), size);
+		/* Return address is at [base + saveds_size]. */
+		size = 0;
+	} else
+		base = SLJIT_SP;
+
+	size += ((compiler->scratches > 9 ? (compiler->scratches - 9) : 0)
+		+ (compiler->saveds <= 3 ? compiler->saveds : 3))
+		* sizeof(sljit_uw) + sizeof(sljit_uw);
+
+	/* Adjust shadow stack if needed.  */
+	return adjust_shadow_stack(compiler, SLJIT_UNUSED, 0, base, size);
+}
