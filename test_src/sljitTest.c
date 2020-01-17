@@ -6448,6 +6448,63 @@ static void test66(void)
 	successful_tests++;
 }
 
+static void test67(void)
+{
+	/* Test skipping returns from fast calls. */
+	executable_code code;
+	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
+	struct sljit_jump *call, *jump;
+	struct sljit_label *label;
+
+	if (verbose)
+		printf("Run test67\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, 0, 3, 1, 0, 0, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
+	call = sljit_emit_jump(compiler, SLJIT_FAST_CALL);
+
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
+
+	/* First function, never returns. */
+	label = sljit_emit_label(compiler);
+	sljit_set_label(call, label);
+	sljit_emit_fast_enter(compiler, SLJIT_R1, 0);
+
+	call = sljit_emit_jump(compiler, SLJIT_FAST_CALL);
+
+	/* Should never return here, marked by a segmentation fault if it does. */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM0(), 0);
+
+	/* Second function, skips the first function. */
+	sljit_set_label(call, sljit_emit_label(compiler));
+	sljit_emit_fast_enter(compiler, SLJIT_R2, 0);
+
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 1);
+
+	jump = sljit_emit_cmp(compiler, SLJIT_NOT_EQUAL, SLJIT_R0, 0, SLJIT_IMM, 1);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S0, 0, SLJIT_R1, 0);
+	sljit_set_label(sljit_emit_jump(compiler, SLJIT_FAST_CALL), label);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 1);
+	sljit_emit_fast_return(compiler, SLJIT_S0, 0);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_fast_return(compiler, SLJIT_R1, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+
+	sljit_free_compiler(compiler);
+
+	FAILED(code.func0() != 3, "test67 case 1 failed\n");
+
+	sljit_free_code(code.code);
+	successful_tests++;
+}
+
 void sljit_test(int argc, char* argv[])
 {
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -6526,12 +6583,13 @@ void sljit_test(int argc, char* argv[])
 	test64();
 	test65();
 	test66();
+	test67();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 66
+#	define TEST_COUNT 67
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

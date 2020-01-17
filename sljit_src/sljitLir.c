@@ -1172,18 +1172,18 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fast_return(struct sljit_
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(op == SLJIT_ENDBR
-		|| (op >= SLJIT_BREAKPOINT && op <= SLJIT_LMUL_SW)
-		|| ((op & ~SLJIT_I32_OP) >= SLJIT_DIVMOD_UW && (op & ~SLJIT_I32_OP) <= SLJIT_DIV_SW));
-	CHECK_ARGUMENT(op == SLJIT_ENDBR || op < SLJIT_LMUL_UW || compiler->scratches >= 2);
-	if (op != SLJIT_ENDBR && op >= SLJIT_LMUL_UW)
+	CHECK_ARGUMENT((op >= SLJIT_BREAKPOINT && op <= SLJIT_LMUL_SW)
+		|| ((op & ~SLJIT_I32_OP) >= SLJIT_DIVMOD_UW && (op & ~SLJIT_I32_OP) <= SLJIT_DIV_SW)
+		|| op == SLJIT_ENDBR);
+	CHECK_ARGUMENT(GET_OPCODE(op) < SLJIT_LMUL_UW || GET_OPCODE(op) >= SLJIT_ENDBR || compiler->scratches >= 2);
+	if (GET_OPCODE(op) >= SLJIT_LMUL_UW && GET_OPCODE(op) <= SLJIT_DIV_SW)
 		compiler->last_flags = 0;
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
 	{
 		fprintf(compiler->verbose, "  %s", op0_names[GET_OPCODE(op) - SLJIT_OP0_BASE]);
-		if (op != SLJIT_ENDBR && GET_OPCODE(op) >= SLJIT_DIVMOD_UW) {
+		if (GET_OPCODE(op) >= SLJIT_DIVMOD_UW && GET_OPCODE(op) <= SLJIT_DIV_SW) {
 			fprintf(compiler->verbose, (op & SLJIT_I32_OP) ? "32" : "w");
 		}
 		fprintf(compiler->verbose, "\n");

@@ -1217,10 +1217,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	if (FAST_IS_REG(dst))
-		return push_inst(compiler, OR | D(dst) | S1(0) | S2(TMP_LINK), DR(dst));
+		return push_inst(compiler, OR | D(dst) | S1(0) | S2(TMP_LINK), UNMOVABLE_INS);
 
 	/* Memory. */
-	return emit_op_mem(compiler, WORD_DATA, TMP_LINK, dst, dstw);
+	FAIL_IF(emit_op_mem(compiler, WORD_DATA, TMP_LINK, dst, dstw));
+	compiler->delay_slot = UNMOVABLE_INS;
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src, sljit_sw srcw)
