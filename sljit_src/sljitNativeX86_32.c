@@ -76,6 +76,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
+	/* Emit ENDBR32 at function entry if needed.  */
+	FAIL_IF(emit_endbranch(compiler));
+
 	args = get_arg_count(arg_types);
 	compiler->args = args;
 

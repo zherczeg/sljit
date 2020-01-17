@@ -887,6 +887,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler 
          the behaviour is undefined. */
 #define SLJIT_DIV_SW			(SLJIT_OP0_BASE + 7)
 #define SLJIT_DIV_S32			(SLJIT_DIV_SW | SLJIT_I32_OP)
+/* Flags: - (does not modify flags)
+   ENDBR32 instruction for x86-32 and ENDBR64 instruction for x86-64.
+   No instruction for other architectures.  */
+#define SLJIT_ENDBR			(SLJIT_OP0_BASE + 8)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op);
 

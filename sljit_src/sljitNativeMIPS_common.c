@@ -1287,6 +1287,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 		FAIL_IF(push_inst(compiler, MFLO | D(SLJIT_R0), DR(SLJIT_R0)));
 		return (op >= SLJIT_DIV_UW) ? SLJIT_SUCCESS : push_inst(compiler, MFHI | D(SLJIT_R1), DR(SLJIT_R1));
 #endif /* SLJIT_MIPS_REV >= 6 */
+	case SLJIT_ENDBR:
+		return SLJIT_SUCCESS;
 	}
 
 	return SLJIT_SUCCESS;

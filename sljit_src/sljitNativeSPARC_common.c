@@ -872,6 +872,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 #else
 #error "Implementation required"
 #endif
+	case SLJIT_ENDBR:
+		return SLJIT_SUCCESS;
 	}
 
 	return SLJIT_SUCCESS;
