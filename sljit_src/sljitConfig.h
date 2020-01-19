@@ -27,6 +27,10 @@
 #ifndef _SLJIT_CONFIG_H_
 #define _SLJIT_CONFIG_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* --------------------------------------------------------------------- */
 /*  Custom defines                                                       */
 /* --------------------------------------------------------------------- */
@@ -143,5 +147,9 @@
 */
 
 /* For further configurations, see the beginning of sljitConfigInternal.h */
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif
