@@ -31,6 +31,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4127) /* conditional expression is constant */
+#endif
+
 #if defined _WIN32 || defined _WIN64
 #define COLOR_RED
 #define COLOR_GREEN
@@ -6600,3 +6605,7 @@ void sljit_test(int argc, char* argv[])
 
 #	undef TEST_COUNT
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
