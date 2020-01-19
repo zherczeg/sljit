@@ -27,6 +27,22 @@
 #ifndef _SLJIT_CONFIG_INTERNAL_H_
 #define _SLJIT_CONFIG_INTERNAL_H_
 
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
+    || (defined SLJIT_DEBUG && SLJIT_DEBUG \
+        && (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)))
+#include <stdio.h>
+#endif
+
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG \
+    && (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)) \
+    && (!defined(SLJIT_HALT_PROCESS)))
+#include <stdlib.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
    SLJIT defines the following architecture dependent types and macros:
 
@@ -708,23 +724,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 /* Debug and verbose related macros. */
 /*************************************/
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
-#include <stdio.h>
-#endif
-
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 
 #if !defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)
 
 /* SLJIT_HALT_PROCESS must halt the process. */
 #ifndef SLJIT_HALT_PROCESS
-#include <stdlib.h>
-
 #define SLJIT_HALT_PROCESS() \
 	abort();
 #endif /* !SLJIT_HALT_PROCESS */
-
-#include <stdio.h>
 
 #endif /* !SLJIT_ASSERT || !SLJIT_UNREACHABLE */
 
@@ -770,5 +778,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 	switch(0) { case 0: case ((x) ? 1 : 0): break; }
 
 #endif /* !SLJIT_COMPILE_ASSERT */
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif

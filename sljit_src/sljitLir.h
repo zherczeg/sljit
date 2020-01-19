@@ -80,6 +80,10 @@ of sljitConfigInternal.h */
 
 #include "sljitConfigInternal.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* --------------------------------------------------------------------- */
 /*  Error codes                                                          */
 /* --------------------------------------------------------------------- */
@@ -1494,5 +1498,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler,
 	sljit_s32 current_flags);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* _SLJIT_LIR_H_ */

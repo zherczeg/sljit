@@ -27,6 +27,10 @@
 #ifndef _REGEX_JIT_H_
 #define _REGEX_JIT_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Character type config. */
 #define REGEX_USE_8BIT_CHARS
 
@@ -94,5 +98,9 @@ void regex_continue_match_debug(struct regex_match *match, const regex_char_t *i
 
 /* Misc. */
 const char* regex_get_platform_name(void);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif
