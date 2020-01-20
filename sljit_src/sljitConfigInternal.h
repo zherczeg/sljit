@@ -28,14 +28,12 @@
 #define _SLJIT_CONFIG_INTERNAL_H_
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-    || (defined SLJIT_DEBUG && SLJIT_DEBUG \
-        && (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)))
+	|| (defined SLJIT_DEBUG && SLJIT_DEBUG && (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)))
 #include <stdio.h>
 #endif
 
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG \
-    && (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)) \
-    && (!defined(SLJIT_HALT_PROCESS)))
+	&& (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE) || !defined(SLJIT_HALT_PROCESS)))
 #include <stdlib.h>
 #endif
 

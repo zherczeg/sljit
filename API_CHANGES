@@ -1,5 +1,13 @@
 This file is the short summary of the API changes:
 
+20.01.2019 - Non-backward compatible
+    The check_sljit_emit_fast_return function is removed, and
+    this operation is available through check_sljit_emit_op_src.
+
+16.01.2019 - Backward compatible
+    A new opcode (SLJIT_ENDBR) is added to support
+    Intel Control-flow Enforcement Technology (CET).
+
 08.01.2018 - Non-backward compatible
     Fields of sljit_stack are renamed to fit a
     top-down stack better.

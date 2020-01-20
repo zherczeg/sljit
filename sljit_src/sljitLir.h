@@ -662,10 +662,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 	sljit_s32 src, sljit_sw srcw);
 
 /* Generating entry and exit points for fast call functions (see SLJIT_FAST_CALL).
-   Both sljit_emit_fast_enter and sljit_emit_fast_return functions preserve the
+   Both sljit_emit_fast_enter and SLJIT_FAST_RETURN operations preserve the
    values of all registers and stack frame. The return address is stored in the
    dst argument of sljit_emit_fast_enter, and this return address can be passed
-   to sljit_emit_fast_return to continue the execution after the fast call.
+   to SLJIT_FAST_RETURN to continue the execution after the fast call.
 
    Fast calls are cheap operations (usually only a single call instruction is
    emitted) but they do not preserve any registers. However the callee function
@@ -673,16 +673,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
    efficiently exploited by various optimizations. Registers can be saved
    manually by the callee function if needed.
 
-   Although returning to different address by sljit_emit_fast_return is possible,
+   Although returning to different address by SLJIT_FAST_RETURN is possible,
    this address usually cannot be predicted by the return address predictor of
-   modern CPUs which may reduce performance. Furthermore using sljit_emit_ijump
-   to return is also inefficient since return address prediction is usually
-   triggered by a specific form of ijump.
+   modern CPUs which may reduce performance. Furthermore certain security
+   enhancement technologies such as Intel Control-flow Enforcement Technology
+   (CET) may disallow returning to a different address.
 
    Flags: - (does not modify flags). */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw);
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src, sljit_sw srcw);
 
 /*
    Source and destination operands for arithmetical instructions
@@ -1026,8 +1025,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w);
 
+/* Starting index of opcodes for sljit_emit_op2. */
+#define SLJIT_OP_SRC_BASE		128
+
+/* Note: src cannot be an immedate value
+   Flags: - (does not modify flags) */
+#define SLJIT_FAST_RETURN		(SLJIT_OP_SRC_BASE + 0)
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 src, sljit_sw srcw);
+
 /* Starting index of opcodes for sljit_emit_fop1. */
-#define SLJIT_FOP1_BASE			128
+#define SLJIT_FOP1_BASE			160
 
 /* Flags: - (does not modify flags) */
 #define SLJIT_MOV_F64			(SLJIT_FOP1_BASE + 0)
@@ -1066,7 +1075,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	sljit_s32 src, sljit_sw srcw);
 
 /* Starting index of opcodes for sljit_emit_fop2. */
-#define SLJIT_FOP2_BASE			160
+#define SLJIT_FOP2_BASE			192
 
 /* Flags: - (does not modify flags) */
 #define SLJIT_ADD_F64			(SLJIT_FOP2_BASE + 0)
@@ -1170,7 +1179,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 
 /* Unconditional jump types. */
 #define SLJIT_JUMP			24
-	/* Fast calling method. See sljit_emit_fast_enter / sljit_emit_fast_return. */
+	/* Fast calling method. See sljit_emit_fast_enter / SLJIT_FAST_RETURN. */
 #define SLJIT_FAST_CALL			25
 	/* Called function must be declared with the SLJIT_FUNC attribute. */
 #define SLJIT_CALL			26
