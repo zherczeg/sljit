@@ -657,6 +657,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 			get_cpu_features();
 		return cpu_has_cmov;
 
+	case SLJIT_HAS_PREFETCH:
+		return 1;
+
 	case SLJIT_HAS_SSE2:
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
 		if (cpu_has_sse2 == -1)
@@ -1232,12 +1235,12 @@ static sljit_s32 emit_prefetch(struct sljit_compiler *compiler, sljit_s32 op,
 	*inst++ = GROUP_0F;
 	*inst++ = PREFETCH;
 
-	if (op >= SLJIT_MOV_U8 && op <= SLJIT_MOV_S8)
-		*inst |= (3 << 3);
-	else if (op >= SLJIT_MOV_U16 && op <= SLJIT_MOV_S16)
-		*inst |= (2 << 3);
-	else
+	if (op == SLJIT_PREFETCH_L1)
 		*inst |= (1 << 3);
+	else if (op == SLJIT_PREFETCH_L2)
+		*inst |= (2 << 3);
+	else if (op == SLJIT_PREFETCH_L3)
+		*inst |= (3 << 3);
 
 	return SLJIT_SUCCESS;
 }
@@ -1441,12 +1444,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	compiler->mode32 = op_flags & SLJIT_I32_OP;
 #endif
-
-	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op)) {
-		if (op <= SLJIT_MOV_P && (src & SLJIT_MEM))
-			return emit_prefetch(compiler, op, src, srcw);
-		return SLJIT_SUCCESS;
-	}
 
 	op = GET_OPCODE(op);
 
@@ -2358,6 +2355,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 		return emit_fast_return(compiler, src, srcw);
 	case SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN:
 		return adjust_shadow_stack(compiler, src, srcw, SLJIT_UNUSED, 0);
+	case SLJIT_PREFETCH_L1:
+	case SLJIT_PREFETCH_L2:
+	case SLJIT_PREFETCH_L3:
+	case SLJIT_PREFETCH_ONCE:
+		return emit_prefetch(compiler, op, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;

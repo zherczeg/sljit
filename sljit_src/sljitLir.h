@@ -158,10 +158,10 @@ extern "C" {
 */
 
 /* When SLJIT_UNUSED is specified as the destination of sljit_emit_op1
-   or sljit_emit_op2 operations the result is discarded. If no status
-   flags are set, no instructions are emitted for these operations. Data
-   prefetch is a special exception, see SLJIT_MOV operation. Other SLJIT
-   operations do not support SLJIT_UNUSED as a destination operand. */
+   or sljit_emit_op2 operations the result is discarded. Some status
+   flags must be set when the destination is SLJIT_UNUSED, because the
+   operation would have no effect otherwise. Other SLJIT operations do
+   not support SLJIT_UNUSED as a destination operand. */
 #define SLJIT_UNUSED		0
 
 /* Scratch registers. */
@@ -575,6 +575,8 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_HAS_CLZ			2
 /* [Emulated] Conditional move is supported. */
 #define SLJIT_HAS_CMOV			3
+/* [Emulated] Conditional move is supported. */
+#define SLJIT_HAS_PREFETCH		4
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] SSE2 support is available on x86. */
@@ -897,7 +899,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 #define SLJIT_ENDBR			(SLJIT_OP0_BASE + 8)
 /* Flags: - (may destroy flags)
    Skip stack frames before return.  */
-#define SLJIT_SKIP_FRAMES_BEFORE_RETURN (SLJIT_OP0_BASE + 9)
+#define SLJIT_SKIP_FRAMES_BEFORE_RETURN	(SLJIT_OP0_BASE + 9)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op);
 
@@ -915,15 +917,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
    U32 - unsigned int (32 bit) data transfer
    S32 - signed int (32 bit) data transfer
    P   - pointer (sljit_p) data transfer
-
-   If the destination of a MOV instruction is SLJIT_UNUSED and the source
-   operand is a memory address the compiler emits a prefetch instruction
-   if this instruction is supported by the current CPU. Higher data sizes
-   bring the data closer to the core: a MOV with word size loads the data
-   into a higher level cache than a byte size. Otherwise the type does not
-   affect the prefetch instruction. Furthermore a prefetch instruction
-   never fails, so it can be used to prefetch a data from an address and
-   check whether that address is NULL afterwards.
 */
 
 /* Flags: - (does not modify flags) */
@@ -1034,11 +1027,34 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 /* Note: src cannot be an immedate value
    Flags: - (does not modify flags) */
 #define SLJIT_FAST_RETURN		(SLJIT_OP_SRC_BASE + 0)
-
 /* Skip stack frames before fast return.
    Note: src cannot be an immedate value
    Flags: may destroy flags. */
-#define SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN (SLJIT_OP_SRC_BASE + 1)
+#define SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN	(SLJIT_OP_SRC_BASE + 1)
+/* Prefetch value into the level 1 data cache
+   Note: if the target CPU does not support data prefetch,
+         no instructions are emitted.
+   Note: this instruction never fails, even if the memory address is invalid.
+   Flags: - (does not modify flags) */
+#define SLJIT_PREFETCH_L1		(SLJIT_OP_SRC_BASE + 2)
+/* Prefetch value into the level 2 data cache
+   Note: same as SLJIT_PREFETCH_L1 if the target CPU
+         does not support this instruction form.
+   Note: this instruction never fails, even if the memory address is invalid.
+   Flags: - (does not modify flags) */
+#define SLJIT_PREFETCH_L2		(SLJIT_OP_SRC_BASE + 3)
+/* Prefetch value into the level 3 data cache
+   Note: same as SLJIT_PREFETCH_L2 if the target CPU
+         does not support this instruction form.
+   Note: this instruction never fails, even if the memory address is invalid.
+   Flags: - (does not modify flags) */
+#define SLJIT_PREFETCH_L3		(SLJIT_OP_SRC_BASE + 4)
+/* Prefetch a value which is only used once (and can be discarded afterwards)
+   Note: same as SLJIT_PREFETCH_L1 if the target CPU
+         does not support this instruction form.
+   Note: this instruction never fails, even if the memory address is invalid.
+   Flags: - (does not modify flags) */
+#define SLJIT_PREFETCH_ONCE		(SLJIT_OP_SRC_BASE + 5)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 src, sljit_sw srcw);

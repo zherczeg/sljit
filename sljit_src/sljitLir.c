@@ -945,8 +945,9 @@ static const char* op2_names[] = {
 };
 
 static const char* op_src_names[] = {
-	(char*)"fast_return",
-	(char*)"skip_frames_before_fast_return",
+	(char*)"fast_return", (char*)"skip_frames_before_fast_return",
+	(char*)"prefetch_l1", (char*)"prefetch_l2",
+	(char*)"prefetch_l3", (char*)"prefetch_once",
 };
 
 static const char* fop1_names[] = {
@@ -1214,7 +1215,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 		break;
 	}
 
-	FUNCTION_CHECK_DST(dst, dstw, 1);
+	FUNCTION_CHECK_DST(dst, dstw, HAS_FLAGS(op));
 	FUNCTION_CHECK_SRC(src, srcw);
 
 	if (GET_OPCODE(op) >= SLJIT_NOT) {
@@ -1294,7 +1295,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2(struct sljit_compiler
 		break;
 	}
 
-	FUNCTION_CHECK_DST(dst, dstw, 1);
+	FUNCTION_CHECK_DST(dst, dstw, HAS_FLAGS(op));
 	FUNCTION_CHECK_SRC(src1, src1w);
 	FUNCTION_CHECK_SRC(src2, src2w);
 	compiler->last_flags = GET_FLAG_TYPE(op) | (op & (SLJIT_I32_OP | SLJIT_SET_Z));
@@ -1319,15 +1320,17 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_src(struct sljit_compi
 	sljit_s32 src, sljit_sw srcw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(op >= SLJIT_FAST_RETURN
-		       && op <= SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN);
+	CHECK_ARGUMENT(op >= SLJIT_FAST_RETURN && op <= SLJIT_PREFETCH_ONCE);
 	FUNCTION_CHECK_SRC(src, srcw);
 
-	if (op == SLJIT_FAST_RETURN
-	    || op == SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN)
+	if (op == SLJIT_FAST_RETURN || op == SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN)
 	{
 		CHECK_ARGUMENT(src != SLJIT_IMM);
 		compiler->last_flags = 0;
+	}
+	else if (op >= SLJIT_PREFETCH_L1 && op <= SLJIT_PREFETCH_ONCE)
+	{
+		CHECK_ARGUMENT(src & SLJIT_MEM);
 	}
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
