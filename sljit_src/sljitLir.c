@@ -945,6 +945,7 @@ static const char* op2_names[] = {
 
 static const char* op_src_names[] = {
 	(char*)"fast_return",
+	(char*)"skip_frames_before_fast_return",
 };
 
 static const char* fop1_names[] = {
@@ -1317,10 +1318,12 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_src(struct sljit_compi
 	sljit_s32 src, sljit_sw srcw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(op >= SLJIT_FAST_RETURN && op <= SLJIT_FAST_RETURN);
+	CHECK_ARGUMENT(op >= SLJIT_FAST_RETURN
+		       && op <= SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN);
 	FUNCTION_CHECK_SRC(src, srcw);
 
-	if (op == SLJIT_FAST_RETURN)
+	if (op == SLJIT_FAST_RETURN
+	    || op == SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN)
 	{
 		CHECK_ARGUMENT(src != SLJIT_IMM);
 		compiler->last_flags = 0;

@@ -6494,9 +6494,11 @@ static void test67(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S0, 0, SLJIT_R1, 0);
 	sljit_set_label(sljit_emit_jump(compiler, SLJIT_FAST_CALL), label);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 1);
+	sljit_emit_op_src(compiler, SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN, SLJIT_S0, 0);
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_S0, 0);
 
 	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_op_src(compiler, SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN, SLJIT_R1, 0);
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_R1, 0);
 
 	code.code = sljit_generate_code(compiler);

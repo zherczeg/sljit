@@ -1344,6 +1344,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 			FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_LR, src, srcw, TMP_REG1));
 
 		return push_inst(compiler, RET | RN(TMP_LR));
+	case SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN:
+		return SLJIT_SUCCESS;
 	}
 
 	return SLJIT_SUCCESS;

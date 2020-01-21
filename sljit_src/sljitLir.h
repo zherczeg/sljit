@@ -1032,6 +1032,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
    Flags: - (does not modify flags) */
 #define SLJIT_FAST_RETURN		(SLJIT_OP_SRC_BASE + 0)
 
+/* Skip stack frames before fast return.
+   Note: src cannot be an immedate value
+   Flags: may destroy flags. */
+#define SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN (SLJIT_OP_SRC_BASE + 1)
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 src, sljit_sw srcw);
 

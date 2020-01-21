@@ -2222,6 +2222,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 	switch (op) {
 	case SLJIT_FAST_RETURN:
 		return emit_fast_return(compiler, src, srcw);
+	case SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN:
+		return SLJIT_SUCCESS;
 	}
 
 	return SLJIT_SUCCESS;
