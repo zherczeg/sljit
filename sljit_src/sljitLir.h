@@ -895,6 +895,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
    when Intel Control-flow Enforcement Technology (CET) is enabled.
    No instruction for other architectures.  */
 #define SLJIT_ENDBR			(SLJIT_OP0_BASE + 8)
+/* Flags: - (may destroy flags)
+   Skip stack frames before return.  */
+#define SLJIT_SKIP_FRAMES_BEFORE_RETURN (SLJIT_OP0_BASE + 9)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op);
 

@@ -6548,6 +6548,7 @@ static void test68(void)
 		sljit_set_label(sljit_emit_jump(compiler, SLJIT_FAST_CALL), label);
 
 		sljit_set_label(jump, sljit_emit_label(compiler));
+		sljit_emit_op0(compiler, SLJIT_SKIP_FRAMES_BEFORE_RETURN);
 		sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
 
 		code.code = sljit_generate_code(compiler);
