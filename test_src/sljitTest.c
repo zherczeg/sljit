@@ -5447,7 +5447,7 @@ static void test56(void)
 	sljit_emit_op2(compiler, SLJIT_ADD32 | SLJIT_SET_OVERFLOW, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, -(91 << 12));
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 11 * sizeof(sljit_sw), SLJIT_OVERFLOW32);
 
-	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, -(sljit_sw)0x80000000);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)-0x80000000);
 	sljit_emit_op1(compiler, SLJIT_NEG32 | SLJIT_SET_OVERFLOW, SLJIT_R0, 0, SLJIT_R0, 0);
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 12 * sizeof(sljit_sw), SLJIT_OVERFLOW32);
 
@@ -6455,7 +6455,7 @@ static void test66(void)
 
 static void test67(void)
 {
-	/* Test skipping returns from fast calls. */
+	/* Test skipping returns from fast calls (return type is fast). */
 	executable_code code;
 	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
 	struct sljit_jump *call, *jump;
@@ -6507,6 +6507,59 @@ static void test67(void)
 	FAILED(code.func0() != 3, "test67 case 1 failed\n");
 
 	sljit_free_code(code.code);
+	successful_tests++;
+}
+
+static void test68(void)
+{
+	/* Test skipping returns from fast calls (return type is normal). */
+	executable_code code;
+	struct sljit_compiler *compiler;
+	struct sljit_jump *call, *jump;
+	struct sljit_label *label;
+	int i;
+
+	if (verbose)
+		printf("Run test67\n");
+
+	for (i = 0; i < 2; i++) {
+		compiler = sljit_create_compiler(NULL);
+		FAILED(!compiler, "cannot create compiler\n");
+
+		sljit_emit_enter(compiler, (i == 1 ? SLJIT_F64_ALIGNMENT : 0), 0, 2, 0, 0, 0, 0);
+
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
+		call = sljit_emit_jump(compiler, SLJIT_FAST_CALL);
+
+		/* Should never return here, marked by a segmentation fault if it does. */
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM0(), 0);
+
+		/* Recursive fast call. */
+		label = sljit_emit_label(compiler);
+		sljit_set_label(call, label);
+		sljit_emit_fast_enter(compiler, SLJIT_R1, 0);
+
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 1);
+
+		jump = sljit_emit_cmp(compiler, SLJIT_GREATER_EQUAL, SLJIT_R0, 0, SLJIT_IMM, 4);
+
+		sljit_set_label(sljit_emit_jump(compiler, SLJIT_FAST_CALL), label);
+
+		sljit_set_label(jump, sljit_emit_label(compiler));
+		sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
+
+		code.code = sljit_generate_code(compiler);
+		CHECK(compiler);
+
+		sljit_free_compiler(compiler);
+
+		if (SLJIT_UNLIKELY(code.func0() != 4)) {
+			printf("test68 case %d failed\n", i + 1);
+			return;
+		}
+		sljit_free_code(code.code);
+	}
+
 	successful_tests++;
 }
 
@@ -6589,12 +6642,13 @@ void sljit_test(int argc, char* argv[])
 	test65();
 	test66();
 	test67();
+	test68();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 67
+#	define TEST_COUNT 68
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
