@@ -310,13 +310,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 		SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, compiler->local_size));
 #endif
 
-	size = 2 + (compiler->scratches > 7 ? (compiler->scratches - 7) : 0) +
+	size = 2 + (compiler->scratches > 9 ? (compiler->scratches - 9) : 0) +
 		(compiler->saveds <= 3 ? compiler->saveds : 3);
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 	if (compiler->args > 2)
-		size += 2;
-#else
-	if (compiler->args > 0)
 		size += 2;
 #endif
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
