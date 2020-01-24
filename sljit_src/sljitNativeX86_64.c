@@ -897,3 +897,19 @@ static sljit_s32 emit_mov_int(struct sljit_compiler *compiler, sljit_s32 sign,
 
 	return SLJIT_SUCCESS;
 }
+
+static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
+{
+	sljit_s32 tmp, size;
+
+	size = compiler->local_size;
+	tmp = compiler->scratches;
+	if (tmp >= SLJIT_FIRST_SAVED_REG)
+		size += (tmp - SLJIT_FIRST_SAVED_REG + 1) * sizeof(sljit_uw);
+	tmp = compiler->saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - compiler->saveds) : SLJIT_FIRST_SAVED_REG;
+	if (SLJIT_S0 >= tmp)
+		size += (SLJIT_S0 - tmp + 1) * sizeof(sljit_uw);
+
+	/* Adjust shadow stack if needed.  */
+	return adjust_shadow_stack(compiler, SLJIT_UNUSED, 0, SLJIT_SP, size);
+}
