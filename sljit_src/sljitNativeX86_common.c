@@ -787,14 +787,19 @@ static SLJIT_INLINE sljit_s32 emit_incssp(struct sljit_compiler *compiler, sljit
 	return SLJIT_SUCCESS;
 }
 
+static SLJIT_INLINE sljit_s32 cpu_has_shadow_stack(void)
+{
+#if (defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET)
+	return _get_ssp() != 0;
+#else
+	return 0;
+#endif
+}
+
 static SLJIT_INLINE sljit_s32 adjust_shadow_stack(struct sljit_compiler *compiler,
 	sljit_s32 src, sljit_sw srcw, sljit_s32 base, sljit_sw disp)
 {
 #if (defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET)
-	/* Don't adjust shadow stack if it isn't enabled.  */
-	if (!_get_ssp())
-		return SLJIT_SUCCESS;
-
 	sljit_u8 *inst;
 
 	sljit_s32 size_before_rdssp_inst = compiler->size;
@@ -2354,6 +2359,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 	case SLJIT_FAST_RETURN:
 		return emit_fast_return(compiler, src, srcw);
 	case SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN:
+		/* Don't adjust shadow stack if it isn't enabled.  */
+		if (!cpu_has_shadow_stack ())
+			return SLJIT_SUCCESS;
 		return adjust_shadow_stack(compiler, src, srcw, SLJIT_UNUSED, 0);
 	case SLJIT_PREFETCH_L1:
 	case SLJIT_PREFETCH_L2:
