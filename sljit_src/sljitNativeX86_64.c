@@ -902,6 +902,10 @@ static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
 {
 	sljit_s32 tmp, size;
 
+	/* Don't adjust shadow stack if it isn't enabled.  */
+	if (!cpu_has_shadow_stack ())
+		return SLJIT_SUCCESS;
+
 	size = compiler->local_size;
 	tmp = compiler->scratches;
 	if (tmp >= SLJIT_FIRST_SAVED_REG)
@@ -910,6 +914,5 @@ static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
 	if (SLJIT_S0 >= tmp)
 		size += (SLJIT_S0 - tmp + 1) * sizeof(sljit_uw);
 
-	/* Adjust shadow stack if needed.  */
 	return adjust_shadow_stack(compiler, SLJIT_UNUSED, 0, SLJIT_SP, size);
 }

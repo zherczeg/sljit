@@ -895,8 +895,12 @@ static sljit_s32 emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src
 
 static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
 {
-	sljit_s32 size, base;
+	sljit_s32 size, saved_size;
 	sljit_s32 has_f64_aligment;
+
+	/* Don't adjust shadow stack if it isn't enabled.  */
+	if (!cpu_has_shadow_stack ())
+		return SLJIT_SUCCESS;
 
 	SLJIT_ASSERT(compiler->args >= 0);
 	SLJIT_ASSERT(compiler->local_size > 0);
@@ -908,19 +912,17 @@ static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
 #endif
 
 	size = compiler->local_size;
+	saved_size = (1 + (compiler->scratches > 9 ? (compiler->scratches - 9) : 0) + (compiler->saveds <= 3 ? compiler->saveds : 3)) * sizeof(sljit_uw);
 	if (has_f64_aligment) {
-		/* Use ECX as base register to check return address.
-		   ECX is a scratch register for normal return. */
-		base = 3;
-		/* mov base, [esp + compiler->local_size].  */
-		EMIT_MOV(compiler, base, 0, SLJIT_MEM1(SLJIT_SP), size);
-		/* Return address is at [base + saveds_size]. */
+		/* mov TMP_REG1, [esp + local_size].  */
+		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_MEM1(SLJIT_SP), size);
+		/* mov TMP_REG1, [TMP_REG1+ saved_size].  */
+		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_MEM1(TMP_REG1), saved_size);
+		/* Move return address to [esp]. */
+		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), 0, TMP_REG1, 0);
 		size = 0;
 	} else
-		base = SLJIT_SP;
+		size += saved_size;
 
-	size += (1 + (compiler->scratches > 9 ? (compiler->scratches - 9) : 0) + (compiler->saveds <= 3 ? compiler->saveds : 3)) * sizeof(sljit_uw);
-
-	/* Adjust shadow stack if needed.  */
-	return adjust_shadow_stack(compiler, SLJIT_UNUSED, 0, base, size);
+	return adjust_shadow_stack(compiler, SLJIT_UNUSED, 0, SLJIT_SP, size);
 }
