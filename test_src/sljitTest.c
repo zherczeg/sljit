@@ -6522,13 +6522,13 @@ static void test68(void)
 	int i;
 
 	if (verbose)
-		printf("Run test67\n");
+		printf("Run test68\n");
 
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < 6 * 2; i++) {
 		compiler = sljit_create_compiler(NULL);
 		FAILED(!compiler, "cannot create compiler\n");
 
-		sljit_emit_enter(compiler, (i == 1 ? SLJIT_F64_ALIGNMENT : 0), 0, 2, 0, 0, 0, 0);
+		sljit_emit_enter(compiler, (i >= 6 ? SLJIT_F64_ALIGNMENT : 0), 0, 2 + (i % 6), (i % 6), 0, 0, 0);
 
 		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
 		call = sljit_emit_jump(compiler, SLJIT_FAST_CALL);

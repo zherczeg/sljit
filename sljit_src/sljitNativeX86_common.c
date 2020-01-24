@@ -788,19 +788,6 @@ static SLJIT_INLINE sljit_s32 adjust_shadow_stack(struct sljit_compiler *compile
 	sljit_s32 src, sljit_sw srcw, sljit_s32 base, sljit_sw disp)
 {
 #if (defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET)
-/* NB: We can't use ECX to unwind shadow stack since it may be used by
-   sljit_emit_call and sljit_emit_return in JIT code as shown in sljit
-   test:
-
-$ ./bin/sljit_test
-Pass -v to enable verbose, -s to disable this hint.
-
-test51 case 2 failed
-SLJIT tests: 1 (2%) tests are FAILED on x86 32bit (little endian + unaligned) ABI:fastcall (with fpu)
-
- */
-#define SCRATCH_REG	TMP_REG1
-
 	/* Don't adjust shadow stack if it isn't enabled.  */
 	if (!_get_ssp())
 		return SLJIT_SUCCESS;
@@ -809,22 +796,23 @@ SLJIT tests: 1 (2%) tests are FAILED on x86 32bit (little endian + unaligned) AB
 
 	sljit_s32 size_before_rdssp_inst = compiler->size;
 
-	/* Generate "RDSSP SCRATCH_REG". */
-	FAIL_IF(emit_rdssp(compiler, SCRATCH_REG));
+	/* Generate "RDSSP TMP_REG1". */
+	FAIL_IF(emit_rdssp(compiler, TMP_REG1));
 
-	/* Load return address on shadow stack into SCRATCH_REG. */
+	/* Load return address on shadow stack into TMP_REG1. */
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	if (reg_map[SCRATCH_REG] == 5) {
-		/* Hand code unsupported "mov 0x0(%ebp),%ebp". */
-		inst = (sljit_u8*)ensure_buf(compiler, 1 + 3);
-		FAIL_IF(!inst);
-		INC_SIZE(3);
-		*inst++ = 0x8b;
-		*inst++ = 0x6d;
-		*inst = 0;
-	} else
-#endif
-	EMIT_MOV(compiler, SCRATCH_REG, 0, SLJIT_MEM1(SCRATCH_REG), 0);
+	SLJIT_ASSERT(reg_map[TMP_REG1] == 5);
+
+	/* Hand code unsupported "mov 0x0(%ebp),%ebp". */
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + 3);
+	FAIL_IF(!inst);
+	INC_SIZE(3);
+	*inst++ = 0x8b;
+	*inst++ = 0x6d;
+	*inst = 0;
+#else /* !SLJIT_CONFIG_X86_32 */
+	EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_MEM1(TMP_REG1), 0);
+#endif /* SLJIT_CONFIG_X86_32 */
 
 	if (src == SLJIT_UNUSED) {
 		/* Return address is on stack.  */
@@ -832,8 +820,8 @@ SLJIT tests: 1 (2%) tests are FAILED on x86 32bit (little endian + unaligned) AB
 		srcw = disp;
 	}
 
-	/* Compare return address against SCRATCH_REG. */
-	FAIL_IF(emit_cmp_binary (compiler, SCRATCH_REG, 0, src, srcw));
+	/* Compare return address against TMP_REG1. */
+	FAIL_IF(emit_cmp_binary (compiler, TMP_REG1, 0, src, srcw));
 
 	/* Generate JZ to skip shadow stack ajdustment when shadow
 	   stack matches normal stack. */
@@ -841,20 +829,20 @@ SLJIT tests: 1 (2%) tests are FAILED on x86 32bit (little endian + unaligned) AB
 	FAIL_IF(!inst);
 	INC_SIZE(2);
 	*inst++ = get_jump_code(SLJIT_EQUAL) - 0x10;
-	sljit_s32 size_jz_after_cmp_inst = compiler->size;
+	sljit_uw size_jz_after_cmp_inst = compiler->size;
 	sljit_u8 *jz_after_cmp_inst = inst;
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	/* REX_W is not necessary. */
 	compiler->mode32 = 1;
 #endif
-	/* Load 1 into SCRATCH_REG. */
-	EMIT_MOV(compiler, SCRATCH_REG, 0, SLJIT_IMM, 1);
+	/* Load 1 into TMP_REG1. */
+	EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, 1);
 
-	/* Generate "INCSSP SCRATCH_REG". */
-	FAIL_IF(emit_incssp(compiler, SCRATCH_REG));
+	/* Generate "INCSSP TMP_REG1". */
+	FAIL_IF(emit_incssp(compiler, TMP_REG1));
 
-	/* Jump back to "RDSSP SCRATCH_REG" to check shadow stack again. */
+	/* Jump back to "RDSSP TMP_REG1" to check shadow stack again. */
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + 2);
 	FAIL_IF(!inst);
 	INC_SIZE(2);
@@ -862,9 +850,9 @@ SLJIT tests: 1 (2%) tests are FAILED on x86 32bit (little endian + unaligned) AB
 	*inst = size_before_rdssp_inst - compiler->size;
 
 	*jz_after_cmp_inst = compiler->size - size_jz_after_cmp_inst;
-#else
-	(void)compiler;
-#endif
+#else /* SLJIT_CONFIG_X86_CET */
+	SLJIT_UNUSED_ARG(compiler);
+#endif /* SLJIT_CONFIG_X86_CET */
 	return SLJIT_SUCCESS;
 }
 

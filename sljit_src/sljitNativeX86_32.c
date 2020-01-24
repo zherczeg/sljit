@@ -919,9 +919,7 @@ static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
 	} else
 		base = SLJIT_SP;
 
-	size += ((compiler->scratches > 9 ? (compiler->scratches - 9) : 0)
-		+ (compiler->saveds <= 3 ? compiler->saveds : 3))
-		* sizeof(sljit_uw) + sizeof(sljit_uw);
+	size += (1 + (compiler->scratches > 9 ? (compiler->scratches - 9) : 0) + (compiler->saveds <= 3 ? compiler->saveds : 3)) * sizeof(sljit_uw);
 
 	/* Adjust shadow stack if needed.  */
 	return adjust_shadow_stack(compiler, SLJIT_UNUSED, 0, base, size);

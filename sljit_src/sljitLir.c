@@ -1165,8 +1165,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op0(struct sljit_compiler
 		|| ((op & ~SLJIT_I32_OP) >= SLJIT_DIVMOD_UW && (op & ~SLJIT_I32_OP) <= SLJIT_DIV_SW)
 		|| (op >= SLJIT_ENDBR && op <= SLJIT_SKIP_FRAMES_BEFORE_RETURN));
 	CHECK_ARGUMENT(GET_OPCODE(op) < SLJIT_LMUL_UW || GET_OPCODE(op) >= SLJIT_ENDBR || compiler->scratches >= 2);
-	if ((GET_OPCODE(op) >= SLJIT_LMUL_UW && GET_OPCODE(op) <= SLJIT_DIV_SW)
-	    || op == SLJIT_SKIP_FRAMES_BEFORE_RETURN)
+	if ((GET_OPCODE(op) >= SLJIT_LMUL_UW && GET_OPCODE(op) <= SLJIT_DIV_SW) || op == SLJIT_SKIP_FRAMES_BEFORE_RETURN)
 		compiler->last_flags = 0;
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
