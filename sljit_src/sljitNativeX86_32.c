@@ -367,6 +367,8 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 	SLJIT_ASSERT((flags & (EX86_PREF_F2 | EX86_PREF_F3)) != (EX86_PREF_F2 | EX86_PREF_F3)
 		&& (flags & (EX86_PREF_F2 | EX86_PREF_66)) != (EX86_PREF_F2 | EX86_PREF_66)
 		&& (flags & (EX86_PREF_F3 | EX86_PREF_66)) != (EX86_PREF_F3 | EX86_PREF_66));
+	/* We don't support (%ebp). */
+	SLJIT_ASSERT(!(b & SLJIT_MEM) || immb || reg_map[b & REG_MASK] != 5);
 
 	size &= 0xf;
 	inst_size = size;
