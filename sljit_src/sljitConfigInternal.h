@@ -293,6 +293,11 @@ extern "C" {
 #define SLJIT_UNUSED_ARG(arg) (void)arg
 #endif
 
+#ifndef SLJIT_UNUSED_VAR
+/* Unused variables. */
+#define SLJIT_UNUSED_VAR(arg) (void)arg
+#endif
+
 /*********************************/
 /* Type of public API functions. */
 /*********************************/
