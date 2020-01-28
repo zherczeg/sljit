@@ -152,15 +152,23 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
 
 #ifdef _WIN32
 #include "windows.h"
-#else
+#else /* !_WIN32 */
 /* Provides mmap function. */
 #include <sys/types.h>
 #include <sys/mman.h>
+
 #ifndef MAP_ANON
 #ifdef MAP_ANONYMOUS
 #define MAP_ANON MAP_ANONYMOUS
-#endif
-#endif
+#endif /* MAP_ANONYMOUS */
+#endif /* !MAP_ANON */
+
+#ifndef MADV_DONTNEED
+#ifdef POSIX_MADV_DONTNEED
+#define MADV_DONTNEED POSIX_MADV_DONTNEED
+#endif /* POSIX_MADV_DONTNEED */
+#endif /* !MADV_DONTNEED */
+
 /* For detecting the page size. */
 #include <unistd.h>
 
@@ -198,9 +206,9 @@ static SLJIT_INLINE sljit_s32 open_dev_zero(void)
 
 #endif /* SLJIT_SINGLE_THREADED */
 
-#endif
+#endif /* !MAP_ANON */
 
-#endif
+#endif /* _WIN32 */
 
 #endif /* SLJIT_UTIL_STACK || SLJIT_EXECUTABLE_ALLOCATOR */
 
@@ -217,15 +225,17 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(slj
 
 	if (start_size > max_size || start_size < 1)
 		return NULL;
+
 	stack = (struct sljit_stack*)SLJIT_MALLOC(sizeof(struct sljit_stack), allocator_data);
-	if (!stack)
+	if (stack == NULL)
 		return NULL;
+
 	ptr = SLJIT_MALLOC(max_size, allocator_data);
-	if (ptr == NULL)
-	{
+	if (ptr == NULL) {
 		SLJIT_FREE(stack, allocator_data);
 		return NULL;
 	}
+
 	stack->min_start = (sljit_u8 *)ptr;
  	stack->end = stack->min_start + max_size;
  	stack->start = stack->end - start_size;
@@ -248,7 +258,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_st
 	return new_start;
 }
 
-#else
+#else /* !SLJIT_UTIL_SIMPLE_STACK_ALLOCATION */
 
 #ifdef _WIN32
 
@@ -302,8 +312,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(slj
 
 	if (start_size > max_size || start_size < 1)
 		return NULL;
+
 	stack = (struct sljit_stack*)SLJIT_MALLOC(sizeof(struct sljit_stack), allocator_data);
-	if (!stack)
+	if (stack == NULL)
 		return NULL;
 
 	/* Align max_size. */
@@ -325,18 +336,18 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(slj
 		sljit_free_stack(stack, allocator_data);
 		return NULL;
 	}
-#else
+#else /* !_WIN32 */
 #ifdef MAP_ANON
 	ptr = mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-#else
+#else /* !MAP_ANON */
 	if (dev_zero < 0) {
-		if (open_dev_zero()) {
+		if (open_dev_zero() != 0) {
 			SLJIT_FREE(stack, allocator_data);
 			return NULL;
 		}
 	}
 	ptr = mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, dev_zero, 0);
-#endif
+#endif /* MAP_ANON */
 	if (ptr == MAP_FAILED) {
 		SLJIT_FREE(stack, allocator_data);
 		return NULL;
@@ -344,23 +355,26 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(slj
 	stack->min_start = (sljit_u8 *)ptr;
 	stack->end = stack->min_start + max_size;
 	stack->start = stack->end - start_size;
-#endif
+#endif /* _WIN32 */
+
 	stack->top = stack->end;
 	return stack;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_stack *stack, sljit_u8 *new_start)
 {
+#if defined _WIN32 || defined(MADV_DONTNEED)
 	sljit_uw aligned_old_start;
 	sljit_uw aligned_new_start;
 	sljit_sw page_align;
+#endif
 
 	if ((new_start < stack->min_start) || (new_start >= stack->end))
 		return NULL;
 
+#ifdef _WIN32
 	page_align = get_page_alignment();
 
-#ifdef _WIN32
 	aligned_new_start = (sljit_uw)new_start & ~page_align;
 	aligned_old_start = ((sljit_uw)stack->start) & ~page_align;
 	if (aligned_new_start != aligned_old_start) {
@@ -373,22 +387,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_st
 				return NULL;
 		}
 	}
-#else
+#elif defined(MADV_DONTNEED)
 	if (stack->start < new_start) {
-		SLJIT_UNUSED_VAR(aligned_old_start);
-		SLJIT_UNUSED_VAR(aligned_new_start);
+		page_align = get_page_alignment();
+
 		aligned_new_start = (sljit_uw)new_start & ~page_align;
 		aligned_old_start = ((sljit_uw)stack->start) & ~page_align;
 		/* If madvise is available, we release the unnecessary space. */
-#if defined(MADV_DONTNEED)
 		if (aligned_new_start > aligned_old_start)
 			madvise((void*)aligned_old_start, aligned_new_start - aligned_old_start, MADV_DONTNEED);
-#elif defined(POSIX_MADV_DONTNEED)
-		if (aligned_new_start > aligned_old_start)
-			posix_madvise((void*)aligned_old_start, aligned_new_start - aligned_old_start, POSIX_MADV_DONTNEED);
-#endif
 	}
-#endif
+#endif /* _WIN32 */
+
 	stack->start = new_start;
 	return new_start;
 }
