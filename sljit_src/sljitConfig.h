@@ -78,7 +78,7 @@ extern "C" {
 
 /* Uses user provided allocator to allocate the stack (see SLJIT_UTIL_STACK) */
 #ifndef SLJIT_UTIL_SIMPLE_STACK_ALLOCATION
-/* disabled by default */
+/* Disabled by default */
 #define SLJIT_UTIL_SIMPLE_STACK_ALLOCATION 0
 #endif
 
