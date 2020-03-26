@@ -1,0 +1,26 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches:
+    - master
+    path-ignore:
+    - 'ci/*'
+    - 'doc/**'
+    - 'README'
+    - '*_CHANGES'
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  linux:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: provision
+      run: ci/provision.sh
+    - name: check
+      run: ci/run.sh
+      env:
+        MAKEFLAGS: j2
