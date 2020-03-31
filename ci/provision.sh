@@ -9,6 +9,21 @@
 
 set -e
 
+usage() {
+  echo "usage: $0 [--help] [windows]"
+  echo
+  echo "windows: installs wine (EXPENSIVE)"
+  exit 1
+}
+
+if [ $# -gt 0 ]; then
+  if [ $# -gt 1 ] || [ "$1" != "windows" ]; then
+    usage
+  else
+    WINE=1
+  fi
+fi
+
 if [ -e /etc/os-release ]; then
   . /etc/os-release
 else
@@ -45,6 +60,19 @@ case $ID in
       $SUDO apt-get install -y gcc-mips-linux-gnu gcc-mips64el-linux-gnuabi64
     fi
     $SUDO apt-get install -y gcc-powerpc-linux-gnu gcc-powerpc64le-linux-gnu
+
+    if [ ! -z "$WINE" ]; then
+      $SUDO apt-get install -y gcc-mingw-w64-i686
+      $SUDO dpkg --add-architecture i386
+      $SUDO apt-get update
+      DEBIAN_FRONTEND=noninteractive
+      export DEBIAN_FRONTEND
+      if [ "$VERSION_ID" = "16.04" ]; then
+        $SUDO apt-get install -yq wine
+      else
+        $SUDO apt-get install -yq wine32
+      fi
+    fi
     ;;
   redhat|centos|ol)
     $SUDO yum -y update

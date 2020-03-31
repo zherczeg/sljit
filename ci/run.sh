@@ -1,5 +1,20 @@
 #!/bin/bash -e
 
+usage() {
+  echo "usage: $0 [--help] [windows]"
+  echo
+  echo "windows: use wine to test x86 32bit"
+  exit 1
+}
+
+if [ $# -gt 0 ]; then
+  if [ $# -gt 1 ] || [ "$1" != "windows" ]; then
+    usage
+  else
+    WINE=1
+  fi
+fi
+
 MAKE=${MAKE:-make}
 
 if [ -d bin ]; then
@@ -80,4 +95,10 @@ else
   $MAKE clean
   $MAKE CC="powerpc-linux-gnu-gcc -static" bin/sljit_test
   qemu-ppc-static bin/sljit_test -s
+fi
+
+if [ ! -z "$WINE" ]; then
+  $MAKE clean
+  $MAKE CROSS_COMPILER=i686-w64-mingw32-gcc
+  wine ./bin/sljit_test -s
 fi

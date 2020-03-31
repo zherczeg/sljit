@@ -24,3 +24,19 @@ jobs:
       run: ci/run.sh
       env:
         MAKEFLAGS: j2
+  windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x86, x64]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Enable Developer Command Prompt
+      uses: ilammy/msvc-dev-cmd@v1.1.0
+      with:
+        arch: ${{matrix.arch}}
+    - name: check
+      shell: cmd
+      run: |
+        cl /D SLJIT_CONFIG_AUTO /Isljit_src /W3 test_src/sljitMain.c test_src/sljitTest.c sljit_src/sljitLir.c sljit_src/sljitUtils.c /link /out:sljit_test.exe
+        sljit_test -s
