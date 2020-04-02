@@ -4,6 +4,8 @@ on:
   push:
     branches:
     - master
+    - rawhide
+    - next
     path-ignore:
     - 'ci/*'
     - 'doc/**'
@@ -12,6 +14,9 @@ on:
   pull_request:
     branches:
     - master
+    - rawhide
+    - next
+    - integration
 
 jobs:
   linux:
