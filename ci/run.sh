@@ -90,11 +90,42 @@ else
 
   $MAKE clean
   $MAKE CC="powerpc64le-linux-gnu-gcc -static" bin/sljit_test
-  qemu-ppc64le-static bin/sljit_test -s
+# throws illegal instruction from qemu in ubuntu 16.04
+# fails test54 case 19 in ubuntu 19.x and debian 10 because of NaN bug
+  if [[ ("$ID" = "ubuntu" && ($VERSION_ID -eq 1804 || $VERSION_ID -ge 2004)) ||
+        ("$ID" = "debian" && $VERSION_ID -ne 10) ]]; then
+    qemu-ppc64le-static bin/sljit_test -s
+  else
+    if [ "$ID" = "ubuntu" ] && [ $VERSION_ID -eq 1604 ]; then
+      echo -e "SLJIT tests: all tests are \e[94mSKIPPED\e[0m because of bogus QEMU"
+    else
+      qemu-ppc64le-static bin/sljit_test -s > out || true
+      cat out
+      if grep -q FAILED out; then
+        grep -q "test54 case 18 failed" out
+        echo -e "known failure \e[94mIGNORED\e[0m because of QEMU NaN bug #1821444"
+      fi
+      rm -f out
+    fi
+  fi
 
   $MAKE clean
   $MAKE CC="powerpc-linux-gnu-gcc -static" bin/sljit_test
-  qemu-ppc-static bin/sljit_test -s
+# fails test54 case 18, 19 in debian 10 and ubuntu 19.x
+  if [[ ("$ID" = "debian" && $VERSION_ID -ne 10) ||
+        ("$ID" = "ubuntu" &&
+        ($VERSION_ID -eq 1604 || $VERSION_ID -eq 1804 || $VERSION_ID -ge 2004)) ]]
+  then
+    qemu-ppc-static bin/sljit_test -s
+  else
+    qemu-ppc-static bin/sljit_test -s > out || true
+    cat out
+    if grep -q FAILED out; then
+      grep -q "test54 case 18 failed" out
+      echo -e "known failure \e[94mIGNORED\e[0m because of QEMU NaN bug #1821444"
+    fi
+    rm -f out
+  fi
 fi
 
 if [ ! -z "$WINE" ]; then
