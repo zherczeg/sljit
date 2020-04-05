@@ -1,10 +1,5 @@
 ifdef CROSS_COMPILER
 CC = $(CROSS_COMPILER)
-else
-ifndef CC
-# default compiler
-CC = gcc
-endif
 endif
 
 ifndef EXTRA_CPPFLAGS
