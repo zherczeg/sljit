@@ -1,6 +1,6 @@
 CPPFLAGS = $(EXTRA_CPPFLAGS) -DSLJIT_CONFIG_AUTO=1 -Isljit_src
 CFLAGS += -O2 -Wall
-REGEX_CFLAGS += $(CFLAGS) -fshort-wchar
+REGEX_CFLAGS = $(CFLAGS) -fshort-wchar
 LDFLAGS = $(EXTRA_LDFLAGS)
 
 BINDIR = bin
