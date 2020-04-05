@@ -1,7 +1,3 @@
-ifdef CROSS_COMPILER
-CC = $(CROSS_COMPILER)
-endif
-
 CPPFLAGS = $(EXTRA_CPPFLAGS) -DSLJIT_CONFIG_AUTO=1 -Isljit_src
 CFLAGS += -O2 -Wall
 REGEX_CFLAGS += $(CFLAGS) -fshort-wchar
