@@ -29,7 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void sljit_test(int argc, char* argv[]);
+int sljit_test(int argc, char* argv[]);
 
 void error(const char* str)
 {
@@ -80,7 +80,5 @@ void devel(void)
 int main(int argc, char* argv[])
 {
 	/* devel(); */
-	sljit_test(argc, argv);
-
-	return 0;
+	return sljit_test(argc, argv);
 }
