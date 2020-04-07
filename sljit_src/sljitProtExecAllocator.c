@@ -84,7 +84,13 @@ struct chunk_header {
        as it only uses local variables
 */
 
+#if !(defined(__NetBSD__) && defined(MAP_REMAPDUP))
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
 
 #ifndef O_NOATIME
 #define O_NOATIME 0
@@ -96,51 +102,47 @@ struct chunk_header {
 #endif
 #endif
 
-#if !(defined(__NetBSD__) && defined(MAP_REMAPDUP))
 int mkostemp(char *template, int flags);
 char *secure_getenv(const char *name);
 
 static SLJIT_INLINE int create_tempfile(void)
 {
 	int fd;
-
+	struct stat st;
 	char tmp_name[256];
-	size_t tmp_name_len;
+	size_t tmp_name_len = 0;
 	char *dir;
 	size_t len;
-
-#ifdef P_tmpdir
-	len = (P_tmpdir != NULL) ? strlen(P_tmpdir) : 0;
-
-	if (len > 0 && len < sizeof(tmp_name)) {
-		strcpy(tmp_name, P_tmpdir);
-		tmp_name_len = len;
-	}
-	else {
-		strcpy(tmp_name, "/tmp");
-		tmp_name_len = 4;
-	}
-#else
-	strcpy(tmp_name, "/tmp");
-	tmp_name_len = 4;
-#endif
 
 	dir = secure_getenv("TMPDIR");
 
 	if (dir) {
 		len = strlen(dir);
 		if (len > 0 && len < sizeof(tmp_name)) {
-			strcpy(tmp_name, dir);
+			if ((stat(dir, &st) == 0) && S_ISDIR(st.st_mode)) {
+				strcpy(tmp_name, dir);
+				tmp_name_len = len;
+			}
+		}
+	}
+#ifdef P_tmpdir
+	if (!tmp_name_len) {
+		len = strlen(P_tmpdir);
+		if (len > 0 && len < sizeof(tmp_name)) {
+			strcpy(tmp_name, P_tmpdir);
 			tmp_name_len = len;
 		}
+	}
+#endif
+	if (!tmp_name_len) {
+		strcpy(tmp_name, "/tmp");
+		tmp_name_len = 4;
 	}
 
 	SLJIT_ASSERT(tmp_name_len > 0 && tmp_name_len < sizeof(tmp_name));
 
-	while (tmp_name_len > 0 && tmp_name[tmp_name_len - 1] == '/') {
-		tmp_name_len--;
-		tmp_name[tmp_name_len] = '\0';
-	}
+	while (tmp_name_len > 1 && tmp_name[tmp_name_len - 1] == '/')
+		tmp_name[--tmp_name_len] = '\0';
 
 #ifdef O_TMPFILE
 	fd = open(tmp_name, O_TMPFILE | O_EXCL | O_RDWR | O_NOATIME | O_CLOEXEC, S_IRUSR | S_IWUSR);
@@ -149,11 +151,11 @@ static SLJIT_INLINE int create_tempfile(void)
 #endif
 
 	if (tmp_name_len + 7 >= sizeof(tmp_name))
-	{
 		return -1;
-	}
 
-	strcpy(tmp_name + tmp_name_len, "/XXXXXX");
+	if (!(tmp_name_len == 1 && *tmp_name == '/'))
+		tmp_name[tmp_name_len++] = '/';
+	strcpy(tmp_name + tmp_name_len, "XXXXXX");
 	fd = mkostemp(tmp_name, O_CLOEXEC | O_NOATIME);
 
 	if (fd == -1)
