@@ -24,6 +24,25 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* -------------------------------------------------------------------------*/
+/*  Compat                                                                  */
+/* -------------------------------------------------------------------------*/
+
+#ifndef HAVE_SECURE_GETENV
+#if defined(__NetBSD__) || defined(__OpenBSD__)
+#include <unistd.h>
+#include <sys/types.h>
+
+char *secure_getenv(const char *name)
+{
+	int secure_execution_required = getuid() != geteuid()
+					 || getgid() != getegid();
+
+	return secure_execution_required ? NULL : getenv(name);
+}
+#endif
+#endif /* HAVE_SECURE_GETENV */
+
 /* ------------------------------------------------------------------------ */
 /*  Locks                                                                   */
 /* ------------------------------------------------------------------------ */
