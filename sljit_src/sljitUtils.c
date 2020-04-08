@@ -29,7 +29,7 @@
 /* -------------------------------------------------------------------------*/
 
 #ifndef HAVE_SECURE_GETENV
-#if defined(__NetBSD__) || defined(__OpenBSD__)
+#if defined(__NetBSD__) || defined(__OpenBSD__) || defined(__FreeBSD__)
 #include <unistd.h>
 #include <sys/types.h>
 
