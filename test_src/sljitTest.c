@@ -5479,6 +5479,8 @@ static void test57(void)
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_label* labels[5];
+	sljit_p addr[5];
+	int i;
 
 	if (verbose)
 		printf("Run test57\n");
@@ -5507,21 +5509,25 @@ static void test57(void)
 
 	code.code = sljit_generate_code(compiler);
 	CHECK(compiler);
+
+	for (i = 0; i < 5; i++)
+		addr[i] = sljit_get_label_addr(labels[i]);
+
 	sljit_free_compiler(compiler);
 
 	code.func0();
 
 	if (sljit_has_cpu_feature(SLJIT_HAS_PREFETCH)) {
-		FAILED(sljit_get_label_addr(labels[0]) == sljit_get_label_addr(labels[1]), "test57 case 1 failed\n");
-		FAILED(sljit_get_label_addr(labels[1]) == sljit_get_label_addr(labels[2]), "test57 case 2 failed\n");
-		FAILED(sljit_get_label_addr(labels[2]) == sljit_get_label_addr(labels[3]), "test57 case 3 failed\n");
-		FAILED(sljit_get_label_addr(labels[3]) == sljit_get_label_addr(labels[4]), "test57 case 4 failed\n");
+		FAILED(addr[0] == addr[1], "test57 case 1 failed\n");
+		FAILED(addr[1] == addr[2], "test57 case 2 failed\n");
+		FAILED(addr[2] == addr[3], "test57 case 3 failed\n");
+		FAILED(addr[3] == addr[4], "test57 case 4 failed\n");
 	}
 	else {
-		FAILED(sljit_get_label_addr(labels[0]) != sljit_get_label_addr(labels[1]), "test57 case 1 failed\n");
-		FAILED(sljit_get_label_addr(labels[1]) != sljit_get_label_addr(labels[2]), "test57 case 2 failed\n");
-		FAILED(sljit_get_label_addr(labels[2]) != sljit_get_label_addr(labels[3]), "test57 case 3 failed\n");
-		FAILED(sljit_get_label_addr(labels[3]) != sljit_get_label_addr(labels[4]), "test57 case 4 failed\n");
+		FAILED(addr[0] != addr[1], "test57 case 1 failed\n");
+		FAILED(addr[1] != addr[2], "test57 case 2 failed\n");
+		FAILED(addr[2] != addr[3], "test57 case 3 failed\n");
+		FAILED(addr[3] != addr[4], "test57 case 4 failed\n");
 	}
 
 	sljit_free_code(code.code);
