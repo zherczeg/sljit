@@ -108,6 +108,13 @@ static SLJIT_INLINE int create_tempfile(void)
 	char *dir;
 	size_t len;
 
+#ifdef HAVE_MEMFD_CREATE
+	/* this is a GNU extension, make sure to use -D_GNU_SOURCE */
+	fd = memfd_create("sljit", MFD_CLOEXEC);
+	if (fd != -1)
+		return fd;
+#endif
+
 #ifdef P_tmpdir
 	len = (P_tmpdir != NULL) ? strlen(P_tmpdir) : 0;
 
