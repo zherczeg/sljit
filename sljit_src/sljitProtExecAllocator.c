@@ -83,21 +83,20 @@ struct chunk_header {
        as it only uses local variables
 */
 
+#if !(defined(__NetBSD__) && defined(MAP_REMAPDUP))
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
 
 #ifndef O_NOATIME
 #define O_NOATIME 0
 #endif
 
-#ifdef __O_TMPFILE
+/* this is a linux extension available since kernel 3.11 */
 #ifndef O_TMPFILE
-#define O_TMPFILE	(__O_TMPFILE | O_DIRECTORY)
+#define O_TMPFILE 020200000
 #endif
-#endif
-
-#if !(defined(__NetBSD__) && defined(MAP_REMAPDUP))
-int mkostemp(char *template, int flags);
 
 #ifdef __NetBSD__
 /*
@@ -114,11 +113,10 @@ char *secure_getenv(const char *name);
 static SLJIT_INLINE int create_tempfile(void)
 {
 	int fd;
-
 	char tmp_name[256];
-	size_t tmp_name_len;
+	size_t tmp_name_len = 0;
 	char *dir;
-	size_t len;
+	struct stat st;
 #if defined(SLJIT_SINGLE_THREADED) && SLJIT_SINGLE_THREADED
 	mode_t mode;
 #endif
@@ -132,49 +130,44 @@ static SLJIT_INLINE int create_tempfile(void)
 	}
 #endif
 
-#ifdef P_tmpdir
-	len = (P_tmpdir != NULL) ? strlen(P_tmpdir) : 0;
-
-	if (len > 0 && len < sizeof(tmp_name)) {
-		strcpy(tmp_name, P_tmpdir);
-		tmp_name_len = len;
-	}
-	else {
-		strcpy(tmp_name, "/tmp");
-		tmp_name_len = 4;
-	}
-#else
-	strcpy(tmp_name, "/tmp");
-	tmp_name_len = 4;
-#endif
-
 	dir = secure_getenv("TMPDIR");
 
 	if (dir) {
-		len = strlen(dir);
-		if (len > 0 && len < sizeof(tmp_name)) {
-			strcpy(tmp_name, dir);
-			tmp_name_len = len;
+		tmp_name_len = strlen(dir);
+		if (tmp_name_len > 0 && tmp_name_len < sizeof(tmp_name)) {
+			if ((stat(dir, &st) == 0) && S_ISDIR(st.st_mode))
+				strcpy(tmp_name, dir);
 		}
+	}
+
+#ifdef P_tmpdir
+	if (!tmp_name_len) {
+		tmp_name_len = strlen(P_tmpdir);
+		if (tmp_name_len > 0 && tmp_name_len < sizeof(tmp_name))
+			strcpy(tmp_name, P_tmpdir);
+	}
+#endif
+	if (!tmp_name_len) {
+		strcpy(tmp_name, "/tmp");
+		tmp_name_len = 4;
 	}
 
 	SLJIT_ASSERT(tmp_name_len > 0 && tmp_name_len < sizeof(tmp_name));
 
-	while (tmp_name_len > 0 && tmp_name[tmp_name_len - 1] == '/') {
-		tmp_name_len--;
-		tmp_name[tmp_name_len] = '\0';
-	}
+	if (tmp_name[tmp_name_len - 1] == '/')
+		tmp_name[--tmp_name_len] = '\0';
 
-#ifdef O_TMPFILE
-	fd = open(tmp_name, O_TMPFILE | O_EXCL | O_RDWR | O_NOATIME | O_CLOEXEC, 0);
+	/*
+	 * the previous trimming might had left an empty string if TMPDIR="/"
+	 * so work around the problem below as suggested by @zherczeg
+	 */
+	fd = open(tmp_name_len ? tmp_name : "/",
+		O_TMPFILE | O_EXCL | O_RDWR | O_NOATIME | O_CLOEXEC, 0);
 	if (fd != -1)
 		return fd;
-#endif
 
 	if (tmp_name_len + 7 >= sizeof(tmp_name))
-	{
 		return -1;
-	}
 
 	strcpy(tmp_name + tmp_name_len, "/XXXXXX");
 #if defined(SLJIT_SINGLE_THREADED) && SLJIT_SINGLE_THREADED
