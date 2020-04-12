@@ -97,7 +97,18 @@ struct chunk_header {
 
 #if !(defined(__NetBSD__) && defined(MAP_REMAPDUP))
 int mkostemp(char *template, int flags);
+
+#ifdef __NetBSD__
+/*
+ * this is a workaround for NetBSD < 8 that lacks a system provided
+ * secure_getenv function.
+ * ideally this should never be used, as the standard allocator is
+ * a preferred option for those systems and should be used instead.
+ */
+#define secure_getenv(name) issetugid() ?  NULL : getenv(name)
+#else
 char *secure_getenv(const char *name);
+#endif
 
 static SLJIT_INLINE int create_tempfile(void)
 {
@@ -131,11 +142,8 @@ static SLJIT_INLINE int create_tempfile(void)
 	tmp_name_len = 4;
 #endif
 
-#if defined(__NetBSD__)
-	dir = getenv("TMPDIR");
-#else
 	dir = secure_getenv("TMPDIR");
-#endif
+
 	if (dir) {
 		len = strlen(dir);
 		if (len > 0 && len < sizeof(tmp_name)) {
@@ -236,7 +244,7 @@ static SLJIT_INLINE struct chunk_header* alloc_chunk(sljit_uw size)
 	retval->executable = maprx;
 	return retval;
 }
-#endif
+#endif /* NetBSD >= 8 */
 
 static SLJIT_INLINE void free_chunk(void *chunk, sljit_uw size)
 {
