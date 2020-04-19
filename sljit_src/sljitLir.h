@@ -1406,7 +1406,9 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void);
 #define SLJIT_OFFSETOF(base, member) ((sljit_sw)(&((base*)0x10)->member) - 0x10)
 
 #if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
-/* This global lock is useful to compile common functions. */
+/* This interface is not safe, overly broad and therefore not very
+   useful, and likely not used so it is planned to be removed in
+   the next release. */
 SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_grab_lock(void);
 SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void);
 #endif

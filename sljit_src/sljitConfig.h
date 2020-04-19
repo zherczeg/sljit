@@ -63,10 +63,10 @@ extern "C" {
 /*  Utilities                                                            */
 /* --------------------------------------------------------------------- */
 
-/* Useful for thread-safe compiling of global functions. */
+/* Implement a global lock for last resort thread-safety. */
 #ifndef SLJIT_UTIL_GLOBAL_LOCK
-/* Enabled by default */
-#define SLJIT_UTIL_GLOBAL_LOCK 1
+/* Disabled by default */
+#define SLJIT_UTIL_GLOBAL_LOCK 0
 #endif
 
 /* Implements a stack like data structure (by using mmap / VirtualAlloc  */
