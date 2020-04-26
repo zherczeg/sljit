@@ -157,14 +157,16 @@ static SLJIT_INLINE int create_tempfile(void)
 	if (tmp_name[tmp_name_len - 1] == '/')
 		tmp_name[--tmp_name_len] = '\0';
 
+#ifdef __linux__
 	/*
 	 * the previous trimming might had left an empty string if TMPDIR="/"
-	 * so work around the problem below as suggested by @zherczeg
+	 * so work around the problem below
 	 */
 	fd = open(tmp_name_len ? tmp_name : "/",
 		O_TMPFILE | O_EXCL | O_RDWR | O_NOATIME | O_CLOEXEC, 0);
 	if (fd != -1)
 		return fd;
+#endif
 
 	if (tmp_name_len + 7 >= sizeof(tmp_name))
 		return -1;
