@@ -83,7 +83,34 @@ struct chunk_header {
        as it only uses local variables
 */
 
-#if !(defined(__NetBSD__) && defined(MAP_REMAPDUP))
+#if defined(__NetBSD__)
+static SLJIT_INLINE struct chunk_header* alloc_chunk(sljit_uw size)
+{
+	struct chunk_header *retval;
+
+	retval = (struct chunk_header *)mmap(NULL, size,
+			PROT_READ | PROT_WRITE | PROT_MPROTECT(PROT_EXEC),
+			MAP_ANON | MAP_PRIVATE, -1, 0);
+
+	if (retval == MAP_FAILED)
+		return NULL;
+
+	retval->executable = mremap(retval, size, NULL, size, MAP_REMAPDUP);
+
+	if (retval->executable == MAP_FAILED) {
+		munmap((void *)retval, size);
+		return NULL;
+	}
+
+	if (mprotect(retval->executable, size, PROT_READ | PROT_EXEC) == -1) {
+		munmap(retval->executable, size);
+		munmap((void *)retval, size);
+		return NULL;
+	}
+
+	return retval;
+}
+#else
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -96,18 +123,6 @@ struct chunk_header {
 /* this is a linux extension available since kernel 3.11 */
 #ifndef O_TMPFILE
 #define O_TMPFILE 020200000
-#endif
-
-#ifdef __NetBSD__
-/*
- * this is a workaround for NetBSD < 8 that lacks a system provided
- * secure_getenv function.
- * ideally this should never be used, as the standard allocator is
- * a preferred option for those systems and should be used instead.
- */
-#define secure_getenv(name) issetugid() ?  NULL : getenv(name)
-#else
-char *secure_getenv(const char *name);
 #endif
 
 static SLJIT_INLINE int create_tempfile(void)
@@ -225,33 +240,7 @@ static SLJIT_INLINE struct chunk_header* alloc_chunk(sljit_uw size)
 	close(fd);
 	return retval;
 }
-#else
-static SLJIT_INLINE struct chunk_header* alloc_chunk(sljit_uw size)
-{
-	struct chunk_header *retval;
-
-	retval = (struct chunk_header *)mmap(NULL, size,
-			PROT_READ | PROT_WRITE | PROT_MPROTECT(PROT_EXEC),
-			MAP_ANON | MAP_SHARED, -1, 0);
-
-	if (retval == MAP_FAILED)
-		return NULL;
-
-	retval->executable = mremap(retval, size, NULL, size, MAP_REMAPDUP);
-	if (retval->executable == MAP_FAILED) {
-		munmap((void *)retval, size);
-		return NULL;
-	}
-
-	if (mprotect(retval->executable, size, PROT_READ | PROT_EXEC) == -1) {
-		munmap(retval->executable, size);
-		munmap((void *)retval, size);
-		return NULL;
-	}
-
-	return retval;
-}
-#endif /* NetBSD >= 8 */
+#endif
 
 static SLJIT_INLINE void free_chunk(void *chunk, sljit_uw size)
 {
