@@ -92,6 +92,64 @@ static SLJIT_INLINE void free_chunk(void *chunk, sljit_uw size)
 	VirtualFree(chunk, 0, MEM_RELEASE);
 }
 
+#elif defined(__NetBSD__)
+#include <stddef.h> /* max_align_t */
+
+#define ptr_overhead (sizeof(max_align_t))
+
+#define PTR_ADD(p, d) ((void *)((uintptr_t)(p) + (d)))
+
+static sljit_uw page_size;
+
+static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
+{
+	void *executable, *writable;
+	sljit_uw new_size;
+
+	if (page_size == 0)
+		page_size = sysconf(_SC_PAGESIZE);
+
+	new_size = (size + ptr_overhead + page_size - 1) & ~(page_size - 1);
+
+	writable = mmap(NULL, new_size,
+			PROT_READ | PROT_WRITE | PROT_MPROTECT(PROT_EXEC),
+			MAP_ANON | MAP_PRIVATE, -1, 0);
+
+	if (writable == MAP_FAILED)
+		return NULL;
+
+	executable = mremap(writable, new_size, NULL, new_size, MAP_REMAPDUP);
+
+	if (executable == MAP_FAILED) {
+		munmap(writable, new_size);
+		return NULL;
+	}
+
+	if (mprotect(executable, new_size, PROT_READ | PROT_EXEC) == -1) {
+		munmap(writable, new_size);
+		munmap(executable, new_size);
+		return NULL;
+	}
+
+	memcpy(writable, &executable, sizeof(void *));
+
+	return PTR_ADD(writable, ptr_overhead);
+}
+
+static SLJIT_INLINE void free_chunk(void *chunk, sljit_uw size)
+{
+	void *executable, *writable;
+	sljit_uw new_size;
+
+	new_size = (size + ptr_overhead + page_size - 1) & ~(page_size - 1);
+
+	writable = PTR_ADD(chunk, -ptr_overhead);
+	memcpy(&executable, writable, sizeof(void *));
+
+	munmap(writable, new_size);
+	munmap(executable, new_size);
+}
+
 #else
 
 #ifdef __APPLE__
