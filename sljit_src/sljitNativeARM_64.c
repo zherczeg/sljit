@@ -255,6 +255,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 	code = (sljit_ins*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_ins));
 	PTR_FAIL_WITH_EXEC_IF(code);
+	pthread_jit_write_protect_np(0);
 	buf = compiler->buf;
 
 	code_ptr = code;
@@ -379,6 +380,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	code = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(code, executable_offset);
 	code_ptr = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 
+	pthread_jit_write_protect_np(1);
 	SLJIT_CACHE_FLUSH(code, code_ptr);
 	return code;
 }
