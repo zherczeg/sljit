@@ -110,6 +110,10 @@ struct chunk_header {
 char *secure_getenv(const char *name);
 #endif
 
+#ifndef _GNU_SOURCE
+int mkostemp(char *template, int flags);
+#endif
+
 static SLJIT_INLINE int create_tempfile(void)
 {
 	int fd;

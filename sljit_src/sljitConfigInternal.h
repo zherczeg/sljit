@@ -210,18 +210,16 @@ extern "C" {
 /***********************************************************/
 
 #ifdef SLJIT_CONFIG_X86
-#if defined(__CET__)
+
+#if defined(__CET__) && !(defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET)
 #define SLJIT_CONFIG_X86_CET 1
 #endif
-#if (defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET)
-#if defined(__GNUC__)
-#if !defined (__SHSTK__)
-#error "-mshstk is needed to compile with -fcf-protection"
-#endif
+
+#if (defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET) && defined(__GNUC__)
 #include <x86intrin.h>
 #endif
-#endif
-#endif
+
+#endif /* SLJIT_CONFIG_X86 */
 
 /**********************************/
 /* External function definitions. */
