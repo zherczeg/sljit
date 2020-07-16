@@ -153,6 +153,8 @@ static SLJIT_INLINE sljit_s32 emit_imm64_const(struct sljit_compiler *compiler, 
 
 static SLJIT_INLINE void modify_imm64_const(sljit_ins* inst, sljit_uw new_imm)
 {
+	SLJIT_SCOPE_ENABLE_JIT_WRITE();
+	
 	sljit_s32 dst = inst[0] & 0x1f;
 	SLJIT_ASSERT((inst[0] & 0xffe00000) == MOVZ && (inst[1] & 0xffe00000) == (MOVK | (1 << 21)));
 	inst[0] = MOVZ | dst | ((new_imm & 0xffff) << 5);
@@ -253,8 +255,10 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	CHECK_PTR(check_sljit_generate_code(compiler));
 	reverse_buf(compiler);
 
+	SLJIT_SCOPE_ENABLE_JIT_WRITE();
 	code = (sljit_ins*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_ins));
 	PTR_FAIL_WITH_EXEC_IF(code);
+
 	buf = compiler->buf;
 
 	code_ptr = code;
