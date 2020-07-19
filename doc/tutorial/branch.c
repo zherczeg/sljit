@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef long SLJIT_CALL (*func3_t)(long a, long b, long c);
+typedef SLJIT_FUNC long (*func3_t)(long a, long b, long c);
 
 /*
   This example, we generate a function like this:
@@ -26,10 +26,10 @@ static int branch(long a, long b, long c)
 	struct sljit_jump *out;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler();
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 
 	/* 3 arg, 1 temp reg, 3 save reg */
-	sljit_emit_enter(C, 0,  3,  1, 3, 0, 0, 0);
+	sljit_emit_enter(C, 0, SLJIT_ARG1(SW)|SLJIT_ARG2(SW)|SLJIT_ARG3(SW),  3, 3, 0, 0, 0);
 
 	/* R0 = a & 1, S0 is argument a */
 	sljit_emit_op2(C, SLJIT_AND, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_IMM, 1);

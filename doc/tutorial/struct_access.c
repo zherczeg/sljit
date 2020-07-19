@@ -8,12 +8,11 @@ struct point_st {
 	int y;
 	short z;
 	char d;
-	char e;
 };
 
-typedef long (*point_func_t)(struct point_st *point);;
+typedef SLJIT_FUNC long (*point_func_t)(struct point_st *point);;
 
-static long SLJIT_CALL print_num(long a)
+static SLJIT_FUNC long print_num(long a)
 {
 	printf("a = %ld\n", a);
 	return a + 1;
@@ -39,26 +38,26 @@ static int struct_access()
 	point_func_t func;
 
 	struct point_st point = {
-		-5, -20, 5, ' ', 'a'
+		-5, -20, 5, 'a'
 	};
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler();
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 
-	sljit_emit_enter(C, 0,  1,  1, 1, 0, 0, 0);
+	sljit_emit_enter(C, 0, SLJIT_ARG1(SW), 1, 1, 0, 0, 0);
 	/*                  opt arg R  S  FR FS local_size */
 
 	sljit_emit_op1(C, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSETOF(struct point_st, x));	// S0->x --> R0
-	sljit_emit_ijump(C, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));								// print_num(R0);
+	sljit_emit_icall(C, SLJIT_CALL, SLJIT_RET(SW)|SLJIT_ARG1(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));								// print_num(R0);
 
-	sljit_emit_op1(C, SLJIT_MOV_SI, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSETOF(struct point_st, y));	// S0->y --> R0
-	sljit_emit_ijump(C, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));								// print_num(R0);
+	sljit_emit_op1(C, SLJIT_MOV_S32, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSETOF(struct point_st, y));	// S0->y --> R0
+	sljit_emit_icall(C, SLJIT_CALL, SLJIT_RET(SW)|SLJIT_ARG1(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));								// print_num(R0);
 
-	sljit_emit_op1(C, SLJIT_MOV_SH, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSETOF(struct point_st, z));	// S0->z --> R0
-	sljit_emit_ijump(C, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));								// print_num(R0);
+	sljit_emit_op1(C, SLJIT_MOV_S16, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSETOF(struct point_st, z));	// S0->z --> R0
+	sljit_emit_icall(C, SLJIT_CALL, SLJIT_RET(SW)|SLJIT_ARG1(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));								// print_num(R0);
 
-	sljit_emit_op1(C, SLJIT_MOV_SB, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSETOF(struct point_st, d));	// S0->z --> R0
-	sljit_emit_ijump(C, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));								// print_num(R0);
+	sljit_emit_op1(C, SLJIT_MOV_S8, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSETOF(struct point_st, d));	// S0->z --> R0
+	sljit_emit_icall(C, SLJIT_CALL, SLJIT_RET(SW)|SLJIT_ARG1(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));								// print_num(R0);
 
 	sljit_emit_return(C, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSETOF(struct point_st, x));				// return S0->x
 

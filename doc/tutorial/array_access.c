@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef long SLJIT_CALL (*func_arr_t)(long *arr, long narr);
+typedef SLJIT_FUNC long (*func_arr_t)(long *arr, long narr);
 
-static long SLJIT_CALL print_num(long a)
+static SLJIT_FUNC long print_num(long a)
 {
 	printf("num = %ld\n", a);
 	return a + 1;
@@ -31,16 +31,17 @@ static int array_access(long *arr, long narr)
 	func_arr_t func;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler();
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 
-	sljit_emit_enter(C, 0,  2,  1, 3, 0, 0, 0);
+	sljit_emit_enter(C, 0, SLJIT_ARG1(SW),  1, 3, 0, 0, 0);
 	/*                  opt arg R  S  FR FS local_size */
 	sljit_emit_op2(C, SLJIT_XOR, SLJIT_S2, 0, SLJIT_S2, 0, SLJIT_S2, 0);				// S2 = 0
+	sljit_emit_op1(C, SLJIT_MOV, SLJIT_S1, 0, SLJIT_IMM, narr);                         // S1 = narr
 	struct sljit_label *loopstart = sljit_emit_label(C);								// loopstart:
 	struct sljit_jump *out = sljit_emit_cmp(C, SLJIT_GREATER_EQUAL, SLJIT_S2, 0, SLJIT_S1, 0);	// S2 >= a --> jump out
 
 	sljit_emit_op1(C, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM2(SLJIT_S0, SLJIT_S2), SLJIT_WORD_SHIFT);// R0 = (long *)S0[S2];
-	sljit_emit_ijump(C, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));					// print_num(R0);
+	sljit_emit_icall(C, SLJIT_CALL, SLJIT_RET(SW) | SLJIT_ARG1(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));					// print_num(R0);
 
 	sljit_emit_op2(C, SLJIT_ADD, SLJIT_S2, 0, SLJIT_S2, 0, SLJIT_IMM, 1);						// S2 += 1
 	sljit_set_label(sljit_emit_jump(C, SLJIT_JUMP), loopstart);									// jump loopstart
@@ -65,6 +66,6 @@ static int array_access(long *arr, long narr)
 
 int main()
 {
-	long arr[8] = { 3, -10, 4, 6, 8, 12, 2000 };
+	long arr[8] = { 3, -10, 4, 6, 8, 12, 2000, 0 };
 	return array_access(arr, 8);
 }
