@@ -157,6 +157,10 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
 #include <sys/types.h>
 #include <sys/mman.h>
 
+#ifndef MADV_DOTNEED
+#define madvise posix_madvise
+#define MADV_DOTNEED POSIX_MADV_DOTNEED
+#endif
 #ifndef MAP_ANON
 #ifdef MAP_ANONYMOUS
 #define MAP_ANON MAP_ANONYMOUS
