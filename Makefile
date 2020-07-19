@@ -20,12 +20,14 @@ CFLAGS += -O2 -Wall
 REGEX_CFLAGS += $(CFLAGS) -fshort-wchar
 LDFLAGS = $(EXTRA_LDFLAGS)
 
-TARGET = sljit_test regex_test
-
 BINDIR = bin
 SRCDIR = sljit_src
 TESTDIR = test_src
 REGEXDIR = regex_src
+EXAMPLEDIR = doc/tutorial
+
+TARGET = $(BINDIR)/sljit_test $(BINDIR)/regex_test
+EXAMPLE_TARGET = $(BINDIR)/func_call $(BINDIR)/first_program $(BINDIR)/branch $(BINDIR)/loop $(BINDIR)/array_access $(BINDIR)/func_call $(BINDIR)/struct_access $(BINDIR)/temp_var $(BINDIR)/brainfuck
 
 SLJIT_HEADERS = $(SRCDIR)/sljitLir.h $(SRCDIR)/sljitConfig.h $(SRCDIR)/sljitConfigInternal.h
 
@@ -37,31 +39,60 @@ SLJIT_LIR_FILES = $(SRCDIR)/sljitLir.c $(SRCDIR)/sljitExecAllocator.c $(SRCDIR)/
 	$(SRCDIR)/sljitNativeTILEGX_64.c \
 	$(SRCDIR)/sljitNativeX86_common.c $(SRCDIR)/sljitNativeX86_32.c $(SRCDIR)/sljitNativeX86_64.c
 
-all: $(BINDIR) $(TARGET)
+.PHONY: all examples
+
+all: $(TARGET)
 
 $(BINDIR) :
 	mkdir $(BINDIR)
 
-$(BINDIR)/sljitLir.o : $(BINDIR) $(SLJIT_LIR_FILES) $(SLJIT_HEADERS)
+$(BINDIR)/sljitLir.o : $(SLJIT_LIR_FILES) $(SLJIT_HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $(SRCDIR)/sljitLir.c
 
-$(BINDIR)/sljitMain.o : $(TESTDIR)/sljitMain.c $(BINDIR) $(SLJIT_HEADERS)
+$(BINDIR)/sljitMain.o : $(TESTDIR)/sljitMain.c $(SLJIT_HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $(TESTDIR)/sljitMain.c
 
-$(BINDIR)/sljitTest.o : $(TESTDIR)/sljitTest.c $(BINDIR) $(SLJIT_HEADERS)
+$(BINDIR)/sljitTest.o : $(TESTDIR)/sljitTest.c $(SLJIT_HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $(TESTDIR)/sljitTest.c
 
-$(BINDIR)/regexMain.o : $(REGEXDIR)/regexMain.c $(BINDIR) $(SLJIT_HEADERS)
+$(BINDIR)/regexMain.o : $(REGEXDIR)/regexMain.c $(SLJIT_HEADERS)
 	$(CC) $(CPPFLAGS) $(REGEX_CFLAGS) -c -o $@ $(REGEXDIR)/regexMain.c
 
-$(BINDIR)/regexJIT.o : $(REGEXDIR)/regexJIT.c $(BINDIR) $(SLJIT_HEADERS) $(REGEXDIR)/regexJIT.h
+$(BINDIR)/regexJIT.o : $(REGEXDIR)/regexJIT.c $(SLJIT_HEADERS) $(REGEXDIR)/regexJIT.h
 	$(CC) $(CPPFLAGS) $(REGEX_CFLAGS) -c -o $@ $(REGEXDIR)/regexJIT.c
 
 clean:
-	rm -f $(BINDIR)/*.o $(BINDIR)/sljit_test $(BINDIR)/regex_test
+	-$(RM) -f $(BINDIR)/*.o $(BINDIR)/sljit_test $(BINDIR)/regex_test $(EXAMPLE_TARGET)
 
-sljit_test: $(BINDIR)/sljitMain.o $(BINDIR)/sljitTest.o $(BINDIR)/sljitLir.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $(BINDIR)/sljitMain.o $(BINDIR)/sljitTest.o $(BINDIR)/sljitLir.o -o $(BINDIR)/$@ -lm -lpthread
+$(BINDIR)/sljit_test: $(BINDIR)/sljitMain.o $(BINDIR)/sljitTest.o $(BINDIR)/sljitLir.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $(BINDIR)/sljitMain.o $(BINDIR)/sljitTest.o $(BINDIR)/sljitLir.o -o $@ -lm -lpthread
 
-regex_test: $(BINDIR)/regexMain.o $(BINDIR)/regexJIT.o $(BINDIR)/sljitLir.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $(BINDIR)/regexMain.o $(BINDIR)/regexJIT.o $(BINDIR)/sljitLir.o -o $(BINDIR)/$@ -lm -lpthread
+$(BINDIR)/regex_test: $(BINDIR)/regexMain.o $(BINDIR)/regexJIT.o $(BINDIR)/sljitLir.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $(BINDIR)/regexMain.o $(BINDIR)/regexJIT.o $(BINDIR)/sljitLir.o -o $@ -lm -lpthread
+
+
+examples: $(EXAMPLE_TARGET)
+
+$(BINDIR)/first_program: $(EXAMPLEDIR)/first_program.c $(BINDIR)/sljitLir.o
+	$(CC) $(CPPFLAGS) $(LDFLAGS) $(EXAMPLEDIR)/first_program.c $(BINDIR)/sljitLir.o -o $@ -lm -lpthread
+
+$(BINDIR)/branch: $(EXAMPLEDIR)/branch.c $(BINDIR)/sljitLir.o
+	$(CC) $(CPPFLAGS) $(LDFLAGS) $(EXAMPLEDIR)/branch.c $(BINDIR)/sljitLir.o -o $@ -lm -lpthread
+
+$(BINDIR)/loop: $(EXAMPLEDIR)/loop.c $(BINDIR)/sljitLir.o
+	$(CC) $(CPPFLAGS) $(LDFLAGS) $(EXAMPLEDIR)/loop.c $(BINDIR)/sljitLir.o -o $@ -lm -lpthread
+
+$(BINDIR)/array_access: $(EXAMPLEDIR)/array_access.c $(BINDIR)/sljitLir.o
+	$(CC) $(CPPFLAGS) $(LDFLAGS) $(EXAMPLEDIR)/array_access.c $(BINDIR)/sljitLir.o -o $@ -lm -lpthread
+
+$(BINDIR)/func_call: $(EXAMPLEDIR)/func_call.c $(BINDIR)/sljitLir.o
+	$(CC) $(CPPFLAGS) $(LDFLAGS) $(EXAMPLEDIR)/func_call.c $(BINDIR)/sljitLir.o -o $@ -lm -lpthread
+
+$(BINDIR)/struct_access: $(EXAMPLEDIR)/struct_access.c $(BINDIR)/sljitLir.o
+	$(CC) $(CPPFLAGS) $(LDFLAGS) $(EXAMPLEDIR)/struct_access.c $(BINDIR)/sljitLir.o -o $@ -lm -lpthread
+
+$(BINDIR)/temp_var: $(EXAMPLEDIR)/temp_var.c $(BINDIR)/sljitLir.o
+	$(CC) $(CPPFLAGS) $(LDFLAGS) $(EXAMPLEDIR)/temp_var.c $(BINDIR)/sljitLir.o -o $@ -lm -lpthread
+
+$(BINDIR)/brainfuck: $(EXAMPLEDIR)/brainfuck.c $(BINDIR)/sljitLir.o
+	$(CC) $(CPPFLAGS) $(LDFLAGS) $(EXAMPLEDIR)/brainfuck.c $(BINDIR)/sljitLir.o -o $@ -lm -lpthread
