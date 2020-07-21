@@ -390,8 +390,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_st
 		aligned_new_start = (sljit_uw)new_start & ~page_align;
 		aligned_old_start = ((sljit_uw)stack->start) & ~page_align;
 
-		if (aligned_new_start > aligned_old_start)
+		if (aligned_new_start > aligned_old_start) {
 			posix_madvise((void*)aligned_old_start, aligned_new_start - aligned_old_start, POSIX_MADV_DONTNEED);
+#ifdef MADV_FREE
+			madvise((void*)aligned_old_start, aligned_new_start - aligned_old_start, MADV_FREE);
+#endif /* MADV_FREE */
+		}
 	}
 #endif /* _WIN32 */
 
