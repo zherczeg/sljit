@@ -157,21 +157,11 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
 #include <sys/types.h>
 #include <sys/mman.h>
 
-#ifndef MADV_DOTNEED
-#define madvise posix_madvise
-#define MADV_DOTNEED POSIX_MADV_DOTNEED
-#endif
 #ifndef MAP_ANON
 #ifdef MAP_ANONYMOUS
 #define MAP_ANON MAP_ANONYMOUS
 #endif /* MAP_ANONYMOUS */
 #endif /* !MAP_ANON */
-
-#ifndef MADV_DONTNEED
-#ifdef POSIX_MADV_DONTNEED
-#define MADV_DONTNEED POSIX_MADV_DONTNEED
-#endif /* POSIX_MADV_DONTNEED */
-#endif /* !MADV_DONTNEED */
 
 /* For detecting the page size. */
 #include <unistd.h>
@@ -369,7 +359,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(slj
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_stack *stack, sljit_u8 *new_start)
 {
-#if defined _WIN32 || defined(MADV_DONTNEED)
+#if defined _WIN32 || defined(POSIX_MADV_DONTNEED)
 	sljit_uw aligned_old_start;
 	sljit_uw aligned_new_start;
 	sljit_sw page_align;
@@ -393,15 +383,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_st
 				return NULL;
 		}
 	}
-#elif defined(MADV_DONTNEED)
+#elif defined(POSIX_MADV_DONTNEED)
 	if (stack->start < new_start) {
 		page_align = get_page_alignment();
 
 		aligned_new_start = (sljit_uw)new_start & ~page_align;
 		aligned_old_start = ((sljit_uw)stack->start) & ~page_align;
-		/* If madvise is available, we release the unnecessary space. */
-		if (aligned_new_start > aligned_old_start)
-			madvise((void*)aligned_old_start, aligned_new_start - aligned_old_start, MADV_DONTNEED);
+
+		if (aligned_new_start > aligned_old_start) {
+			posix_madvise((void*)aligned_old_start, aligned_new_start - aligned_old_start, POSIX_MADV_DONTNEED);
+#ifdef MADV_FREE
+			madvise((void*)aligned_old_start, aligned_new_start - aligned_old_start, MADV_FREE);
+#endif /* MADV_FREE */
+		}
 	}
 #endif /* _WIN32 */
 
