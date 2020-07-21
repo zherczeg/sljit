@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef long SLJIT_CALL (*func3_t)(long a, long b, long c);
+typedef SLJIT_FUNC long (*func3_t)(long a, long b, long c);
 
 static int add3(long a, long b, long c)
 {
@@ -12,10 +12,10 @@ static int add3(long a, long b, long c)
 	func3_t func;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler();
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 
 	/* Start a context(function entry), have 3 arguments, discuss later */
-	sljit_emit_enter(C, 0,  3,  1, 3, 0, 0, 0);
+	sljit_emit_enter(C, 0,  SLJIT_ARG1(SW)|SLJIT_ARG2(SW)|SLJIT_ARG3(SW),  3, 3, 0, 0, 0);
 
 	/* The first arguments of function is register SLJIT_S0, 2nd, SLJIT_S1, etc.  */
 	/* R0 = first */

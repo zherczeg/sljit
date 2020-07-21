@@ -699,7 +699,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 */
 
 /*
-   IMPORATNT NOTE: memory access MUST be naturally aligned except
+   IMPORTANT NOTE: memory access MUST be naturally aligned unless
                    SLJIT_UNALIGNED macro is defined and its value is 1.
 
      length | alignment

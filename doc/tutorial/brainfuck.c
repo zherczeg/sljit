@@ -89,7 +89,7 @@ struct loop_node_st {
 static struct loop_node_st loop_stack[BF_LOOP_LEVEL];
 static int loop_sp;
 
-static int loop_push(struct sljit_label *loop_start, struct sljit_jump *loop_end)
+static SLJIT_FUNC int loop_push(struct sljit_label *loop_start, struct sljit_jump *loop_end)
 {
 	if (loop_sp >= BF_LOOP_LEVEL)
 		return -1;
@@ -100,7 +100,7 @@ static int loop_push(struct sljit_label *loop_start, struct sljit_jump *loop_end
 	return 0;
 }
 
-static int loop_pop(struct sljit_label **loop_start, struct sljit_jump **loop_end)
+static SLJIT_FUNC int loop_pop(struct sljit_label **loop_start, struct sljit_jump **loop_end)
 {
 	if (loop_sp <= 0)
 		return -1;
@@ -111,22 +111,22 @@ static int loop_pop(struct sljit_label **loop_start, struct sljit_jump **loop_en
 	return 0;
 }
 
-static SLJIT_CALL void *my_alloc(long size, long n)
+static SLJIT_FUNC void *my_alloc(long size, long n)
 {
 	return calloc(size, n);
 }
 
-static SLJIT_CALL void my_putchar(long c)
+static SLJIT_FUNC void my_putchar(long c)
 {
 	putchar(c);
 }
 
-static SLJIT_CALL long my_getchar(void)
+static SLJIT_FUNC long my_getchar(void)
 {
 	return getchar();
 }
 
-static SLJIT_CALL void my_free(void *mem)
+static SLJIT_FUNC void my_free(void *mem)
 {
 	free(mem);
 }
@@ -140,7 +140,7 @@ static void *compile(FILE *src, unsigned long *lcode)
 	int chr;
 	int nchr;
 
-	struct sljit_compiler *C = sljit_create_compiler();
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 	struct sljit_jump *end;
 	struct sljit_label *loop_start;
 	struct sljit_jump *loop_end;
@@ -148,13 +148,13 @@ static void *compile(FILE *src, unsigned long *lcode)
 	int SP = SLJIT_S0;			/* bf SP */
 	int CELLS = SLJIT_S1;		/* bf array */
 
-	sljit_emit_enter(C, 0,  0,  2, 2, 0, 0, 0);								/* opt arg R  S  FR FS local_size */
+	sljit_emit_enter(C, 0,  SLJIT_ARG1(SW) | SLJIT_ARG2(SW),  2, 2, 0, 0, 0);								/* opt arg R  S  FR FS local_size */
 
 	sljit_emit_op2(C, SLJIT_XOR, SP, 0, SP, 0, SP, 0);						/* SP = 0 */
 
 	sljit_emit_op1(C, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, BF_CELL_SIZE);
 	sljit_emit_op1(C, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 1);
-	sljit_emit_ijump(C, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(my_alloc));/* calloc(BF_CELL_SIZE, 1) => R0 */
+	sljit_emit_icall(C, SLJIT_CALL, SLJIT_RET(SW) | SLJIT_ARG1(SW) | SLJIT_ARG2(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(my_alloc));/* calloc(BF_CELL_SIZE, 1) => R0 */
 
 	end = sljit_emit_cmp(C, SLJIT_EQUAL, SLJIT_R0, 0, SLJIT_IMM, 0);		/* R0 == 0 --> jump end */
 
@@ -164,10 +164,10 @@ static void *compile(FILE *src, unsigned long *lcode)
 		switch (chr) {
 		case '+':
 		case '-':
-			sljit_emit_op1(C, SLJIT_MOV_UB, SLJIT_R0, 0, SLJIT_MEM2(CELLS, SP), 0);		/* R0 = CELLS[SP] */
+			sljit_emit_op1(C, SLJIT_MOV_U8, SLJIT_R0, 0, SLJIT_MEM2(CELLS, SP), 0);		/* R0 = CELLS[SP] */
 			sljit_emit_op2(C, chr == '+' ? SLJIT_ADD : SLJIT_SUB, 
 						   SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, nchr);					/* R0 ?= nchr */
-			sljit_emit_op1(C, SLJIT_MOV_UB, SLJIT_MEM2(CELLS, SP), 0, SLJIT_R0, 0);		/* CELLS[SP] = R0 */
+			sljit_emit_op1(C, SLJIT_MOV_U8, SLJIT_MEM2(CELLS, SP), 0, SLJIT_R0, 0);		/* CELLS[SP] = R0 */
 			break;
 		case '>':
 		case '<':
@@ -175,16 +175,16 @@ static void *compile(FILE *src, unsigned long *lcode)
 						   SP, 0, SP, 0, SLJIT_IMM, nchr);								/* SP ?= nchr */
 			break;
 		case '.':
-			sljit_emit_op1(C, SLJIT_MOV_UB, SLJIT_R0, 0, SLJIT_MEM2(CELLS, SP), 0);		/* R0 = CELLS[SP] */
-			sljit_emit_ijump(C, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(my_putchar));	/* putchar(R0) */
+			sljit_emit_op1(C, SLJIT_MOV_U8, SLJIT_R0, 0, SLJIT_MEM2(CELLS, SP), 0);		/* R0 = CELLS[SP] */
+			sljit_emit_icall(C, SLJIT_CALL, SLJIT_ARG1(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(my_putchar));	/* putchar(R0) */
 			break;
 		case ',':
-			sljit_emit_ijump(C, SLJIT_CALL0, SLJIT_IMM, SLJIT_FUNC_OFFSET(my_getchar));	/* R0 = getchar() */
-			sljit_emit_op1(C, SLJIT_MOV_UB, SLJIT_MEM2(CELLS, SP), 0, SLJIT_R0, 0);		/* CELLS[SP] = R0 */
+			sljit_emit_icall(C, SLJIT_CALL, SLJIT_RET(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(my_getchar));	/* R0 = getchar() */
+			sljit_emit_op1(C, SLJIT_MOV_U8, SLJIT_MEM2(CELLS, SP), 0, SLJIT_R0, 0);		/* CELLS[SP] = R0 */
 			break;
 		case '[':
 			loop_start = sljit_emit_label(C);											/* loop_start: */
-			sljit_emit_op1(C, SLJIT_MOV_UB, SLJIT_R0, 0, SLJIT_MEM2(CELLS, SP), 0);		/* R0 = CELLS[SP] */
+			sljit_emit_op1(C, SLJIT_MOV_U8, SLJIT_R0, 0, SLJIT_MEM2(CELLS, SP), 0);		/* R0 = CELLS[SP] */
 			loop_end = sljit_emit_cmp(C, SLJIT_EQUAL, SLJIT_R0, 0, SLJIT_IMM, 0);		/* IF R0 == 0 goto loop_end */
 			
 			if (loop_push(loop_start, loop_end)) {
@@ -210,7 +210,7 @@ static void *compile(FILE *src, unsigned long *lcode)
 	}
 
 	sljit_emit_op1(C, SLJIT_MOV, SLJIT_R0, 0, CELLS, 0);
-	sljit_emit_ijump(C, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(my_free));	/* free(CELLS) */
+	sljit_emit_icall(C, SLJIT_CALL, SLJIT_ARG1(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(my_free));	/* free(CELLS) */
 
 	sljit_set_label(end, sljit_emit_label(C));
 	sljit_emit_return(C, SLJIT_UNUSED, 0, 0);

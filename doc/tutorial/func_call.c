@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef long SLJIT_CALL (*func3_t)(long a, long b, long c);
+typedef SLJIT_FUNC long (*func3_t)(long a, long b, long c);
 
-static long SLJIT_CALL print_num(long a)
+static SLJIT_FUNC long print_num(long a)
 {
 	printf("a = %ld\n", a);
 	return a + 1;
@@ -32,9 +32,9 @@ static int func_call(long a, long b, long c)
 	struct sljit_jump *print_c;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler();
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 
-	sljit_emit_enter(C, 0,  3,  1, 3, 0, 0, 0);
+	sljit_emit_enter(C, 0, SLJIT_ARG1(SW)|SLJIT_ARG2(SW)|SLJIT_ARG3(SW), 3, 3, 0, 0, 0);
 
 	/*  a & 1 --> R0 */
 	sljit_emit_op2(C, SLJIT_AND, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_IMM, 1);
@@ -43,7 +43,7 @@ static int func_call(long a, long b, long c)
 
 	/* R0 = S1; print_num(R0) */
 	sljit_emit_op1(C, SLJIT_MOV, SLJIT_R0, 0, SLJIT_S1, 0);
-	sljit_emit_ijump(C, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));
+	sljit_emit_icall(C, SLJIT_CALL, SLJIT_RET(SW) | SLJIT_ARG1(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));
 
 	/* jump out */
 	out = sljit_emit_jump(C, SLJIT_JUMP);
@@ -52,7 +52,7 @@ static int func_call(long a, long b, long c)
 
 	/* R0 = c; print_num(R0); */
 	sljit_emit_op1(C, SLJIT_MOV, SLJIT_R0, 0, SLJIT_S2, 0);
-	sljit_emit_ijump(C, SLJIT_CALL1, SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));
+	sljit_emit_icall(C, SLJIT_CALL, SLJIT_RET(SW) | SLJIT_ARG1(SW), SLJIT_IMM, SLJIT_FUNC_OFFSET(print_num));
 
 	/* out: */
 	sljit_set_label(out, sljit_emit_label(C));
