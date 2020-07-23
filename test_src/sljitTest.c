@@ -6366,10 +6366,13 @@ static void test64(void)
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
+#if !(defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
+	/* WX allocator may not reuse the address. */
 	if ((sljit_sw)code.code < malloc_addr || (sljit_sw)code.code >= malloc_addr + 1024) {
 		printf("test64 executable alloc estimation failed\n");
 		return;
 	}
+#endif
 
 	FAILED(code.func1((sljit_sw)&buf) != label[3].addr, "test64 case 1 failed\n");
 	FAILED(buf[0] != label[0].addr, "test64 case 2 failed\n");

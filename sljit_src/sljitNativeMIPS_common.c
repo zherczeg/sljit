@@ -667,6 +667,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	/* GCC workaround for invalid code generation with -O2. */
 	sljit_cache_flush(code, code_ptr);
 #endif
+	SLJIT_UPDATE_WX_FLAGS(code, code_ptr, 1);
 	return code;
 }
 
