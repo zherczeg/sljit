@@ -33,12 +33,23 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#ifdef __NetBSD__
+#if defined(PROT_MPROTECT)
+#define SLJIT_PROT_WX PROT_MPROTECT(PROT_EXEC)
+#else
+#define SLJIT_PROT_WX 0
+#endif /* PROT_MPROTECT */
+#else /* !NetBSD */
+#define SLJIT_PROT_WX 0
+#endif /* NetBSD */
+
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 {
 	sljit_uw* ptr;
 
 	size += sizeof(sljit_uw);
-	ptr = (sljit_uw*)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+	ptr = (sljit_uw*)mmap(NULL, size, PROT_READ | PROT_WRITE | SLJIT_PROT_WX,
+				MAP_PRIVATE | MAP_ANON, -1, 0);
 
 	if (ptr == MAP_FAILED) {
 		return NULL;
@@ -47,6 +58,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 	*ptr = size;
 	return ptr + 1;
 }
+
+#undef SLJIT_PROT_WX
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
 {
