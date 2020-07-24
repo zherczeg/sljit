@@ -41,7 +41,6 @@
 */
 
 #include <sys/mman.h>
-#include <unistd.h>
 
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 {
@@ -69,18 +68,13 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
 
 static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
 {
-	static sljit_uw page_mask = 0;
+	sljit_uw page_mask = (sljit_uw)get_page_alignment();
 
 	sljit_uw start = (sljit_uw)from;
 	sljit_uw end = (sljit_uw)to;
 	int prot = PROT_READ | (enable_exec ? PROT_EXEC : PROT_WRITE);
 
 	SLJIT_ASSERT (start < end);
-
-	if (page_mask == 0) {
-		/* This is thread safe, since the value is constant. */
-		page_mask = (sljit_uw)(sysconf(_SC_PAGESIZE) - 1);
-	}
 
 	start &= ~page_mask;
 	end = (end + page_mask) & ~page_mask;
