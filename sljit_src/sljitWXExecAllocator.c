@@ -45,8 +45,9 @@
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 {
 	sljit_uw* ptr;
+	sljit_uw page_mask = (sljit_uw)get_page_alignment();
 
-	size += sizeof(sljit_uw);
+	size = (size + sizeof(sljit_uw) + page_mask) & ~page_mask;
 	ptr = (sljit_uw*)mmap(NULL, size, PROT_READ | PROT_WRITE | SLJIT_PROT_WX,
 				MAP_PRIVATE | MAP_ANON, -1, 0);
 
