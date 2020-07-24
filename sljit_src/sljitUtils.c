@@ -208,6 +208,39 @@ static SLJIT_INLINE sljit_s32 open_dev_zero(void)
 
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR || SLJIT_UTIL_GLOBAL_LOCK */
 
+#if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) \
+	|| (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
+
+#ifdef _WIN32
+
+SLJIT_INLINE static sljit_sw get_page_alignment(void) {
+	SYSTEM_INFO si;
+	static sljit_sw sljit_page_align;
+	if (!sljit_page_align) {
+		GetSystemInfo(&si);
+		sljit_page_align = si.dwPageSize - 1;
+	}
+	return sljit_page_align;
+}
+
+#else
+
+SLJIT_INLINE static sljit_sw get_page_alignment(void) {
+	static sljit_sw sljit_page_align;
+	if (!sljit_page_align) {
+		sljit_page_align = sysconf(_SC_PAGESIZE);
+		/* Should never happen. */
+		if (sljit_page_align < 0)
+			sljit_page_align = 4096;
+		sljit_page_align--;
+	}
+	return sljit_page_align;
+}
+
+#endif /* _WIN32 */
+
+#endif /* get_page_alignment() */
+
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
 
 #if (defined SLJIT_UTIL_SIMPLE_STACK_ALLOCATION && SLJIT_UTIL_SIMPLE_STACK_ALLOCATION)
@@ -258,16 +291,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_st
 
 #ifdef _WIN32
 
-SLJIT_INLINE static sljit_sw get_page_alignment(void) {
-	SYSTEM_INFO si;
-	static sljit_sw sljit_page_align;
-	if (!sljit_page_align) {
-		GetSystemInfo(&si);
-		sljit_page_align = si.dwPageSize - 1;
-	}
-	return sljit_page_align;
-}
-
 SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_free_stack(struct sljit_stack *stack, void *allocator_data)
 {
 	SLJIT_UNUSED_ARG(allocator_data);
@@ -276,18 +299,6 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_free_stack(struct sljit_stack *st
 }
 
 #else /* ! defined _WIN32 */
-
-SLJIT_INLINE static sljit_sw get_page_alignment(void) {
-	static sljit_sw sljit_page_align;
-	if (!sljit_page_align) {
-		sljit_page_align = sysconf(_SC_PAGESIZE);
-		/* Should never happen. */
-		if (sljit_page_align < 0)
-			sljit_page_align = 4096;
-		sljit_page_align--;
-	}
-	return sljit_page_align;
-}
 
 SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_free_stack(struct sljit_stack *stack, void *allocator_data)
 {
