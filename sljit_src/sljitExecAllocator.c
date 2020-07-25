@@ -192,6 +192,63 @@ static SLJIT_INLINE void free_chunk(void *chunk, sljit_uw size)
 
 #endif
 
+#if defined(__APPLE__) && defined(__arm64__)
+__thread jit_protect_mode arm_current_jit_protect_mode = JPM_ENABLED;
+
+inline void sljit_arm_jit_write_protect_enable()
+{
+	if (__builtin_available(macOS 11, *)) {
+		if (arm_current_jit_protect_mode != JPM_ENABLED) {
+			pthread_jit_write_protect_np(1);
+			arm_current_jit_protect_mode = JPM_ENABLED;
+		}
+	}
+}
+
+inline void sljit_arm_jit_write_protect_disable()
+{
+	if (__builtin_available(macOS 11, *)) {
+		if (arm_current_jit_protect_mode != JPM_DISABLED) {
+			pthread_jit_write_protect_np(0);
+			arm_current_jit_protect_mode = JPM_DISABLED;
+		}
+	}
+}
+
+#define SLJIT_SCOPE_ENABLE_JIT_WRITE() \
+	__attribute__((unused, cleanup(sljit_arm_restore_jit_protect_mode))) \
+	jit_protect_mode scope_restrict_mode = arm_current_jit_protect_mode; \
+		sljit_arm_jit_write_protect_disable();
+
+#define SLJIT_SCOPE_ENABLE_JIT_EXEC() \
+	__attribute__((unused, cleanup(sljit_arm_restore_jit_protect_mode))) \
+	jit_protect_mode scope_restrict_mode = arm_current_jit_protect_mode; \
+		sljit_arm_jit_write_protect_enable();
+
+inline void sljit_arm_restore_jit_protect_mode(jit_protect_mode* previous_jit_protect_mode)
+{
+	if (*previous_jit_protect_mode == arm_current_jit_protect_mode)
+		return;
+
+	switch (*previous_jit_protect_mode)
+	{
+	case JPM_ENABLED:
+		sljit_arm_jit_write_protect_enable();
+		break;
+	case JPM_DISABLED:
+	case JPM_NONE:
+	default:
+		sljit_arm_jit_write_protect_disable();
+	}
+}
+
+#else
+#define SLJIT_SCOPE_ENABLE_JIT_WRITE()
+#define SLJIT_SCOPE_ENABLE_JIT_EXEC()
+#endif /* __APPLE__ && __arm64__ */
+
+
+
 /* --------------------------------------------------------------------- */
 /*  Common functions                                                     */
 /* --------------------------------------------------------------------- */
@@ -254,6 +311,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 	sljit_uw chunk_size;
 
 	allocator_grab_lock();
+	SLJIT_SCOPE_ENABLE_JIT_WRITE();
+
 	if (size < (64 - sizeof(struct block_header)))
 		size = (64 - sizeof(struct block_header));
 	size = ALIGN_SIZE(size);
@@ -323,6 +382,8 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
 	struct free_block* free_block;
 
 	allocator_grab_lock();
+	SLJIT_SCOPE_ENABLE_JIT_WRITE();
+
 	header = AS_BLOCK_HEADER(ptr, -(sljit_sw)sizeof(struct block_header));
 	allocated_size -= header->size;
 

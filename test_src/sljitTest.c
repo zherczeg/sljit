@@ -109,6 +109,8 @@ static void test_exec_allocator(void)
 
 	if (verbose)
 		printf("Run executable allocator test\n");
+    
+	SLJIT_SCOPE_ENABLE_JIT_WRITE();
 
 	MALLOC_EXEC(ptr1, 32);
 	MALLOC_EXEC(ptr2, 512);

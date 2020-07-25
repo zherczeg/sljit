@@ -1534,6 +1534,34 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler,
 	sljit_s32 current_flags);
 
+#if defined(__APPLE__) && defined(__arm64__)
+typedef enum {
+    JPM_NONE,
+    JPM_ENABLED,
+    JPM_DISABLED,
+} jit_protect_mode;
+
+extern __thread jit_protect_mode arm_current_jit_protect_mode;
+
+extern void sljit_arm_jit_write_protect_enable(void);
+extern void sljit_arm_jit_write_protect_disable(void);
+extern void sljit_arm_restore_jit_protect_mode(jit_protect_mode* previous_jit_protect_mode);
+
+#define SLJIT_SCOPE_ENABLE_JIT_WRITE()                    \
+    __attribute__((unused, cleanup(sljit_arm_restore_jit_protect_mode))) \
+    jit_protect_mode scope_restrict_mode = arm_current_jit_protect_mode; \
+        sljit_arm_jit_write_protect_disable();                    \
+
+#define SLJIT_SCOPE_ENABLE_JIT_EXEC()                    \
+    __attribute__((unused, cleanup(sljit_arm_restore_jit_protect_mode))) \
+    jit_protect_mode scope_restrict_mode = arm_current_jit_protect_mode; \
+        sljit_arm_jit_write_protect_enable();
+
+#else
+#define SLJIT_SCOPE_ENABLE_JIT_WRITE()
+#define SLJIT_SCOPE_ENABLE_JIT_EXEC()
+#endif
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
