@@ -1061,7 +1061,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
 {
-	sljit_s32 local_size;
+	sljit_uw local_size;
 	sljit_s32 i, tmp, offs, prev, saved_regs_size;
 
 	CHECK_ERROR();
