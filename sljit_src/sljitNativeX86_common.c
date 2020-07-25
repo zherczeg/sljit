@@ -3117,6 +3117,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label* sljit_emit_put_label(struct slj
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset)
 {
 	SLJIT_UNUSED_ARG(executable_offset);
+
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	sljit_unaligned_store_sw((void*)addr, new_target - (addr + 4) - (sljit_uw)executable_offset);
 #else
@@ -3127,5 +3128,6 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ta
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset)
 {
 	SLJIT_UNUSED_ARG(executable_offset);
+
 	sljit_unaligned_store_sw((void*)addr, new_constant);
 }

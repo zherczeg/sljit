@@ -2034,6 +2034,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label* sljit_emit_put_label(struct slj
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset)
 {
 	sljit_ins* inst = (sljit_ins*)addr;
+
+	SLJIT_UNUSED_ARG(executable_offset);
+
 	modify_imm64_const(inst, new_target);
 	inst = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
 	SLJIT_CACHE_FLUSH(inst, inst + 4);
@@ -2042,6 +2045,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ta
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset)
 {
 	sljit_ins* inst = (sljit_ins*)addr;
+
+	SLJIT_UNUSED_ARG(executable_offset);
+
 	modify_imm64_const(inst, new_constant);
 	inst = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
 	SLJIT_CACHE_FLUSH(inst, inst + 4);
