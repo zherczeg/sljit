@@ -38,7 +38,13 @@
 #else
 #define SLJIT_PROT_WX 0
 #endif /* PROT_MPROTECT */
-#else /* !NetBSD */
+#elif defined(__FreeBSD__)
+#if defined(PROT_MAX)
+#define SLJIT_PROT_WX PROT_MAX(PROT_READ | PROT_WRITE | PROT_EXEC)
+#else
+#define SLJIT_PROT_WX 0
+#endif
+#else /* POSIX */
 #define SLJIT_PROT_WX 0
 #endif /* NetBSD */
 
