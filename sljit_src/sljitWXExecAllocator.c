@@ -27,7 +27,17 @@
 /*
    This file contains a simple W^X executable memory allocator for POSIX systems.
 
-   It allocates a separate block for each code block which may waste a lot of memory.
+   It allocates a separate block for each code block and may waste a lot of memory
+   because it uses multiple (rounded up from the size requested) page (minimun 4KB)
+   sized blocks.
+
+   It changes the page permissions as needed RW <-> RX and therefore if you will be
+   updating the code after it has been generated, need to make sure to block any
+   concurrent execution or could result in a segfault, that could even manifest in
+   a different address than the one that was being modified.
+
+   Only use if you are unable to use the regular allocator because of security
+   restrictions and adding exceptions to your application is not possible.
 */
 
 #include <sys/mman.h>
