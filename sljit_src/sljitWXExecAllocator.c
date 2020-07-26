@@ -60,9 +60,56 @@
 
 #ifdef __NetBSD__
 #if defined(PROT_MPROTECT)
+#define check_se_protected(ptr, size) (0)
 #define SLJIT_PROT_WX PROT_MPROTECT(PROT_EXEC)
+#else /* !PROT_MPROTECT */
+#ifdef _NETBSD_SOURCE
+#include <sys/param.h>
+#else /* !_NETBSD_SOURCE */
+typedef unsigned int	u_int;
+#define devmajor_t sljit_s32
+#endif /* _NETBSD_SOURCE */
+#include <sys/sysctl.h>
+#include <unistd.h>
+
+#define check_se_protected(ptr, size) netbsd_se_protected()
+
+static SLJIT_INLINE int netbsd_se_protected(void)
+{
+	int mib[3];
+	int paxflags;
+	size_t len = sizeof(paxflags);
+
+	mib[0] = CTL_PROC;
+	mib[1] = getpid();
+	mib[2] = PROC_PID_PAXFLAGS;
+
+	if (SLJIT_UNLIKELY(sysctl(mib, 3, &paxflags, &len, NULL, 0) < 0))
+		return -1;
+
+	return (paxflags & CTL_PROC_PAXFLAGS_MPROTECT) ? -1 : 0;
+}
 #endif /* PROT_MPROTECT */
+#else /* POSIX */
+#define check_se_protected(ptr, size) generic_se_protected(ptr, size)
+
+static SLJIT_INLINE int generic_se_protected(void *ptr, sljit_uw size)
+{
+	if (SLJIT_LIKELY(!mprotect(ptr, size, PROT_EXEC)))
+		return mprotect(ptr, size, PROT_READ | PROT_WRITE);
+
+	return -1;
+}
 #endif /* NetBSD */
+
+#if defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED
+#define SLJIT_SE_LOCK()
+#define SLJIT_SE_UNLOCK()
+#else /* !SLJIT_SINGLE_THREADED */
+#include <pthread.h>
+#define SLJIT_SE_LOCK()	pthread_mutex_lock(&se_lock)
+#define SLJIT_SE_UNLOCK()	pthread_mutex_unlock(&se_lock)
+#endif /* SLJIT_SINGLE_THREADED */
 
 #ifndef SLJIT_PROT_WX
 #define SLJIT_PROT_WX 0
@@ -70,14 +117,30 @@
 
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 {
+#if !(defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
+	static pthread_mutex_t se_lock = PTHREAD_MUTEX_INITIALIZER;
+#endif
+	static int se_protected = !SLJIT_PROT_WX;
 	sljit_uw* ptr;
+
+	if (SLJIT_UNLIKELY(se_protected < 0))
+		return NULL;
 
 	size += sizeof(sljit_uw);
 	ptr = (sljit_uw*)mmap(NULL, size, PROT_READ | PROT_WRITE | SLJIT_PROT_WX,
 				MAP_PRIVATE | MAP_ANON, -1, 0);
 
-	if (ptr == MAP_FAILED) {
+	if (ptr == MAP_FAILED)
 		return NULL;
+
+	if (SLJIT_UNLIKELY(se_protected > 0)) {
+		SLJIT_SE_LOCK();
+		se_protected = check_se_protected(ptr, size);
+		SLJIT_SE_UNLOCK();
+		if (SLJIT_UNLIKELY(se_protected < 0)) {
+			munmap((void *)ptr, size);
+			return NULL;
+		}
 	}
 
 	*ptr++ = size;
@@ -85,6 +148,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 }
 
 #undef SLJIT_PROT_WX
+#undef SLJIT_SE_UNLOCK
+#undef SLJIT_SE_LOCK
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
 {
@@ -111,7 +176,6 @@ static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
 
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 {
-	DWORD oldprot;
 	sljit_uw *ptr;
 
 	size += sizeof(sljit_uw);
@@ -120,12 +184,6 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 
 	if (!ptr)
 		return NULL;
-
-	if (!VirtualProtect((void*)ptr, size, PAGE_EXECUTE, &oldprot)) {
-		VirtualFree((void*)ptr, 0, MEM_RELEASE);
-		return NULL;
-	}
-	VirtualProtect((void*)ptr, size, oldprot, &oldprot);
 
 	*ptr++ = size;
 
