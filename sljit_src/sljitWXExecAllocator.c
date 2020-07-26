@@ -59,6 +59,13 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 
 	if (ptr == MAP_FAILED) {
 		return NULL;
+	} else {
+		/* SELinux and others might restrict WX later */
+		if (mprotect(ptr, size, PROT_EXEC) < 0) {
+			munmap(ptr, size);
+			return NULL;
+		}
+		mprotect(ptr, size, PROT_READ | PROT_WRITE);
 	}
 
 	*ptr = size;
