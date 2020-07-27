@@ -83,7 +83,7 @@ struct chunk_header {
        as it only uses local variables
 */
 
-#if !(defined(__NetBSD__) && defined(MAP_REMAPDUP))
+#ifndef __NetBSD__
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -98,19 +98,8 @@ struct chunk_header {
 #define O_TMPFILE 020200000
 #endif
 
-#ifdef __NetBSD__
-/*
- * this is a workaround for NetBSD < 8 that lacks a system provided
- * secure_getenv function.
- * ideally this should never be used, as the standard allocator is
- * a preferred option for those systems and should be used instead.
- */
-#define secure_getenv(name) issetugid() ?  NULL : getenv(name)
-#else
-char *secure_getenv(const char *name);
-#endif
-
 #ifndef _GNU_SOURCE
+char *secure_getenv(const char *name);
 int mkostemp(char *template, int flags);
 #endif
 
@@ -255,7 +244,7 @@ static SLJIT_INLINE struct chunk_header* alloc_chunk(sljit_uw size)
 
 	return retval;
 }
-#endif /* NetBSD >= 8 */
+#endif /* NetBSD */
 
 static SLJIT_INLINE void free_chunk(void *chunk, sljit_uw size)
 {
