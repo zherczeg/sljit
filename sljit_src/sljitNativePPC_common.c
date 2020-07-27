@@ -1580,6 +1580,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
 	void *instruction, sljit_s32 size)
 {
+	SLJIT_UNUSED_ARG(size);
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_custom(compiler, instruction, size));
 
@@ -2001,6 +2002,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 arg_types)
 {
+	SLJIT_UNUSED_ARG(arg_types);
 	CHECK_ERROR_PTR();
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
@@ -2064,6 +2066,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	sljit_s32 arg_types,
 	sljit_s32 src, sljit_sw srcw)
 {
+	SLJIT_UNUSED_ARG(arg_types);
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
 

@@ -648,6 +648,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 {
 	sljit_ins ins;
 
+	SLJIT_UNUSED_ARG(type);
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
 

@@ -800,9 +800,10 @@ static SLJIT_INLINE sljit_s32 adjust_shadow_stack(struct sljit_compiler *compile
 	sljit_s32 src, sljit_sw srcw, sljit_s32 base, sljit_sw disp)
 {
 #if (defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET) && defined (__SHSTK__)
-	sljit_u8 *inst;
+	sljit_u8 *inst, *jz_after_cmp_inst;
+	sljit_uw size_jz_after_cmp_inst;
 
-	sljit_s32 size_before_rdssp_inst = compiler->size;
+	sljit_uw size_before_rdssp_inst = compiler->size;
 
 	/* Generate "RDSSP TMP_REG1". */
 	FAIL_IF(emit_rdssp(compiler, TMP_REG1));
@@ -837,8 +838,8 @@ static SLJIT_INLINE sljit_s32 adjust_shadow_stack(struct sljit_compiler *compile
 	FAIL_IF(!inst);
 	INC_SIZE(2);
 	*inst++ = get_jump_code(SLJIT_EQUAL) - 0x10;
-	sljit_uw size_jz_after_cmp_inst = compiler->size;
-	sljit_u8 *jz_after_cmp_inst = inst;
+	size_jz_after_cmp_inst = compiler->size;
+	jz_after_cmp_inst = inst;
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	/* REX_W is not necessary. */

@@ -290,9 +290,9 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
    Useful for reordering instructions in the delay slot. */
 static sljit_s32 push_inst(struct sljit_compiler *compiler, sljit_ins ins, sljit_s32 delay_slot)
 {
+	sljit_ins *ptr = (sljit_ins*)ensure_buf(compiler, sizeof(sljit_ins));
 	SLJIT_ASSERT(delay_slot == MOVABLE_INS || delay_slot >= UNMOVABLE_INS
 		|| delay_slot == ((ins >> 11) & 0x1f) || delay_slot == ((ins >> 16) & 0x1f));
-	sljit_ins *ptr = (sljit_ins*)ensure_buf(compiler, sizeof(sljit_ins));
 	FAIL_IF(!ptr);
 	*ptr = ins;
 	compiler->size++;
@@ -680,7 +680,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #ifdef SLJIT_IS_FPU_AVAILABLE
 		return SLJIT_IS_FPU_AVAILABLE;
 #elif defined(__GNUC__)
-		asm ("cfc1 %0, $0" : "=r"(fir));
+		__asm__ ("cfc1 %0, $0" : "=r"(fir));
 		return (fir >> 22) & 0x1;
 #else
 #error "FIR check is not implemented for this architecture"
@@ -1510,6 +1510,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
 	void *instruction, sljit_s32 size)
 {
+	SLJIT_UNUSED_ARG(size);
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_custom(compiler, instruction, size));
 
@@ -2136,6 +2137,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	case SLJIT_GREATER_F64:
 	case SLJIT_LESS_EQUAL_F64:
 		type ^= 0x1; /* Flip type bit for the XORI below. */
+		/* FALLTHRU */
 	case SLJIT_EQUAL_F64:
 	case SLJIT_NOT_EQUAL_F64:
 	case SLJIT_LESS_F64:

@@ -1052,7 +1052,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
 {
-	sljit_s32 local_size;
+	sljit_uw local_size;
 	sljit_s32 i, tmp, offs, prev, saved_regs_size;
 
 	CHECK_ERROR();
@@ -1360,6 +1360,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
 	void *instruction, sljit_s32 size)
 {
+	SLJIT_UNUSED_ARG(size);
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_custom(compiler, instruction, size));
 
@@ -1700,6 +1701,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 arg_types)
 {
+	SLJIT_UNUSED_ARG(arg_types);
 	CHECK_ERROR_PTR();
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
@@ -1777,6 +1779,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	sljit_s32 arg_types,
 	sljit_s32 src, sljit_sw srcw)
 {
+	SLJIT_UNUSED_ARG(arg_types);
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
 
@@ -1882,16 +1885,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 		break;
 	case SLJIT_MOV_S8:
 		sign = 1;
+		/* FALLTHRU */
 	case SLJIT_MOV_U8:
 		inst = STURBI | (MEM_SIZE_SHIFT(BYTE_SIZE) << 30) | 0x400;
 		break;
 	case SLJIT_MOV_S16:
 		sign = 1;
+		/* FALLTHRU */
 	case SLJIT_MOV_U16:
 		inst = STURBI | (MEM_SIZE_SHIFT(HALF_SIZE) << 30) | 0x400;
 		break;
 	case SLJIT_MOV_S32:
 		sign = 1;
+		/* FALLTHRU */
 	case SLJIT_MOV_U32:
 		inst = STURBI | (MEM_SIZE_SHIFT(INT_SIZE) << 30) | 0x400;
 		break;
