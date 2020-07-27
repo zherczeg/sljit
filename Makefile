@@ -1,24 +1,5 @@
-ifdef CROSS_COMPILER
-CC = $(CROSS_COMPILER)
-else
-ifndef CC
-# default compiler
-CC = gcc
-endif
-endif
-
-ifndef EXTRA_CPPFLAGS
-EXTRA_CPPFLAGS=
-endif
-
-ifndef EXTRA_LDFLAGS
-EXTRA_LDFLAGS=
-endif
-
-CPPFLAGS = $(EXTRA_CPPFLAGS) -DSLJIT_CONFIG_AUTO=1 -Isljit_src
-CFLAGS += -O2 -Wall
-REGEX_CFLAGS += $(CFLAGS) -fshort-wchar
-LDFLAGS = $(EXTRA_LDFLAGS)
+CPPFLAGS += -DSLJIT_CONFIG_AUTO=1 -Isljit_src
+REGEX_CFLAGS = $(CFLAGS) -fshort-wchar
 
 BINDIR = bin
 SRCDIR = sljit_src
