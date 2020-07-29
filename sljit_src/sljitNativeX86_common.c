@@ -3135,7 +3135,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 {
 	SLJIT_UNUSED_ARG(executable_offset);
 
-	SLJIT_UPDATE_WX_FLAGS((void*)addr, (void*)addr + (sizeof(sljit_sw)), 0);
+	SLJIT_UPDATE_WX_FLAGS((void*)addr, (void*)(addr + sizeof(sljit_sw)), 0);
 	sljit_unaligned_store_sw((void*)addr, new_constant);
-	SLJIT_UPDATE_WX_FLAGS((void*)addr, (void*)addr + (sizeof(sljit_sw)), 1);
+	SLJIT_UPDATE_WX_FLAGS((void*)addr, (void*)(addr + sizeof(sljit_sw)), 1);
 }
