@@ -115,7 +115,18 @@ extern "C" {
 #define SLJIT_PROT_EXECUTABLE_ALLOCATOR 0
 #endif
 
+/* When SLJIT_WX_EXECUTABLE_ALLOCATOR is enabled SLJIT uses an
+   allocator which does not set writable and executable permission
+   flags at the same time.
+   Instead, it creates a new independent map on each invocation and
+   switches permissions at the underlying pages as needed.
+   The trade-off is increased memory use and degraded performance. */
+#ifndef SLJIT_WX_EXECUTABLE_ALLOCATOR
+/* Disabled by default. */
+#define SLJIT_WX_EXECUTABLE_ALLOCATOR 0
 #endif
+
+#endif /* !SLJIT_EXECUTABLE_ALLOCATOR */
 
 /* Force cdecl calling convention even if a better calling
    convention (e.g. fastcall) is supported by the C compiler.
