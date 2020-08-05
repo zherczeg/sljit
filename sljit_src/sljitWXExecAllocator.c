@@ -25,7 +25,8 @@
  */
 
 /*
-   This file contains a simple W^X executable memory allocator for POSIX systems.
+   This file contains a simple W^X executable memory allocator for POSIX
+   like systems and windows
 
    It allocates a separate block for each code block and may waste a lot of memory
    because it uses multiple (rounded up from the size requested) page (minimun 4KB)
@@ -40,6 +41,11 @@
    restrictions and adding exceptions to your application is not possible.
 */
 
+#define SLJIT_UPDATE_WX_FLAGS(from, to, enable_exec) \
+	sljit_update_wx_flags((from), (to), (enable_exec))
+
+#ifndef _WIN32
+
 #include <sys/mman.h>
 
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
@@ -53,8 +59,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 		return NULL;
 	}
 
-	*ptr = size;
-	return ptr + 1;
+	*ptr++ = size;
+	return ptr;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
@@ -63,24 +69,74 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
 	munmap(start_ptr, *start_ptr);
 }
 
-#define SLJIT_UPDATE_WX_FLAGS(from, to, enable_exec) \
-	sljit_update_wx_flags((from), (to), (enable_exec))
-
 static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
 {
 	sljit_uw page_mask = (sljit_uw)get_page_alignment();
-
 	sljit_uw start = (sljit_uw)from;
 	sljit_uw end = (sljit_uw)to;
 	int prot = PROT_READ | (enable_exec ? PROT_EXEC : PROT_WRITE);
 
-	SLJIT_ASSERT (start < end);
+	SLJIT_ASSERT(start < end);
 
 	start &= ~page_mask;
 	end = (end + page_mask) & ~page_mask;
 
 	mprotect((void*)start, end - start, prot);
 }
+
+#else /* windows */
+
+SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
+{
+	DWORD oldprot;
+	sljit_uw *ptr;
+
+	size += sizeof(sljit_uw);
+	ptr = (sljit_uw*)VirtualAlloc(NULL, size,
+				MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+	if (!ptr)
+		return NULL;
+
+	if (!VirtualProtect((void*)ptr, size, PAGE_EXECUTE, &oldprot)) {
+		VirtualFree((void*)ptr, 0, MEM_RELEASE);
+		return NULL;
+	}
+	VirtualProtect((void*)ptr, size, oldprot, &oldprot);
+
+	*ptr++ = size;
+
+	return ptr;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
+{
+	sljit_uw start = (sljit_uw)ptr - sizeof(sljit_uw);
+#if defined(SLJIT_DEBUG) && SLJIT_DEBUG
+	sljit_uw page_mask = (sljit_uw)get_page_alignment();
+
+	SLJIT_ASSERT(!(start & page_mask));
+#endif
+	VirtualFree((void*)start, 0, MEM_RELEASE);
+}
+
+static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
+{
+	DWORD oldprot;
+	sljit_uw page_mask = (sljit_uw)get_page_alignment();
+	sljit_uw start = (sljit_uw)from;
+	sljit_uw end = (sljit_uw)to;
+	DWORD prot = enable_exec ? PAGE_EXECUTE : PAGE_READWRITE;
+
+	SLJIT_ASSERT(start < end);
+
+	start &= ~page_mask;
+	end = (end + page_mask) & ~page_mask;
+
+	VirtualProtect((void*)start, end - start, prot, &oldprot);
+}
+
+#endif /* !windows */
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void)
 {
