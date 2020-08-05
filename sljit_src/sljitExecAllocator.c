@@ -104,17 +104,23 @@ static SLJIT_INLINE void free_chunk(void *chunk, sljit_uw size)
 
 #ifdef MAP_JIT
 
+/*
+   On macOS systems, returns MAP_JIT if it is defined _and_ we're running on a
+   version where it's OK to have more than one JIT block.
+   On non-macOS systems, returns MAP_JIT if it is defined.
+*/
 static SLJIT_INLINE int get_map_jit_flag()
 {
-/* On macOS systems, returns MAP_JIT if it is defined _and_ we're running on a version
-   of macOS where it's OK to have more than one JIT block.
-   On non-macOS systems, returns MAP_JIT if it is defined. */
 #if TARGET_OS_OSX
+	sljit_sw page_size = get_page_alignment() + 1;
+	void *ptr;
 	static int map_jit_flag = -1;
 
-	/* The following code is thread safe because multiple initialization
-	   sets map_jit_flag to the same value and the code has no side-effects.
-	   Changing the kernel version witout system restart is (very) unlikely. */
+	/*
+	  The following code is thread safe because multiple initialization
+	  sets map_jit_flag to the same value and the code has no side-effects.
+	  Changing the kernel version witout system restart is (very) unlikely.
+	*/
 	if (map_jit_flag == -1) {
 		struct utsname name;
 
@@ -123,15 +129,9 @@ static SLJIT_INLINE int get_map_jit_flag()
 
 		/* Kernel version for 10.14.0 (Mojave) */
 		if (atoi(name.release) >= 18) {
-			/* Only use MAP_JIT if a hardened runtime is used, because MAP_JIT is incompatible with fork(). */
+			/* Only use MAP_JIT if a hardened runtime is used */
 
-			/* mirroring page size detection from sljit_allocate_stack */
-			long page_size = sysconf(_SC_PAGESIZE);
-			/* Should never happen */
-			if (page_size < 0)
-				page_size = 4096;
-
-			void *ptr = mmap(NULL, page_size, PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+			ptr = mmap(NULL, page_size, PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
 
 			if (ptr == MAP_FAILED) {
 				map_jit_flag = MAP_JIT;
