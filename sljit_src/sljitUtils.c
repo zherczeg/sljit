@@ -28,11 +28,10 @@
 /*  Locks                                                                   */
 /* ------------------------------------------------------------------------ */
 
-#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR) || (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
+#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR) \
+	&& !(defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
 
 #if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
-
-#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 
 static SLJIT_INLINE void allocator_grab_lock(void)
 {
@@ -44,27 +43,9 @@ static SLJIT_INLINE void allocator_release_lock(void)
 	/* Always successful. */
 }
 
-#endif /* SLJIT_EXECUTABLE_ALLOCATOR */
+#else /* SLJIT_EXECUTABLE_ALLOCATOR && !SLJIT_WX_EXECUTABLE_ALLOCATOR */
 
-#if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
-
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_grab_lock(void)
-{
-	/* Always successful. */
-}
-
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
-{
-	/* Always successful. */
-}
-
-#endif /* SLJIT_UTIL_GLOBAL_LOCK */
-
-#elif defined(_WIN32) /* SLJIT_SINGLE_THREADED */
-
-#include "windows.h"
-
-#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
+#ifdef _WIN32
 
 static HANDLE allocator_mutex = 0;
 
@@ -82,9 +63,45 @@ static SLJIT_INLINE void allocator_release_lock(void)
 	ReleaseMutex(allocator_mutex);
 }
 
-#endif /* SLJIT_EXECUTABLE_ALLOCATOR */
+#else /* !_WIN32 */
+
+#include <pthread.h>
+
+static pthread_mutex_t allocator_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static SLJIT_INLINE void allocator_grab_lock(void)
+{
+	pthread_mutex_lock(&allocator_mutex);
+}
+
+static SLJIT_INLINE void allocator_release_lock(void)
+{
+	pthread_mutex_unlock(&allocator_mutex);
+}
+
+#endif /* _WIN32 */
+
+#endif /* SLJIT_SINGLE_THREADED */
+
+#endif /* SLJIT_EXECUTABLE_ALLOCATOR && !SLJIT_WX_EXECUTABLE_ALLOCATOR */
 
 #if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
+
+#if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
+
+SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_grab_lock(void)
+{
+	/* Always successful. */
+}
+
+SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
+{
+	/* Always successful. */
+}
+
+#else /* SLJIT_SINGLE_THREADED */
+
+#ifdef _WIN32
 
 static HANDLE global_mutex = 0;
 
@@ -102,29 +119,7 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
 	ReleaseMutex(global_mutex);
 }
 
-#endif /* SLJIT_UTIL_GLOBAL_LOCK */
-
-#else /* _WIN32 */
-
-#if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
-
-#include <pthread.h>
-
-static pthread_mutex_t allocator_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-static SLJIT_INLINE void allocator_grab_lock(void)
-{
-	pthread_mutex_lock(&allocator_mutex);
-}
-
-static SLJIT_INLINE void allocator_release_lock(void)
-{
-	pthread_mutex_unlock(&allocator_mutex);
-}
-
-#endif /* SLJIT_EXECUTABLE_ALLOCATOR */
-
-#if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
+#else /* !_WIN32 */
 
 #include <pthread.h>
 
@@ -140,9 +135,11 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
 	pthread_mutex_unlock(&global_mutex);
 }
 
-#endif /* SLJIT_UTIL_GLOBAL_LOCK */
-
 #endif /* _WIN32 */
+
+#endif /* SLJIT_SINGLE_THREADED */
+
+#endif /* SLJIT_UTIL_GLOBAL_LOCK */
 
 /* ------------------------------------------------------------------------ */
 /*  Stack                                                                   */
@@ -150,9 +147,7 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
 
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) || (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 
-#ifdef _WIN32
-#include "windows.h"
-#else /* !_WIN32 */
+#ifndef _WIN32
 /* Provides mmap function. */
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -167,7 +162,7 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
 
 #include <fcntl.h>
 
-/* Some old systems does not have MAP_ANON. */
+/* Some old systems do not have MAP_ANON. */
 static sljit_s32 dev_zero = -1;
 
 #if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
@@ -178,7 +173,7 @@ static SLJIT_INLINE sljit_s32 open_dev_zero(void)
 	return dev_zero < 0;
 }
 
-#else /* SLJIT_SINGLE_THREADED */
+#else /* !SLJIT_SINGLE_THREADED */
 
 #include <pthread.h>
 
@@ -188,9 +183,9 @@ static SLJIT_INLINE sljit_s32 open_dev_zero(void)
 {
 	pthread_mutex_lock(&dev_zero_mutex);
 	/* The dev_zero might be initialized by another thread during the waiting. */
-	if (dev_zero < 0) {
+	if (dev_zero < 0)
 		dev_zero = open("/dev/zero", O_RDWR);
-	}
+
 	pthread_mutex_unlock(&dev_zero_mutex);
 	return dev_zero < 0;
 }
@@ -199,11 +194,9 @@ static SLJIT_INLINE sljit_s32 open_dev_zero(void)
 
 #endif /* !MAP_ANON */
 
-#endif /* _WIN32 */
+#endif /* !_WIN32 */
 
 #endif /* SLJIT_UTIL_STACK || SLJIT_EXECUTABLE_ALLOCATOR */
-
-#endif /* SLJIT_EXECUTABLE_ALLOCATOR || SLJIT_UTIL_GLOBAL_LOCK */
 
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) \
 	|| (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
@@ -297,7 +290,7 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_free_stack(struct sljit_stack *st
 	SLJIT_FREE(stack, allocator_data);
 }
 
-#else /* ! defined _WIN32 */
+#else /* !_WIN32 */
 
 SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_free_stack(struct sljit_stack *stack, void *allocator_data)
 {
@@ -306,7 +299,7 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_free_stack(struct sljit_stack *st
 	SLJIT_FREE(stack, allocator_data);
 }
 
-#endif /* defined _WIN32 */
+#endif /* _WIN32 */
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(sljit_uw start_size, sljit_uw max_size, void *allocator_data)
 {
