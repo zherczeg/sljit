@@ -76,9 +76,8 @@ struct chunk_header {
    alloc_chunk / free_chunk :
      * allocate executable system memory chunks
      * the size is always divisible by CHUNK_SIZE
-   allocator_grab_lock / allocator_release_lock :
-     * make the allocator thread safe
-     * can be empty if the OS (or the application) does not support threading
+   SLJIT_ALLOCATOR_LOCK / SLJIT_ALLOCATOR_UNLOCK :
+     * provided as part of sljitUtils
      * only the allocator requires this lock, sljit is fully thread safe
        as it only uses local variables
 */
@@ -322,7 +321,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 	sljit_uw chunk_size;
 	sljit_sw executable_offset;
 
-	allocator_grab_lock();
+	SLJIT_ALLOCATOR_LOCK();
 	if (size < (64 - sizeof(struct block_header)))
 		size = (64 - sizeof(struct block_header));
 	size = ALIGN_SIZE(size);
@@ -347,7 +346,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 			}
 			allocated_size += size;
 			header->size = size;
-			allocator_release_lock();
+			SLJIT_ALLOCATOR_UNLOCK();
 			return MEM_START(header);
 		}
 		free_block = free_block->next;
@@ -358,7 +357,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 
 	chunk_header = alloc_chunk(chunk_size);
 	if (!chunk_header) {
-		allocator_release_lock();
+		SLJIT_ALLOCATOR_UNLOCK();
 		return NULL;
 	}
 
@@ -392,7 +391,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 	next_header->size = 1;
 	next_header->prev_size = chunk_size;
 	next_header->executable_offset = executable_offset;
-	allocator_release_lock();
+	SLJIT_ALLOCATOR_UNLOCK();
 	return MEM_START(header);
 }
 
@@ -401,7 +400,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
 	struct block_header *header;
 	struct free_block* free_block;
 
-	allocator_grab_lock();
+	SLJIT_ALLOCATOR_LOCK();
 	header = AS_BLOCK_HEADER(ptr, -(sljit_sw)sizeof(struct block_header));
 	header = AS_BLOCK_HEADER(header, -header->executable_offset);
 	allocated_size -= header->size;
@@ -441,7 +440,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
 		}
 	}
 
-	allocator_release_lock();
+	SLJIT_ALLOCATOR_UNLOCK();
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void)
@@ -449,7 +448,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void)
 	struct free_block* free_block;
 	struct free_block* next_free_block;
 
-	allocator_grab_lock();
+	SLJIT_ALLOCATOR_LOCK();
 
 	free_block = free_blocks;
 	while (free_block) {
@@ -466,7 +465,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void)
 	}
 
 	SLJIT_ASSERT((total_size && free_blocks) || (!total_size && !free_blocks));
-	allocator_release_lock();
+	SLJIT_ALLOCATOR_UNLOCK();
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr)
