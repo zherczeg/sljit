@@ -81,7 +81,7 @@ extern "C" {
 
    Other macros:
      SLJIT_FUNC : calling convention attribute for both calling JIT from C and C calling back from JIT
-     SLJIT_W(number) : defining 64 bit constants on 64 bit architectures (compiler independent helper)
+     SLJIT_W(number) : defining 64 bit constants on 64 bit architectures (platform independent helper)
 */
 
 /*****************/
@@ -451,10 +451,14 @@ typedef double sljit_f64;
 #if (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 #define SLJIT_W(w)	(w##l)
 #elif (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#ifdef _WIN64
 #define SLJIT_W(w)	(w##ll)
-#else
+#else /* !windows */
+#define SLJIT_W(w)	(w##l)
+#endif /* windows */
+#else /* 32 bit */
 #define SLJIT_W(w)	(w)
-#endif
+#endif /* unknown */
 
 #endif /* !SLJIT_W */
 
