@@ -33,15 +33,8 @@
 
 #if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
 
-static SLJIT_INLINE void allocator_grab_lock(void)
-{
-	/* Always successful. */
-}
-
-static SLJIT_INLINE void allocator_release_lock(void)
-{
-	/* Always successful. */
-}
+#define SLJIT_ALLOCATOR_LOCK()
+#define SLJIT_ALLOCATOR_UNLOCK()
 
 #else /* SLJIT_EXECUTABLE_ALLOCATOR && !SLJIT_WX_EXECUTABLE_ALLOCATOR */
 
@@ -51,17 +44,15 @@ static HANDLE allocator_mutex = 0;
 
 static SLJIT_INLINE void allocator_grab_lock(void)
 {
-	/* No idea what to do if an error occures. Static mutexes should never fail... */
+	/* Static mutexes should never fail... */
 	if (!allocator_mutex)
 		allocator_mutex = CreateMutex(NULL, TRUE, NULL);
 	else
 		WaitForSingleObject(allocator_mutex, INFINITE);
 }
 
-static SLJIT_INLINE void allocator_release_lock(void)
-{
-	ReleaseMutex(allocator_mutex);
-}
+#define SLJIT_ALLOCATOR_LOCK() allocator_grab_lock()
+#define SLJIT_ALLOCATOR_UNLOCK() ReleaseMutex(allocator_mutex)
 
 #else /* !_WIN32 */
 
@@ -69,15 +60,8 @@ static SLJIT_INLINE void allocator_release_lock(void)
 
 static pthread_mutex_t allocator_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static SLJIT_INLINE void allocator_grab_lock(void)
-{
-	pthread_mutex_lock(&allocator_mutex);
-}
-
-static SLJIT_INLINE void allocator_release_lock(void)
-{
-	pthread_mutex_unlock(&allocator_mutex);
-}
+#define SLJIT_ALLOCATOR_LOCK() pthread_mutex_lock(&allocator_mutex)
+#define SLJIT_ALLOCATOR_UNLOCK() pthread_mutex_unlock(&allocator_mutex)
 
 #endif /* _WIN32 */
 
@@ -87,19 +71,7 @@ static SLJIT_INLINE void allocator_release_lock(void)
 
 #if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
 
-#if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
-
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_grab_lock(void)
-{
-	/* Always successful. */
-}
-
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
-{
-	/* Always successful. */
-}
-
-#else /* SLJIT_SINGLE_THREADED */
+#if !(defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
 
 #ifdef _WIN32
 
