@@ -71,7 +71,19 @@ static pthread_mutex_t allocator_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
 
-#if !(defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
+#if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
+
+SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_grab_lock(void)
+{
+       /* Always successful. */
+}
+
+SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
+{
+       /* Always successful. */
+}
+
+#else
 
 #ifdef _WIN32
 
