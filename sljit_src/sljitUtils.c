@@ -28,46 +28,40 @@
 /*  Locks                                                                   */
 /* ------------------------------------------------------------------------ */
 
+/* Executable Allocator */
+
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR) \
 	&& !(defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
-
 #if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
-
 #define SLJIT_ALLOCATOR_LOCK()
 #define SLJIT_ALLOCATOR_UNLOCK()
+#elif !(defined _WIN32)
+#include <pthread.h>
 
-#else /* SLJIT_EXECUTABLE_ALLOCATOR && !SLJIT_WX_EXECUTABLE_ALLOCATOR */
+static pthread_mutex_t allocator_lock = PTHREAD_MUTEX_INITIALIZER;
 
-#ifdef _WIN32
-
-static HANDLE allocator_mutex = 0;
+#define SLJIT_ALLOCATOR_LOCK() pthread_mutex_lock(&allocator_lock)
+#define SLJIT_ALLOCATOR_UNLOCK() pthread_mutex_unlock(&allocator_lock)
+#else /* windows */
+static HANDLE allocator_lock;
 
 static SLJIT_INLINE void allocator_grab_lock(void)
 {
-	/* Static mutexes should never fail... */
-	if (!allocator_mutex)
-		allocator_mutex = CreateMutex(NULL, TRUE, NULL);
-	else
-		WaitForSingleObject(allocator_mutex, INFINITE);
+	HANDLE lock;
+	if (SLJIT_UNLIKELY(!allocator_lock)) {
+		lock = CreateMutex(NULL, FALSE, NULL);
+		if (InterlockedCompareExchangePointer(&allocator_lock, lock, NULL))
+			CloseHandle(lock);
+	}
+	WaitForSingleObject(allocator_lock, INFINITE);
 }
 
 #define SLJIT_ALLOCATOR_LOCK() allocator_grab_lock()
-#define SLJIT_ALLOCATOR_UNLOCK() ReleaseMutex(allocator_mutex)
-
-#else /* !_WIN32 */
-
-#include <pthread.h>
-
-static pthread_mutex_t allocator_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-#define SLJIT_ALLOCATOR_LOCK() pthread_mutex_lock(&allocator_mutex)
-#define SLJIT_ALLOCATOR_UNLOCK() pthread_mutex_unlock(&allocator_mutex)
-
-#endif /* _WIN32 */
-
-#endif /* SLJIT_SINGLE_THREADED */
-
+#define SLJIT_ALLOCATOR_UNLOCK() ReleaseMutex(allocator_lock)
+#endif /* thread implementation */
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR && !SLJIT_WX_EXECUTABLE_ALLOCATOR */
+
+/* Global */
 
 #if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
 
