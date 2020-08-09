@@ -57,7 +57,7 @@ union executable_code {
 };
 typedef union executable_code executable_code;
 
-static sljit_s32 successful_tests = 0;
+static sljit_u32 successful_tests = 0;
 static sljit_s32 verbose = 0;
 static sljit_s32 silent = 0;
 
@@ -6675,13 +6675,14 @@ int sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 68
+#	define TEST_COUNT 68u
+#endif
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
-		printf("all tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT " ");
+		printf("all %u tests " COLOR_GREEN "PASSED" COLOR_DEFAULT " ", TEST_COUNT);
 	else
-		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests are " COLOR_RED "FAILED" COLOR_DEFAULT " ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / TEST_COUNT);
+		printf(COLOR_RED "%u" COLOR_DEFAULT " (" COLOR_RED "%u%%" COLOR_DEFAULT ") tests " COLOR_RED "FAILED" COLOR_DEFAULT " ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / TEST_COUNT);
 	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), sljit_has_cpu_feature(SLJIT_HAS_FPU) ? " (with fpu)" : " (without fpu)");
 
 	return TEST_COUNT - successful_tests;
