@@ -26,32 +26,73 @@
 
 /* Must be the first one. Must not depend on any other include. */
 #include "sljitLir.h"
+#include <ctype.h>
 
 #ifndef _WIN32
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #define SLJIT_TEST_FUNC void *
 #define SLJIT_TEST_RETURN(r) return (void *)r
+#define SLJIT_TEST(t, q) \
+	if (!threads && !q) \
+		successful_tests += (sljit_u32)t(NULL); \
+\
+	for (i = 1; i <= threads; i++) \
+		pthread_create(&thread[i - 1], NULL, t, (void *)i); \
+\
+	for (i = 1; i <= threads; i++) { \
+		if (!pthread_join(thread[i - 1], (void *)&c) && c == 1) { \
+			if (!q) \
+				successful_tests++; \
+		} \
+	}
 
 #define COLOR_RED "\33[31m"
 #define COLOR_GREEN "\33[32m"
 #define COLOR_ARCH "\33[33m"
 #define COLOR_DEFAULT "\33[0m"
-#else
+
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#define SLJIT_PRINT_D	"l"
+#endif
+#else /* windows */
 #include <windows.h>
 
 #define SLJIT_TEST_FUNC DWORD WINAPI
 #define SLJIT_TEST_RETURN(r) return r
+#define SLJIT_TEST(t, q) \
+	if (!threads && !q) \
+		successful_tests += (sljit_u32)t(NULL); \
+\
+	for (i = 1; i <= threads; i++) \
+		thread[i - 1] = CreateThread(NULL, 0, t, (void *)i, 0, NULL); \
+\
+	WaitForMultipleObjects(threads, thread, TRUE, INFINITE); \
+\
+	for (i = 1; i <= threads; i++) { \
+		if (GetExitCodeThread(thread[i - 1], &c) && c == 1) \
+			if (!q) \
+				successful_tests++; \
+		CloseHandle(thread[i - 1]); \
+	}
 
 #define COLOR_RED
 #define COLOR_GREEN
 #define COLOR_ARCH
 #define COLOR_DEFAULT
+
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#define SLJIT_PRINT_D	"I64"
+#endif
 #endif /* !windows */
-#define SLJIT_TEST(f) successful_tests += (sljit_u32)f
+
 #define SLJIT_TEST_SUCCEEDED() SLJIT_TEST_RETURN(1)
+#ifndef SLJIT_PRINT_D
+#define SLJIT_PRINT_D	""
+#endif
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -121,8 +162,20 @@ static SLJIT_TEST_FUNC test_exec_allocator(void *p)
 	void *ptr2;
 	void *ptr3;
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run executable allocator test\n");
+		printf("Run executable allocator test%s\n", tail);
 
 	MALLOC_EXEC(ptr1, 32);
 	MALLOC_EXEC(ptr2, 512);
@@ -167,11 +220,24 @@ static SLJIT_TEST_FUNC test1(void *p)
 {
 	/* Enter and return from an sljit function. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
+
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
 
 	if (verbose)
-		printf("Run test1\n");
+		printf("Run test1%s\n", tail);
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	/* 3 arguments passed, 3 arguments used. */
@@ -196,13 +262,26 @@ static SLJIT_TEST_FUNC test2(void *p)
 {
 	/* Test mov. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[8];
 	static sljit_sw data[2] = { 0, -9876 };
 
-	if (verbose)
-		printf("Run test2\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test2%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 5678;
@@ -257,12 +336,25 @@ static SLJIT_TEST_FUNC test3(void *p)
 {
 	/* Test not. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[5];
 
-	if (verbose)
-		printf("Run test3\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test3%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 1234;
 	buf[1] = 0;
@@ -297,12 +389,25 @@ static SLJIT_TEST_FUNC test4(void *p)
 {
 	/* Test neg. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[4];
 
-	if (verbose)
-		printf("Run test4\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test4%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 1234;
@@ -334,12 +439,25 @@ static SLJIT_TEST_FUNC test5(void *p)
 {
 	/* Test add. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[9];
 
-	if (verbose)
-		printf("Run test5\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test5%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 100;
 	buf[1] = 200;
@@ -398,12 +516,25 @@ static SLJIT_TEST_FUNC test6(void *p)
 {
 	/* Test addc, sub, subc. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[11];
 
-	if (verbose)
-		printf("Run test6\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test6%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -479,12 +610,25 @@ static SLJIT_TEST_FUNC test7(void *p)
 {
 	/* Test logical operators. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[8];
 
-	if (verbose)
-		printf("Run test7\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test7%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0xff80;
 	buf[1] = 0x0f808080;
@@ -538,12 +682,24 @@ static SLJIT_TEST_FUNC test8(void *p)
 {
 	/* Test flags (neg, cmp, test). */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[13];
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
 
 	if (verbose)
-		printf("Run test8\n");
+		printf("Run test8%s\n", tail);
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 100;
 	buf[1] = 3;
@@ -628,19 +784,31 @@ static SLJIT_TEST_FUNC test9(void *p)
 {
 	/* Test shift. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[13];
 #ifdef SLJIT_PREF_SHIFT_REG
 	sljit_s32 shift_reg = SLJIT_PREF_SHIFT_REG;
 #else
 	sljit_s32 shift_reg = SLJIT_R2;
 #endif
+	size_t tail_size;
+	char tail[16];
 
 	SLJIT_ASSERT(shift_reg >= SLJIT_R2 && shift_reg <= SLJIT_R3);
 
-	if (verbose)
-		printf("Run test9\n");
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
 
+	if (verbose)
+		printf("Run test9%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -760,12 +928,25 @@ static SLJIT_TEST_FUNC test10(void *p)
 {
 	/* Test multiplications. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[7];
 
-	if (verbose)
-		printf("Run test10\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test10%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 3;
 	buf[1] = 0;
@@ -823,7 +1004,7 @@ static SLJIT_TEST_FUNC test11(void *p)
 {
 	/* Test rewritable constants. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_const* const1;
 	struct sljit_const* const2;
 	struct sljit_const* const3;
@@ -843,9 +1024,22 @@ static SLJIT_TEST_FUNC test11(void *p)
 #endif
 	sljit_sw buf[3];
 
-	if (verbose)
-		printf("Run test11\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test11%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -913,7 +1107,7 @@ static SLJIT_TEST_FUNC test12(void *p)
 {
 	/* Test rewriteable jumps. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_label *label1;
 	struct sljit_label *label2;
 	struct sljit_label *label3;
@@ -927,9 +1121,22 @@ static SLJIT_TEST_FUNC test12(void *p)
 	sljit_uw label2_addr;
 	sljit_sw buf[1];
 
-	if (verbose)
-		printf("Run test12\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test12%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 
@@ -1002,21 +1209,32 @@ static SLJIT_TEST_FUNC test13(void *p)
 {
 	/* Test fpu monadic functions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_f64 buf[7];
 	sljit_sw buf2[6];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test13\n");
+		printf("Run test13%s\n", tail);
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test13 skipped\n");
-		if (compiler)
-			sljit_free_compiler(compiler);
 		SLJIT_TEST_SUCCEEDED();
 	}
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 7.75;
 	buf[1] = -4.5;
@@ -1089,19 +1307,33 @@ static SLJIT_TEST_FUNC test14(void *p)
 {
 	/* Test fpu diadic functions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_f64 buf[15];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test14\n");
+		printf("Run test14%s\n", tail);
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test14 skipped\n");
-		if (compiler)
-			sljit_free_compiler(compiler);
 		SLJIT_TEST_SUCCEEDED();
 	}
+
+	compiler = sljit_create_compiler(NULL);
+	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
+
 	buf[0] = 7.25;
 	buf[1] = 3.5;
 	buf[2] = 1.75;
@@ -1118,7 +1350,6 @@ static SLJIT_TEST_FUNC test14(void *p)
 	buf[13] = 4.0;
 	buf[14] = 0.0;
 
-	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 3, 1, 6, 0, 0);
 
 	/* ADD */
@@ -1192,13 +1423,26 @@ static SLJIT_TEST_FUNC test15(void *p)
 {
 	/* Test function call. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump = NULL;
 	sljit_sw buf[7];
 
-	if (verbose)
-		printf("Run test15\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test15%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -1278,16 +1522,29 @@ static SLJIT_TEST_FUNC test16(void *p)
 {
 	/* Ackermann benchmark. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_label *entry;
 	struct sljit_label *label;
 	struct sljit_jump *jump;
 	struct sljit_jump *jump1;
 	struct sljit_jump *jump2;
 
-	if (verbose)
-		printf("Run test16\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test16%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	entry = sljit_emit_label(compiler);
@@ -1347,9 +1604,22 @@ static SLJIT_TEST_FUNC test17(void *p)
 	sljit_s32 i;
 	sljit_sw buf[5];
 
-	if (verbose)
-		printf("Run test17\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test17%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -1386,12 +1656,25 @@ static SLJIT_TEST_FUNC test18(void *p)
 {
 	/* Test 64 bit. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[11];
 
-	if (verbose)
-		printf("Run test18\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test18%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -1494,12 +1777,25 @@ static SLJIT_TEST_FUNC test19(void *p)
 {
 	/* Test arm partial instruction caching. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[10];
 
-	if (verbose)
-		printf("Run test19\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test19%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 6;
 	buf[1] = 4;
@@ -1546,7 +1842,7 @@ static SLJIT_TEST_FUNC test20(void *p)
 {
 	/* Test stack. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump;
 	struct sljit_label* label;
 	sljit_sw buf[6];
@@ -1556,9 +1852,22 @@ static SLJIT_TEST_FUNC test20(void *p)
 	sljit_sw offset_value = SLJIT_W(0x12345678);
 #endif
 
-	if (verbose)
-		printf("Run test20\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test20%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 5;
 	buf[1] = 12;
@@ -1654,15 +1963,28 @@ static SLJIT_TEST_FUNC test21(void *p)
 	/* Test set context. The parts of the jit code can be separated in the memory. */
 	executable_code code1;
 	executable_code code2;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump = NULL;
 	sljit_uw addr;
 	sljit_sw executable_offset;
 	sljit_sw buf[4];
 
-	if (verbose)
-		printf("Run test21\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test21%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 9;
 	buf[1] = -6;
@@ -1717,14 +2039,27 @@ static SLJIT_TEST_FUNC test22(void *p)
 {
 	/* Test simple byte and half-int data transfers. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[2];
 	sljit_s16 sbuf[9];
 	sljit_s8 bbuf[5];
 
-	if (verbose)
-		printf("Run test22\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test22%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -1807,7 +2142,7 @@ static SLJIT_TEST_FUNC test23(void *p)
 	/* Test 32 bit / 64 bit signed / unsigned int transfer and conversion.
 	   This test has do real things on 64 bit systems, but works on 32 bit systems as well. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[9];
 	sljit_s32 ibuf[5];
 	union {
@@ -1820,9 +2155,22 @@ static SLJIT_TEST_FUNC test23(void *p)
 	sljit_sw garbage = 0x12345678;
 #endif
 
-	if (verbose)
-		printf("Run test23\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test23%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -1916,14 +2264,27 @@ static SLJIT_TEST_FUNC test24(void *p)
 {
 	/* Some complicated addressing modes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[9];
 	sljit_s16 sbuf[5];
 	sljit_s8 bbuf[7];
 
-	if (verbose)
-		printf("Run test24\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test24%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 100567;
@@ -2031,12 +2392,25 @@ static SLJIT_TEST_FUNC test25(void *p)
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	/* 64 bit loads. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[14];
 
-	if (verbose)
-		printf("Run test25\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test25%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 7;
 	buf[1] = 0;
@@ -2101,14 +2475,27 @@ static SLJIT_TEST_FUNC test26(void *p)
 {
 	/* Aligned access without aligned offsets. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[4];
 	sljit_s32 ibuf[4];
 	sljit_f64 dbuf[4];
 
-	if (verbose)
-		printf("Run test26\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test26%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = -2789;
@@ -2187,7 +2574,7 @@ static SLJIT_TEST_FUNC test27(void *p)
 
 	/* Playing with conditional flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_u8 buf[37];
 	sljit_s32 i;
 #ifdef SLJIT_PREF_SHIFT_REG
@@ -2196,15 +2583,29 @@ static SLJIT_TEST_FUNC test27(void *p)
 	sljit_s32 shift_reg = SLJIT_R2;
 #endif
 
+	size_t tail_size;
+	char tail[16];
+
+
 	SLJIT_ASSERT(shift_reg >= SLJIT_R2 && shift_reg <= SLJIT_R3);
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test27\n");
+		printf("Run test27%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
+	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 37; ++i)
 		buf[i] = 10;
-
-	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	/* 3 arguments passed, 3 arguments used. */
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 4, 3, 0, 0, 0);
@@ -2409,15 +2810,28 @@ static SLJIT_TEST_FUNC test28(void *p)
 {
 	/* Test mov. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_const* const1 = NULL;
 	struct sljit_label* label = NULL;
 	sljit_uw label_addr = 0;
 	sljit_sw buf[5];
 
-	if (verbose)
-		printf("Run test28\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test28%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = -36;
@@ -2470,17 +2884,31 @@ static SLJIT_TEST_FUNC test29(void *p)
 {
 	/* Test signed/unsigned bytes and halfs. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[25];
 	sljit_s32 i;
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test29\n");
+		printf("Run test29%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
+	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 25; i++)
 		buf[i] = 0;
 
-	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 5, 5, 0, 0, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV_S8, SLJIT_R0, 0, SLJIT_IMM, -187);
@@ -2606,12 +3034,25 @@ static SLJIT_TEST_FUNC test30(void *p)
 {
 	/* Test unused results. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[1];
 
-	if (verbose)
-		printf("Run test30\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test30%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 5, 5, 0, 0, 0);
@@ -2669,7 +3110,7 @@ static SLJIT_TEST_FUNC test31(void *p)
 {
 	/* Integer mul and set flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[12];
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	sljit_sw big_word = SLJIT_W(0x7fffffff00000000);
@@ -2679,8 +3120,23 @@ static SLJIT_TEST_FUNC test31(void *p)
 	sljit_sw big_word2 = 0x00000012;
 #endif
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test31\n");
+		printf("Run test31%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
+	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 3;
 	buf[1] = 3;
@@ -2694,8 +3150,6 @@ static SLJIT_TEST_FUNC test31(void *p)
 	buf[9] = 3;
 	buf[10] = 3;
 	buf[11] = 3;
-
-	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 3, 5, 0, 0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 0);
@@ -2764,7 +3218,7 @@ static SLJIT_TEST_FUNC test32(void *p)
 {
 	/* Floating point set flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 
 	sljit_sw buf[16];
 	union {
@@ -2775,8 +3229,29 @@ static SLJIT_TEST_FUNC test32(void *p)
 		} u;
 	} dbuf[4];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test32\n");
+		printf("Run test32%s\n", tail);
+
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+		if (verbose)
+			printf("no fpu available, test32 skipped\n");
+		SLJIT_TEST_SUCCEEDED();
+	}
+
+	compiler = sljit_create_compiler(NULL);
+	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 5;
 	buf[1] = 5;
@@ -2803,15 +3278,6 @@ static SLJIT_TEST_FUNC test32(void *p)
 	dbuf[2].value = -13.0;
 	dbuf[3].value = 27.0;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
-		if (verbose)
-			printf("no fpu available, test32 skipped\n");
-		if (compiler)
-			sljit_free_compiler(compiler);
-		SLJIT_TEST_SUCCEEDED();
-	}
-
-	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	SLJIT_ASSERT(sizeof(sljit_f64) == 8 && sizeof(sljit_s32) == 4 && sizeof(dbuf[0]) == 8);
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW), 1, 2, 4, 0, 0);
@@ -2885,12 +3351,28 @@ static SLJIT_TEST_FUNC test33(void *p)
 {
 	/* Test setting multiple flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump;
 	sljit_sw buf[10];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test33\n");
+		printf("Run test33%s\n", tail);
+
+
+	compiler = sljit_create_compiler(NULL);
+	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 3;
 	buf[1] = 3;
@@ -2902,8 +3384,6 @@ static SLJIT_TEST_FUNC test33(void *p)
 	buf[7] = 3;
 	buf[8] = 3;
 	buf[9] = 3;
-
-	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 3, 3, 0, 0, 0);
 
@@ -2997,8 +3477,20 @@ static SLJIT_TEST_FUNC test34(void *p)
 	sljit_uw addr;
 	sljit_p buf[2];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test34\n");
+		printf("Run test34%s\n", tail);
 
 	buf[0] = 0;
 	buf[1] = 0;
@@ -3120,8 +3612,20 @@ static SLJIT_TEST_FUNC test35(void *p)
 	sljit_uw jump_addr = 0;
 	sljit_p buf[1];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test35\n");
+		printf("Run test35%s\n", tail);
 
 	buf[0] = 0;
 
@@ -3205,7 +3709,7 @@ static SLJIT_TEST_FUNC test36(void *p)
 {
 	/* Compare instruction. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 
 	sljit_s8 buf[TEST_CASES];
 	sljit_s8 compare_buf[TEST_CASES] = {
@@ -3218,9 +3722,22 @@ static SLJIT_TEST_FUNC test36(void *p)
 	sljit_sw data[4];
 	sljit_s32 i;
 
-	if (verbose)
-		printf("Run test36\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test36%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	for (i = 0; i < TEST_CASES; ++i)
 		buf[i] = 100;
@@ -3334,14 +3851,27 @@ static SLJIT_TEST_FUNC test37(void *p)
 {
 	/* Test count leading zeroes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[9];
 	sljit_s32 ibuf[2];
 	sljit_s32 i;
 
-	if (verbose)
-		printf("Run test37\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test37%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 9; i++)
@@ -3424,7 +3954,7 @@ static SLJIT_TEST_FUNC test38(void *p)
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
 	/* Test stack utility. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* alloc1_fail;
 	struct sljit_jump* alloc2_fail;
 	struct sljit_jump* alloc3_fail;
@@ -3435,9 +3965,22 @@ static SLJIT_TEST_FUNC test38(void *p)
 	struct sljit_jump* jump;
 	struct sljit_label* label;
 
-	if (verbose)
-		printf("Run test38\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test38%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, 0, 3, 1, 0, 0, 0);
@@ -3526,12 +4069,25 @@ static SLJIT_TEST_FUNC test39(void *p)
 {
 	/* Test error handling. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump;
 
-	if (verbose)
-		printf("Run test39\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test39%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	/* Such assignment should never happen in a regular program. */
@@ -3584,12 +4140,25 @@ static SLJIT_TEST_FUNC test40(void *p)
 {
 	/* Test emit_op_flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[10];
 
-	if (verbose)
-		printf("Run test40\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test40%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = -100;
 	buf[1] = -100;
@@ -3680,7 +4249,7 @@ static SLJIT_TEST_FUNC test41(void *p)
 {
 	/* Test inline assembly. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_s32 i;
 	sljit_f64 buf[3];
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
@@ -3692,8 +4261,20 @@ static SLJIT_TEST_FUNC test41(void *p)
 	sljit_u32 inst;
 #endif
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test41\n");
+		printf("Run test41%s\n", tail);
 
 #if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	SLJIT_ASSERT(sljit_has_cpu_feature(SLJIT_HAS_VIRTUAL_REGISTERS) == 0);
@@ -3709,6 +4290,7 @@ static SLJIT_TEST_FUNC test41(void *p)
 		SLJIT_ASSERT(sljit_get_register_index(SLJIT_R(i)) >= 0 && sljit_get_register_index(SLJIT_R(i)) < 64);
 	}
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW), 3, 3, 0, 0, 0);
 
@@ -3892,13 +4474,26 @@ static SLJIT_TEST_FUNC test42(void *p)
 {
 	/* Test long multiply and division. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_s32 i;
 	sljit_sw buf[7 + 4 + 8 + 8];
 
-	if (verbose)
-		printf("Run test42\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test42%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	for (i = 0; i < 7 + 4 + 8 + 8; i++)
 		buf[i] = -1;
@@ -4122,7 +4717,7 @@ static SLJIT_TEST_FUNC test43(void *p)
 {
 	/* Test floating point compare. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump;
 
 	union {
@@ -4133,17 +4728,28 @@ static SLJIT_TEST_FUNC test43(void *p)
 		} u;
 	} dbuf[4];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test43\n");
+		printf("Run test43%s\n", tail);
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test43 skipped\n");
-		if (compiler)
-			sljit_free_compiler(compiler);
 		SLJIT_TEST_SUCCEEDED();
 	}
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	dbuf[0].value = 12.125;
@@ -4196,12 +4802,25 @@ static SLJIT_TEST_FUNC test44(void *p)
 {
 	/* Test mov. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	void *buf[5];
 
-	if (verbose)
-		printf("Run test44\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test44%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = buf + 2;
@@ -4245,22 +4864,33 @@ static SLJIT_TEST_FUNC test45(void *p)
 	/* Test single precision floating point. */
 
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_f32 buf[12];
 	sljit_sw buf2[6];
 	struct sljit_jump* jump;
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test45\n");
+		printf("Run test45%s\n", tail);
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test45 skipped\n");
-		if (compiler)
-			sljit_free_compiler(compiler);
 		SLJIT_TEST_SUCCEEDED();
 	}
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 5.5;
@@ -4358,13 +4988,28 @@ static SLJIT_TEST_FUNC test46(void *p)
 	/* Test sljit_emit_op_flags with 32 bit operations. */
 
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_s32 buf[24];
 	sljit_sw buf2[6];
 	sljit_s32 i;
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test46\n");
+		printf("Run test46%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
+	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 24; ++i)
 		buf[i] = -17;
@@ -4467,12 +5112,25 @@ static SLJIT_TEST_FUNC test47(void *p)
 {
 	/* Test jump optimizations. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[3];
 
-	if (verbose)
-		printf("Run test47\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test47%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -4512,24 +5170,35 @@ static SLJIT_TEST_FUNC test48(void *p)
 {
 	/* Test floating point conversions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	int i;
 	sljit_f64 dbuf[10];
 	sljit_f32 sbuf[10];
 	sljit_sw wbuf[10];
 	sljit_s32 ibuf[10];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test48\n");
+		printf("Run test48%s\n", tail);
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test48 skipped\n");
-		if (compiler)
-			sljit_free_compiler(compiler);
 		SLJIT_TEST_SUCCEEDED();
 	}
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	for (i = 0; i < 10; i++) {
 		dbuf[i] = 0.0;
@@ -4664,7 +5333,7 @@ static SLJIT_TEST_FUNC test49(void *p)
 {
 	/* Test floating point conversions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	int i;
 	sljit_f64 dbuf[10];
 	sljit_f32 sbuf[9];
@@ -4673,17 +5342,28 @@ static SLJIT_TEST_FUNC test49(void *p)
 	sljit_s32* dbuf_ptr = (sljit_s32*)dbuf;
 	sljit_s32* sbuf_ptr = (sljit_s32*)sbuf;
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test49\n");
+		printf("Run test49%s\n", tail);
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test49 skipped\n");
-		if (compiler)
-			sljit_free_compiler(compiler);
 		SLJIT_TEST_SUCCEEDED();
 	}
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 9; i++) {
@@ -4801,24 +5481,35 @@ static SLJIT_TEST_FUNC test50(void *p)
 {
 	/* Test stack and floating point operations. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	sljit_uw size1, size2, size3;
 	int result;
 #endif
 	sljit_f32 sbuf[7];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test50\n");
+		printf("Run test50%s\n", tail);
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test50 skipped\n");
-		if (compiler)
-			sljit_free_compiler(compiler);
 		SLJIT_TEST_SUCCEEDED();
 	}
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sbuf[0] = 245.5;
@@ -4881,14 +5572,27 @@ static SLJIT_TEST_FUNC test51(void *p)
 {
 	/* Test all registers provided by the CPU. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump;
 	sljit_sw buf[2];
 	sljit_s32 i;
 
-	if (verbose)
-		printf("Run test51\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test51%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 39;
@@ -5018,8 +5722,20 @@ static SLJIT_TEST_FUNC test52(void *p)
 	sljit_f64 buf[3];
 	sljit_s32 i;
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test52\n");
+		printf("Run test52%s\n", tail);
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
@@ -5105,12 +5821,25 @@ static SLJIT_TEST_FUNC test53(void *p)
 {
 	/* Check SLJIT_DOUBLE_ALIGNMENT. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[1];
 
-	if (verbose)
-		printf("Run test53\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test53%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = -1;
 
@@ -5176,15 +5905,27 @@ static SLJIT_TEST_FUNC test54(void *p)
 		sljit_s32 s32_value;
 	} sbuf[3];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test54%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
+	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
+
 	sbuf[0].s32_value = 0x7fffffff;
 	sbuf[1].value = 7.5;
 	sbuf[2].value = -14.75;
-
-	if (verbose)
-		printf("Run test54\n");
-
-	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
-
 	for (i = 0; i < 19; i++)
 		buf[i] = 0;
 	for (i = 0; i < 4; i++)
@@ -5345,13 +6086,26 @@ static SLJIT_TEST_FUNC test55(void *p)
 {
 	/* Check value preservation. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[2];
 	sljit_s32 i;
 
-	if (verbose)
-		printf("Run test55\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test55%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -5407,17 +6161,30 @@ static SLJIT_TEST_FUNC test56(void *p)
 {
 	/* Check integer substraction with negative immediate. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_sw buf[13];
 	sljit_s32 i;
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test56\n");
+		printf("Run test56%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
+	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 13; i++)
 		buf[i] = 77;
-
-	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 3, 1, 0, 0, 0);
 
@@ -5483,14 +6250,27 @@ static SLJIT_TEST_FUNC test57(void *p)
 {
 	/* Check prefetch instructions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_label* labels[5];
 	sljit_p addr[5];
 	int i;
 
-	if (verbose)
-		printf("Run test57\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test57%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, 0, 3, 1, 0, 0, 0);
@@ -5574,22 +6354,35 @@ static SLJIT_TEST_FUNC test58(void *p)
 {
 	/* Check function calls with floating point arguments. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump = NULL;
 	sljit_f64 dbuf[7];
 	sljit_f32 sbuf[7];
 	sljit_sw wbuf[2];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test58\n");
+		printf("Run test58%s\n", tail);
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test58 skipped\n");
-		if (compiler)
-			sljit_free_compiler(compiler);
 		SLJIT_TEST_SUCCEEDED();
 	}
+
+	compiler = sljit_create_compiler(NULL);
+	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	dbuf[0] = 5.25;
 	dbuf[1] = 0.0;
@@ -5607,8 +6400,6 @@ static SLJIT_TEST_FUNC test58(void *p)
 
 	wbuf[0] = 0;
 	wbuf[1] = 0;
-
-	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW) | SLJIT_ARG3(SW), 3, 3, 4, 0, sizeof(sljit_sw));
 
@@ -5723,14 +6514,26 @@ static SLJIT_TEST_FUNC test59(void *p)
 {
 	/* Check function calls with four arguments. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump = NULL;
 	sljit_sw wbuf[6];
 	sljit_f64 dbuf[3];
 	sljit_f32 sbuf[4];
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test59\n");
+		printf("Run test59%s\n", tail);
 
 	wbuf[0] = 0;
 	wbuf[1] = 0;
@@ -5750,6 +6553,7 @@ static SLJIT_TEST_FUNC test59(void *p)
 		sbuf[3] = 0.0;
 	}
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW) | SLJIT_ARG3(SW), 4, 3, 4, 0, sizeof(sljit_sw));
@@ -5842,7 +6646,7 @@ static SLJIT_TEST_FUNC test60(void *p)
 {
 	/* Test memory accesses with pre/post updates. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_s32 i;
 	sljit_s32 supported[10];
 	sljit_sw wbuf[18];
@@ -5861,8 +6665,20 @@ static SLJIT_TEST_FUNC test60(void *p)
 	static sljit_u8 expected[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 #endif
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test60\n");
+		printf("Run test60%s\n", tail);
 
 	for (i = 0; i < 18; i++)
 		wbuf[i] = 0;
@@ -5876,6 +6692,7 @@ static SLJIT_TEST_FUNC test60(void *p)
 	ibuf[1] = 0;
 	ibuf[2] = 0;
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW) | SLJIT_ARG3(SW), 4, 3, 4, 0, sizeof(sljit_sw));
@@ -6026,7 +6843,7 @@ static SLJIT_TEST_FUNC test61(void *p)
 {
 	/* Test float memory accesses with pre/post updates. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_s32 i;
 	sljit_s32 supported[6];
 	sljit_sw wbuf[6];
@@ -6040,16 +6857,26 @@ static SLJIT_TEST_FUNC test61(void *p)
 	static sljit_u8 expected[6] = { 0, 0, 0, 0, 0, 0 };
 #endif
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test61 skipped\n");
-		if (compiler)
-			sljit_free_compiler(compiler);
 		SLJIT_TEST_SUCCEEDED();
 	}
 
 	if (verbose)
-		printf("Run test61\n");
+		printf("Run test61%s\n", tail);
 
 	for (i = 0; i < 6; i++)
 		wbuf[i] = 0;
@@ -6064,6 +6891,7 @@ static SLJIT_TEST_FUNC test61(void *p)
 	sbuf[2] = 0.0;
 	sbuf[3] = 0.0;
 
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW) | SLJIT_ARG3(SW), 4, 3, 4, 0, sizeof(sljit_sw));
@@ -6175,8 +7003,20 @@ static SLJIT_TEST_FUNC test62(void *p)
 	executable_code code2;
 	struct sljit_compiler* compiler;
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test62\n");
+		printf("Run test62%s\n", tail);
 
 	/* A */
 	compiler = sljit_create_compiler(NULL);
@@ -6223,7 +7063,7 @@ static SLJIT_TEST_FUNC test63(void *p)
 	executable_code code;
 	struct sljit_label *label[2];
 	struct sljit_put_label *put_label[5];
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_uw addr[2];
 	sljit_uw buf[4];
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
@@ -6232,9 +7072,22 @@ static SLJIT_TEST_FUNC test63(void *p)
 	sljit_sw offs = 0x12345678;
 #endif
 
-	if (verbose)
-		printf("Run test63\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test63%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
@@ -6303,8 +7156,20 @@ static SLJIT_TEST_FUNC test64(void *p)
 	sljit_sw offs2 = 0x12345678;
 #endif
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test64\n");
+		printf("Run test64%s\n", tail);
 
 	malloc_addr = (sljit_sw)SLJIT_MALLOC_EXEC(1024);
 
@@ -6330,8 +7195,8 @@ static SLJIT_TEST_FUNC test64(void *p)
 	label[3].size = (sljit_uw)(offs2 - malloc_addr);
 
 	compiler = sljit_create_compiler(NULL);
-
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
+
 	buf[0] = 0;
 	buf[1] = 0;
 	buf[2] = 0;
@@ -6373,7 +7238,7 @@ static SLJIT_TEST_FUNC test64(void *p)
 #if !(defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
 	/* WX allocator may not reuse the address. */
 	if ((sljit_sw)code.code < malloc_addr || (sljit_sw)code.code >= malloc_addr + 1024) {
-		printf("test64 executable alloc estimation failed\n");
+		printf("test64%s executable alloc estimation failed\n", tail);
 		SLJIT_TEST_RETURN(0);
 	}
 #endif
@@ -6393,16 +7258,29 @@ static SLJIT_TEST_FUNC test65(void *p)
 {
 	/* Test jump tables. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_s32 i;
 	/* Normally this table is allocated on the heap. */
 	sljit_uw addr[64];
 	struct sljit_label *labels[64];
 	struct sljit_jump *jump;
 
-	if (verbose)
-		printf("Run test65\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test65%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW), 1, 2, 0, 0, 0);
@@ -6444,14 +7322,27 @@ static SLJIT_TEST_FUNC test66(void *p)
 {
 	/* Test direct jumps (computed goto). */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_s32 i;
 	sljit_uw addr[64];
 	struct sljit_label *labels[64];
 
-	if (verbose)
-		printf("Run test66\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test66%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW), 1, 2, 0, 0, 0);
@@ -6485,13 +7376,26 @@ static SLJIT_TEST_FUNC test67(void *p)
 {
 	/* Test skipping returns from fast calls (return type is fast). */
 	executable_code code;
-	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler *compiler;
 	struct sljit_jump *call, *jump;
 	struct sljit_label *label;
 
-	if (verbose)
-		printf("Run test67\n");
+	size_t tail_size;
+	char tail[16];
 
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
+	if (verbose)
+		printf("Run test67%s\n", tail);
+
+	compiler = sljit_create_compiler(NULL);
 	SLJIT_TEST_FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, 0, 3, 1, 0, 0, 0);
@@ -6549,8 +7453,20 @@ static SLJIT_TEST_FUNC test68(void *p)
 	struct sljit_label *label;
 	int i;
 
+	size_t tail_size;
+	char tail[16];
+
+	SLJIT_UNUSED_ARG(tail_size);
+	if (p && verbose) {
+		tail_size = snprintf(tail, sizeof(tail),
+			" (thread %" SLJIT_PRINT_D "d)", (sljit_uw)p);
+		SLJIT_ASSERT(tail_size < sizeof(tail));
+	}
+	else
+		tail[0] = 0;
+
 	if (verbose)
-		printf("Run test68\n");
+		printf("Run test68%s\n", tail);
 
 	for (i = 0; i < 6 * 2; i++) {
 		compiler = sljit_create_compiler(NULL);
@@ -6596,102 +7512,124 @@ static SLJIT_TEST_FUNC test68(void *p)
 
 int sljit_test(int argc, char* argv[])
 {
+#ifdef _WIN32
+	DWORD c;
+	HANDLE thread[9];
+#else
+	sljit_uw c;
+	pthread_t thread[9];
+#endif
+	char buf[5]; /* TODO: using " x \d" but needs fixing when threads > 9 */
+	size_t i;
+
+	sljit_u32 test_count;
+	sljit_uw threads;
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
 	verbose = has_arg && argv[1][1] == 'v';
 	silent = has_arg && argv[1][1] == 's';
+	threads = (has_arg && isdigit(argv[1][1])) ? argv[1][1] - '0' : 1;
 
 	if (!verbose && !silent)
-		printf("Pass -v to enable verbose, -s to disable this hint.\n\n");
+		printf("Pass -v for verbose, -[0-9] for number of threads.\n\n");
 
 #if !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
-	test_exec_allocator(NULL);
+	SLJIT_TEST(test_exec_allocator, 1);
 #endif
-	SLJIT_TEST(test1(NULL));
-	SLJIT_TEST(test2(NULL));
-	SLJIT_TEST(test3(NULL));
-	SLJIT_TEST(test4(NULL));
-	SLJIT_TEST(test5(NULL));
-	SLJIT_TEST(test6(NULL));
-	SLJIT_TEST(test7(NULL));
-	SLJIT_TEST(test8(NULL));
-	SLJIT_TEST(test9(NULL));
-	SLJIT_TEST(test10(NULL));
-	SLJIT_TEST(test11(NULL));
-	SLJIT_TEST(test12(NULL));
-	SLJIT_TEST(test13(NULL));
-	SLJIT_TEST(test14(NULL));
-	SLJIT_TEST(test15(NULL));
-	SLJIT_TEST(test16(NULL));
-	SLJIT_TEST(test17(NULL));
-	SLJIT_TEST(test18(NULL));
-	SLJIT_TEST(test19(NULL));
-	SLJIT_TEST(test20(NULL));
-	SLJIT_TEST(test21(NULL));
-	SLJIT_TEST(test22(NULL));
-	SLJIT_TEST(test23(NULL));
-	SLJIT_TEST(test24(NULL));
-	SLJIT_TEST(test25(NULL));
-	SLJIT_TEST(test26(NULL));
-	SLJIT_TEST(test27(NULL));
-	SLJIT_TEST(test28(NULL));
-	SLJIT_TEST(test29(NULL));
-	SLJIT_TEST(test30(NULL));
-	SLJIT_TEST(test31(NULL));
-	SLJIT_TEST(test32(NULL));
-	SLJIT_TEST(test33(NULL));
-	SLJIT_TEST(test34(NULL));
-	SLJIT_TEST(test35(NULL));
-	SLJIT_TEST(test36(NULL));
-	SLJIT_TEST(test37(NULL));
-	SLJIT_TEST(test38(NULL));
-	SLJIT_TEST(test39(NULL));
-	SLJIT_TEST(test40(NULL));
-	SLJIT_TEST(test41(NULL));
-	SLJIT_TEST(test42(NULL));
-	SLJIT_TEST(test43(NULL));
-	SLJIT_TEST(test44(NULL));
-	SLJIT_TEST(test45(NULL));
-	SLJIT_TEST(test46(NULL));
-	SLJIT_TEST(test47(NULL));
-	SLJIT_TEST(test48(NULL));
-	SLJIT_TEST(test49(NULL));
-	SLJIT_TEST(test50(NULL));
-	SLJIT_TEST(test51(NULL));
-	SLJIT_TEST(test52(NULL));
-	SLJIT_TEST(test53(NULL));
-	SLJIT_TEST(test54(NULL));
-	SLJIT_TEST(test55(NULL));
-	SLJIT_TEST(test56(NULL));
-	SLJIT_TEST(test57(NULL));
-	SLJIT_TEST(test58(NULL));
-	SLJIT_TEST(test59(NULL));
-	SLJIT_TEST(test60(NULL));
-	SLJIT_TEST(test61(NULL));
-	SLJIT_TEST(test62(NULL));
-	SLJIT_TEST(test63(NULL));
-	SLJIT_TEST(test64(NULL));
-	SLJIT_TEST(test65(NULL));
-	SLJIT_TEST(test66(NULL));
-	SLJIT_TEST(test67(NULL));
-	SLJIT_TEST(test68(NULL));
+	SLJIT_TEST(test1, 0);
+	SLJIT_TEST(test2, 0);
+	SLJIT_TEST(test3, 0);
+	SLJIT_TEST(test4, 0);
+	SLJIT_TEST(test5, 0);
+	SLJIT_TEST(test6, 0);
+	SLJIT_TEST(test7, 0);
+	SLJIT_TEST(test8, 0);
+	SLJIT_TEST(test9, 0);
+	SLJIT_TEST(test10, 0);
+	SLJIT_TEST(test11, 0);
+	SLJIT_TEST(test12, 0);
+	SLJIT_TEST(test13, 0);
+	SLJIT_TEST(test14, 0);
+	SLJIT_TEST(test15, 0);
+	SLJIT_TEST(test16, 0);
+	SLJIT_TEST(test17, 0);
+	SLJIT_TEST(test18, 0);
+	SLJIT_TEST(test19, 0);
+	SLJIT_TEST(test20, 0);
+	SLJIT_TEST(test21, 0);
+	SLJIT_TEST(test22, 0);
+	SLJIT_TEST(test23, 0);
+	SLJIT_TEST(test24, 0);
+	SLJIT_TEST(test25, 0);
+	SLJIT_TEST(test26, 0);
+	SLJIT_TEST(test27, 0);
+	SLJIT_TEST(test28, 0);
+	SLJIT_TEST(test29, 0);
+	SLJIT_TEST(test30, 0);
+	SLJIT_TEST(test31, 0);
+	SLJIT_TEST(test32, 0);
+	SLJIT_TEST(test33, 0);
+	SLJIT_TEST(test34, 0);
+	SLJIT_TEST(test35, 0);
+	SLJIT_TEST(test36, 0);
+	SLJIT_TEST(test37, 0);
+	SLJIT_TEST(test38, 0);
+	SLJIT_TEST(test39, 0);
+	SLJIT_TEST(test40, 0);
+	SLJIT_TEST(test41, 0);
+	SLJIT_TEST(test42, 0);
+	SLJIT_TEST(test43, 0);
+	SLJIT_TEST(test44, 0);
+	SLJIT_TEST(test45, 0);
+	SLJIT_TEST(test46, 0);
+	SLJIT_TEST(test47, 0);
+	SLJIT_TEST(test48, 0);
+	SLJIT_TEST(test49, 0);
+	SLJIT_TEST(test50, 0);
+	SLJIT_TEST(test51, 0);
+	SLJIT_TEST(test52, 0);
+	SLJIT_TEST(test53, 0);
+	SLJIT_TEST(test54, 0);
+	SLJIT_TEST(test55, 0);
+	SLJIT_TEST(test56, 0);
+	SLJIT_TEST(test57, 0);
+	SLJIT_TEST(test58, 0);
+	SLJIT_TEST(test59, 0);
+	SLJIT_TEST(test60, 0);
+	SLJIT_TEST(test61, 0);
+	SLJIT_TEST(test62, 0);
+	SLJIT_TEST(test63, 0);
+	SLJIT_TEST(test64, 0);
+	SLJIT_TEST(test65, 0);
+	SLJIT_TEST(test66, 0);
+	SLJIT_TEST(test67, 0);
+	SLJIT_TEST(test68, 0);
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 68u
-#endif
+	#define TEST_COUNT	68u
+	if (threads) {
+		test_count = TEST_COUNT * threads;
+		/* TODO: fix for threads > 9 */
+		SLJIT_ASSERT(threads < 10);
+		sprintf(buf, " x %" SLJIT_PRINT_D "u", threads);
+	}
+	else {
+		test_count = TEST_COUNT;
+		buf[0] = 0;
+	}
 
+	SLJIT_ASSERT(successful_tests <= test_count);
 	printf("SLJIT tests: ");
-	if (successful_tests == TEST_COUNT)
-		printf("all %u tests " COLOR_GREEN "PASSED" COLOR_DEFAULT " ", TEST_COUNT);
+	if (successful_tests == test_count)
+		printf("all %u%s tests " COLOR_GREEN "PASSED" COLOR_DEFAULT " ", TEST_COUNT, buf);
 	else
-		printf(COLOR_RED "%u" COLOR_DEFAULT " (" COLOR_RED "%u%%" COLOR_DEFAULT ") tests " COLOR_RED "FAILED" COLOR_DEFAULT " ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / TEST_COUNT);
+		printf(COLOR_RED "%u" COLOR_DEFAULT " (" COLOR_RED "%u%%" COLOR_DEFAULT ") tests " COLOR_RED "FAILED" COLOR_DEFAULT " ", test_count - successful_tests, (test_count - successful_tests) * 100 / test_count);
 	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), sljit_has_cpu_feature(SLJIT_HAS_FPU) ? " (with fpu)" : " (without fpu)");
 
-	return TEST_COUNT - successful_tests;
-
-#	undef TEST_COUNT
+	return test_count - successful_tests;
+	#undef TEST_COUNT
 }
 
 #ifdef _MSC_VER
