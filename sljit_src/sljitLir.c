@@ -28,7 +28,6 @@
 
 #ifdef _WIN32
 
-/* For SLJIT_CACHE_FLUSH, which can expand to FlushInstructionCache. */
 #include <windows.h>
 
 #endif /* _WIN32 */
