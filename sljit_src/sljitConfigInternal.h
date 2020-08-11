@@ -551,17 +551,19 @@ typedef double sljit_f64;
 
 #ifndef SLJIT_FUNC
 
-#if (defined SLJIT_USE_CDECL_CALLING_CONVENTION && SLJIT_USE_CDECL_CALLING_CONVENTION)
+#if (defined SLJIT_USE_CDECL_CALLING_CONVENTION && SLJIT_USE_CDECL_CALLING_CONVENTION) \
+	|| !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 
-/* Force cdecl. */
 #define SLJIT_FUNC
 
-#elif (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+#elif defined(__GNUC__) && !defined(__APPLE__)
 
-#if defined(__GNUC__) && !defined(__APPLE__)
-
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
 #define SLJIT_FUNC __attribute__ ((fastcall))
 #define SLJIT_X86_32_FASTCALL 1
+#else
+#define SLJIT_FUNC
+#endif /* gcc >= 3.4 */
 
 #elif defined(_MSC_VER)
 
@@ -575,16 +577,10 @@ typedef double sljit_f64;
 
 #else /* Unknown compiler. */
 
-/* The cdecl attribute is the default. */
+/* The cdecl calling convention is usually the x86 default. */
 #define SLJIT_FUNC
 
-#endif
-
-#else /* Non x86-32 architectures. */
-
-#define SLJIT_FUNC
-
-#endif /* SLJIT_CONFIG_X86_32 */
+#endif /* SLJIT_USE_CDECL_CALLING_CONVENTION */
 
 #endif /* !SLJIT_FUNC */
 
