@@ -487,25 +487,6 @@ typedef double sljit_f64;
 #define SLJIT_BIG_ENDIAN 1
 #endif
 
-#ifndef SLJIT_MIPS_REV
-
-/* Auto detecting mips revision. */
-#if (defined __mips_isa_rev) && (__mips_isa_rev >= 6)
-#define SLJIT_MIPS_REV 6
-#elif (defined __mips_isa_rev && __mips_isa_rev >= 1) \
-	|| (defined __clang__ && defined _MIPS_ARCH_OCTEON) \
-	|| (defined __clang__ && defined _MIPS_ARCH_P5600)
-/* clang either forgets to define (clang-7) __mips_isa_rev at all
- * or sets it to zero (clang-8,-9) for -march=octeon (MIPS64 R2+)
- * and -march=p5600 (MIPS32 R5).
- * It also sets the __mips macro to 64 or 32 for -mipsN when N <= 5
- * (should be set to N exactly) so we cannot rely on this too.
- */
-#define SLJIT_MIPS_REV 1
-#endif
-
-#endif /* !SLJIT_MIPS_REV */
-
 #elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 
 #define SLJIT_BIG_ENDIAN 1
