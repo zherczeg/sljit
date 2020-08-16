@@ -61,8 +61,6 @@ static sljit_s32 successful_tests = 0;
 static sljit_s32 verbose = 0;
 static sljit_s32 silent = 0;
 
-static void *test64_ptr_hack;
-
 #define FAILED(cond, text) \
 	if (SLJIT_UNLIKELY(cond)) { \
 		printf(text); \
@@ -76,17 +74,19 @@ static void *test64_ptr_hack;
 		return; \
 	}
 
-/* only relevant for test64
-   requires an sljitLir built with the right -DSLJIT_MALLOC_EXEC flag */
-SLJIT_API_FUNC_ATTRIBUTE void *sljit_test_malloc_exec(sljit_uw size)
+/* For interface testing and for test64. */
+void *sljit_test_malloc_exec(sljit_uw size, void *exec_allocator_data)
 {
-	if (SLJIT_LIKELY(!test64_ptr_hack))
-		return sljit_malloc_exec(size);
+	if (exec_allocator_data)
+		return exec_allocator_data;
 
-	if ((sljit_uw)test64_ptr_hack == 64)
-		test64_ptr_hack = sljit_malloc_exec(size);
+	return SLJIT_BUILTIN_MALLOC_EXEC(size, exec_allocator_data);
+}
 
-	return test64_ptr_hack;
+/* For interface testing. */
+void sljit_test_free_code(void* code, void *exec_allocator_data)
+{
+	SLJIT_BUILTIN_FREE_EXEC(code, exec_allocator_data);
 }
 
 static void cond_set(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_s32 type)
@@ -105,7 +105,7 @@ static void cond_set(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw ds
 #if !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 
 #define MALLOC_EXEC(result, size) \
-	result = SLJIT_MALLOC_EXEC(size); \
+	result = SLJIT_MALLOC_EXEC(size, NULL); \
 	if (!result) { \
 		printf("Cannot allocate executable memory\n"); \
 		return; \
@@ -113,7 +113,7 @@ static void cond_set(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw ds
 	memset(result, 255, size);
 
 #define FREE_EXEC(ptr) \
-	SLJIT_FREE_EXEC(((sljit_u8*)(ptr)) + SLJIT_EXEC_OFFSET(ptr));
+	SLJIT_FREE_EXEC(((sljit_u8*)(ptr)) + SLJIT_EXEC_OFFSET(ptr), NULL);
 
 static void test_exec_allocator(void)
 {
@@ -167,7 +167,7 @@ static void test1(void)
 {
 	/* Enter and return from an sljit function. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 
 	if (verbose)
 		printf("Run test1\n");
@@ -188,7 +188,7 @@ static void test1(void)
 	FAILED(code.func3(3, -21, 86) != -21, "test1 case 1 failed\n");
 	FAILED(code.func3(4789, 47890, 997) != 47890, "test1 case 2 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -196,7 +196,7 @@ static void test2(void)
 {
 	/* Test mov. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[8];
 	static sljit_sw data[2] = { 0, -9876 };
 
@@ -249,7 +249,7 @@ static void test2(void)
 	FAILED(buf[6] != 3456, "test2 case 6 failed\n");
 	FAILED(buf[7] != 3456, "test2 case 6 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -257,7 +257,7 @@ static void test3(void)
 {
 	/* Test not. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[5];
 
 	if (verbose)
@@ -289,7 +289,7 @@ static void test3(void)
 	FAILED(buf[3] != ~9876, "test3 case 3 failed\n");
 	FAILED(buf[4] != ~0x12345678, "test3 case 4 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -297,7 +297,7 @@ static void test4(void)
 {
 	/* Test neg. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[4];
 
 	if (verbose)
@@ -326,7 +326,7 @@ static void test4(void)
 	FAILED(buf[2] != -4567, "test4 case 3 failed\n");
 	FAILED(buf[3] != -299, "test4 case 4 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -334,7 +334,7 @@ static void test5(void)
 {
 	/* Test add. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[9];
 
 	if (verbose)
@@ -390,7 +390,7 @@ static void test5(void)
 	FAILED(buf[7] != 0x5bf01e44, "test5 case 8 failed\n");
 	FAILED(buf[8] != 270, "test5 case 9 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -398,7 +398,7 @@ static void test6(void)
 {
 	/* Test addc, sub, subc. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[11];
 
 	if (verbose)
@@ -471,7 +471,7 @@ static void test6(void)
 	FAILED(buf[9] != 0x152aa42e, "test6 case 11 failed\n");
 	FAILED(buf[10] != -2000, "test6 case 12 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -479,7 +479,7 @@ static void test7(void)
 {
 	/* Test logical operators. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[8];
 
 	if (verbose)
@@ -530,7 +530,7 @@ static void test7(void)
 	FAILED(buf[6] != 0xa56c82c0, "test7 case 8 failed\n");
 	FAILED(buf[7] != 0x3b3a8095, "test7 case 9 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -538,7 +538,7 @@ static void test8(void)
 {
 	/* Test flags (neg, cmp, test). */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[13];
 
 	if (verbose)
@@ -620,7 +620,7 @@ static void test8(void)
 	FAILED(buf[11] != 1, "test8 case 11 failed\n");
 	FAILED(buf[12] != 0, "test8 case 12 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -628,7 +628,7 @@ static void test9(void)
 {
 	/* Test shift. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[13];
 #ifdef SLJIT_PREF_SHIFT_REG
 	sljit_s32 shift_reg = SLJIT_PREF_SHIFT_REG;
@@ -752,7 +752,7 @@ static void test9(void)
 	FAILED(buf[11] != 0x4ae37da9, "test9 case 12 failed\n");
 	FAILED(buf[12] != 0x63f65c, "test9 case 13 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -760,7 +760,7 @@ static void test10(void)
 {
 	/* Test multiplications. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[7];
 
 	if (verbose)
@@ -815,7 +815,7 @@ static void test10(void)
 	FAILED(buf[6] != SLJIT_W(0x123456789) * 3, "test10 case 8 failed\n");
 #endif
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -823,7 +823,7 @@ static void test11(void)
 {
 	/* Test rewritable constants. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_const* const1;
 	struct sljit_const* const2;
 	struct sljit_const* const3;
@@ -905,7 +905,7 @@ static void test11(void)
 	FAILED(buf[1] != word_value2, "test11 case 7 failed\n");
 	FAILED(buf[2] != 0xbab0fea1, "test11 case 8 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -913,7 +913,7 @@ static void test12(void)
 {
 	/* Test rewriteable jumps. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_label *label1;
 	struct sljit_label *label2;
 	struct sljit_label *label3;
@@ -994,7 +994,7 @@ static void test12(void)
 	code.func2((sljit_sw)&buf, 13);
 	FAILED(buf[0] != 6, "test12 case 4 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1002,7 +1002,7 @@ static void test13(void)
 {
 	/* Test fpu monadic functions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_f64 buf[7];
 	sljit_sw buf2[6];
 
@@ -1082,7 +1082,7 @@ static void test13(void)
 	FAILED(buf2[4] != 0, "test13 case 10 failed\n");
 	FAILED(buf2[5] != 1, "test13 case 11 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1090,7 +1090,7 @@ static void test14(void)
 {
 	/* Test fpu diadic functions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_f64 buf[15];
 
 	if (verbose)
@@ -1181,7 +1181,7 @@ static void test14(void)
 	FAILED(buf[13] != 2.0, "test14 case 11 failed\n");
 	FAILED(buf[14] != 0.5, "test14 case 12 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1194,7 +1194,7 @@ static void test15(void)
 {
 	/* Test function call. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* jump = NULL;
 	sljit_sw buf[7];
 
@@ -1272,7 +1272,7 @@ static void test15(void)
 	FAILED(buf[5] != 335, "test15 case 7 failed\n");
 	FAILED(buf[6] != -15, "test15 case 8 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1280,7 +1280,7 @@ static void test16(void)
 {
 	/* Ackermann benchmark. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_label *entry;
 	struct sljit_label *label;
 	struct sljit_jump *jump;
@@ -1337,7 +1337,7 @@ static void test16(void)
 	/* For benchmarking. */
 	/* FAILED(code.func2(3, 11) != 16381, "test16 case 1 failed\n"); */
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1345,7 +1345,7 @@ static void test17(void)
 {
 	/* Test arm constant pool. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_s32 i;
 	sljit_sw buf[5];
 
@@ -1380,7 +1380,7 @@ static void test17(void)
 	FAILED((sljit_uw)buf[3] != 0x81818c00, "test17 case 4 failed\n");
 	FAILED((sljit_uw)buf[4] != 0x81818fff, "test17 case 5 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1388,7 +1388,7 @@ static void test18(void)
 {
 	/* Test 64 bit. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[11];
 
 	if (verbose)
@@ -1488,7 +1488,7 @@ static void test18(void)
 	FAILED(buf[1] != 0x44332211, "test18 case 2 failed\n");
 #endif
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1496,7 +1496,7 @@ static void test19(void)
 {
 	/* Test arm partial instruction caching. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[10];
 
 	if (verbose)
@@ -1540,7 +1540,7 @@ static void test19(void)
 	FAILED(buf[6] != 12, "test19 case 7 failed\n");
 	FAILED(buf[7] != 10, "test19 case 8 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1548,7 +1548,7 @@ static void test20(void)
 {
 	/* Test stack. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* jump;
 	struct sljit_label* label;
 	sljit_sw buf[6];
@@ -1597,9 +1597,9 @@ static void test20(void)
 	FAILED(buf[3] != 17, "test20 case 3 failed\n");
 	FAILED(buf[4] != 7, "test20 case 4 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW) | SLJIT_ARG2(SW) | SLJIT_ARG3(SW), 3, 3, 0, 0, SLJIT_MAX_LOCAL_SIZE);
 
 	sljit_get_local_base(compiler, SLJIT_R0, 0, SLJIT_MAX_LOCAL_SIZE - sizeof(sljit_sw));
@@ -1623,9 +1623,9 @@ static void test20(void)
 
 	FAILED(code.func3(1234, 5678, 9012) != 15924, "test20 case 5 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	sljit_emit_enter(compiler, SLJIT_F64_ALIGNMENT, 0, 3, 0, 0, 0, SLJIT_MAX_LOCAL_SIZE);
 
 	sljit_get_local_base(compiler, SLJIT_R0, 0, SLJIT_MAX_LOCAL_SIZE - sizeof(sljit_sw));
@@ -1647,7 +1647,7 @@ static void test20(void)
 
 	FAILED(code.func0() % sizeof(sljit_f64) != 0, "test20 case 6 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1656,7 +1656,7 @@ static void test21(void)
 	/* Test set context. The parts of the jit code can be separated in the memory. */
 	executable_code code1;
 	executable_code code2;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* jump = NULL;
 	sljit_uw addr;
 	sljit_sw executable_offset;
@@ -1687,7 +1687,7 @@ static void test21(void)
 
 	sljit_free_compiler(compiler);
 
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	/* Other part of the jit code. */
@@ -1710,8 +1710,8 @@ static void test21(void)
 	FAILED(buf[2] != -16, "test21 case 2 failed\n");
 	FAILED(buf[3] != 100, "test21 case 3 failed\n");
 
-	sljit_free_code(code1.code);
-	sljit_free_code(code2.code);
+	sljit_free_code(code1.code, NULL);
+	sljit_free_code(code2.code, NULL);
 	successful_tests++;
 }
 
@@ -1719,7 +1719,7 @@ static void test22(void)
 {
 	/* Test simple byte and half-int data transfers. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[2];
 	sljit_s16 sbuf[9];
 	sljit_s8 bbuf[5];
@@ -1800,7 +1800,7 @@ static void test22(void)
 	FAILED(bbuf[3] != -56, "test22 case 13 failed\n");
 	FAILED(bbuf[4] != 4, "test22 case 14 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1809,7 +1809,7 @@ static void test23(void)
 	/* Test 32 bit / 64 bit signed / unsigned int transfer and conversion.
 	   This test has do real things on 64 bit systems, but works on 32 bit systems as well. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[9];
 	sljit_s32 ibuf[5];
 	union {
@@ -1910,7 +1910,7 @@ static void test23(void)
 	FAILED(u.asbytes[3] != 0x78, "test23 case 16 failed\n");
 #endif
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -1918,7 +1918,7 @@ static void test24(void)
 {
 	/* Some complicated addressing modes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[9];
 	sljit_s16 sbuf[5];
 	sljit_s8 bbuf[7];
@@ -2024,7 +2024,7 @@ static void test24(void)
 	FAILED(bbuf[6] != -128, "test24 case 15 failed\n");
 #endif
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -2033,7 +2033,7 @@ static void test25(void)
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	/* 64 bit loads. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[14];
 
 	if (verbose)
@@ -2094,7 +2094,7 @@ static void test25(void)
 	FAILED(buf[12] != SLJIT_W(0x07fff00080018001), "test25 case 13 failed\n");
 	FAILED(buf[13] != SLJIT_W(0x07fff00ffff00000), "test25 case 14 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 #endif
 	successful_tests++;
 }
@@ -2103,7 +2103,7 @@ static void test26(void)
 {
 	/* Aligned access without aligned offsets. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[4];
 	sljit_s32 ibuf[4];
 	sljit_f64 dbuf[4];
@@ -2171,7 +2171,7 @@ static void test26(void)
 		FAILED(dbuf[3] != -2.875, "test26 case 7 failed\n");
 	}
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -2189,7 +2189,7 @@ static void test27(void)
 
 	/* Playing with conditional flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_u8 buf[37];
 	sljit_s32 i;
 #ifdef SLJIT_PREF_SHIFT_REG
@@ -2401,7 +2401,7 @@ static void test27(void)
 	FAILED(buf[35] != 1, "test27 case 36 failed\n");
 	FAILED(buf[36] != 10, "test27 case 37 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 #undef SET_NEXT_BYTE
 #undef RESULT
@@ -2411,7 +2411,7 @@ static void test28(void)
 {
 	/* Test mov. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_const* const1 = NULL;
 	struct sljit_label* label = NULL;
 	sljit_uw label_addr = 0;
@@ -2464,7 +2464,7 @@ static void test28(void)
 	FAILED(buf[3] != 2, "test28 case 4 failed\n");
 	FAILED(buf[4] != label_addr, "test28 case 5 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -2472,7 +2472,7 @@ static void test29(void)
 {
 	/* Test signed/unsigned bytes and halfs. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[25];
 	sljit_s32 i;
 
@@ -2600,7 +2600,7 @@ static void test29(void)
 
 	FAILED(buf[24] != -91, "test29 case 25 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -2608,7 +2608,7 @@ static void test30(void)
 {
 	/* Test unused results. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[1];
 
 	if (verbose)
@@ -2663,7 +2663,7 @@ static void test30(void)
 	code.func1((sljit_sw)&buf);
 	FAILED(buf[0] != 9, "test30 case 1 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -2671,7 +2671,7 @@ static void test31(void)
 {
 	/* Integer mul and set flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[12];
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	sljit_sw big_word = SLJIT_W(0x7fffffff00000000);
@@ -2758,7 +2758,7 @@ static void test31(void)
 #endif
 	FAILED(buf[9] != -1541, "test31 case 10 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -2766,7 +2766,7 @@ static void test32(void)
 {
 	/* Floating point set flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 
 	sljit_sw buf[16];
 	union {
@@ -2880,7 +2880,7 @@ static void test32(void)
 	FAILED(buf[12] != 2, "test32 case 13 failed\n");
 	FAILED(buf[13] != 1, "test32 case 14 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -2888,7 +2888,7 @@ static void test33(void)
 {
 	/* Test setting multiple flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* jump;
 	sljit_sw buf[10];
 
@@ -2981,7 +2981,7 @@ static void test33(void)
 	FAILED(buf[8] != 50, "test33 case 9 failed\n");
 	FAILED(buf[9] != 1, "test33 case 10 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -3007,7 +3007,7 @@ static void test34(void)
 	buf[1] = 0;
 
 	/* A */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 1, 5, 5, 0, 0, 2 * sizeof(sljit_p));
 
@@ -3021,7 +3021,7 @@ static void test34(void)
 	sljit_free_compiler(compiler);
 
 	/* B */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 1, 5, 5, 0, 0, 2 * sizeof(sljit_p));
 
@@ -3037,7 +3037,7 @@ static void test34(void)
 	sljit_free_compiler(compiler);
 
 	/* C */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 1, 5, 5, 0, 0, 2 * sizeof(sljit_p));
 
@@ -3053,7 +3053,7 @@ static void test34(void)
 	sljit_free_compiler(compiler);
 
 	/* D */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 1, 5, 5, 0, 0, 2 * sizeof(sljit_p));
 
@@ -3068,7 +3068,7 @@ static void test34(void)
 	sljit_free_compiler(compiler);
 
 	/* E */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 1, 5, 5, 0, 0, 2 * sizeof(sljit_p));
 
@@ -3083,7 +3083,7 @@ static void test34(void)
 	sljit_free_compiler(compiler);
 
 	/* F */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 5, 5, 0, 0, 2 * sizeof(sljit_p));
@@ -3100,12 +3100,12 @@ static void test34(void)
 	FAILED(codeF.func1((sljit_sw)&buf) != 40, "test34 case 1 failed\n");
 	FAILED(buf[0] != addr - SLJIT_RETURN_ADDRESS_OFFSET, "test34 case 2 failed\n");
 
-	sljit_free_code(codeA.code);
-	sljit_free_code(codeB.code);
-	sljit_free_code(codeC.code);
-	sljit_free_code(codeD.code);
-	sljit_free_code(codeE.code);
-	sljit_free_code(codeF.code);
+	sljit_free_code(codeA.code, NULL);
+	sljit_free_code(codeB.code, NULL);
+	sljit_free_code(codeC.code, NULL);
+	sljit_free_code(codeD.code, NULL);
+	sljit_free_code(codeE.code, NULL);
+	sljit_free_code(codeF.code, NULL);
 	successful_tests++;
 }
 
@@ -3129,7 +3129,7 @@ static void test35(void)
 	buf[0] = 0;
 
 	/* A */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 0, 2, 2, 0, 0, 0);
 
@@ -3149,7 +3149,7 @@ static void test35(void)
 	sljit_free_compiler(compiler);
 
 	/* B */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 0, 2, 2, 0, 0, 0);
 
@@ -3165,7 +3165,7 @@ static void test35(void)
 	sljit_set_jump_addr(jump_addr, SLJIT_FUNC_OFFSET(codeB.code), executable_offset);
 
 	/* C */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, 0, 2, 2, 0, 0, 0);
@@ -3182,9 +3182,9 @@ static void test35(void)
 	FAILED(codeC.func0() != 12, "test35 case 1 failed\n");
 	FAILED(buf[0] != return_addr - SLJIT_RETURN_ADDRESS_OFFSET, "test35 case 2 failed\n");
 
-	sljit_free_code(codeA.code);
-	sljit_free_code(codeB.code);
-	sljit_free_code(codeC.code);
+	sljit_free_code(codeA.code, NULL);
+	sljit_free_code(codeB.code, NULL);
+	sljit_free_code(codeC.code, NULL);
 	successful_tests++;
 }
 
@@ -3208,7 +3208,7 @@ static void test36(void)
 {
 	/* Compare instruction. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 
 	sljit_s8 buf[TEST_CASES];
 	sljit_s8 compare_buf[TEST_CASES] = {
@@ -3320,7 +3320,7 @@ static void test36(void)
 			return;
 		}
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 #undef TEST_CASES
@@ -3337,7 +3337,7 @@ static void test37(void)
 {
 	/* Test count leading zeroes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[9];
 	sljit_s32 ibuf[2];
 	sljit_s32 i;
@@ -3416,7 +3416,7 @@ static void test37(void)
 	FAILED((buf[7] & 0xffffffff) != 4, "test37 case 10 failed\n");
 	FAILED((buf[8] & 0xffffffff) != 0, "test37 case 11 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 #undef BITN
@@ -3427,7 +3427,7 @@ static void test38(void)
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
 	/* Test stack utility. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* alloc1_fail;
 	struct sljit_jump* alloc2_fail;
 	struct sljit_jump* alloc3_fail;
@@ -3520,7 +3520,7 @@ static void test38(void)
 	/* Just survive this. */
 	FAILED(code.func0() != 4567, "test38 case 1 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 #endif
 	successful_tests++;
 }
@@ -3529,7 +3529,7 @@ static void test39(void)
 {
 	/* Test error handling. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* jump;
 
 	if (verbose)
@@ -3572,7 +3572,7 @@ static void test39(void)
 	FAILED(!!code.code, "test39 case 3 failed\n");
 	sljit_free_compiler(compiler);
 
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	FAILED(sljit_get_compiler_error(compiler) != SLJIT_SUCCESS, "test39 case 4 failed\n");
@@ -3587,7 +3587,7 @@ static void test40(void)
 {
 	/* Test emit_op_flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[10];
 
 	if (verbose)
@@ -3675,7 +3675,7 @@ static void test40(void)
 	FAILED(buf[8] != 1, "test40 case 10 failed\n");
 	FAILED(buf[9] != 0x123457, "test40 case 11 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -3683,7 +3683,7 @@ static void test41(void)
 {
 	/* Test inline assembly. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_s32 i;
 	sljit_f64 buf[3];
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
@@ -3801,14 +3801,14 @@ static void test41(void)
 	FAILED(code.func2(SLJIT_W(0x20f0a04090c06070), SLJIT_W(0x020f0a04090c0607)) != SLJIT_W(0x22ffaa4499cc6677), "test41 case 3 failed\n");
 #endif
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 
 	if (sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		buf[0] = 13.5;
 		buf[1] = -2.25;
 		buf[2] = 0.0;
 
-		compiler = sljit_create_compiler(NULL);
+		compiler = sljit_create_compiler(NULL, NULL);
 		sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 0, 1, 2, 0, 0);
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_S0), 0);
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f64));
@@ -3885,7 +3885,7 @@ static void test41(void)
 		code.func1((sljit_sw)&buf);
 		FAILED(buf[2] != 11.25, "test41 case 3 failed\n");
 
-		sljit_free_code(code.code);
+		sljit_free_code(code.code, NULL);
 	}
 
 	successful_tests++;
@@ -3895,7 +3895,7 @@ static void test42(void)
 {
 	/* Test long multiply and division. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_s32 i;
 	sljit_sw buf[7 + 4 + 8 + 8];
 
@@ -4117,7 +4117,7 @@ static void test42(void)
 	FAILED(buf[25] != SLJIT_W(-0x8), "test42 case 26 failed\n");
 	FAILED(buf[26] != SLJIT_W(-0xa63c923), "test42 case 27 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -4125,7 +4125,7 @@ static void test43(void)
 {
 	/* Test floating point compare. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* jump;
 
 	union {
@@ -4192,7 +4192,7 @@ static void test43(void)
 	dbuf[2].value = 20;
 	FAILED(code.func1((sljit_sw)&dbuf) != -2, "test43 case 4 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -4200,7 +4200,7 @@ static void test44(void)
 {
 	/* Test mov. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	void *buf[5];
 
 	if (verbose)
@@ -4240,7 +4240,7 @@ static void test44(void)
 	FAILED(buf[3] != buf + 4, "test44 case 4 failed\n");
 	FAILED(buf[4] != buf + 2, "test44 case 5 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -4249,7 +4249,7 @@ static void test45(void)
 	/* Test single precision floating point. */
 
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_f32 buf[12];
 	sljit_sw buf2[6];
 	struct sljit_jump* jump;
@@ -4354,7 +4354,7 @@ static void test45(void)
 	FAILED(buf2[4] != 7, "test45 case 15 failed\n");
 	FAILED(buf2[5] != -1, "test45 case 16 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -4363,7 +4363,7 @@ static void test46(void)
 	/* Test sljit_emit_op_flags with 32 bit operations. */
 
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_s32 buf[24];
 	sljit_sw buf2[6];
 	sljit_s32 i;
@@ -4464,7 +4464,7 @@ static void test46(void)
 	FAILED(buf2[4] != -123, "test46 case 29 failed\n");
 	FAILED(buf2[5] != -14, "test46 case 30 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -4472,7 +4472,7 @@ static void test47(void)
 {
 	/* Test jump optimizations. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[3];
 
 	if (verbose)
@@ -4509,7 +4509,7 @@ static void test47(void)
 	FAILED(buf[1] != 0xd37c10, "test47 case 2 failed\n");
 	FAILED(buf[2] != 0x59b48e, "test47 case 3 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -4517,7 +4517,7 @@ static void test48(void)
 {
 	/* Test floating point conversions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	int i;
 	sljit_f64 dbuf[10];
 	sljit_f32 sbuf[10];
@@ -4662,7 +4662,7 @@ static void test48(void)
 	FAILED(ibuf[2] != -917, "test48 case 20 failed\n");
 	FAILED(ibuf[3] != -1689, "test48 case 21 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -4670,7 +4670,7 @@ static void test49(void)
 {
 	/* Test floating point conversions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	int i;
 	sljit_f64 dbuf[10];
 	sljit_f32 sbuf[9];
@@ -4800,7 +4800,7 @@ static void test49(void)
 	FAILED(ibuf[8] == 0x4455, "test48 case 32 failed\n");
 #endif
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -4808,7 +4808,7 @@ static void test50(void)
 {
 	/* Test stack and floating point operations. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	sljit_uw size1, size2, size3;
 	int result;
@@ -4881,7 +4881,7 @@ static void test50(void)
 	FAILED(!result, "test50 case 5 failed\n");
 #endif
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -4889,7 +4889,7 @@ static void test51(void)
 {
 	/* Test all registers provided by the CPU. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* jump;
 	sljit_sw buf[2];
 	sljit_s32 i;
@@ -4949,11 +4949,11 @@ static void test51(void)
 
 	FAILED(buf[1] != (39 * 5 * (SLJIT_NUMBER_OF_REGISTERS - 2)), "test51 case 1 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -4981,11 +4981,11 @@ static void test51(void)
 
 	FAILED(code.func0() != (SLJIT_NUMBER_OF_SCRATCH_REGISTERS * 35 + SLJIT_NUMBER_OF_SAVED_REGISTERS * 17), "test51 case 2 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -5013,7 +5013,7 @@ static void test51(void)
 
 	FAILED(code.func0() != (SLJIT_NUMBER_OF_SCRATCH_REGISTERS * 43 + SLJIT_NUMBER_OF_SAVED_REGISTERS * 68), "test51 case 3 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -5038,7 +5038,7 @@ static void test52(void)
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 6.25;
 	buf[1] = 17.75;
@@ -5070,11 +5070,11 @@ static void test52(void)
 	code.func1((sljit_sw)&buf);
 	FAILED(buf[2] != (SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS * 17.75 + SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS * 6.25), "test52 case 1 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = -32.5;
 	buf[1] = -11.25;
@@ -5106,7 +5106,7 @@ static void test52(void)
 	code.func1((sljit_sw)&buf);
 	FAILED(buf[2] != (SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS * -11.25 + SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS * -32.5), "test52 case 2 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -5114,7 +5114,7 @@ static void test53(void)
 {
 	/* Check SLJIT_DOUBLE_ALIGNMENT. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[1];
 
 	if (verbose)
@@ -5138,11 +5138,11 @@ static void test53(void)
 
 	FAILED((buf[0] & (sizeof(sljit_f64) - 1)) != 0, "test53 case 1 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = -1;
 
@@ -5162,7 +5162,7 @@ static void test53(void)
 
 	FAILED((buf[0] & (sizeof(sljit_f64) - 1)) != 0, "test53 case 2 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -5170,7 +5170,7 @@ static void test54(void)
 {
 	/* Check cmov. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	sljit_sw large_num = SLJIT_W(0x1234567812345678);
 #else
@@ -5346,7 +5346,7 @@ static void test54(void)
 	FAILED(ibuf[2] != 56, "test54 case 14 failed\n");
 	FAILED(ibuf[3] != -63, "test54 case 15 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -5354,7 +5354,7 @@ static void test55(void)
 {
 	/* Check value preservation. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[2];
 	sljit_s32 i;
 
@@ -5408,7 +5408,7 @@ static void test55(void)
 	FAILED(buf[0] != (SLJIT_NUMBER_OF_REGISTERS - 2) * 118 + 217, "test55 case 1 failed\n");
 	FAILED(buf[1] != (SLJIT_NUMBER_OF_REGISTERS - 1) * 146 + 217, "test55 case 2 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -5416,7 +5416,7 @@ static void test56(void)
 {
 	/* Check integer substraction with negative immediate. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[13];
 	sljit_s32 i;
 
@@ -5484,7 +5484,7 @@ static void test56(void)
 	FAILED(buf[11] != 1, "test56 case 12 failed\n");
 	FAILED(buf[12] != 1, "test56 case 13 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -5492,7 +5492,7 @@ static void test57(void)
 {
 	/* Check prefetch instructions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_label* labels[5];
 	sljit_p addr[5];
 	int i;
@@ -5545,7 +5545,7 @@ static void test57(void)
 		FAILED(addr[3] != addr[4], "test57 case 4 failed\n");
 	}
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -5583,7 +5583,7 @@ static void test58(void)
 {
 	/* Check function calls with floating point arguments. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* jump = NULL;
 	sljit_f64 dbuf[7];
 	sljit_f32 sbuf[7];
@@ -5700,7 +5700,7 @@ static void test58(void)
 	FAILED(wbuf[0] != SLJIT_FUNC_OFFSET(test58_f6) - 18, "test58 case 7 failed\n");
 	FAILED(wbuf[1] != 301, "test58 case 8 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -5733,7 +5733,7 @@ static void test59(void)
 {
 	/* Check function calls with four arguments. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* jump = NULL;
 	sljit_sw wbuf[6];
 	sljit_f64 dbuf[3];
@@ -5844,7 +5844,7 @@ static void test59(void)
 		FAILED(sbuf[3] != 8.625, "test59 case 7 failed\n");
 	}
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -5852,7 +5852,7 @@ static void test60(void)
 {
 	/* Test memory accesses with pre/post updates. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_s32 i;
 	sljit_s32 supported[10];
 	sljit_sw wbuf[18];
@@ -6028,7 +6028,7 @@ static void test60(void)
 	FAILED(supported[9] == SLJIT_SUCCESS && wbuf[16] != -13, "test60 case 20 failed\n");
 	FAILED(supported[9] == SLJIT_SUCCESS && wbuf[17] != (sljit_sw)(bbuf), "test60 case 21 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -6036,7 +6036,7 @@ static void test61(void)
 {
 	/* Test float memory accesses with pre/post updates. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_s32 i;
 	sljit_s32 supported[6];
 	sljit_sw wbuf[6];
@@ -6175,7 +6175,7 @@ static void test61(void)
 	FAILED(supported[5] == SLJIT_SUCCESS && sbuf[3] != -22.125, "test61 case 12 failed\n");
 	FAILED(supported[5] == SLJIT_SUCCESS && wbuf[5] != (sljit_sw)(sbuf + 3), "test61 case 13 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -6190,7 +6190,7 @@ static void test62(void)
 		printf("Run test62\n");
 
 	/* A */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, SLJIT_ARG1(SW), 1, 1, 0, 0, 0);
 
@@ -6203,7 +6203,7 @@ static void test62(void)
 	sljit_free_compiler(compiler);
 
 	/* B */
-	compiler = sljit_create_compiler(NULL);
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 1, 1, 0, 0, 0);
@@ -6223,8 +6223,8 @@ static void test62(void)
 	FAILED(code2.func1(42) != 1, "test62 case 2 failed\n");
 	FAILED(code2.func1(0)  != 2, "test62 case 3 failed\n");
 
-	sljit_free_code(code1.code);
-	sljit_free_code(code2.code);
+	sljit_free_code(code1.code, NULL);
+	sljit_free_code(code2.code, NULL);
 	successful_tests++;
 }
 
@@ -6234,7 +6234,7 @@ static void test63(void)
 	executable_code code;
 	struct sljit_label *label[2];
 	struct sljit_put_label *put_label[5];
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_uw addr[2];
 	sljit_uw buf[4];
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
@@ -6292,7 +6292,7 @@ static void test63(void)
 	FAILED(buf[2] != addr[1], "test63 case 4 failed\n");
 	FAILED(buf[3] != addr[1], "test63 case 5 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -6305,6 +6305,7 @@ static void test64(void)
 	struct sljit_label label[4];
 	struct sljit_put_label *put_label[2];
 	struct sljit_compiler* compiler;
+	const sljit_uw max_offset = 64;
 	sljit_uw buf[5];
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	sljit_sw offs1 = SLJIT_W(0x123456781122);
@@ -6318,29 +6319,27 @@ static void test64(void)
 		printf("Run test64\n");
 
 	/* lock next allocation; see sljit_test_malloc_exec() */
-	test64_ptr_hack = (void *)64;
-	malloc_addr = (sljit_uw)SLJIT_MALLOC_EXEC(1024);
+	malloc_addr = (sljit_uw)SLJIT_MALLOC_EXEC(4096, NULL);
 
 	if (!malloc_addr) {
 		printf("Cannot allocate executable memory.");
 		return;
 	}
 
+	compiler = sljit_create_compiler(NULL, (void*)malloc_addr);
 	malloc_addr += SLJIT_EXEC_OFFSET((void*)malloc_addr);
 
 	label[0].addr = 0x1234;
-	label[0].size = (sljit_uw)(0x1234 - malloc_addr);
+	label[0].size = (sljit_uw)(0x1234 + max_offset - malloc_addr);
 
 	label[1].addr = 0x12345678;
-	label[1].size = (sljit_uw)(0x12345678 - malloc_addr);
+	label[1].size = (sljit_uw)(0x12345678 + max_offset - malloc_addr);
 
 	label[2].addr = offs1;
-	label[2].size = (sljit_uw)(offs1 - malloc_addr);
+	label[2].size = (sljit_uw)(offs1 + max_offset - malloc_addr);
 
 	label[3].addr = offs2;
-	label[3].size = (sljit_uw)(offs2 - malloc_addr);
-
-	compiler = sljit_create_compiler(NULL);
+	label[3].size = (sljit_uw)(offs2 + max_offset - malloc_addr);
 
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
@@ -6380,7 +6379,7 @@ static void test64(void)
 	code.code = sljit_generate_code(compiler);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
-	SLJIT_ASSERT((sljit_uw)code.code == malloc_addr);
+	SLJIT_ASSERT((sljit_uw)code.code >= malloc_addr && (sljit_uw)code.code <= malloc_addr + max_offset);
 
 	FAILED(code.func1((sljit_sw)&buf) != label[3].addr, "test64 case 1 failed\n");
 	FAILED(buf[0] != label[0].addr, "test64 case 2 failed\n");
@@ -6389,8 +6388,7 @@ static void test64(void)
 	FAILED(buf[3] != label[1].addr, "test64 case 5 failed\n");
 	FAILED(buf[4] != label[2].addr, "test64 case 6 failed\n");
 
-	sljit_free_code(code.code);
-	test64_ptr_hack = NULL;
+	sljit_free_code(code.code, NULL);
 
 	successful_tests++;
 }
@@ -6399,7 +6397,7 @@ static void test65(void)
 {
 	/* Test jump tables. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_s32 i;
 	/* Normally this table is allocated on the heap. */
 	sljit_uw addr[64];
@@ -6442,7 +6440,7 @@ static void test65(void)
 		FAILED(code.func2(i, i * 2) != i * 4, "test65 case 2 failed\n");
 	}
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -6450,7 +6448,7 @@ static void test66(void)
 {
 	/* Test direct jumps (computed goto). */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_s32 i;
 	sljit_uw addr[64];
 	struct sljit_label *labels[64];
@@ -6483,7 +6481,7 @@ static void test66(void)
 		FAILED(code.func2(addr[i], i) != i * 3, "test66 case 1 failed\n");
 	}
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -6491,7 +6489,7 @@ static void test67(void)
 {
 	/* Test skipping returns from fast calls (return type is fast). */
 	executable_code code;
-	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler *compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump *call, *jump;
 	struct sljit_label *label;
 
@@ -6542,7 +6540,7 @@ static void test67(void)
 
 	FAILED(code.func0() != 3, "test67 case 1 failed\n");
 
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -6559,7 +6557,7 @@ static void test68(void)
 		printf("Run test68\n");
 
 	for (i = 0; i < 6 * 2; i++) {
-		compiler = sljit_create_compiler(NULL);
+		compiler = sljit_create_compiler(NULL, NULL);
 		FAILED(!compiler, "cannot create compiler\n");
 
 		sljit_emit_enter(compiler, (i >= 6 ? SLJIT_F64_ALIGNMENT : 0), 0, 2 + (i % 6), (i % 6), 0, 0, 0);
@@ -6594,7 +6592,7 @@ static void test68(void)
 			printf("test68 case %d failed\n", i + 1);
 			return;
 		}
-		sljit_free_code(code.code);
+		sljit_free_code(code.code, NULL);
 	}
 
 	successful_tests++;

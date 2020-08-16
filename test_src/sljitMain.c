@@ -47,7 +47,7 @@ void devel(void)
 {
 	executable_code code;
 
-	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler *compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[4];
 
 	if (!compiler)
@@ -74,7 +74,7 @@ void devel(void)
 	printf("buf[1] = %ld\n", (long)buf[1]);
 	printf("buf[2] = %ld\n", (long)buf[2]);
 	printf("buf[3] = %ld\n", (long)buf[3]);
-	sljit_free_code(code.code);
+	sljit_free_code(code.code, NULL);
 }
 
 int main(int argc, char* argv[])
