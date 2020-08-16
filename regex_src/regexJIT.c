@@ -1907,7 +1907,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 	compiler_common.machine = (struct regex_machine*)SLJIT_MALLOC(sizeof(struct regex_machine) + (compiler_common.terms_size - 1) * sizeof(sljit_uw), NULL);
 	CHECK(!compiler_common.machine);
 
-	compiler_common.compiler = sljit_create_compiler(NULL);
+	compiler_common.compiler = sljit_create_compiler(NULL, NULL);
 	CHECK(!compiler_common.compiler);
 
 	if (compiler_common.longest_range_size > 0) {
@@ -2309,7 +2309,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 
 void regex_free_machine(struct regex_machine *machine)
 {
-	sljit_free_code(machine->continue_match);
+	sljit_free_code(machine->continue_match, NULL);
 	SLJIT_FREE(machine, NULL);
 }
 
