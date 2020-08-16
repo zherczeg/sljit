@@ -61,6 +61,8 @@ static sljit_s32 successful_tests = 0;
 static sljit_s32 verbose = 0;
 static sljit_s32 silent = 0;
 
+static void *test64_ptr_hack;
+
 #define FAILED(cond, text) \
 	if (SLJIT_UNLIKELY(cond)) { \
 		printf(text); \
@@ -73,6 +75,19 @@ static sljit_s32 silent = 0;
 		sljit_free_compiler(compiler); \
 		return; \
 	}
+
+/* only relevant for test64
+   requires an sljitLir built with the right -DSLJIT_MALLOC_EXEC flag */
+SLJIT_API_FUNC_ATTRIBUTE void *sljit_test_malloc_exec(sljit_uw size)
+{
+	if (SLJIT_LIKELY(!test64_ptr_hack))
+		return sljit_malloc_exec(size);
+
+	if ((sljit_uw)test64_ptr_hack == 64)
+		test64_ptr_hack = sljit_malloc_exec(size);
+
+	return test64_ptr_hack;
+}
 
 static void cond_set(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_s32 type)
 {
@@ -6283,10 +6298,10 @@ static void test63(void)
 
 static void test64(void)
 {
-	/* Test put label with false labels (small offsets).
-	   This code is allocator implementation dependent. */
+	/* Test put label with absolute label addresses
+	   This code is not thread safe and uses a patched execalloc. */
 	executable_code code;
-	sljit_sw malloc_addr;
+	sljit_uw malloc_addr;
 	struct sljit_label label[4];
 	struct sljit_put_label *put_label[2];
 	struct sljit_compiler* compiler;
@@ -6296,28 +6311,28 @@ static void test64(void)
 	sljit_sw offs2 = SLJIT_W(0x1234567811223344);
 #else
 	sljit_sw offs1 = 0x12345678;
-	sljit_sw offs2 = 0x12345678;
+	sljit_sw offs2 = 0x80000000;
 #endif
 
 	if (verbose)
 		printf("Run test64\n");
 
-	malloc_addr = (sljit_sw)SLJIT_MALLOC_EXEC(1024);
+	/* lock next allocation; see sljit_test_malloc_exec() */
+	test64_ptr_hack = (void *)64;
+	malloc_addr = (sljit_uw)SLJIT_MALLOC_EXEC(1024);
 
-	if (malloc_addr == 0) {
+	if (!malloc_addr) {
 		printf("Cannot allocate executable memory.");
 		return;
 	}
 
 	malloc_addr += SLJIT_EXEC_OFFSET((void*)malloc_addr);
 
-	SLJIT_FREE_EXEC((void*)malloc_addr);
-
 	label[0].addr = 0x1234;
-	label[0].size = (sljit_uw)(512 - malloc_addr);
+	label[0].size = (sljit_uw)(0x1234 - malloc_addr);
 
 	label[1].addr = 0x12345678;
-	label[1].size = (sljit_uw)(0x123456 - malloc_addr);
+	label[1].size = (sljit_uw)(0x12345678 - malloc_addr);
 
 	label[2].addr = offs1;
 	label[2].size = (sljit_uw)(offs1 - malloc_addr);
@@ -6365,14 +6380,7 @@ static void test64(void)
 	code.code = sljit_generate_code(compiler);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
-
-#if !(defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
-	/* WX allocator may not reuse the address. */
-	if ((sljit_sw)code.code < malloc_addr || (sljit_sw)code.code >= malloc_addr + 1024) {
-		printf("test64 executable alloc estimation failed\n");
-		return;
-	}
-#endif
+	SLJIT_ASSERT((sljit_uw)code.code == malloc_addr);
 
 	FAILED(code.func1((sljit_sw)&buf) != label[3].addr, "test64 case 1 failed\n");
 	FAILED(buf[0] != label[0].addr, "test64 case 2 failed\n");
@@ -6382,6 +6390,8 @@ static void test64(void)
 	FAILED(buf[4] != label[2].addr, "test64 case 6 failed\n");
 
 	sljit_free_code(code.code);
+	test64_ptr_hack = NULL;
+
 	successful_tests++;
 }
 
