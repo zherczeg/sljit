@@ -2298,9 +2298,10 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 	return "unsupported";
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data, void *exec_allocator_data)
 {
 	SLJIT_UNUSED_ARG(allocator_data);
+	SLJIT_UNUSED_ARG(exec_allocator_data);
 	SLJIT_UNREACHABLE();
 	return NULL;
 }
@@ -2348,9 +2349,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	return 0;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_data)
 {
 	SLJIT_UNUSED_ARG(code);
+	SLJIT_UNUSED_ARG(exec_allocator_data);
 	SLJIT_UNREACHABLE();
 }
 

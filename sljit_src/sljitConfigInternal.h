@@ -629,6 +629,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #define SLJIT_EXEC_OFFSET(ptr) 0
 #endif
 
+#else /* !SLJIT_EXECUTABLE_ALLOCATOR */
+
+#define SLJIT_EXEC_OFFSET(ptr) 0
+
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
 /**********************************************/

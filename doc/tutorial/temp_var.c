@@ -33,7 +33,7 @@ static int temp_var(long a, long b, long c)
 	func3_t func;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler(NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
 
 	/* reserved space in stack for long arr[3] */
 	sljit_emit_enter(C, 0, SLJIT_ARG1(SW)|SLJIT_ARG2(SW)|SLJIT_ARG3(SW),  3, 3, 0, 0, 3 * sizeof(long));
@@ -64,7 +64,7 @@ static int temp_var(long a, long b, long c)
 
 	/* Clean up */
 	sljit_free_compiler(C);
-	sljit_free_code(code);
+	sljit_free_code(code, NULL);
 	return 0;
 }
 

@@ -74,20 +74,6 @@ static sljit_s32 silent = 0;
 		return; \
 	}
 
-/* For interface testing and for test64. */
-void *sljit_test_malloc_exec(sljit_uw size, void *exec_allocator_data)
-{
-	if (exec_allocator_data)
-		return exec_allocator_data;
-
-	return SLJIT_BUILTIN_MALLOC_EXEC(size, exec_allocator_data);
-}
-
-/* For interface testing. */
-void sljit_test_free_code(void* code, void *exec_allocator_data)
-{
-	SLJIT_BUILTIN_FREE_EXEC(code, exec_allocator_data);
-}
 
 static void cond_set(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_s32 type)
 {
@@ -160,6 +146,37 @@ static void test_exec_allocator(void)
 }
 
 #undef MALLOC_EXEC
+#undef FREE_EXEC
+
+/* For interface testing and for test64. */
+void *sljit_test_malloc_exec(sljit_uw size, void *exec_allocator_data)
+{
+	if (exec_allocator_data)
+		return exec_allocator_data;
+
+	return SLJIT_BUILTIN_MALLOC_EXEC(size, exec_allocator_data);
+}
+
+/* For interface testing. */
+void sljit_test_free_code(void* code, void *exec_allocator_data)
+{
+	SLJIT_BUILTIN_FREE_EXEC(code, exec_allocator_data);
+}
+
+#else
+
+void *sljit_test_malloc_exec(sljit_uw size, void *exec_allocator_data)
+{
+	SLJIT_UNUSED_ARG(size);
+	SLJIT_UNUSED_ARG(exec_allocator_data);
+	return NULL;
+}
+
+void sljit_test_free_code(void* code, void *exec_allocator_data)
+{
+	SLJIT_UNUSED_ARG(code);
+	SLJIT_UNUSED_ARG(exec_allocator_data);
+}
 
 #endif /* !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED) */
 
@@ -6298,8 +6315,7 @@ static void test63(void)
 
 static void test64(void)
 {
-	/* Test put label with absolute label addresses
-	   This code is not thread safe and uses a patched execalloc. */
+	/* Test put label with absolute label addresses */
 	executable_code code;
 	sljit_uw malloc_addr;
 	struct sljit_label label[4];

@@ -140,7 +140,7 @@ static void *compile(FILE *src, unsigned long *lcode)
 	int chr;
 	int nchr;
 
-	struct sljit_compiler *C = sljit_create_compiler(NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump *end;
 	struct sljit_label *loop_start;
 	struct sljit_jump *loop_end;
@@ -255,6 +255,6 @@ int main(int argc, char **argv)
 	entry = (bf_entry_t)code;
 	entry();
 
-	sljit_free_code(code);
+	sljit_free_code(code, NULL);
 	return 0;
 }
