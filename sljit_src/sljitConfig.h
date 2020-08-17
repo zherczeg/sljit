@@ -24,8 +24,8 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _SLJIT_CONFIG_H_
-#define _SLJIT_CONFIG_H_
+#ifndef SLJIT_CONFIG_H_
+#define SLJIT_CONFIG_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -175,4 +175,4 @@ extern "C" {
 } /* extern "C" */
 #endif
 
-#endif
+#endif /* SLJIT_CONFIG_H_ */

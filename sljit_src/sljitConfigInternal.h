@@ -24,8 +24,8 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _SLJIT_CONFIG_INTERNAL_H_
-#define _SLJIT_CONFIG_INTERNAL_H_
+#ifndef SLJIT_CONFIG_INTERNAL_H_
+#define SLJIT_CONFIG_INTERNAL_H_
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
 	|| (defined SLJIT_DEBUG && SLJIT_DEBUG && (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)))
@@ -611,12 +611,16 @@ determine the next executed instruction after return. */
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size);
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr);
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void);
+#define SLJIT_BUILTIN_MALLOC_EXEC(size, exec_allocator_data) sljit_malloc_exec(size)
+#define SLJIT_BUILTIN_FREE_EXEC(ptr, exec_allocator_data) sljit_free_exec(ptr)
+
 #ifndef SLJIT_MALLOC_EXEC
-#define SLJIT_MALLOC_EXEC(size) sljit_malloc_exec(size)
-#else
-SLJIT_API_FUNC_ATTRIBUTE void *SLJIT_MALLOC_EXEC(sljit_uw size);
-#endif
-#define SLJIT_FREE_EXEC(ptr) sljit_free_exec(ptr)
+#define SLJIT_MALLOC_EXEC(size, exec_allocator_data) SLJIT_BUILTIN_MALLOC_EXEC((size), (exec_allocator_data))
+#endif /* SLJIT_MALLOC_EXEC */
+
+#ifndef SLJIT_FREE_EXEC
+#define SLJIT_FREE_EXEC(ptr, exec_allocator_data) SLJIT_BUILTIN_FREE_EXEC((ptr), (exec_allocator_data))
+#endif /* SLJIT_FREE_EXEC */
 
 #if (defined SLJIT_PROT_EXECUTABLE_ALLOCATOR && SLJIT_PROT_EXECUTABLE_ALLOCATOR)
 SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
@@ -625,7 +629,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #define SLJIT_EXEC_OFFSET(ptr) 0
 #endif
 
-#endif
+#endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
 /**********************************************/
 /* Registers and locals offset determination. */
@@ -793,4 +797,4 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 } /* extern "C" */
 #endif
 
-#endif
+#endif /* SLJIT_CONFIG_INTERNAL_H_ */

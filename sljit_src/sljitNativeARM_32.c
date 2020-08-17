@@ -685,7 +685,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #else
 	size = compiler->size;
 #endif
-	code = (sljit_uw*)SLJIT_MALLOC_EXEC(size * sizeof(sljit_uw));
+	code = (sljit_uw*)SLJIT_MALLOC_EXEC(size * sizeof(sljit_uw), compiler->exec_allocator_data);
 	PTR_FAIL_WITH_EXEC_IF(code);
 	buf = compiler->buf;
 
@@ -726,7 +726,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				}
 				else {
 					if (SLJIT_UNLIKELY(resolve_const_pool_index(compiler, &first_patch, cpool_current_index, cpool_start_address, buf_ptr))) {
-						SLJIT_FREE_EXEC(code);
+						SLJIT_FREE_EXEC(code, compiler->exec_allocator_data);
 						compiler->error = SLJIT_ERR_ALLOC_FAILED;
 						return NULL;
 					}
@@ -829,7 +829,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 		cpool_current_index = 0;
 		while (buf_ptr < buf_end) {
 			if (SLJIT_UNLIKELY(resolve_const_pool_index(compiler, &first_patch, cpool_current_index, cpool_start_address, buf_ptr))) {
-				SLJIT_FREE_EXEC(code);
+				SLJIT_FREE_EXEC(code, compiler->exec_allocator_data);
 				compiler->error = SLJIT_ERR_ALLOC_FAILED;
 				return NULL;
 			}

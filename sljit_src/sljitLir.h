@@ -24,8 +24,8 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _SLJIT_LIR_H_
-#define _SLJIT_LIR_H_
+#ifndef SLJIT_LIR_H_
+#define SLJIT_LIR_H_
 
 /*
    ------------------------------------------------------------------------
@@ -70,15 +70,23 @@
       - pass --smc-check=all argument to valgrind, since JIT is a "self-modifying code"
 */
 
+#if (defined SLJIT_HAVE_SLJIT_CONFIG_PRE_H && SLJIT_HAVE_SLJIT_CONFIG_PRE_H)
+#include "sljitConfigPre.h"
+#endif /* SLJIT_HAVE_SLJIT_CONFIG_PRE_H */
+
 #if !(defined SLJIT_NO_DEFAULT_CONFIG && SLJIT_NO_DEFAULT_CONFIG)
 #include "sljitConfig.h"
-#endif
+#endif /* SLJIT_NO_DEFAULT_CONFIG */
 
 /* The following header file defines useful macros for fine tuning
 sljit based code generators. They are listed in the beginning
 of sljitConfigInternal.h */
 
 #include "sljitConfigInternal.h"
+
+#if (defined SLJIT_HAVE_SLJIT_CONFIG_POST_H && SLJIT_HAVE_SLJIT_CONFIG_POST_H)
+#include "sljitConfigPost.h"
+#endif /* SLJIT_HAVE_SLJIT_CONFIG_POST_H */
 
 #ifdef __cplusplus
 extern "C" {
@@ -385,6 +393,7 @@ struct sljit_compiler {
 	struct sljit_put_label *last_put_label;
 
 	void *allocator_data;
+	void *exec_allocator_data;
 	struct sljit_memory_fragment *buf;
 	struct sljit_memory_fragment *abuf;
 
@@ -485,10 +494,12 @@ struct sljit_compiler {
    custom memory managers. This pointer is passed to SLJIT_MALLOC
    and SLJIT_FREE macros. Most allocators (including the default
    one) ignores this value, and it is recommended to pass NULL
-   as a dummy value for allocator_data.
+   as a dummy value for allocator_data. The exec_allocator_data
+   has the same purpose but this one is passed to SLJIT_MALLOC_EXEC /
+   SLJIT_MALLOC_FREE functions.
 
    Returns NULL if failed. */
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data);
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data, void *exec_allocator_data);
 
 /* Frees everything except the compiled machine code. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_compiler(struct sljit_compiler *compiler);
@@ -535,7 +546,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 /* Free executable code. */
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code);
+SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_data);
 
 /*
    When the protected executable allocator is used the JIT code is mapped
@@ -1538,4 +1549,4 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *com
 } /* extern "C" */
 #endif
 
-#endif /* _SLJIT_LIR_H_ */
+#endif /* SLJIT_LIR_H_ */

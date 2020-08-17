@@ -327,7 +327,9 @@ int main(int argc, char* argv[])
 
 	run_tests(tests, has_arg && argv[1][1] == 'v', has_arg && argv[1][1] == 's');
 
+#if !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 	sljit_free_unused_memory_exec();
+#endif /* !SLJIT_CONFIG_UNSUPPORTED */
 
 	return 0;
 }
