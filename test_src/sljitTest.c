@@ -6298,8 +6298,7 @@ static void test63(void)
 
 static void test64(void)
 {
-	/* Test put label with absolute label addresses
-	   This code is not thread safe and uses a patched execalloc. */
+	/* Test put label with absolute label addresses */
 	executable_code code;
 	sljit_uw malloc_addr;
 	struct sljit_label label[4];

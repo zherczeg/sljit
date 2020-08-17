@@ -1,5 +1,10 @@
 This file is the short summary of the API changes:
 
+16.08.2020 - Non-backward compatible
+    A second parameter has been added to sljit_create_compiler()
+    and sljit_free_code() to pass some data to the executable
+    allocator functions.
+
 24.01.2020 - Non-backward compatible
     The SLJIT_MOV instructions does not support SLJIT_UNDEFINED
     as destination. New prefetch instructions has been added
