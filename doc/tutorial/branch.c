@@ -26,7 +26,7 @@ static int branch(long a, long b, long c)
 	struct sljit_jump *out;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler(NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
 
 	/* 3 arg, 1 temp reg, 3 save reg */
 	sljit_emit_enter(C, 0, SLJIT_ARG1(SW)|SLJIT_ARG2(SW)|SLJIT_ARG3(SW),  3, 3, 0, 0, 0);
@@ -67,7 +67,7 @@ static int branch(long a, long b, long c)
 
 	/* Clean up */
 	sljit_free_compiler(C);
-	sljit_free_code(code);
+	sljit_free_code(code, NULL);
 	return 0;
 }
 

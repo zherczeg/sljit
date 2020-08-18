@@ -63,8 +63,8 @@ $(BINDIR)/regexMain.o : $(REGEXDIR)/regexMain.c $(BINDIR)/.keep $(SLJIT_HEADERS)
 $(BINDIR)/regexJIT.o : $(REGEXDIR)/regexJIT.c $(BINDIR)/.keep $(SLJIT_HEADERS) $(REGEXDIR)/regexJIT.h
 	$(CC) $(CPPFLAGS) $(REGEX_CFLAGS) -c -o $@ $(REGEXDIR)/regexJIT.c
 
-$(BINDIR)/sljit_test: $(BINDIR)/.keep $(BINDIR)/sljitMain.o $(TESTDIR)/sljitTest.c $(SRCDIR)/sljitLir.c
-	$(CC) $(CPPFLAGS) -DSLJIT_HAVE_SLJIT_CONFIG_PRE_H=1 -I$(TESTDIR) $(CFLAGS) $(LDFLAGS) $(BINDIR)/sljitMain.o $(TESTDIR)/sljitTest.c $(SRCDIR)/sljitLir.c -o $@ -lm -lpthread
+$(BINDIR)/sljit_test: $(BINDIR)/.keep $(BINDIR)/sljitMain.o $(TESTDIR)/sljitTest.c $(SRCDIR)/sljitLir.c $(SLJIT_LIR_FILES) $(SLJIT_HEADERS) $(TESTDIR)/sljitConfigPre.h $(TESTDIR)/sljitConfigPost.h
+	$(CC) $(CPPFLAGS) -DSLJIT_CUSTOM_CONFIG=1 -I$(TESTDIR) $(CFLAGS) $(LDFLAGS) $(BINDIR)/sljitMain.o $(TESTDIR)/sljitTest.c $(SRCDIR)/sljitLir.c -o $@ -lm -lpthread
 
 $(BINDIR)/regex_test: $(BINDIR)/.keep $(BINDIR)/regexMain.o $(BINDIR)/regexJIT.o $(BINDIR)/sljitLir.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $(BINDIR)/regexMain.o $(BINDIR)/regexJIT.o $(BINDIR)/sljitLir.o -o $@ -lm -lpthread

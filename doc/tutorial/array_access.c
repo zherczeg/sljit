@@ -31,7 +31,7 @@ static int array_access(long *arr, long narr)
 	func_arr_t func;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler(NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
 
 	sljit_emit_enter(C, 0, SLJIT_ARG1(SW),  1, 3, 0, 0, 0);
 	/*                  opt arg R  S  FR FS local_size */
@@ -60,7 +60,7 @@ static int array_access(long *arr, long narr)
 
 	/* Clean up */
 	sljit_free_compiler(C);
-	sljit_free_code(code);
+	sljit_free_code(code, NULL);
 	return 0;
 }
 

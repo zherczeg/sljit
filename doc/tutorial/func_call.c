@@ -32,7 +32,7 @@ static int func_call(long a, long b, long c)
 	struct sljit_jump *print_c;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler(NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
 
 	sljit_emit_enter(C, 0, SLJIT_ARG1(SW)|SLJIT_ARG2(SW)|SLJIT_ARG3(SW), 3, 3, 0, 0, 0);
 
@@ -70,7 +70,7 @@ static int func_call(long a, long b, long c)
 
 	/* Clean up */
 	sljit_free_compiler(C);
-	sljit_free_code(code);
+	sljit_free_code(code, NULL);
 	return 0;
 }
 

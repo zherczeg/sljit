@@ -70,6 +70,10 @@
       - pass --smc-check=all argument to valgrind, since JIT is a "self-modifying code"
 */
 
+#if (defined SLJIT_CUSTOM_CONFIG && SLJIT_CUSTOM_CONFIG)
+#define SLJIT_HAVE_SLJIT_CONFIG_PRE_H 1
+#endif /* SLJIT_CUSTOM_CONFIG */
+
 #if (defined SLJIT_HAVE_SLJIT_CONFIG_PRE_H && SLJIT_HAVE_SLJIT_CONFIG_PRE_H)
 #include "sljitConfigPre.h"
 #endif /* SLJIT_HAVE_SLJIT_CONFIG_PRE_H */

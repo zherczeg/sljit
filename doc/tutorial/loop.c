@@ -29,7 +29,7 @@ static int loop(long a, long b)
 	struct sljit_jump *out;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler(NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
 
 	/* 2 arg, 2 temp reg, 2 saved reg */
 	sljit_emit_enter(C, 0, SLJIT_ARG1(SW)|SLJIT_ARG2(SW), 2, 2, 0, 0, 0);
@@ -66,7 +66,7 @@ static int loop(long a, long b)
 
 	/* Clean up */
 	sljit_free_compiler(C);
-	sljit_free_code(code);
+	sljit_free_code(code, NULL);
 	return 0;
 }
 
