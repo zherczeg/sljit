@@ -61,64 +61,6 @@ static SLJIT_INLINE void allocator_grab_lock(void)
 #endif /* thread implementation */
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR && !SLJIT_WX_EXECUTABLE_ALLOCATOR */
 
-/* Global */
-
-#if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
-
-#if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
-
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_grab_lock(void)
-{
-       /* Always successful. */
-}
-
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
-{
-       /* Always successful. */
-}
-
-#else
-
-#ifdef _WIN32
-
-static HANDLE global_mutex = 0;
-
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_grab_lock(void)
-{
-	/* No idea what to do if an error occures. Static mutexes should never fail... */
-	if (!global_mutex)
-		global_mutex = CreateMutex(NULL, TRUE, NULL);
-	else
-		WaitForSingleObject(global_mutex, INFINITE);
-}
-
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
-{
-	ReleaseMutex(global_mutex);
-}
-
-#else /* !_WIN32 */
-
-#include <pthread.h>
-
-static pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_grab_lock(void)
-{
-	pthread_mutex_lock(&global_mutex);
-}
-
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void)
-{
-	pthread_mutex_unlock(&global_mutex);
-}
-
-#endif /* _WIN32 */
-
-#endif /* SLJIT_SINGLE_THREADED */
-
-#endif /* SLJIT_UTIL_GLOBAL_LOCK */
-
 /* ------------------------------------------------------------------------ */
 /*  Stack                                                                   */
 /* ------------------------------------------------------------------------ */

@@ -1414,12 +1414,6 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void);
 /* Portable helper function to get an offset of a member. */
 #define SLJIT_OFFSETOF(base, member) ((sljit_sw)(&((base*)0x10)->member) - 0x10)
 
-#if (defined SLJIT_UTIL_GLOBAL_LOCK && SLJIT_UTIL_GLOBAL_LOCK)
-/* This global lock is useful to compile common functions. */
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_grab_lock(void);
-SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_release_lock(void);
-#endif
-
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
 
 /* The sljit_stack structure and its manipulation functions provides
