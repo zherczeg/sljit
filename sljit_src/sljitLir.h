@@ -70,17 +70,11 @@
       - pass --smc-check=all argument to valgrind, since JIT is a "self-modifying code"
 */
 
-#if (defined SLJIT_CUSTOM_CONFIG && SLJIT_CUSTOM_CONFIG)
-#define SLJIT_HAVE_SLJIT_CONFIG_PRE_H 1
-#endif /* SLJIT_CUSTOM_CONFIG */
-
-#if (defined SLJIT_HAVE_SLJIT_CONFIG_PRE_H && SLJIT_HAVE_SLJIT_CONFIG_PRE_H)
+#if (defined SLJIT_HAVE_CONFIG_PRE && SLJIT_HAVE_CONFIG_PRE)
 #include "sljitConfigPre.h"
-#endif /* SLJIT_HAVE_SLJIT_CONFIG_PRE_H */
+#endif /* SLJIT_HAVE_CONFIG_PRE */
 
-#if !(defined SLJIT_NO_DEFAULT_CONFIG && SLJIT_NO_DEFAULT_CONFIG)
 #include "sljitConfig.h"
-#endif /* SLJIT_NO_DEFAULT_CONFIG */
 
 /* The following header file defines useful macros for fine tuning
 sljit based code generators. They are listed in the beginning
@@ -88,9 +82,9 @@ of sljitConfigInternal.h */
 
 #include "sljitConfigInternal.h"
 
-#if (defined SLJIT_HAVE_SLJIT_CONFIG_POST_H && SLJIT_HAVE_SLJIT_CONFIG_POST_H)
+#if (defined SLJIT_HAVE_CONFIG_POST && SLJIT_HAVE_CONFIG_POST)
 #include "sljitConfigPost.h"
-#endif /* SLJIT_HAVE_SLJIT_CONFIG_POST_H */
+#endif /* SLJIT_HAVE_CONFIG_POST */
 
 #ifdef __cplusplus
 extern "C" {

@@ -27,7 +27,7 @@
 #ifndef SLJIT_CONFIG_PRE_H_
 #define SLJIT_CONFIG_PRE_H_
 
-#define SLJIT_HAVE_SLJIT_CONFIG_POST_H 1
+#define SLJIT_HAVE_CONFIG_POST 1
 
 #define SLJIT_MALLOC_EXEC(size, exec_allocator_data) sljit_test_malloc_exec((size), (exec_allocator_data))
 #define SLJIT_FREE_EXEC(ptr, exec_allocator_data) sljit_test_free_code((ptr), (exec_allocator_data))

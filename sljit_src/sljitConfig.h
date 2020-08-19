@@ -31,12 +31,12 @@
 extern "C" {
 #endif
 
-/* --------------------------------------------------------------------- */
-/*  Custom defines                                                       */
-/* --------------------------------------------------------------------- */
-
-/* Put your custom defines here. This empty section will never change
-   which helps maintaining patches (with diff / patch utilities). */
+/*
+  This file contains the basic configuration options for the SLJIT compiler
+  and their default values. These options can be overridden in the
+  sljitConfigPre.h header file when SLJIT_HAVE_CONFIG_PRE is set to a
+  non-zero value.
+*/
 
 /* --------------------------------------------------------------------- */
 /*  Architecture                                                         */
