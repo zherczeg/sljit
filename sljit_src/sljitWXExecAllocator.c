@@ -26,26 +26,36 @@
 
 /*
    This file contains a simple W^X executable memory allocator for POSIX
-   like systems and windows
+   like systems and Windows
 
-   It allocates a separate block for each code block and may waste a lot of memory
-   because it uses multiple (rounded up from the size requested) page (minimun 4KB)
-   sized blocks.
+   In *NIX, MAP_ANON is required (that is considered a feature) so make
+   sure to set the right availability macros for your system or the code
+   will fail to build.
 
-   It changes the page permissions as needed RW <-> RX and therefore if you will be
-   updating the code after it has been generated, need to make sure to block any
-   concurrent execution or could result in a segfault, that could even manifest in
-   a different address than the one that was being modified.
+   If your system doesn't support mapping of anonymous pages (ex: IRIX) it
+   is also likely that it doesn't need this allocator and should be using
+   the standard one instead.
+
+   It allocates a separate map for each code block and may waste a lot of
+   memory, because whatever was requested, will be rounded up to the page
+   size (minimum 4KB, but could be even bigger).
+
+   It changes the page permissions (RW <-> RX) as needed and therefore, if you
+   will be updating the code after it has been generated, need to make sure to
+   block any concurrent execution, or could result in a SIGBUS, that could
+   even manifest itself at a different address than the one that was being
+   modified.
 
    Only use if you are unable to use the regular allocator because of security
-   restrictions and adding exceptions to your application is not possible.
+   restrictions and adding exceptions to your application or the system are
+   not possible.
 */
 
 #define SLJIT_UPDATE_WX_FLAGS(from, to, enable_exec) \
 	sljit_update_wx_flags((from), (to), (enable_exec))
 
 #ifndef _WIN32
-
+#include <sys/types.h>
 #include <sys/mman.h>
 
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
@@ -66,7 +76,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
 {
 	sljit_uw *start_ptr = ((sljit_uw*)ptr) - 1;
-	munmap(start_ptr, *start_ptr);
+	munmap((void*)start_ptr, *start_ptr);
 }
 
 static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
