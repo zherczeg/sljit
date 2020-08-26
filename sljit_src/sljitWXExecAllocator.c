@@ -26,47 +26,135 @@
 
 /*
    This file contains a simple W^X executable memory allocator for POSIX
-   like systems and windows
+   like systems and Windows
 
-   It allocates a separate block for each code block and may waste a lot of memory
-   because it uses multiple (rounded up from the size requested) page (minimun 4KB)
-   sized blocks.
+   In *NIX, MAP_ANON is required (that is considered a feature) so make
+   sure to set the right availability macros for your system or the code
+   will fail to build.
 
-   It changes the page permissions as needed RW <-> RX and therefore if you will be
-   updating the code after it has been generated, need to make sure to block any
-   concurrent execution or could result in a segfault, that could even manifest in
-   a different address than the one that was being modified.
+   If your system doesn't support mapping of anonymous pages (ex: IRIX) it
+   is also likely that it doesn't need this allocator and should be using
+   the standard one instead.
+
+   It allocates a separate map for each code block and may waste a lot of
+   memory, because whatever was requested, will be rounded up to the page
+   size (minimum 4KB, but could be even bigger).
+
+   It changes the page permissions (RW <-> RX) as needed and therefore, if you
+   will be updating the code after it has been generated, need to make sure to
+   block any concurrent execution, or could result in a SIGBUS, that could
+   even manifest itself at a different address than the one that was being
+   modified.
 
    Only use if you are unable to use the regular allocator because of security
-   restrictions and adding exceptions to your application is not possible.
+   restrictions and adding exceptions to your application or the system are
+   not possible.
 */
 
 #define SLJIT_UPDATE_WX_FLAGS(from, to, enable_exec) \
 	sljit_update_wx_flags((from), (to), (enable_exec))
 
 #ifndef _WIN32
-
+#include <sys/types.h>
 #include <sys/mman.h>
+
+#ifdef __NetBSD__
+#if defined(PROT_MPROTECT)
+#define check_se_protected(ptr, size) (0)
+#define SLJIT_PROT_WX PROT_MPROTECT(PROT_EXEC)
+#else /* !PROT_MPROTECT */
+#ifdef _NETBSD_SOURCE
+#include <sys/param.h>
+#else /* !_NETBSD_SOURCE */
+typedef unsigned int	u_int;
+#define devmajor_t sljit_s32
+#endif /* _NETBSD_SOURCE */
+#include <sys/sysctl.h>
+#include <unistd.h>
+
+#define check_se_protected(ptr, size) netbsd_se_protected()
+
+static SLJIT_INLINE int netbsd_se_protected(void)
+{
+	int mib[3];
+	int paxflags;
+	size_t len = sizeof(paxflags);
+
+	mib[0] = CTL_PROC;
+	mib[1] = getpid();
+	mib[2] = PROC_PID_PAXFLAGS;
+
+	if (SLJIT_UNLIKELY(sysctl(mib, 3, &paxflags, &len, NULL, 0) < 0))
+		return -1;
+
+	return (paxflags & CTL_PROC_PAXFLAGS_MPROTECT) ? -1 : 0;
+}
+#endif /* PROT_MPROTECT */
+#else /* POSIX */
+#define check_se_protected(ptr, size) generic_se_protected(ptr, size)
+
+static SLJIT_INLINE int generic_se_protected(void *ptr, sljit_uw size)
+{
+	if (SLJIT_LIKELY(!mprotect(ptr, size, PROT_EXEC)))
+		return mprotect(ptr, size, PROT_READ | PROT_WRITE);
+
+	return -1;
+}
+#endif /* NetBSD */
+
+#if defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED
+#define SLJIT_SE_LOCK()
+#define SLJIT_SE_UNLOCK()
+#else /* !SLJIT_SINGLE_THREADED */
+#include <pthread.h>
+#define SLJIT_SE_LOCK()	pthread_mutex_lock(&se_lock)
+#define SLJIT_SE_UNLOCK()	pthread_mutex_unlock(&se_lock)
+#endif /* SLJIT_SINGLE_THREADED */
+
+#ifndef SLJIT_PROT_WX
+#define SLJIT_PROT_WX 0
+#endif /* !SLJIT_PROT_WX */
 
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 {
+#if !(defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
+	static pthread_mutex_t se_lock = PTHREAD_MUTEX_INITIALIZER;
+#endif
+	static int se_protected = !SLJIT_PROT_WX;
 	sljit_uw* ptr;
 
-	size += sizeof(sljit_uw);
-	ptr = (sljit_uw*)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-
-	if (ptr == MAP_FAILED) {
+	if (SLJIT_UNLIKELY(se_protected < 0))
 		return NULL;
+
+	size += sizeof(sljit_uw);
+	ptr = (sljit_uw*)mmap(NULL, size, PROT_READ | PROT_WRITE | SLJIT_PROT_WX,
+				MAP_PRIVATE | MAP_ANON, -1, 0);
+
+	if (ptr == MAP_FAILED)
+		return NULL;
+
+	if (SLJIT_UNLIKELY(se_protected > 0)) {
+		SLJIT_SE_LOCK();
+		se_protected = check_se_protected(ptr, size);
+		SLJIT_SE_UNLOCK();
+		if (SLJIT_UNLIKELY(se_protected < 0)) {
+			munmap((void *)ptr, size);
+			return NULL;
+		}
 	}
 
 	*ptr++ = size;
 	return ptr;
 }
 
+#undef SLJIT_PROT_WX
+#undef SLJIT_SE_UNLOCK
+#undef SLJIT_SE_LOCK
+
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
 {
 	sljit_uw *start_ptr = ((sljit_uw*)ptr) - 1;
-	munmap(start_ptr, *start_ptr);
+	munmap((void*)start_ptr, *start_ptr);
 }
 
 static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
@@ -88,7 +176,6 @@ static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
 
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 {
-	DWORD oldprot;
 	sljit_uw *ptr;
 
 	size += sizeof(sljit_uw);
@@ -97,12 +184,6 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 
 	if (!ptr)
 		return NULL;
-
-	if (!VirtualProtect((void*)ptr, size, PAGE_EXECUTE, &oldprot)) {
-		VirtualFree((void*)ptr, 0, MEM_RELEASE);
-		return NULL;
-	}
-	VirtualProtect((void*)ptr, size, oldprot, &oldprot);
 
 	*ptr++ = size;
 
