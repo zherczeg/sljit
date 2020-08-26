@@ -65,7 +65,11 @@ static SLJIT_INLINE void allocator_grab_lock(void)
 /*  Stack                                                                   */
 /* ------------------------------------------------------------------------ */
 
-#if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) || (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
+#if ((defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) \
+	&& !(defined SLJIT_UTIL_SIMPLE_STACK_ALLOCATION && SLJIT_UTIL_SIMPLE_STACK_ALLOCATION)) \
+	|| ((defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR) \
+	&& !((defined SLJIT_PROT_EXECUTABLE_ALLOCATOR && SLJIT_PROT_EXECUTABLE_ALLOCATOR) \
+	|| (defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)))
 
 #ifndef _WIN32
 /* Provides mmap function. */
@@ -82,14 +86,21 @@ static SLJIT_INLINE void allocator_grab_lock(void)
 
 #include <fcntl.h>
 
+#ifdef O_CLOEXEC
+#define SLJIT_CLOEXEC	O_CLOEXEC
+#else /* !O_CLOEXEC */
+#define SLJIT_CLOEXEC	0
+#endif /* O_CLOEXEC */
+
 /* Some old systems do not have MAP_ANON. */
-static sljit_s32 dev_zero = -1;
+static int dev_zero = -1;
 
 #if (defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
 
-static SLJIT_INLINE sljit_s32 open_dev_zero(void)
+static SLJIT_INLINE int open_dev_zero(void)
 {
-	dev_zero = open("/dev/zero", O_RDWR);
+	dev_zero = open("/dev/zero", O_RDWR | SLJIT_CLOEXEC);
+
 	return dev_zero < 0;
 }
 
@@ -99,24 +110,21 @@ static SLJIT_INLINE sljit_s32 open_dev_zero(void)
 
 static pthread_mutex_t dev_zero_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static SLJIT_INLINE sljit_s32 open_dev_zero(void)
+static SLJIT_INLINE int open_dev_zero(void)
 {
 	pthread_mutex_lock(&dev_zero_mutex);
-	/* The dev_zero might be initialized by another thread during the waiting. */
-	if (dev_zero < 0)
-		dev_zero = open("/dev/zero", O_RDWR);
+	if (SLJIT_UNLIKELY(dev_zero < 0))
+		dev_zero = open("/dev/zero", O_RDWR | SLJIT_CLOEXEC);
 
 	pthread_mutex_unlock(&dev_zero_mutex);
 	return dev_zero < 0;
 }
 
 #endif /* SLJIT_SINGLE_THREADED */
-
+#undef SLJIT_CLOEXEC
 #endif /* !MAP_ANON */
-
 #endif /* !_WIN32 */
-
-#endif /* SLJIT_UTIL_STACK || SLJIT_EXECUTABLE_ALLOCATOR */
+#endif /* open_dev_zero */
 
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) \
 	|| (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
@@ -259,11 +267,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(slj
 #ifdef MAP_ANON
 	ptr = mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 #else /* !MAP_ANON */
-	if (dev_zero < 0) {
-		if (open_dev_zero() != 0) {
-			SLJIT_FREE(stack, allocator_data);
-			return NULL;
-		}
+	if (SLJIT_UNLIKELY((dev_zero < 0) && open_dev_zero())) {
+		SLJIT_FREE(stack, allocator_data);
+		return NULL;
 	}
 	ptr = mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, dev_zero, 0);
 #endif /* MAP_ANON */

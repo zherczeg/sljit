@@ -94,6 +94,7 @@ static SLJIT_INLINE void free_chunk(void *chunk, sljit_uw size)
 #else
 
 #ifdef __APPLE__
+#ifdef MAP_ANON
 /* Configures TARGET_OS_OSX when appropriate */
 #include <TargetConditionals.h>
 
@@ -147,7 +148,7 @@ static SLJIT_INLINE int get_map_jit_flag()
 }
 
 #endif /* MAP_JIT */
-
+#endif /* MAP_ANON */
 #endif /* __APPLE__ */
 
 static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
@@ -165,10 +166,9 @@ static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 
 	retval = mmap(NULL, size, prot, flags, -1, 0);
 #else /* !MAP_ANON */
-	if (dev_zero < 0) {
-		if (open_dev_zero())
-			return NULL;
-	}
+	if (SLJIT_UNLIKELY((dev_zero < 0) && open_dev_zero()))
+		return NULL;
+
 	retval = mmap(NULL, size, prot, MAP_PRIVATE, dev_zero, 0);
 #endif /* MAP_ANON */
 

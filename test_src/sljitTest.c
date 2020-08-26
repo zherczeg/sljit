@@ -6316,7 +6316,7 @@ static void test64(void)
 	malloc_addr = (sljit_uw)SLJIT_MALLOC_EXEC(1024, NULL);
 
 	if (!malloc_addr) {
-		printf("Cannot allocate executable memory.");
+		printf("Cannot allocate executable memory\n");
 		return;
 	}
 
