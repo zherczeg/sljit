@@ -162,8 +162,6 @@ extern "C" {
 #define SLJIT_CONFIG_SPARC_32 1
 #elif defined(__tilegx__)
 #define SLJIT_CONFIG_TILEGX 1
-#elif defined(__s390x__)
-#define SLJIT_CONFIG_S390X 1
 #else
 /* Unsupported architecture */
 #define SLJIT_CONFIG_UNSUPPORTED 1
@@ -724,9 +722,30 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 
+/*
+ * https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#STACKFRAME
+ *
+ * 160
+ *  .. FR6
+ *  .. FR4
+ *  .. FR2
+ * 128 FR0
+ * 120 R15 (used for SP)
+ * 112 R14
+ * 104 R13
+ *  96 R12
+ *  ..
+ *  48 R6
+ *  ..
+ *  16 R2
+ *   8 RESERVED
+ *   0 SP
+ */
+#define SLJIT_S390X_DEFAULT_STACK_FRAME_SIZE 160
+
 #define SLJIT_NUMBER_OF_REGISTERS 12
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 8
-#define SLJIT_LOCALS_OFFSET_BASE 160
+#define SLJIT_LOCALS_OFFSET_BASE SLJIT_S390X_DEFAULT_STACK_FRAME_SIZE
 
 #elif (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 
