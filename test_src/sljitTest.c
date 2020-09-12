@@ -3779,6 +3779,13 @@ static void test41(void)
 		| (sljit_get_register_index(SLJIT_S0) << 14)
 		| sljit_get_register_index(SLJIT_S1);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
+#elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+	/* agrk rd, rs1, rs2 */
+	inst = (0xb9e8 << 16)
+		| (sljit_get_register_index(SLJIT_RETURN_REG) << 4)
+		| (sljit_get_register_index(SLJIT_S0) << 12)
+		| sljit_get_register_index(SLJIT_S1);
+	sljit_emit_op_custom(compiler, &inst, sizeof(inst));
 #else
 	inst = 0;
 	sljit_emit_op_custom(compiler, &inst, 0);
@@ -6303,10 +6310,10 @@ static void test64(void)
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	sljit_sw offs1 = SLJIT_W(0x123456781122);
 	sljit_sw offs2 = SLJIT_W(0x1234567811223344);
-#else
+#else /* !SLJIT_64BIT_ARCHITECTURE */
 	sljit_sw offs1 = 0x12345678;
 	sljit_sw offs2 = 0x80000000;
-#endif
+#endif /* SLJIT_64BIT_ARCHITECTURE */
 
 	if (verbose)
 		printf("Run test64\n");

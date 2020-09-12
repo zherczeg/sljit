@@ -633,7 +633,10 @@ static SLJIT_INLINE sljit_s32 get_arg_count(sljit_s32 arg_types)
 	return arg_count;
 }
 
-#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+
+/* Only used in RISC architectures where the instruction size is constant */
+#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
+	&& !(defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 
 static SLJIT_INLINE sljit_uw compute_next_addr(struct sljit_label *label, struct sljit_jump *jump,
 	struct sljit_const *const_, struct sljit_put_label *put_label)
@@ -655,7 +658,7 @@ static SLJIT_INLINE sljit_uw compute_next_addr(struct sljit_label *label, struct
 	return result;
 }
 
-#endif /* !SLJIT_CONFIG_X86 */
+#endif /* !SLJIT_CONFIG_X86 && !SLJIT_CONFIG_S390X */
 
 static SLJIT_INLINE void set_emit_enter(struct sljit_compiler *compiler,
 	sljit_s32 options, sljit_s32 args, sljit_s32 scratches, sljit_s32 saveds,
@@ -1384,6 +1387,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_custom(struct sljit_co
 #elif (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
 	CHECK_ARGUMENT((size == 2 && (((sljit_sw)instruction) & 0x1) == 0)
 		|| (size == 4 && (((sljit_sw)instruction) & 0x3) == 0));
+#elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+	CHECK_ARGUMENT(size == 2 || size == 4 || size == 6);
 #else
 	CHECK_ARGUMENT(size == 4 && (((sljit_sw)instruction) & 0x3) == 0);
 #endif
@@ -2119,6 +2124,8 @@ static SLJIT_INLINE sljit_s32 sljit_emit_cmov_generic(struct sljit_compiler *com
 #	include "sljitNativeSPARC_common.c"
 #elif (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
 #	include "sljitNativeTILEGX_64.c"
+#elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+#	include "sljitNativeS390X.c"
 #endif
 
 #if !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
