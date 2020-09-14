@@ -89,7 +89,7 @@ struct loop_node_st {
 static struct loop_node_st loop_stack[BF_LOOP_LEVEL];
 static int loop_sp;
 
-static SLJIT_FUNC int loop_push(struct sljit_label *loop_start, struct sljit_jump *loop_end)
+static int loop_push(struct sljit_label *loop_start, struct sljit_jump *loop_end)
 {
 	if (loop_sp >= BF_LOOP_LEVEL)
 		return -1;
@@ -100,7 +100,7 @@ static SLJIT_FUNC int loop_push(struct sljit_label *loop_start, struct sljit_jum
 	return 0;
 }
 
-static SLJIT_FUNC int loop_pop(struct sljit_label **loop_start, struct sljit_jump **loop_end)
+static int loop_pop(struct sljit_label **loop_start, struct sljit_jump **loop_end)
 {
 	if (loop_sp <= 0)
 		return -1;
