@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef SLJIT_FUNC long (*func2_t)(long a, long b);
+typedef long (SLJIT_FUNC *func2_t)(long a, long b);
 
 /*
   This example, we generate a function like this:

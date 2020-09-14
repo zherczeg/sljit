@@ -111,22 +111,22 @@ static int loop_pop(struct sljit_label **loop_start, struct sljit_jump **loop_en
 	return 0;
 }
 
-static SLJIT_FUNC void *my_alloc(long size, long n)
+static void *SLJIT_FUNC my_alloc(long size, long n)
 {
 	return calloc(size, n);
 }
 
-static SLJIT_FUNC void my_putchar(long c)
+static void SLJIT_FUNC my_putchar(long c)
 {
 	putchar(c);
 }
 
-static SLJIT_FUNC long my_getchar(void)
+static long SLJIT_FUNC my_getchar(void)
 {
 	return getchar();
 }
 
-static SLJIT_FUNC void my_free(void *mem)
+static void SLJIT_FUNC my_free(void *mem)
 {
 	free(mem);
 }
