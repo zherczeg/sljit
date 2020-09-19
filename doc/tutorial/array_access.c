@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef SLJIT_FUNC long (*func_arr_t)(long *arr, long narr);
+typedef long (SLJIT_FUNC *func_arr_t)(long *arr, long narr);
 
-static SLJIT_FUNC long print_num(long a)
+static long SLJIT_FUNC print_num(long a)
 {
 	printf("num = %ld\n", a);
 	return a + 1;

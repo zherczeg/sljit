@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef SLJIT_FUNC long (*func3_t)(long a, long b, long c);
+typedef long (SLJIT_FUNC *func3_t)(long a, long b, long c);
 
-static SLJIT_FUNC long print_arr(long *a, long n)
+static long SLJIT_FUNC print_arr(long *a, long n)
 {
 	long i;
 	long sum = 0;

@@ -89,7 +89,7 @@ struct loop_node_st {
 static struct loop_node_st loop_stack[BF_LOOP_LEVEL];
 static int loop_sp;
 
-static SLJIT_FUNC int loop_push(struct sljit_label *loop_start, struct sljit_jump *loop_end)
+static int loop_push(struct sljit_label *loop_start, struct sljit_jump *loop_end)
 {
 	if (loop_sp >= BF_LOOP_LEVEL)
 		return -1;
@@ -100,7 +100,7 @@ static SLJIT_FUNC int loop_push(struct sljit_label *loop_start, struct sljit_jum
 	return 0;
 }
 
-static SLJIT_FUNC int loop_pop(struct sljit_label **loop_start, struct sljit_jump **loop_end)
+static int loop_pop(struct sljit_label **loop_start, struct sljit_jump **loop_end)
 {
 	if (loop_sp <= 0)
 		return -1;
@@ -111,22 +111,22 @@ static SLJIT_FUNC int loop_pop(struct sljit_label **loop_start, struct sljit_jum
 	return 0;
 }
 
-static SLJIT_FUNC void *my_alloc(long size, long n)
+static void *SLJIT_FUNC my_alloc(long size, long n)
 {
 	return calloc(size, n);
 }
 
-static SLJIT_FUNC void my_putchar(long c)
+static void SLJIT_FUNC my_putchar(long c)
 {
 	putchar(c);
 }
 
-static SLJIT_FUNC long my_getchar(void)
+static long SLJIT_FUNC my_getchar(void)
 {
 	return getchar();
 }
 
-static SLJIT_FUNC void my_free(void *mem)
+static void SLJIT_FUNC my_free(void *mem)
 {
 	free(mem);
 }

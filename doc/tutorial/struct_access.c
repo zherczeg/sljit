@@ -10,9 +10,9 @@ struct point_st {
 	char d;
 };
 
-typedef SLJIT_FUNC long (*point_func_t)(struct point_st *point);;
+typedef long (SLJIT_FUNC *point_func_t)(struct point_st *point);;
 
-static SLJIT_FUNC long print_num(long a)
+static long SLJIT_FUNC print_num(long a)
 {
 	printf("a = %ld\n", a);
 	return a + 1;
