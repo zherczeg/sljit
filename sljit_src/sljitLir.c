@@ -485,12 +485,16 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_compiler_memory_error(struct sljit_compi
 #if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_data)
 {
+	SLJIT_UNUSED_ARG(exec_allocator_data);
+
 	/* Remove thumb mode flag. */
 	SLJIT_FREE_EXEC((void*)((sljit_uw)code & ~0x1), exec_allocator_data);
 }
 #elif (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_data)
 {
+	SLJIT_UNUSED_ARG(exec_allocator_data);
+
 	/* Resolve indirection. */
 	code = (void*)(*(sljit_uw*)code);
 	SLJIT_FREE_EXEC(code, exec_allocator_data);
@@ -498,6 +502,8 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_d
 #else
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_data)
 {
+	SLJIT_UNUSED_ARG(exec_allocator_data);
+
 	SLJIT_FREE_EXEC(code, exec_allocator_data);
 }
 #endif
