@@ -222,14 +222,6 @@
 #	define FCSR_FCC		33
 #endif
 
-#if (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
-#	define IS_JAL		0x04
-#	define IS_COND		0x08
-
-#	define PATCH_B		0x10
-#	define PATCH_J		0x20
-#endif
-
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 #	define IS_MOVABLE	0x04
 #	define IS_COND		0x08
@@ -2122,8 +2114,6 @@ static SLJIT_INLINE sljit_s32 sljit_emit_cmov_generic(struct sljit_compiler *com
 #	include "sljitNativeMIPS_common.c"
 #elif (defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC)
 #	include "sljitNativeSPARC_common.c"
-#elif (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
-#	include "sljitNativeTILEGX_64.c"
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 #	include "sljitNativeS390X.c"
 #endif
