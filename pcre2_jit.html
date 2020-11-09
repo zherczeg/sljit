@@ -89,7 +89,7 @@ needed for control transfers represented by horizontal arrows.<br>
 </td></tr></table>
 
 The next figure shows the structure of the machine code generated from the
-<code>/a(?:b\w)+d/</code> pattern:<br>
+<code>/a(?:\w\d)+d/</code> pattern:<br>
 <br>
 <center><table style="width: 90%"><tr><td>
 <pre>
@@ -100,10 +100,10 @@ The next figure shows the structure of the machine code generated from the
      <i># Matching path of (?:)+</i>
    STACK_PUSH NULL
 L1:
-     <i># Matching path of matching the "b" letter</i>
-   MATCH "b", IF FAILS GOTO L5
-     <i># Matching path of matching the dot special character</i>
-   MATCH WORD_CHARACTER, IF FAILS GOTO L4
+     <i># Matching path of matching the \w special character</i>
+   MATCH WORD_CHARACTER, IF FAILS GOTO L5
+     <i># Matching path of matching the \d special character</i>
+   MATCH DIGIT_CHARACTER, IF FAILS GOTO L4
      <i># Continue the matching path of (?:)+</i>
    STACK_PUSH STRING_POINTER
    GOTO L1
@@ -132,7 +132,7 @@ L6:
 When a matching path has only one alternative (e.g. matching the letter <code>"a"</code>), the
 backtracking path is often empty, i.e. no instructions are generated at all. Some constructs
 may contain the code paths of other sub-patterns. In our example above, the code paths of
-<code>b\w</code> sub-pattern is nested into the code paths of <code>(?:)+</code>. Furthermore
+<code>\w\d</code> sub-pattern is nested into the code paths of <code>(?:)+</code>. Furthermore
 the current position in the input is stored in the <code>STRING_POINTER</code> variable. This
 variable must have the correct value when the execution enters into a matching path,
 but it is undefined for backtracking paths. Hence the backtracking path must restore (or set)
@@ -204,7 +204,7 @@ any CPU registers, and can even modify the status of the caller. The effect is q
 to inlining, except that the function is actually called. Must CPUs has return address
 predictors, so calling these functions are cheap operations.
 
-<h3>Literal optimization</h3>
+<h3>Literal optimizations</h3>
 
 Literals are fixed character sequences and they are often found in patterns. Comparing them to
 the input is a frequent task which normally requires the same number of steps as the length of
