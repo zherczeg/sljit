@@ -48,7 +48,7 @@ static HANDLE allocator_lock;
 static SLJIT_INLINE void allocator_grab_lock(void)
 {
 	HANDLE lock;
-	if (SLJIT_UNLIKELY(!allocator_lock)) {
+	if (SLJIT_UNLIKELY(!InterlockedCompareExchangePointer(&allocator_lock, NULL, NULL))) {
 		lock = CreateMutex(NULL, FALSE, NULL);
 		if (InterlockedCompareExchangePointer(&allocator_lock, lock, NULL))
 			CloseHandle(lock);
