@@ -146,9 +146,13 @@ static SLJIT_INLINE sljit_sw get_page_alignment(void) {
 #include <unistd.h>
 
 static SLJIT_INLINE sljit_sw get_page_alignment(void) {
-	static sljit_sw sljit_page_align;
-	if (!sljit_page_align) {
+	static sljit_sw sljit_page_align = -1;
+	if (sljit_page_align < 0) {
+#ifdef _SC_PAGESIZE
 		sljit_page_align = sysconf(_SC_PAGESIZE);
+#else
+		sljit_page_align = getpagesize();
+#endif
 		/* Should never happen. */
 		if (sljit_page_align < 0)
 			sljit_page_align = 4096;
