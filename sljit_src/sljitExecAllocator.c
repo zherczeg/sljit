@@ -182,10 +182,12 @@ static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 	if (retval == MAP_FAILED)
 		return NULL;
 
+#ifdef SLIJT_WX_OS_NEEDSCHEK
 	if (mprotect(retval, size, prot) < 0) {
 		munmap(retval, size);
 		return NULL;
 	}
+#endif
 
 	SLJIT_UPDATE_WX_FLAGS(retval, (uint8_t *)retval + size, 0);
 
