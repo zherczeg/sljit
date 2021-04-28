@@ -461,6 +461,7 @@ struct sljit_compiler {
 #if (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	/* Need to allocate register save area to make calls. */
 	sljit_s32 have_save_area;
+	sljit_s32 cc_mode;
 #endif
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -1534,8 +1535,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
 	void *instruction, sljit_s32 size);
 
-/* Define the currently available CPU status flags. It is usually used after an
-   sljit_emit_op_custom call to define which flags are set. */
+/* Flags were set by an ADD, ADDC, SUB, SUBC, or NEG operation. */
+#define SLJIT_CURRENT_FLAGS_ARITHMETIC		0x01
+
+/* Define the currently available CPU status flags. It is usually used after
+   an sljit_emit_label or sljit_emit_op_custom operations to define which CPU
+   status flags are available.
+
+   The current_flags must be a valid combination of SLJIT_SET_* and
+   SLJIT_CURRENT_FLAGS_* constants. */
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler,
 	sljit_s32 current_flags);

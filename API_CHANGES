@@ -1,5 +1,10 @@
 This file is the short summary of the API changes:
 
+28.04.2021 - Non-backward compatible
+    The current_flags argument of sljit_set_current_flags
+    must provide a flag if the status flags were set by an
+    arithmetic instruction.
+
 16.08.2020 - Non-backward compatible
     A second parameter has been added to sljit_create_compiler()
     and sljit_free_code() to pass some data to the executable

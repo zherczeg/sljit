@@ -2185,7 +2185,7 @@ static void test27(void)
 	/* Playing with conditional flags. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
-	sljit_u8 buf[37];
+	sljit_u8 buf[41];
 	sljit_s32 i;
 #ifdef SLJIT_PREF_SHIFT_REG
 	sljit_s32 shift_reg = SLJIT_PREF_SHIFT_REG;
@@ -2198,7 +2198,7 @@ static void test27(void)
 	if (verbose)
 		printf("Run test27\n");
 
-	for (i = 0; i < 37; ++i)
+	for (i = 0; i < sizeof(buf); ++i)
 		buf[i] = 10;
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -2264,6 +2264,16 @@ static void test27(void)
 	SET_NEXT_BYTE(SLJIT_GREATER_EQUAL);
 	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_LESS_EQUAL, SLJIT_R0, 0, SLJIT_R1, 0, SLJIT_IMM, -2);
 	SET_NEXT_BYTE(SLJIT_LESS_EQUAL);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, (sljit_sw)-1 << ((8 * sizeof(sljit_sw)) - 1));
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_SIG_LESS, SLJIT_R0, 0, SLJIT_R1, 0, SLJIT_IMM, 1);
+	SET_NEXT_BYTE(SLJIT_SIG_LESS);
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_SIG_GREATER, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, -1);
+	SET_NEXT_BYTE(SLJIT_SIG_GREATER);
+	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_R0, 0, SLJIT_R1, 0, SLJIT_IMM, 1);
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_SIG_GREATER_EQUAL, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, -2);
+	SET_NEXT_BYTE(SLJIT_SIG_GREATER_EQUAL);
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_SIG_GREATER, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 2);
+	SET_NEXT_BYTE(SLJIT_SIG_GREATER);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0x80000000);
 	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 16);
@@ -2370,31 +2380,35 @@ static void test27(void)
 	FAILED(buf[15] != 1, "test27 case 16 failed\n");
 	FAILED(buf[16] != 1, "test27 case 17 failed\n");
 	FAILED(buf[17] != 2, "test27 case 18 failed\n");
+	FAILED(buf[18] != 1, "test27 case 19 failed\n");
+	FAILED(buf[19] != 1, "test27 case 20 failed\n");
+	FAILED(buf[20] != 1, "test27 case 21 failed\n");
+	FAILED(buf[21] != 2, "test27 case 22 failed\n");
 
-	FAILED(buf[18] != RESULT(1), "test27 case 19 failed\n");
-	FAILED(buf[19] != RESULT(2), "test27 case 20 failed\n");
-	FAILED(buf[20] != 2, "test27 case 21 failed\n");
-	FAILED(buf[21] != 1, "test27 case 22 failed\n");
-
-	FAILED(buf[22] != 5, "test27 case 23 failed\n");
-	FAILED(buf[23] != 9, "test27 case 24 failed\n");
-
+	FAILED(buf[22] != RESULT(1), "test27 case 23 failed\n");
+	FAILED(buf[23] != RESULT(2), "test27 case 24 failed\n");
 	FAILED(buf[24] != 2, "test27 case 25 failed\n");
 	FAILED(buf[25] != 1, "test27 case 26 failed\n");
 
-	FAILED(buf[26] != 1, "test27 case 27 failed\n");
-	FAILED(buf[27] != 1, "test27 case 28 failed\n");
-	FAILED(buf[28] != 1, "test27 case 29 failed\n");
+	FAILED(buf[26] != 5, "test27 case 27 failed\n");
+	FAILED(buf[27] != 9, "test27 case 28 failed\n");
+
+	FAILED(buf[28] != 2, "test27 case 29 failed\n");
 	FAILED(buf[29] != 1, "test27 case 30 failed\n");
 
 	FAILED(buf[30] != 1, "test27 case 31 failed\n");
-	FAILED(buf[31] != 0, "test27 case 32 failed\n");
-
-	FAILED(buf[32] != 2, "test27 case 33 failed\n");
+	FAILED(buf[31] != 1, "test27 case 32 failed\n");
+	FAILED(buf[32] != 1, "test27 case 33 failed\n");
 	FAILED(buf[33] != 1, "test27 case 34 failed\n");
-	FAILED(buf[34] != 2, "test27 case 35 failed\n");
-	FAILED(buf[35] != 1, "test27 case 36 failed\n");
-	FAILED(buf[36] != 10, "test27 case 37 failed\n");
+
+	FAILED(buf[34] != 1, "test27 case 35 failed\n");
+	FAILED(buf[35] != 0, "test27 case 36 failed\n");
+
+	FAILED(buf[36] != 2, "test27 case 37 failed\n");
+	FAILED(buf[37] != 1, "test27 case 38 failed\n");
+	FAILED(buf[38] != 2, "test27 case 39 failed\n");
+	FAILED(buf[39] != 1, "test27 case 40 failed\n");
+	FAILED(buf[40] != 10, "test27 case 41 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -6210,7 +6224,7 @@ static void test62(void)
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 1, 1, 0, 0, 0);
 	sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM, SLJIT_FUNC_OFFSET(code1.code));
-	sljit_set_current_flags(compiler, SLJIT_SET_Z | SLJIT_SET_LESS);
+	sljit_set_current_flags(compiler, SLJIT_CURRENT_FLAGS_ARITHMETIC | SLJIT_SET_Z | SLJIT_SET_LESS);
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_ZERO);
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_S0, 0, SLJIT_LESS);
 	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_S0, 0, SLJIT_S0, 0, SLJIT_IMM, 1);
