@@ -537,8 +537,13 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *com
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(current_flags);
 
+#if (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+	compiler->cc_mode = current_flags;
+#endif
+
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	if ((current_flags & ~(VARIABLE_FLAG_MASK | SLJIT_I32_OP | SLJIT_SET_Z)) == 0) {
+	compiler->last_flags = 0;
+	if ((current_flags & ~(VARIABLE_FLAG_MASK | SLJIT_I32_OP | SLJIT_SET_Z | SLJIT_CURRENT_FLAGS_ARITHMETIC)) == 0) {
 		compiler->last_flags = GET_FLAG_TYPE(current_flags) | (current_flags & (SLJIT_I32_OP | SLJIT_SET_Z));
 	}
 #endif
