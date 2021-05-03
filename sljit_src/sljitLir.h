@@ -460,7 +460,7 @@ struct sljit_compiler {
 
 #if (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	/* Need to allocate register save area to make calls. */
-	sljit_s32 have_save_area;
+	sljit_s32 mode;
 	sljit_s32 cc_mode;
 #endif
 
