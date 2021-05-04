@@ -412,6 +412,10 @@ struct sljit_compiler {
 	/* Executable size for statistical purposes. */
 	sljit_uw executable_size;
 
+#if (defined SLJIT_HAS_STATUS_FLAGS_STATE && SLJIT_HAS_STATUS_FLAGS_STATE)
+	sljit_s32 status_flags_state;
+#endif
+
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	sljit_s32 args;
 	sljit_s32 locals_offset;
@@ -461,7 +465,6 @@ struct sljit_compiler {
 #if (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	/* Need to allocate register save area to make calls. */
 	sljit_s32 mode;
-	sljit_s32 cc_mode;
 #endif
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -997,7 +1000,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 #define SLJIT_SUBC			(SLJIT_OP2_BASE + 3)
 #define SLJIT_SUBC32			(SLJIT_SUBC | SLJIT_I32_OP)
 /* Note: integer mul
-   Flags: MUL_OVERFLOW */
+   Flags: OVERFLOW */
 #define SLJIT_MUL			(SLJIT_OP2_BASE + 4)
 #define SLJIT_MUL32			(SLJIT_MUL | SLJIT_I32_OP)
 /* Flags: Z */
@@ -1181,38 +1184,32 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_NOT_OVERFLOW		11
 #define SLJIT_NOT_OVERFLOW32		(SLJIT_NOT_OVERFLOW | SLJIT_I32_OP)
 
-#define SLJIT_MUL_OVERFLOW		12
-#define SLJIT_MUL_OVERFLOW32		(SLJIT_MUL_OVERFLOW | SLJIT_I32_OP)
-#define SLJIT_SET_MUL_OVERFLOW		SLJIT_SET(SLJIT_MUL_OVERFLOW)
-#define SLJIT_MUL_NOT_OVERFLOW		13
-#define SLJIT_MUL_NOT_OVERFLOW32	(SLJIT_MUL_NOT_OVERFLOW | SLJIT_I32_OP)
-
 /* There is no SLJIT_CARRY or SLJIT_NOT_CARRY. */
-#define SLJIT_SET_CARRY			SLJIT_SET(14)
+#define SLJIT_SET_CARRY			SLJIT_SET(12)
 
 /* Floating point comparison types. */
-#define SLJIT_EQUAL_F64			16
+#define SLJIT_EQUAL_F64			14
 #define SLJIT_EQUAL_F32			(SLJIT_EQUAL_F64 | SLJIT_F32_OP)
 #define SLJIT_SET_EQUAL_F		SLJIT_SET(SLJIT_EQUAL_F64)
-#define SLJIT_NOT_EQUAL_F64		17
+#define SLJIT_NOT_EQUAL_F64		15
 #define SLJIT_NOT_EQUAL_F32		(SLJIT_NOT_EQUAL_F64 | SLJIT_F32_OP)
 #define SLJIT_SET_NOT_EQUAL_F		SLJIT_SET(SLJIT_NOT_EQUAL_F64)
-#define SLJIT_LESS_F64			18
+#define SLJIT_LESS_F64			16
 #define SLJIT_LESS_F32			(SLJIT_LESS_F64 | SLJIT_F32_OP)
 #define SLJIT_SET_LESS_F		SLJIT_SET(SLJIT_LESS_F64)
-#define SLJIT_GREATER_EQUAL_F64		19
+#define SLJIT_GREATER_EQUAL_F64		17
 #define SLJIT_GREATER_EQUAL_F32		(SLJIT_GREATER_EQUAL_F64 | SLJIT_F32_OP)
 #define SLJIT_SET_GREATER_EQUAL_F	SLJIT_SET(SLJIT_GREATER_EQUAL_F64)
-#define SLJIT_GREATER_F64		20
+#define SLJIT_GREATER_F64		18
 #define SLJIT_GREATER_F32		(SLJIT_GREATER_F64 | SLJIT_F32_OP)
 #define SLJIT_SET_GREATER_F		SLJIT_SET(SLJIT_GREATER_F64)
-#define SLJIT_LESS_EQUAL_F64		21
+#define SLJIT_LESS_EQUAL_F64		19
 #define SLJIT_LESS_EQUAL_F32		(SLJIT_LESS_EQUAL_F64 | SLJIT_F32_OP)
 #define SLJIT_SET_LESS_EQUAL_F		SLJIT_SET(SLJIT_LESS_EQUAL_F64)
-#define SLJIT_UNORDERED_F64		22
+#define SLJIT_UNORDERED_F64		20
 #define SLJIT_UNORDERED_F32		(SLJIT_UNORDERED_F64 | SLJIT_F32_OP)
 #define SLJIT_SET_UNORDERED_F		SLJIT_SET(SLJIT_UNORDERED_F64)
-#define SLJIT_ORDERED_F64		23
+#define SLJIT_ORDERED_F64		21
 #define SLJIT_ORDERED_F32		(SLJIT_ORDERED_F64 | SLJIT_F32_OP)
 #define SLJIT_SET_ORDERED_F		SLJIT_SET(SLJIT_ORDERED_F64)
 
@@ -1536,7 +1533,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 	void *instruction, sljit_s32 size);
 
 /* Flags were set by an ADD, ADDC, SUB, SUBC, or NEG operation. */
-#define SLJIT_CURRENT_FLAGS_ARITHMETIC		0x01
+#define SLJIT_CURRENT_FLAGS_ADD_SUB		0x01
 
 /* Define the currently available CPU status flags. It is usually used after
    an sljit_emit_label or sljit_emit_op_custom operations to define which CPU

@@ -1941,11 +1941,9 @@ static sljit_ins get_bo_bi_flags(sljit_s32 type)
 		return (4 << 21) | ((4 + 1) << 16);
 
 	case SLJIT_OVERFLOW:
-	case SLJIT_MUL_OVERFLOW:
 		return (12 << 21) | (3 << 16);
 
 	case SLJIT_NOT_OVERFLOW:
-	case SLJIT_MUL_NOT_OVERFLOW:
 		return (4 << 21) | (3 << 16);
 
 	case SLJIT_EQUAL_F64:
@@ -2143,12 +2141,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		break;
 
 	case SLJIT_OVERFLOW:
-	case SLJIT_MUL_OVERFLOW:
 		cr_bit = 3;
 		break;
 
 	case SLJIT_NOT_OVERFLOW:
-	case SLJIT_MUL_NOT_OVERFLOW:
 		cr_bit = 3;
 		invert = 1;
 		break;

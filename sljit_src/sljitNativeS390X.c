@@ -180,8 +180,8 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 
 	switch (type) {
 	case SLJIT_EQUAL:
-		if (compiler->cc_mode & SLJIT_CURRENT_FLAGS_ARITHMETIC) {
-			sljit_s32 type = GET_FLAG_TYPE(compiler->cc_mode);
+		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB) {
+			sljit_s32 type = GET_FLAG_TYPE(compiler->status_flags_state);
 			if (type >= SLJIT_SIG_LESS && type <= SLJIT_SIG_LESS_EQUAL)
 				return cc0;
 			if (type == SLJIT_OVERFLOW)
@@ -193,8 +193,8 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 		return cc0;
 
 	case SLJIT_NOT_EQUAL:
-		if (compiler->cc_mode & SLJIT_CURRENT_FLAGS_ARITHMETIC) {
-			sljit_s32 type = GET_FLAG_TYPE(compiler->cc_mode);
+		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB) {
+			sljit_s32 type = GET_FLAG_TYPE(compiler->status_flags_state);
 			if (type >= SLJIT_SIG_LESS && type <= SLJIT_SIG_LESS_EQUAL)
 				return (cc1 | cc2 | cc3);
 			if (type == SLJIT_OVERFLOW)
@@ -233,18 +233,16 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 		return (cc0 | cc2 | cc3);
 
 	case SLJIT_OVERFLOW:
-		if (compiler->cc_mode & SLJIT_SET_Z)
+		if (compiler->status_flags_state & SLJIT_SET_Z)
 			return (cc2 | cc3);
 
-	case SLJIT_MUL_OVERFLOW:
 	case SLJIT_UNORDERED_F64:
 		return cc3;
 
 	case SLJIT_NOT_OVERFLOW:
-		if (compiler->cc_mode & SLJIT_SET_Z)
+		if (compiler->status_flags_state & SLJIT_SET_Z)
 			return (cc0 | cc1);
 
-	case SLJIT_MUL_NOT_OVERFLOW:
 	case SLJIT_ORDERED_F64:
 		return (cc0 | cc1 | cc2);
 
@@ -1994,7 +1992,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	if (src & SLJIT_MEM)
 		FAIL_IF(load_word(compiler, src_r, src, srcw, src & SLJIT_I32_OP));
 
-	compiler->cc_mode = op & (VARIABLE_FLAG_MASK | SLJIT_SET_Z);
+	compiler->status_flags_state = op & (VARIABLE_FLAG_MASK | SLJIT_SET_Z);
 
 	/* TODO(mundaym): optimize loads and stores */
 	switch (opcode | (op & SLJIT_I32_OP)) {
@@ -2019,11 +2017,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		}
 		break;
 	case SLJIT_NEG:
-		compiler->cc_mode |= SLJIT_CURRENT_FLAGS_ARITHMETIC;
+		compiler->status_flags_state |= SLJIT_CURRENT_FLAGS_ADD_SUB;
 		FAIL_IF(push_inst(compiler, lcgr(dst_r, src_r)));
 		break;
 	case SLJIT_NEG32:
-		compiler->cc_mode |= SLJIT_CURRENT_FLAGS_ARITHMETIC;
+		compiler->status_flags_state |= SLJIT_CURRENT_FLAGS_ADD_SUB;
 		FAIL_IF(push_inst(compiler, lcr(dst_r, src_r)));
 		break;
 	case SLJIT_CLZ:
@@ -2572,10 +2570,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		return SLJIT_SUCCESS;
 
 	compiler->mode = op & SLJIT_I32_OP;
-	compiler->cc_mode = op & (VARIABLE_FLAG_MASK | SLJIT_SET_Z);
+	compiler->status_flags_state = op & (VARIABLE_FLAG_MASK | SLJIT_SET_Z);
 
 	if (GET_OPCODE(op) >= SLJIT_ADD || GET_OPCODE(op) <= SLJIT_SUBC)
-		compiler->cc_mode |= SLJIT_CURRENT_FLAGS_ARITHMETIC;
+		compiler->status_flags_state |= SLJIT_CURRENT_FLAGS_ADD_SUB;
 
 	if (is_commutative(op) && (src1 & SLJIT_IMM) && !(src2 & SLJIT_IMM)) {
 		src1 ^= src2;
@@ -2828,7 +2826,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	case SLJIT_AND:
 	case SLJIT_OR:
 	case SLJIT_XOR:
-		compiler->cc_mode = op & SLJIT_SET_Z;
+		compiler->status_flags_state = op & SLJIT_SET_Z;
 
 		/* dst is also source operand */
 		if (dst & SLJIT_MEM)
