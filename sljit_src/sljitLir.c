@@ -532,6 +532,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_put_label(struct sljit_put_label *put_la
 		put_label->label = label;
 }
 
+#define SLJIT_CURRENT_FLAGS_ALL \
+	(SLJIT_CURRENT_FLAGS_ADD_SUB | SLJIT_CURRENT_FLAGS_COMPARE)
+
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler, sljit_s32 current_flags)
 {
 	SLJIT_UNUSED_ARG(compiler);
@@ -543,7 +546,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *com
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	compiler->last_flags = 0;
-	if ((current_flags & ~(VARIABLE_FLAG_MASK | SLJIT_I32_OP | SLJIT_SET_Z | SLJIT_CURRENT_FLAGS_ADD_SUB)) == 0) {
+	if ((current_flags & ~(VARIABLE_FLAG_MASK | SLJIT_I32_OP | SLJIT_SET_Z | SLJIT_CURRENT_FLAGS_ALL)) == 0) {
 		compiler->last_flags = GET_FLAG_TYPE(current_flags) | (current_flags & (SLJIT_I32_OP | SLJIT_SET_Z));
 	}
 #endif

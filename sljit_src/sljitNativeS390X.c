@@ -171,6 +171,9 @@ static sljit_s32 encode_inst(void **ptr, sljit_ins ins)
 	return SLJIT_SUCCESS;
 }
 
+#define SLJIT_ADD_SUB_NO_COMPARE(status_flags_state) \
+	(((status_flags_state) & (SLJIT_CURRENT_FLAGS_ADD_SUB | SLJIT_CURRENT_FLAGS_COMPARE)) == SLJIT_CURRENT_FLAGS_ADD_SUB)
+
 /* Map the given type to a 4-bit condition code mask. */
 static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 type) {
 	const sljit_u8 cc0 = 1 << 3; /* equal {,to zero} */
@@ -180,7 +183,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 
 	switch (type) {
 	case SLJIT_EQUAL:
-		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB) {
+		if (SLJIT_ADD_SUB_NO_COMPARE(compiler->status_flags_state)) {
 			sljit_s32 type = GET_FLAG_TYPE(compiler->status_flags_state);
 			if (type >= SLJIT_SIG_LESS && type <= SLJIT_SIG_LESS_EQUAL)
 				return cc0;
@@ -193,7 +196,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 		return cc0;
 
 	case SLJIT_NOT_EQUAL:
-		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB) {
+		if (SLJIT_ADD_SUB_NO_COMPARE(compiler->status_flags_state)) {
 			sljit_s32 type = GET_FLAG_TYPE(compiler->status_flags_state);
 			if (type >= SLJIT_SIG_LESS && type <= SLJIT_SIG_LESS_EQUAL)
 				return (cc1 | cc2 | cc3);
@@ -212,9 +215,13 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 		return (cc0 | cc2 | cc3);
 
 	case SLJIT_GREATER:
+		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_COMPARE)
+			return cc2;
 		return cc3;
 
 	case SLJIT_LESS_EQUAL:
+		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_COMPARE)
+			return (cc0 | cc1);
 		return (cc0 | cc1 | cc2);
 
 	case SLJIT_SIG_LESS:
@@ -2200,23 +2207,45 @@ static sljit_s32 sljit_emit_sub(struct sljit_compiler *compiler, sljit_s32 op,
 	const struct ins_forms *forms;
 	sljit_ins ins;
 
-	if (dst == SLJIT_UNUSED && GET_FLAG_TYPE(op) >= SLJIT_SIG_LESS && GET_FLAG_TYPE(op) <= SLJIT_SIG_LESS_EQUAL) {
+	if (dst == SLJIT_UNUSED && GET_FLAG_TYPE(op) <= SLJIT_SIG_LESS_EQUAL) {
+		int compare_signed = GET_FLAG_TYPE(op) >= SLJIT_SIG_LESS;
+
+		compiler->status_flags_state |= SLJIT_CURRENT_FLAGS_COMPARE;
+
 		if (src2 & SLJIT_IMM) {
-			if ((op & SLJIT_I32_OP) || is_s32(src2w)) {
-				ins = (op & SLJIT_I32_OP) ? 0xc20d00000000 /* cfi */ : 0xc20c00000000 /* cgfi */;
-				return emit_ri(compiler, ins, src1, src1, src1w, src2w, RIL_A);
+			if (compare_signed || ((op & VARIABLE_FLAG_MASK) == 0 && is_s32(src2w)))
+			{
+				if ((op & SLJIT_I32_OP) || is_s32(src2w)) {
+					ins = (op & SLJIT_I32_OP) ? 0xc20d00000000 /* cfi */ : 0xc20c00000000 /* cgfi */;
+					return emit_ri(compiler, ins, src1, src1, src1w, src2w, RIL_A);
+				}
+			}
+			else {
+				if ((op & SLJIT_I32_OP) || is_u32(src2w)) {
+					ins = (op & SLJIT_I32_OP) ? 0xc20f00000000 /* clfi */ : 0xc20e00000000 /* clgfi */;
+					return emit_ri(compiler, ins, src1, src1, src1w, src2w, RIL_A);
+				}
+				if (is_s16(src2w))
+					return emit_rie_d(compiler, 0xec00000000db /* alghsik */, SLJIT_UNUSED, src1, src1w, src2w);
 			}
 		}
+		else if (src2 & SLJIT_MEM) {
+			if ((op & SLJIT_I32_OP) && ((src2 & OFFS_REG_MASK) || is_u12(src2w))) {
+				ins = compare_signed ? 0x59000000 /* c */ : 0x55000000 /* cl */;
+				return emit_rx(compiler, ins, src1, src1, src1w, src2, src2w, RX_A);
+			}
 
-		if (src2 & SLJIT_MEM) {
-			if ((op & SLJIT_I32_OP) && ((src2 & OFFS_REG_MASK) || is_u12(src2w)))
-				return emit_rx(compiler, 0x59000000 /* c */, src1, src1, src1w, src2, src2w, RX_A);
-
-			ins = (op & SLJIT_I32_OP) ? 0xe30000000059 /* cy */ : 0xe30000000020 /* cg */;
+			if (compare_signed)
+				ins = (op & SLJIT_I32_OP) ? 0xe30000000059 /* cy */ : 0xe30000000020 /* cg */;
+			else
+				ins = (op & SLJIT_I32_OP) ? 0xe30000000055 /* cly */ : 0xe30000000021 /* clg */;
 			return emit_rx(compiler, ins, src1, src1, src1w, src2, src2w, RXY_A);
 		}
 
-		ins = (op & SLJIT_I32_OP) ? 0x1900 /* cr */ : 0xb9200000 /* cgr */;
+		if (compare_signed)
+			ins = (op & SLJIT_I32_OP) ? 0x1900 /* cr */ : 0xb9200000 /* cgr */;
+		else
+			ins = (op & SLJIT_I32_OP) ? 0x1500 /* clr */ : 0xb9210000 /* clgr */;
 		return emit_rr(compiler, ins, src1, src1, src1w, src2, src2w);
 	}
 
