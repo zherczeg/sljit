@@ -1535,6 +1535,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 /* Flags were set by an ADD, ADDC, SUB, SUBC, or NEG operation. */
 #define SLJIT_CURRENT_FLAGS_ADD_SUB		0x01
 
+/* Flags were set by a SUB with unused destination.
+   Must be combined with SLJIT_CURRENT_FLAGS_ADD_SUB. */
+#define SLJIT_CURRENT_FLAGS_COMPARE		0x02
+
 /* Define the currently available CPU status flags. It is usually used after
    an sljit_emit_label or sljit_emit_op_custom operations to define which CPU
    status flags are available.

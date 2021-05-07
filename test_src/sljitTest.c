@@ -6200,7 +6200,7 @@ static void test62(void)
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARG1(SW), 1, 1, 0, 0, 0);
 	sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM, SLJIT_FUNC_OFFSET(code1.code));
-	sljit_set_current_flags(compiler, SLJIT_CURRENT_FLAGS_ADD_SUB | SLJIT_SET_Z | SLJIT_SET_LESS);
+	sljit_set_current_flags(compiler, SLJIT_CURRENT_FLAGS_ADD_SUB | SLJIT_CURRENT_FLAGS_COMPARE | SLJIT_SET_Z | SLJIT_SET_LESS);
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_ZERO);
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_S0, 0, SLJIT_LESS);
 	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_S0, 0, SLJIT_S0, 0, SLJIT_IMM, 1);
@@ -6598,13 +6598,13 @@ static void test69(void)
 	/* Test sljit_set_current_flags. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
-	sljit_sw buf[4];
+	sljit_sw buf[6];
 	sljit_s32 i;
 
 	if (verbose)
 		printf("Run test69\n");
 
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < 6; i++)
 		buf[i] = 4;
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -6636,6 +6636,18 @@ static void test69(void)
 	sljit_set_current_flags(compiler, SLJIT_SET_OVERFLOW);
 	cond_set(compiler, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_sw), SLJIT_OVERFLOW);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 6);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 5);
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_GREATER, SLJIT_UNUSED, 0, SLJIT_R1, 0, SLJIT_R2, 0);
+	sljit_emit_label(compiler);
+	sljit_set_current_flags(compiler, SLJIT_SET_GREATER | SLJIT_CURRENT_FLAGS_ADD_SUB | SLJIT_CURRENT_FLAGS_COMPARE);
+	cond_set(compiler, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_sw), SLJIT_GREATER);
+
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_Z, SLJIT_UNUSED, 0, SLJIT_R1, 0, SLJIT_R2, 0);
+	sljit_emit_label(compiler);
+	sljit_set_current_flags(compiler, SLJIT_SET_Z | SLJIT_CURRENT_FLAGS_ADD_SUB | SLJIT_CURRENT_FLAGS_COMPARE);
+	cond_set(compiler, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_sw), SLJIT_ZERO);
+
 	sljit_emit_return(compiler, SLJIT_UNUSED, 0, 0);
 
 	code.code = sljit_generate_code(compiler);
@@ -6648,6 +6660,8 @@ static void test69(void)
 	FAILED(buf[1] != 2, "test69 case 2 failed\n");
 	FAILED(buf[2] != 1, "test69 case 3 failed\n");
 	FAILED(buf[3] != 2, "test69 case 4 failed\n");
+	FAILED(buf[4] != 1, "test69 case 5 failed\n");
+	FAILED(buf[5] != 2, "test69 case 6 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
