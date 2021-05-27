@@ -1200,14 +1200,14 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_SET_ORDERED_F		SLJIT_SET(SLJIT_ORDERED_F64)
 
 /* Unconditional jump types. */
-#define SLJIT_JUMP			24
+#define SLJIT_JUMP			22
 	/* Fast calling method. See sljit_emit_fast_enter / SLJIT_FAST_RETURN. */
-#define SLJIT_FAST_CALL			25
+#define SLJIT_FAST_CALL			23
 	/* Called function must be declared with the SLJIT_FUNC attribute. */
-#define SLJIT_CALL			26
+#define SLJIT_CALL			24
 	/* Called function must be declared with cdecl attribute.
 	   This is the default attribute for C functions. */
-#define SLJIT_CALL_CDECL		27
+#define SLJIT_CALL_CDECL		25
 
 /* The target can be changed during runtime (see: sljit_set_jump_addr). */
 #define SLJIT_REWRITABLE_JUMP		0x1000

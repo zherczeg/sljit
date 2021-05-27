@@ -986,7 +986,6 @@ static char* jump_names[] = {
 	(char*)"sig_less", (char*)"sig_greater_equal",
 	(char*)"sig_greater", (char*)"sig_less_equal",
 	(char*)"overflow", (char*)"not_overflow",
-	(char*)"mul_overflow", (char*)"mul_not_overflow",
 	(char*)"carry", (char*)"",
 	(char*)"equal", (char*)"not_equal",
 	(char*)"less", (char*)"greater_equal",
