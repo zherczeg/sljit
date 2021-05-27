@@ -1,13 +1,18 @@
 This file is the short summary of the API changes:
 
+27.05.2021 - Non-backward compatible
+    The comparison types with the 32 suffix are removed from the
+    project. The sljit_set_current_flags has a new flag which
+    must be set when the flags are set by a 32 bit operation.
+
 04.05.2021 - Non-backward compatible
-    The mul overflow flags are removed from the project
-    and the normal overflow flags should be used instead.
+    The mul overflow comparison type is removed from the project
+    and the normal overflow type should be used instead.
 
 28.04.2021 - Non-backward compatible
-    The current_flags argument of sljit_set_current_flags
-    must provide information about the instructions which
-    set the CPU status flags.
+    The current_flags argument of sljit_set_current_flags must
+    provide information about the instructions which set the CPU
+    status flags.
 
 16.08.2020 - Non-backward compatible
     A second parameter has been added to sljit_create_compiler()

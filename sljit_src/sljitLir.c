@@ -533,7 +533,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_put_label(struct sljit_put_label *put_la
 }
 
 #define SLJIT_CURRENT_FLAGS_ALL \
-	(SLJIT_CURRENT_FLAGS_ADD_SUB | SLJIT_CURRENT_FLAGS_COMPARE)
+	(SLJIT_CURRENT_FLAGS_I32_OP | SLJIT_CURRENT_FLAGS_ADD_SUB | SLJIT_CURRENT_FLAGS_COMPARE)
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler, sljit_s32 current_flags)
 {
@@ -546,7 +546,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *com
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	compiler->last_flags = 0;
-	if ((current_flags & ~(VARIABLE_FLAG_MASK | SLJIT_I32_OP | SLJIT_SET_Z | SLJIT_CURRENT_FLAGS_ALL)) == 0) {
+	if ((current_flags & ~(VARIABLE_FLAG_MASK | SLJIT_SET_Z | SLJIT_CURRENT_FLAGS_ALL)) == 0) {
 		compiler->last_flags = GET_FLAG_TYPE(current_flags) | (current_flags & (SLJIT_I32_OP | SLJIT_SET_Z));
 	}
 #endif
@@ -1610,7 +1610,6 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_jump(struct sljit_compile
 		else
 			CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff)
 				|| ((type & 0xff) == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW));
-		CHECK_ARGUMENT((type & SLJIT_I32_OP) == (compiler->last_flags & SLJIT_I32_OP));
 	}
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
