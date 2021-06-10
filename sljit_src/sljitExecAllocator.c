@@ -139,8 +139,9 @@ static SLJIT_INLINE int get_map_jit_flag()
 #endif /* MAP_ANON */
 #else /* !SLJIT_CONFIG_X86 */
 #if !(defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
-#error Unsupported architecture
+#error "Unsupported architecture"
 #endif /* SLJIT_CONFIG_ARM */
+#include <AvailabilityMacros.h>
 #include <pthread.h>
 
 #define SLJIT_MAP_JIT	(MAP_JIT)
@@ -149,7 +150,11 @@ static SLJIT_INLINE int get_map_jit_flag()
 
 static SLJIT_INLINE void apple_update_wx_flags(sljit_s32 enable_exec)
 {
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 110000
 	pthread_jit_write_protect_np(enable_exec);
+#else
+#error "Must target Big Sur or newer"
+#endif /* BigSur */
 }
 #endif /* SLJIT_CONFIG_X86 */
 #else /* !TARGET_OS_OSX */
