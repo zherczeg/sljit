@@ -292,7 +292,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 	sljit_u8 *inst;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_return_void(compiler, op));
+	CHECK(check_sljit_emit_return_void(compiler));
 
 	SLJIT_ASSERT(compiler->args >= 0);
 	SLJIT_ASSERT(compiler->local_size > 0);
