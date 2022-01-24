@@ -107,6 +107,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SBC		0xe0c00000
 #define SMULL		0xe0c00090
 #define SUB		0xe0400000
+#define TST		0xe1000000
 #define UMULL		0xe0800090
 #define VABS_F32	0xeeb00ac0
 #define VADD_F32	0xee300a00
@@ -1197,7 +1198,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		SLJIT_ASSERT(!(flags & INV_IMM));
 		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
 
-		if ((flags & (UNUSED_RETURN | SET_FLAGS)) == (UNUSED_RETURN | SET_FLAGS) && !(flags & ARGS_SWAPPED))
+		if ((flags & (UNUSED_RETURN | ARGS_SWAPPED)) == UNUSED_RETURN)
 			return push_inst(compiler, CMN | SET_FLAGS | RN(src1) | ((src2 & SRC2_IMM) ? src2 : RM(src2)));
 		return push_inst(compiler, ADD | (flags & SET_FLAGS) | RD(dst) | RN(src1) | ((src2 & SRC2_IMM) ? src2 : RM(src2)));
 
@@ -1209,7 +1210,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		SLJIT_ASSERT(!(flags & INV_IMM));
 		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
 
-		if ((flags & (UNUSED_RETURN | SET_FLAGS)) == (UNUSED_RETURN | SET_FLAGS) && !(flags & ARGS_SWAPPED))
+		if ((flags & (UNUSED_RETURN | ARGS_SWAPPED)) == UNUSED_RETURN)
 			return push_inst(compiler, CMP | SET_FLAGS | RN(src1) | ((src2 & SRC2_IMM) ? src2 : RM(src2)));
 		return push_inst(compiler, (!(flags & ARGS_SWAPPED) ? SUB : RSB) | (flags & SET_FLAGS)
 			| RD(dst) | RN(src1) | ((src2 & SRC2_IMM) ? src2 : RM(src2)));
@@ -1233,6 +1234,8 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return push_inst(compiler, CMP | SET_FLAGS | RN(TMP_REG1) | RM(dst) | 0xfc0);
 
 	case SLJIT_AND:
+		if ((flags & (UNUSED_RETURN | INV_IMM)) == UNUSED_RETURN)
+			return push_inst(compiler, TST | SET_FLAGS | RN(src1) | ((src2 & SRC2_IMM) ? src2 : RM(src2)));
 		return push_inst(compiler, (!(flags & INV_IMM) ? AND : BIC) | (flags & SET_FLAGS)
 			| RD(dst) | RN(src1) | ((src2 & SRC2_IMM) ? src2 : RM(src2)));
 

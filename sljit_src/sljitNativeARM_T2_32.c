@@ -175,6 +175,8 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SXTH		0xb200
 #define SXTH_W		0xfa0ff080
 #define TST		0x4200
+#define TSTI		0xf0000f00
+#define TST_W		0xea000f00
 #define UDIV		0xfbb0f0f0
 #define UMULL		0xfba00000
 #define UXTB		0xb2c0
@@ -699,8 +701,8 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		case SLJIT_AND:
 			nimm = get_imm(imm);
 			if (nimm != INVALID_IMM)
-				return push_inst32(compiler, ANDI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
-			imm = get_imm(imm);
+				return push_inst32(compiler, ((flags & UNUSED_RETURN) ? TSTI : ANDI) | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
+			imm = get_imm(~imm);
 			if (imm != INVALID_IMM)
 				return push_inst32(compiler, BICI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
@@ -708,7 +710,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			nimm = get_imm(imm);
 			if (nimm != INVALID_IMM)
 				return push_inst32(compiler, ORRI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
-			imm = get_imm(imm);
+			imm = get_imm(~imm);
 			if (imm != INVALID_IMM)
 				return push_inst32(compiler, ORNI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
@@ -840,7 +842,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			return push_inst16(compiler, ANDS | RD3(dst) | RN3(arg2));
 		if ((flags & UNUSED_RETURN) && IS_2_LO_REGS(arg1, arg2))
 			return push_inst16(compiler, TST | RD3(arg1) | RN3(arg2));
-		return push_inst32(compiler, AND_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
+		return push_inst32(compiler, ((flags & UNUSED_RETURN) ? TST_W : AND_W) | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
 	case SLJIT_OR:
 		if (dst == arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, ORRS | RD3(dst) | RN3(arg2));
