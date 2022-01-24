@@ -300,15 +300,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)
 {
 	sljit_s32 i, tmp, size;
 	sljit_u8 *inst;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_return(compiler, op, src, srcw));
-
-	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
+	CHECK(check_sljit_emit_return_void(compiler));
 
 #ifdef _WIN64
 	/* Restore xmm6 register: movaps xmm6, [rsp + 0x20] */
@@ -445,7 +443,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 				b |= TO_OFFS_REG(SLJIT_SP);
 		}
 
-		if ((b & REG_MASK) == SLJIT_UNUSED)
+		if (!(b & REG_MASK))
 			inst_size += 1 + sizeof(sljit_s32); /* SIB byte required to avoid RIP based addressing. */
 		else {
 			if (reg_map[b & REG_MASK] >= 8)
@@ -461,7 +459,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 			else if (reg_lmap[b & REG_MASK] == 5)
 				inst_size += sizeof(sljit_s8);
 
-			if ((b & OFFS_REG_MASK) != SLJIT_UNUSED) {
+			if (b & OFFS_REG_MASK) {
 				inst_size += 1; /* SIB byte. */
 				if (reg_map[OFFS_REG(b)] >= 8)
 					rex |= REX_X;
@@ -550,8 +548,8 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 
 	if (!(b & SLJIT_MEM))
 		*buf_ptr++ |= MOD_REG + ((!(flags & EX86_SSE2_OP2)) ? reg_lmap[b] : freg_lmap[b]);
-	else if ((b & REG_MASK) != SLJIT_UNUSED) {
-		if ((b & OFFS_REG_MASK) == SLJIT_UNUSED || (b & OFFS_REG_MASK) == TO_OFFS_REG(SLJIT_SP)) {
+	else if (b & REG_MASK) {
+		if (!(b & OFFS_REG_MASK) || (b & OFFS_REG_MASK) == TO_OFFS_REG(SLJIT_SP)) {
 			if (immb != 0 || reg_lmap[b & REG_MASK] == 5) {
 				if (immb <= 127 && immb >= -128)
 					*buf_ptr |= 0x40;
@@ -559,7 +557,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_s32
 					*buf_ptr |= 0x80;
 			}
 
-			if ((b & OFFS_REG_MASK) == SLJIT_UNUSED)
+			if (!(b & OFFS_REG_MASK))
 				*buf_ptr++ |= reg_lmap[b & REG_MASK];
 			else {
 				*buf_ptr++ |= 0x04;
@@ -770,10 +768,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 	CHECK(check_sljit_emit_fast_enter(compiler, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
-	/* For UNUSED dst. Uncommon, but possible. */
-	if (dst == SLJIT_UNUSED)
-		dst = TMP_REG1;
-
 	if (FAST_IS_REG(dst)) {
 		if (reg_map[dst] < 8) {
 			inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
@@ -850,9 +844,6 @@ static sljit_s32 emit_mov_int(struct sljit_compiler *compiler, sljit_s32 sign,
 
 	compiler->mode32 = 0;
 
-	if (dst == SLJIT_UNUSED && !(src & SLJIT_MEM))
-		return SLJIT_SUCCESS; /* Empty instruction. */
-
 	if (src & SLJIT_IMM) {
 		if (FAST_IS_REG(dst)) {
 			if (sign || ((sljit_uw)srcw <= 0x7fffffff)) {
@@ -914,5 +905,5 @@ static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
 	if (SLJIT_S0 >= tmp)
 		size += (SLJIT_S0 - tmp + 1) * sizeof(sljit_uw);
 
-	return adjust_shadow_stack(compiler, SLJIT_UNUSED, 0, SLJIT_SP, size);
+	return adjust_shadow_stack(compiler, SLJIT_MEM1(SLJIT_SP), size);
 }

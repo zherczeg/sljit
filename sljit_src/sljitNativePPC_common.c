@@ -776,14 +776,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)
 {
 	sljit_s32 i, tmp, offs;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_return(compiler, op, src, srcw));
-
-	FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
+	CHECK(check_sljit_emit_return_void(compiler));
 
 	if (compiler->local_size <= SIMM_MAX)
 		FAIL_IF(push_inst(compiler, ADDI | D(SLJIT_SP) | A(SLJIT_SP) | IMM(compiler->local_size)));
@@ -1073,8 +1071,10 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 	sljit_s32 flags = input_flags & (ALT_FORM1 | ALT_FORM2 | ALT_FORM3 | ALT_FORM4 | ALT_FORM5 | ALT_SIGN_EXT | ALT_SET_FLAGS);
 
 	/* Destination check. */
-	if (SLOW_IS_REG(dst)) {
+	if (FAST_IS_REG(dst)) {
 		dst_r = dst;
+		/* The REG_DEST is only used by SLJIT_MOV operations, although
+		 * it is set for op2 operations with unset destination. */
 		flags |= REG_DEST;
 
 		if (op >= SLJIT_MOV && op <= SLJIT_MOV_P)
@@ -1174,7 +1174,7 @@ static sljit_s32 emit_prefetch(struct sljit_compiler *compiler,
         sljit_s32 src, sljit_sw srcw)
 {
 	if (!(src & OFFS_REG_MASK)) {
-		if (srcw == 0 && (src & REG_MASK) != SLJIT_UNUSED)
+		if (srcw == 0 && (src & REG_MASK))
 			return push_inst(compiler, DCBT | A(0) | B(src & REG_MASK));
 
 		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
@@ -1351,13 +1351,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	sljit_s32 flags = HAS_FLAGS(op) ? ALT_SET_FLAGS : 0;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_op2(compiler, op, dst, dstw, src1, src1w, src2, src2w));
+	CHECK(check_sljit_emit_op2(compiler, op, 0, dst, dstw, src1, src1w, src2, src2w));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
-
-	if (dst == SLJIT_UNUSED && !HAS_FLAGS(op))
-		return SLJIT_SUCCESS;
 
 	if ((src1 & SLJIT_IMM) && src1w == 0)
 		src1 = TMP_ZERO;
@@ -1442,7 +1439,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 
 	case SLJIT_SUB:
 		if (GET_FLAG_TYPE(op) >= SLJIT_LESS && GET_FLAG_TYPE(op) <= SLJIT_LESS_EQUAL) {
-			if (dst == SLJIT_UNUSED) {
+			if (dst == TMP_REG2) {
 				if (TEST_UL_IMM(src2, src2w)) {
 					compiler->imm = src2w & 0xffff;
 					return emit_op(compiler, SLJIT_SUB, flags | ALT_FORM1 | ALT_FORM2, dst, dstw, src1, src1w, TMP_REG2, 0);
@@ -1457,7 +1454,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 			return emit_op(compiler, SLJIT_SUB, flags | ALT_FORM1 | ALT_FORM3, dst, dstw, src1, src1w, src2, src2w);
 		}
 
-		if (dst == SLJIT_UNUSED && GET_FLAG_TYPE(op) <= SLJIT_SIG_LESS_EQUAL) {
+		if (dst == TMP_REG2 && GET_FLAG_TYPE(op) <= SLJIT_SIG_LESS_EQUAL) {
 			if (TEST_SL_IMM(src2, src2w)) {
 				compiler->imm = src2w & 0xffff;
 				return emit_op(compiler, SLJIT_SUB, flags | ALT_FORM2 | ALT_FORM3, dst, dstw, src1, src1w, TMP_REG2, 0);
@@ -1545,8 +1542,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 				return emit_op(compiler, GET_OPCODE(op), flags | ALT_FORM2, dst, dstw, src2, src2w, TMP_REG2, 0);
 			}
 		}
-		if (GET_OPCODE(op) != SLJIT_AND && GET_OPCODE(op) != SLJIT_AND) {
-			/* Unlike or and xor, and resets unwanted bits as well. */
+		if (GET_OPCODE(op) != SLJIT_AND) {
+			/* Unlike or and xor, the and resets unwanted bits as well. */
 			if (TEST_UI_IMM(src2, src2w)) {
 				compiler->imm = src2w;
 				return emit_op(compiler, GET_OPCODE(op), flags | ALT_FORM3, dst, dstw, src1, src1w, TMP_REG2, 0);
@@ -1573,6 +1570,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	}
 
 	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op2(compiler, op, 1, 0, 0, src1, src1w, src2, src2w));
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
+		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	compiler->skip_checks = 1;
+#endif
+	return sljit_emit_op2(compiler, op, TMP_REG2, 0, src1, src1w, src2, src2w);
 }
 
 #undef TEST_ADD_FORM1

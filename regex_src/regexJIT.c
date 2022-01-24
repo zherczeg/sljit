@@ -1289,6 +1289,9 @@ static int trace_transitions(int from, struct compiler_common *compiler_common)
 #define EMIT_OP2(type, arg1, arg2, arg3, arg4, arg5, arg6) \
 	CHECK(sljit_emit_op2(compiler, type, arg1, arg2, arg3, arg4, arg5, arg6))
 
+#define EMIT_OP2U(type, arg1, arg2, arg3, arg4) \
+	CHECK(sljit_emit_op2u(compiler, type, arg1, arg2, arg3, arg4))
+
 #define EMIT_LABEL(label) \
 	label = sljit_emit_label(compiler); \
 	CHECK(!label)
@@ -1448,7 +1451,7 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_sw c
 					EMIT_LABEL(label1);
 					sljit_set_label(jump1, label1);
 
-					EMIT_OP2(SLJIT_SUB | SLJIT_SET_Z | SLJIT_SET_LESS, SLJIT_UNUSED, 0, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_sw), R_TEMP, 0);
+					EMIT_OP2U(SLJIT_SUB | SLJIT_SET_Z | SLJIT_SET_LESS, SLJIT_MEM1(R_NEXT_STATE), offset + 2 * sizeof(sljit_sw), R_TEMP, 0);
 					EMIT_JUMP(jump1, SLJIT_LESS);
 					EMIT_JUMP(jump3, SLJIT_NOT_EQUAL); /* Greater. */
 
@@ -1462,7 +1465,7 @@ static int compile_cond_tran(struct compiler_common *compiler_common, sljit_sw c
 						sljit_set_label(jump4, label1);
 					}
 
-					EMIT_OP2(SLJIT_SUB | SLJIT_SET_GREATER_EQUAL, SLJIT_UNUSED, 0, SLJIT_MEM1(R_NEXT_STATE), offset + 3 * sizeof(sljit_sw), R_TEMP, 0);
+					EMIT_OP2U(SLJIT_SUB | SLJIT_SET_GREATER_EQUAL, SLJIT_MEM1(R_NEXT_STATE), offset + 3 * sizeof(sljit_sw), R_TEMP, 0);
 					EMIT_JUMP(jump4, SLJIT_GREATER_EQUAL);
 					EMIT_JUMP(jump5, SLJIT_JUMP);
 
@@ -2183,7 +2186,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 	sljit_set_label(best_match_found_jump, label);
 	if (fast_forward_jump)
 		sljit_set_label(fast_forward_jump, label);
-	CHECK(sljit_emit_return(compiler_common.compiler, SLJIT_UNUSED, 0, 0));
+	CHECK(sljit_emit_return_void(compiler_common.compiler));
 
 	for (ind = 1; ind < compiler_common.dfa_size - 1; ind++) {
 		if (compiler_common.search_states[ind].type >= 0) {

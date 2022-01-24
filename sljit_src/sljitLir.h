@@ -163,13 +163,6 @@ extern "C" {
         is not available at all.
 */
 
-/* When SLJIT_UNUSED is specified as the destination of sljit_emit_op1
-   or sljit_emit_op2 operations the result is discarded. Some status
-   flags must be set when the destination is SLJIT_UNUSED, because the
-   operation would have no effect otherwise. Other SLJIT operations do
-   not support SLJIT_UNUSED as a destination operand. */
-#define SLJIT_UNUSED		0
-
 /* Scratch registers. */
 #define SLJIT_R0	1
 #define SLJIT_R1	2
@@ -230,9 +223,6 @@ extern "C" {
 /* Each floating point register can store a 32 or a 64 bit precision
    value. The FR and FS register sets are overlap in the same way as R
    and S register sets. See above. */
-
-/* Note: SLJIT_UNUSED as destination is not valid for floating point
-   operations, since they cannot be used for setting flags. */
 
 /* Floating point scratch registers. */
 #define SLJIT_FR0	1
@@ -657,7 +647,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 /* The machine code has a context (which contains the local stack space size,
    number of used registers, etc.) which initialized by sljit_emit_enter. Several
-   functions (like sljit_emit_return) requres this context to be able to generate
+   functions (such as sljit_emit_return) requres this context to be able to generate
    the appropriate code. However, some code fragments (like inline cache) may have
    no normal entry point so their context is unknown for the compiler. Their context
    can be provided to the compiler by the sljit_set_context function.
@@ -669,11 +659,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size);
 
-/* Return from machine code.  The op argument can be SLJIT_UNUSED which means the
-   function does not return with anything or any opcode between SLJIT_MOV and
-   SLJIT_MOV_P (see sljit_emit_op1). As for src and srcw they must be 0 if op
-   is SLJIT_UNUSED, otherwise see below the description about source and
-   destination arguments. */
+/* Return from machine code. The sljit_emit_return_void function does not return with
+   any value. The sljit_emit_return function returns with a single value which stores
+   the result of a data move instruction. The instruction is specified by the op
+   argument, and must be between SLJIT_MOV and SLJIT_MOV_P (see sljit_emit_op1). */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler);
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 src, sljit_sw srcw);
@@ -774,12 +765,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
    be defined by the CPU architecture (e.g. MIPS). To satisfy these CPU
    requirements all source registers must be the result of those operations
    where this option was also set. Memory loads read 32 bit values rather
-   than 64 bit ones. In other words 32 bit and 64 bit operations cannot
-   be mixed. The only exception is SLJIT_MOV32 and SLJIT_MOVU32 whose source
-   register can hold any 32 or 64 bit value, and it is converted to a 32 bit
-   compatible format first. This conversion is free (no instructions are
-   emitted) on most CPUs. A 32 bit value can also be converted to a 64 bit
-   value by SLJIT_MOV_S32 (sign extension) or SLJIT_MOV_U32 (zero extension).
+   than 64 bit ones. In other words 32 bit and 64 bit operations cannot be
+   mixed. The only exception is SLJIT_MOV32 whose source register can hold
+   any 32 or 64 bit value, and it is converted to a 32 bit compatible format
+   first. This conversion is free (no instructions are emitted) on most CPUs.
+   A 32 bit value can also be converted to a 64 bit value by SLJIT_MOV_S32
+   (sign extension) or SLJIT_MOV_U32 (zero extension).
 
    Note: memory addressing always uses 64 bit values on 64 bit systems so
          the result of a 32 bit operation must not be used with SLJIT_MEMx
@@ -1039,6 +1030,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w);
 
+/* The sljit_emit_op2u function is the same as sljit_emit_op2 except the result is discarded. */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w);
+
 /* Starting index of opcodes for sljit_emit_op2. */
 #define SLJIT_OP_SRC_BASE		128
 
@@ -1228,8 +1225,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 arg_types);
 
 /* Basic arithmetic comparison. In most architectures it is implemented as
-   an SLJIT_SUB operation (with SLJIT_UNUSED destination and setting
-   appropriate flags) followed by a sljit_emit_jump. However some
+   an compare operation followed by a sljit_emit_jump. However some
    architectures (i.e: ARM64 or MIPS) may employ special optimizations here.
    It is suggested to use this comparison form when appropriate.
     type must be between SLJIT_EQUAL and SLJIT_I_SIG_LESS_EQUAL
@@ -1524,7 +1520,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 /* Flags were set by an ADD, ADDC, SUB, SUBC, or NEG operation. */
 #define SLJIT_CURRENT_FLAGS_ADD_SUB		0x01
 
-/* Flags were set by a SUB with unused destination.
+/* Flags were set by sljit_emit_op2u with SLJIT_SUB opcode.
    Must be combined with SLJIT_CURRENT_FLAGS_ADD_SUB. */
 #define SLJIT_CURRENT_FLAGS_COMPARE		0x02
 

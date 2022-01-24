@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+24.01.2022 - Non-backward compatible
+    The SLJIT_UNUSED value is replaced by sljit_emit_op2u and
+    sljit_emit_return_void functions.
+
 27.05.2021 - Non-backward compatible
     The comparison types with the 32 suffix are removed from the
     project. The sljit_set_current_flags has a new flag which
