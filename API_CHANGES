@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+25.01.2022 - Non-backward compatible
+    Change SLJIT_I32_OP and SLJIT_F32_OP to SLJIT_32.
+
 24.01.2022 - Non-backward compatible
     The SLJIT_UNUSED value is replaced by sljit_emit_op2u and
     sljit_emit_return_void functions.

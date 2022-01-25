@@ -1047,8 +1047,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 /*  Floating point operators                                             */
 /* --------------------------------------------------------------------- */
 
-#define FLOAT_DATA(op) (DOUBLE_DATA | ((op & SLJIT_F32_OP) >> 7))
-#define SELECT_FOP(op, single, double) ((op & SLJIT_F32_OP) ? single : double)
+#define FLOAT_DATA(op) (DOUBLE_DATA | ((op & SLJIT_32) >> 7))
+#define SELECT_FOP(op, single, double) ((op & SLJIT_32) ? single : double)
 #define FLOAT_TMP_MEM_OFFSET (22 * sizeof(sljit_sw))
 
 static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_compiler *compiler, sljit_s32 op,
@@ -1128,11 +1128,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
 
-	SLJIT_COMPILE_ASSERT((SLJIT_F32_OP == 0x100) && !(DOUBLE_DATA & 0x2), float_transfer_bit_error);
+	SLJIT_COMPILE_ASSERT((SLJIT_32 == 0x100) && !(DOUBLE_DATA & 0x2), float_transfer_bit_error);
 	SELECT_FOP1_OPERATION_WITH_CHECKS(compiler, op, dst, dstw, src, srcw);
 
 	if (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_F32)
-		op ^= SLJIT_F32_OP;
+		op ^= SLJIT_32;
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 
@@ -1146,7 +1146,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 		if (src != dst_r) {
 			if (dst_r != TMP_FREG1) {
 				FAIL_IF(push_inst(compiler, FMOVS | FD(dst_r) | FS2(src), MOVABLE_INS));
-				if (!(op & SLJIT_F32_OP))
+				if (!(op & SLJIT_32))
 					FAIL_IF(push_inst(compiler, FMOVS | FDN(dst_r) | FS2N(src), MOVABLE_INS));
 			}
 			else
@@ -1155,17 +1155,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 		break;
 	case SLJIT_NEG_F64:
 		FAIL_IF(push_inst(compiler, FNEGS | FD(dst_r) | FS2(src), MOVABLE_INS));
-		if (dst_r != src && !(op & SLJIT_F32_OP))
+		if (dst_r != src && !(op & SLJIT_32))
 			FAIL_IF(push_inst(compiler, FMOVS | FDN(dst_r) | FS2N(src), MOVABLE_INS));
 		break;
 	case SLJIT_ABS_F64:
 		FAIL_IF(push_inst(compiler, FABSS | FD(dst_r) | FS2(src), MOVABLE_INS));
-		if (dst_r != src && !(op & SLJIT_F32_OP))
+		if (dst_r != src && !(op & SLJIT_32))
 			FAIL_IF(push_inst(compiler, FMOVS | FDN(dst_r) | FS2N(src), MOVABLE_INS));
 		break;
 	case SLJIT_CONV_F64_FROM_F32:
 		FAIL_IF(push_inst(compiler, SELECT_FOP(op, FSTOD, FDTOS) | FD(dst_r) | FS2(src), MOVABLE_INS));
-		op ^= SLJIT_F32_OP;
+		op ^= SLJIT_32;
 		break;
 	}
 
