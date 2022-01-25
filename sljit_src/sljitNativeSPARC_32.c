@@ -42,9 +42,6 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 	switch (op) {
 	case SLJIT_MOV:
-	case SLJIT_MOV_U32:
-	case SLJIT_MOV_S32:
-	case SLJIT_MOV_P:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
 		if (dst != src2)
 			return push_inst(compiler, OR | D(dst) | S1(0) | S2(src2), DR(dst));
@@ -59,8 +56,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			FAIL_IF(push_inst(compiler, SLL | D(dst) | S1(src2) | IMM(24), DR(dst)));
 			return push_inst(compiler, SRA | D(dst) | S1(dst) | IMM(24), DR(dst));
 		}
-		else if (dst != src2)
-			SLJIT_UNREACHABLE();
+		SLJIT_ASSERT(dst == src2);
 		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_U16:
@@ -70,8 +66,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			FAIL_IF(push_inst(compiler, SLL | D(dst) | S1(src2) | IMM(16), DR(dst)));
 			return push_inst(compiler, (op == SLJIT_MOV_S16 ? SRA : SRL) | D(dst) | S1(dst) | IMM(16), DR(dst));
 		}
-		else if (dst != src2)
-			SLJIT_UNREACHABLE();
+		SLJIT_ASSERT(dst == src2);
 		return SLJIT_SUCCESS;
 
 	case SLJIT_NOT:

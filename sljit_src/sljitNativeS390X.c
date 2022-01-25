@@ -1807,6 +1807,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 				ins = lhr(dst_r, src_r);
 				break;
 			case SLJIT_MOV32:
+				if (dst_r == src_r)
+					return SLJIT_SUCCESS;
 				ins = lr(dst_r, src_r);
 				break;
 			/* 64-bit */
@@ -1830,11 +1832,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 				break;
 			case SLJIT_MOV:
 			case SLJIT_MOV_P:
+				if (dst_r == src_r)
+					return SLJIT_SUCCESS;
 				ins = lgr(dst_r, src_r);
 				break;
 			default:
 				ins = 0;
 				SLJIT_UNREACHABLE();
+				break;
 			}
 			FAIL_IF(push_inst(compiler, ins));
 			return SLJIT_SUCCESS;
@@ -1858,6 +1863,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 				srcw = (sljit_sw)((sljit_u32)(srcw));
 				break;
 			case SLJIT_MOV_S32:
+			case SLJIT_MOV32:
 				srcw = (sljit_sw)((sljit_s32)(srcw));
 				break;
 			}
@@ -1910,7 +1916,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 				ins = lg(reg, mem.offset, mem.index, mem.base);
 				break;
 			default:
+				ins = 0;
 				SLJIT_UNREACHABLE();
+				break;
 			}
 			FAIL_IF(push_inst(compiler, ins));
 			return SLJIT_SUCCESS;
@@ -1936,6 +1944,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 					WHEN2(is_u12(mem.offset), sth, sthy));
 			case SLJIT_MOV_U32:
 			case SLJIT_MOV_S32:
+			case SLJIT_MOV32:
 				return push_inst(compiler,
 					WHEN2(is_u12(mem.offset), st, sty));
 			case SLJIT_MOV_P:
@@ -1968,6 +1977,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 					EVAL(sthy, tmp0, mem));
 			case SLJIT_MOV_U32:
 			case SLJIT_MOV_S32:
+			case SLJIT_MOV32:
 				FAIL_IF(push_inst(compiler,
 					EVAL(ly, tmp0, mem)));
 				FAIL_IF(make_addr_bxy(compiler, &mem, dst, dstw, tmp1));
@@ -2869,8 +2879,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 			FAIL_IF(load_word(compiler, dst_r, dst, dstw, op & SLJIT_32));
 
 		break;
+	case SLJIT_MOV32:
+		op |= SLJIT_32;
+		/* fallthrough */
 	case SLJIT_MOV:
-	case (SLJIT_MOV32 & ~SLJIT_32):
 		/* can write straight into destination */
 		loc_r = dst_r;
 		break;
@@ -2910,7 +2922,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 
 	/* store result to memory if required */
 	if (dst & SLJIT_MEM)
-		return store_word(compiler, dst_r, dst, dstw, op & SLJIT_32);
+		return store_word(compiler, dst_r, dst, dstw, (op & SLJIT_32));
 
 	return SLJIT_SUCCESS;
 }

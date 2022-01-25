@@ -1245,11 +1245,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 	switch (op) {
 	case SLJIT_MOV:
-	case SLJIT_MOV_P:
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
 #endif
+	case SLJIT_MOV_P:
 		return emit_op(compiler, SLJIT_MOV, flags | WORD_DATA, dst, dstw, TMP_REG1, 0, src, srcw);
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
@@ -1257,6 +1258,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		return EMIT_MOV(SLJIT_MOV_U32, INT_DATA, (sljit_u32));
 
 	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
 		return EMIT_MOV(SLJIT_MOV_S32, INT_DATA | SIGNED_DATA, (sljit_s32));
 #endif
 
@@ -2141,19 +2143,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 type)
 {
-	sljit_s32 reg, input_flags, cr_bit, invert;
+	sljit_s32 reg, cr_bit, invert;
 	sljit_s32 saved_op = op;
 	sljit_sw saved_dstw = dstw;
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+	sljit_s32 input_flags = ((op & SLJIT_32) || op == SLJIT_MOV32) ? INT_DATA : WORD_DATA;
+#else
+	sljit_s32 input_flags = WORD_DATA;
+#endif
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, type));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
-
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	input_flags = (op & SLJIT_32) ? INT_DATA : WORD_DATA;
-#else
-	input_flags = WORD_DATA;
-#endif
 
 	op = GET_OPCODE(op);
 	reg = (op < SLJIT_ADD && FAST_IS_REG(dst)) ? dst : TMP_REG2;
@@ -2294,12 +2295,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
 #endif
 		mem_flags = WORD_DATA;
 		break;
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	case SLJIT_MOV_U32:
+	case SLJIT_MOV32:
 		mem_flags = INT_DATA;
 		break;
 

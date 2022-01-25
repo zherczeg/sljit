@@ -939,24 +939,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
    Note: no SLJIT_MOV32_S32 form, since it is the same as SLJIT_MOV32 */
 #define SLJIT_MOV_S32			(SLJIT_OP1_BASE + 6)
 /* Flags: - (does not modify flags) */
-#define SLJIT_MOV32			(SLJIT_MOV_S32 | SLJIT_32)
+#define SLJIT_MOV32			(SLJIT_OP1_BASE + 7)
 /* Flags: - (does not modify flags)
    Note: load a pointer sized data, useful on x32 (a 32 bit mode on x86-64
          where all x64 features are available, e.g. 16 register) or similar
          compiling modes */
-#define SLJIT_MOV_P			(SLJIT_OP1_BASE + 7)
+#define SLJIT_MOV_P			(SLJIT_OP1_BASE + 8)
 /* Flags: Z
    Note: immediate source argument is not supported */
-#define SLJIT_NOT			(SLJIT_OP1_BASE + 8)
+#define SLJIT_NOT			(SLJIT_OP1_BASE + 9)
 #define SLJIT_NOT32			(SLJIT_NOT | SLJIT_32)
 /* Flags: Z | OVERFLOW
    Note: immediate source argument is not supported */
-#define SLJIT_NEG			(SLJIT_OP1_BASE + 9)
+#define SLJIT_NEG			(SLJIT_OP1_BASE + 10)
 #define SLJIT_NEG32			(SLJIT_NEG | SLJIT_32)
 /* Count leading zeroes
    Flags: - (may destroy flags)
    Note: immediate source argument is not supported */
-#define SLJIT_CLZ			(SLJIT_OP1_BASE + 10)
+#define SLJIT_CLZ			(SLJIT_OP1_BASE + 11)
 #define SLJIT_CLZ32			(SLJIT_CLZ | SLJIT_32)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,

@@ -1449,8 +1449,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 				return SLJIT_SUCCESS;
 		}
 
-		if (op_flags & SLJIT_32) {
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		if (op_flags & SLJIT_32) {
 			if (src & SLJIT_MEM) {
 				if (op == SLJIT_MOV_S32)
 					op = SLJIT_MOV_U32;
@@ -1459,8 +1459,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 				if (op == SLJIT_MOV_U32)
 					op = SLJIT_MOV_S32;
 			}
-#endif
 		}
+#endif
 
 		if (src & SLJIT_IMM) {
 			switch (op) {
@@ -1504,8 +1504,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		case SLJIT_MOV_U32:
 		case SLJIT_MOV_S32:
+		case SLJIT_MOV32:
 #endif
-			FAIL_IF(emit_mov(compiler, dst, dstw, src, srcw));
+			EMIT_MOV(compiler, dst, dstw, src, srcw);
 			break;
 		case SLJIT_MOV_U8:
 			FAIL_IF(emit_mov_byte(compiler, 0, dst, dstw, src, srcw));
@@ -1525,6 +1526,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 			break;
 		case SLJIT_MOV_S32:
 			FAIL_IF(emit_mov_int(compiler, 1, dst, dstw, src, srcw));
+			break;
+		case SLJIT_MOV32:
+			compiler->mode32 = 1;
+			EMIT_MOV(compiler, dst, dstw, src, srcw);
+			compiler->mode32 = 0;
 			break;
 #endif
 		}

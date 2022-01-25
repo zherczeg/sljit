@@ -106,10 +106,10 @@
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 #define TYPE_CAST_NEEDED(op) \
 	((op) >= SLJIT_MOV_U8 && (op) <= SLJIT_MOV_S32)
-#else
+#else /* !SLJIT_64BIT_ARCHITECTURE */
 #define TYPE_CAST_NEEDED(op) \
 	((op) >= SLJIT_MOV_U8 && (op) <= SLJIT_MOV_S16)
-#endif
+#endif /* SLJIT_64BIT_ARCHITECTURE */
 
 #define BUF_SIZE	4096
 
@@ -934,63 +934,61 @@ static void sljit_verbose_fparam(struct sljit_compiler *compiler, sljit_s32 p, s
 }
 
 static const char* op0_names[] = {
-	(char*)"breakpoint", (char*)"nop", (char*)"lmul.uw", (char*)"lmul.sw",
-	(char*)"divmod.u", (char*)"divmod.s", (char*)"div.u", (char*)"div.s",
-	(char*)"endbr", (char*)"skip_frames_before_return"
+	"breakpoint", "nop", "lmul.uw", "lmul.sw",
+	"divmod.u", "divmod.s", "div.u", "div.s",
+	"endbr", "skip_frames_before_return"
 };
 
 static const char* op1_names[] = {
-	(char*)"", (char*)".u8", (char*)".s8", (char*)".u16",
-	(char*)".s16", (char*)".u32", (char*)".s32", (char*)".p",
-	(char*)"", (char*)".u8", (char*)".s8", (char*)".u16",
-	(char*)".s16", (char*)".u32", (char*)".s32", (char*)".p",
-	(char*)"not", (char*)"neg", (char*)"clz",
+	"", ".u8", ".s8", ".u16",
+	".s16", ".u32", ".s32", "32",
+	".p", "not", "neg", "clz",
 };
 
 static const char* op2_names[] = {
-	(char*)"add", (char*)"addc", (char*)"sub", (char*)"subc",
-	(char*)"mul", (char*)"and", (char*)"or", (char*)"xor",
-	(char*)"shl", (char*)"lshr", (char*)"ashr",
+	"add", "addc", "sub", "subc",
+	"mul", "and", "or", "xor",
+	"shl", "lshr", "ashr",
 };
 
 static const char* op_src_names[] = {
-	(char*)"fast_return", (char*)"skip_frames_before_fast_return",
-	(char*)"prefetch_l1", (char*)"prefetch_l2",
-	(char*)"prefetch_l3", (char*)"prefetch_once",
+	"fast_return", "skip_frames_before_fast_return",
+	"prefetch_l1", "prefetch_l2",
+	"prefetch_l3", "prefetch_once",
 };
 
 static const char* fop1_names[] = {
-	(char*)"mov", (char*)"conv", (char*)"conv", (char*)"conv",
-	(char*)"conv", (char*)"conv", (char*)"cmp", (char*)"neg",
-	(char*)"abs",
+	"mov", "conv", "conv", "conv",
+	"conv", "conv", "cmp", "neg",
+	"abs",
 };
 
 static const char* fop2_names[] = {
-	(char*)"add", (char*)"sub", (char*)"mul", (char*)"div"
+	"add", "sub", "mul", "div"
 };
 
 #define JUMP_POSTFIX(type) \
 	((type & 0xff) <= SLJIT_NOT_OVERFLOW ? ((type & SLJIT_32) ? "32" : "") \
 	: ((type & 0xff) <= SLJIT_ORDERED_F64 ? ((type & SLJIT_32) ? ".f32" : ".f64") : ""))
 
-static char* jump_names[] = {
-	(char*)"equal", (char*)"not_equal",
-	(char*)"less", (char*)"greater_equal",
-	(char*)"greater", (char*)"less_equal",
-	(char*)"sig_less", (char*)"sig_greater_equal",
-	(char*)"sig_greater", (char*)"sig_less_equal",
-	(char*)"overflow", (char*)"not_overflow",
-	(char*)"carry", (char*)"",
-	(char*)"equal", (char*)"not_equal",
-	(char*)"less", (char*)"greater_equal",
-	(char*)"greater", (char*)"less_equal",
-	(char*)"unordered", (char*)"ordered",
-	(char*)"jump", (char*)"fast_call",
-	(char*)"call", (char*)"call.cdecl"
+static const char* jump_names[] = {
+	"equal", "not_equal",
+	"less", "greater_equal",
+	"greater", "less_equal",
+	"sig_less", "sig_greater_equal",
+	"sig_greater", "sig_less_equal",
+	"overflow", "not_overflow",
+	"carry", "",
+	"equal", "not_equal",
+	"less", "greater_equal",
+	"greater", "less_equal",
+	"unordered", "ordered",
+	"jump", "fast_call",
+	"call", "call.cdecl"
 };
 
-static char* call_arg_names[] = {
-	(char*)"void", (char*)"sw", (char*)"uw", (char*)"s32", (char*)"u32", (char*)"f32", (char*)"f64"
+static const char* call_arg_names[] = {
+	"void", "sw", "uw", "s32", "u32", "f32", "f64"
 };
 
 #endif /* SLJIT_VERBOSE */
@@ -1243,7 +1241,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 		if (GET_OPCODE(op) <= SLJIT_MOV_P)
 		{
 			fprintf(compiler->verbose, "  mov%s%s ", !(op & SLJIT_32) ? "" : "32",
-				(op != SLJIT_MOV32) ? op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE] : "");
+				op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE]);
 		}
 		else
 		{

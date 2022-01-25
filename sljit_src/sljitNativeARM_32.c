@@ -1781,6 +1781,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_MOV:
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
 	case SLJIT_MOV_P:
 		return emit_op(compiler, SLJIT_MOV, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, src, srcw);
 
@@ -2691,6 +2692,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 	case SLJIT_MOV:
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
 	case SLJIT_MOV_P:
 		flags = WORD_SIZE;
 		break;

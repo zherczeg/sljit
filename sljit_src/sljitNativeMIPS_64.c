@@ -165,50 +165,71 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
-	case SLJIT_MOV_P:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
 		if (dst != src2)
 			return push_inst(compiler, SELECT_OP(DADDU, ADDU) | S(src2) | TA(0) | D(dst), DR(dst));
 		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_U8:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
+		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE))
+			return push_inst(compiler, ANDI | S(src2) | T(dst) | IMM(0xff), DR(dst));
+		SLJIT_ASSERT(dst == src2);
+		return SLJIT_SUCCESS;
+
 	case SLJIT_MOV_S8:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
-			if (op == SLJIT_MOV_S8) {
-				FAIL_IF(push_inst(compiler, DSLL32 | T(src2) | D(dst) | SH_IMM(24), DR(dst)));
-				return push_inst(compiler, DSRA32 | T(dst) | D(dst) | SH_IMM(24), DR(dst));
-			}
-			return push_inst(compiler, ANDI | S(src2) | T(dst) | IMM(0xff), DR(dst));
+#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1)
+			if (op & SLJIT_32)
+				return push_inst(compiler, SEB | T(src2) | D(dst), DR(dst));
+#endif /* SLJIT_MIPS_REV >= 1 */
+			FAIL_IF(push_inst(compiler, DSLL32 | T(src2) | D(dst) | SH_IMM(24), DR(dst)));
+			return push_inst(compiler, DSRA32 | T(dst) | D(dst) | SH_IMM(24), DR(dst));
 		}
-		else {
-			SLJIT_ASSERT(dst == src2);
-		}
+		SLJIT_ASSERT(dst == src2);
 		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_U16:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
+		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE))
+			return push_inst(compiler, ANDI | S(src2) | T(dst) | IMM(0xffff), DR(dst));
+		SLJIT_ASSERT(dst == src2);
+		return SLJIT_SUCCESS;
+
 	case SLJIT_MOV_S16:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
-			if (op == SLJIT_MOV_S16) {
-				FAIL_IF(push_inst(compiler, DSLL32 | T(src2) | D(dst) | SH_IMM(16), DR(dst)));
-				return push_inst(compiler, DSRA32 | T(dst) | D(dst) | SH_IMM(16), DR(dst));
-			}
-			return push_inst(compiler, ANDI | S(src2) | T(dst) | IMM(0xffff), DR(dst));
+#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1)
+			if (op & SLJIT_32)
+				return push_inst(compiler, SEH | T(src2) | D(dst), DR(dst));
+#endif /* SLJIT_MIPS_REV >= 1 */
+			FAIL_IF(push_inst(compiler, DSLL32 | T(src2) | D(dst) | SH_IMM(16), DR(dst)));
+			return push_inst(compiler, DSRA32 | T(dst) | D(dst) | SH_IMM(16), DR(dst));
 		}
-		else {
-			SLJIT_ASSERT(dst == src2);
-		}
+		SLJIT_ASSERT(dst == src2);
 		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_U32:
-		SLJIT_ASSERT(!(op & SLJIT_32));
-		FAIL_IF(push_inst(compiler, DSLL32 | T(src2) | D(dst) | SH_IMM(0), DR(dst)));
-		return push_inst(compiler, DSRL32 | T(dst) | D(dst) | SH_IMM(0), DR(dst));
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM) && !(op & SLJIT_32));
+		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
+#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
+			if (dst == src2)
+				return push_inst(compiler, DINSU | T(src2) | SA(0) | (31 << 11) | (0 << 11), DR(dst));
+#endif /* SLJIT_MIPS_REV >= 2 */
+			FAIL_IF(push_inst(compiler, DSLL32 | T(src2) | D(dst) | SH_IMM(0), DR(dst)));
+			return push_inst(compiler, DSRL32 | T(dst) | D(dst) | SH_IMM(0), DR(dst));
+		}
+		SLJIT_ASSERT(dst == src2);
+		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_S32:
-		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
-		return push_inst(compiler, SLL | T(src2) | D(dst) | SH_IMM(0), DR(dst));
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM) && !(op & SLJIT_32));
+		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
+			return push_inst(compiler, SLL | T(src2) | D(dst) | SH_IMM(0), DR(dst));
+		}
+		SLJIT_ASSERT(dst == src2);
+		return SLJIT_SUCCESS;
 
 	case SLJIT_NOT:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));

@@ -1713,7 +1713,7 @@ static void test22(void)
 	/* Test simple byte and half-int data transfers. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
-	sljit_sw buf[2];
+	sljit_sw buf[4];
 	sljit_s16 sbuf[9];
 	sljit_s8 bbuf[5];
 
@@ -1723,6 +1723,8 @@ static void test22(void)
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 0;
 	buf[1] = 0;
+	buf[2] = -1;
+	buf[3] = -1;
 
 	sbuf[0] = 0;
 	sbuf[1] = 0;
@@ -1768,6 +1770,12 @@ static void test22(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_R2, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV_U8, SLJIT_MEM1(SLJIT_S2), 3 * sizeof(sljit_s8), SLJIT_S1, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV_U8, SLJIT_MEM2(SLJIT_S2, SLJIT_R0), 0, SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1);
+	sljit_emit_op1(compiler, SLJIT_MOV_U16, SLJIT_R0, 0, SLJIT_IMM, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_sw), SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_sw), SLJIT_R0, 0);
 
 	sljit_emit_return_void(compiler);
 
@@ -1778,20 +1786,22 @@ static void test22(void)
 	code.func3((sljit_sw)&buf, (sljit_sw)&sbuf, (sljit_sw)&bbuf);
 	FAILED(buf[0] != -9, "test22 case 1 failed\n");
 	FAILED(buf[1] != -56, "test22 case 2 failed\n");
+	FAILED(buf[2] != 0, "test22 case 3 failed\n");
+	FAILED(buf[3] != 0, "test22 case 4 failed\n");
 
-	FAILED(sbuf[0] != -13, "test22 case 3 failed\n");
-	FAILED(sbuf[1] != 0x1234, "test22 case 4 failed\n");
-	FAILED(sbuf[3] != 0x1234, "test22 case 5 failed\n");
-	FAILED(sbuf[4] != 8000, "test22 case 6 failed\n");
-	FAILED(sbuf[5] != -9317, "test22 case 7 failed\n");
-	FAILED(sbuf[6] != -9317, "test22 case 8 failed\n");
-	FAILED(sbuf[7] != -8888, "test22 case 9 failed\n");
-	FAILED(sbuf[8] != -8888, "test22 case 10 failed\n");
+	FAILED(sbuf[0] != -13, "test22 case 5 failed\n");
+	FAILED(sbuf[1] != 0x1234, "test22 case 6 failed\n");
+	FAILED(sbuf[3] != 0x1234, "test22 case 7 failed\n");
+	FAILED(sbuf[4] != 8000, "test22 case 8 failed\n");
+	FAILED(sbuf[5] != -9317, "test22 case 9 failed\n");
+	FAILED(sbuf[6] != -9317, "test22 case 10 failed\n");
+	FAILED(sbuf[7] != -8888, "test22 case 11 failed\n");
+	FAILED(sbuf[8] != -8888, "test22 case 12 failed\n");
 
-	FAILED(bbuf[0] != -45, "test22 case 11 failed\n");
-	FAILED(bbuf[1] != 0x12, "test22 case 12 failed\n");
-	FAILED(bbuf[3] != -56, "test22 case 13 failed\n");
-	FAILED(bbuf[4] != 4, "test22 case 14 failed\n");
+	FAILED(bbuf[0] != -45, "test22 case 13 failed\n");
+	FAILED(bbuf[1] != 0x12, "test22 case 14 failed\n");
+	FAILED(bbuf[3] != -56, "test22 case 15 failed\n");
+	FAILED(bbuf[4] != 4, "test22 case 16 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -3272,20 +3282,21 @@ static void test36(void)
 
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(0xf00000004));
-	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_R0, 0);
-	cmp_test(compiler, SLJIT_LESS, SLJIT_R1, 0, SLJIT_IMM, 5);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_R1, 0);
+	cmp_test(compiler, SLJIT_LESS | SLJIT_32, SLJIT_R1, 0, SLJIT_IMM, 5);
 	cmp_test(compiler, SLJIT_LESS, SLJIT_R0, 0, SLJIT_IMM, 5);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(0xff0000004));
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_R0, 0);
-	cmp_test(compiler, SLJIT_SIG_GREATER, SLJIT_R1, 0, SLJIT_IMM, 5);
+	cmp_test(compiler, SLJIT_SIG_GREATER | SLJIT_32, SLJIT_R1, 0, SLJIT_IMM, 5);
 	cmp_test(compiler, SLJIT_SIG_GREATER, SLJIT_R0, 0, SLJIT_IMM, 5);
 #else
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 4);
-	cmp_test(compiler, SLJIT_LESS, SLJIT_R0, 0, SLJIT_IMM, 5);
-	cmp_test(compiler, SLJIT_GREATER, SLJIT_R0, 0, SLJIT_IMM, 5);
+	cmp_test(compiler, SLJIT_LESS | SLJIT_32, SLJIT_R0, 0, SLJIT_IMM, 5);
+	cmp_test(compiler, SLJIT_GREATER | SLJIT_32, SLJIT_R0, 0, SLJIT_IMM, 5);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 0xf0000004);
-	cmp_test(compiler, SLJIT_SIG_GREATER, SLJIT_R0, 0, SLJIT_IMM, 5);
-	cmp_test(compiler, SLJIT_SIG_LESS, SLJIT_R0, 0, SLJIT_IMM, 5);
+	cmp_test(compiler, SLJIT_SIG_GREATER | SLJIT_32, SLJIT_R0, 0, SLJIT_IMM, 5);
+	cmp_test(compiler, SLJIT_SIG_LESS | SLJIT_32, SLJIT_R0, 0, SLJIT_IMM, 5);
 #endif
 
 	sljit_emit_return_void(compiler);

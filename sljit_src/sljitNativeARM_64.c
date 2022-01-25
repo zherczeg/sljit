@@ -766,15 +766,16 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		if (!(flags & INT_OP))
 			inv_bits |= 1 << 22;
 		return push_inst(compiler, (SBFM ^ inv_bits) | RD(dst) | RN(arg2) | (15 << 10));
+	case SLJIT_MOV32:
+		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
+		if (dst == arg2)
+			return SLJIT_SUCCESS;
+		/* fallthrough */
 	case SLJIT_MOV_U32:
 		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
-		if ((flags & INT_OP) && dst == arg2)
-			return SLJIT_SUCCESS;
 		return push_inst(compiler, (ORR ^ W_OP) | RD(dst) | RN(TMP_ZERO) | RM(arg2));
 	case SLJIT_MOV_S32:
 		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
-		if ((flags & INT_OP) && dst == arg2)
-			return SLJIT_SUCCESS;
 		return push_inst(compiler, SBFM | (1 << 22) | RD(dst) | RN(arg2) | (31 << 10));
 	case SLJIT_NOT:
 		SLJIT_ASSERT(arg1 == TMP_REG1);
@@ -1208,6 +1209,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 				srcw = (sljit_u32)srcw;
 			break;
 		case SLJIT_MOV_S32:
+		case SLJIT_MOV32:
 			mem_flags = INT_SIZE | SIGNED;
 			if (src & SLJIT_IMM)
 				srcw = (sljit_s32)srcw;
@@ -1908,6 +1910,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 	case SLJIT_MOV_S32:
 		sign = 1;
 	case SLJIT_MOV_U32:
+	case SLJIT_MOV32:
 		inst = STURBI | (MEM_SIZE_SHIFT(INT_SIZE) << 30) | 0x400;
 		break;
 	default:
