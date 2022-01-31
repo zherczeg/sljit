@@ -442,126 +442,102 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 
 static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types, sljit_ins *ins_ptr)
 {
-	sljit_s32 stack_offset = 0;
-	sljit_s32 arg_count = 0;
+	sljit_s32 offset = 0;
 	sljit_s32 float_arg_count = 0;
 	sljit_s32 word_arg_count = 0;
 	sljit_s32 types = 0;
-	sljit_s32 arg_count_save, types_save;
 	sljit_ins prev_ins = NOP;
 	sljit_ins ins = NOP;
 	sljit_u8 offsets[4];
+	sljit_u8 *offsets_ptr = offsets;
 
 	SLJIT_ASSERT(reg_map[TMP_REG1] == 4 && freg_map[TMP_FREG1] == 12);
 
 	arg_types >>= SLJIT_DEF_SHIFT;
 
+	/* See ABI description in sljit_emit_enter. */
+
 	while (arg_types) {
 		types = (types << SLJIT_DEF_SHIFT) | (arg_types & SLJIT_DEF_MASK);
+		*offsets_ptr = (sljit_u8)offset;
 
 		switch (arg_types & SLJIT_DEF_MASK) {
 		case SLJIT_ARG_TYPE_F32:
-			offsets[arg_count] = (sljit_u8)stack_offset;
+			if (word_arg_count == 0 && float_arg_count <= 1)
+				*offsets_ptr = (sljit_u8)(254 + float_arg_count);
 
-			if (word_arg_count == 0 && arg_count <= 1)
-				offsets[arg_count] = 254 + arg_count;
-
-			stack_offset += sizeof(sljit_f32);
-			arg_count++;
+			offset += sizeof(sljit_f32);
 			float_arg_count++;
 			break;
 		case SLJIT_ARG_TYPE_F64:
-			if (stack_offset & 0x7)
-				stack_offset += sizeof(sljit_sw);
-			offsets[arg_count] = (sljit_u8)stack_offset;
+			if (offset & 0x7) {
+				offset += sizeof(sljit_sw);
+				*offsets_ptr = (sljit_u8)offset;
+			}
 
-			if (word_arg_count == 0 && arg_count <= 1)
-				offsets[arg_count] = 254 + arg_count;
+			if (word_arg_count == 0 && float_arg_count <= 1)
+				*offsets_ptr = (sljit_u8)(254 + float_arg_count);
 
-			stack_offset += sizeof(sljit_f64);
-			arg_count++;
+			offset += sizeof(sljit_f64);
 			float_arg_count++;
 			break;
 		default:
-			offsets[arg_count] = (sljit_u8)stack_offset;
-			stack_offset += sizeof(sljit_sw);
-			arg_count++;
+			offset += sizeof(sljit_sw);
 			word_arg_count++;
 			break;
 		}
 
 		arg_types >>= SLJIT_DEF_SHIFT;
+		offsets_ptr++;
 	}
 
-	/* Stack is aligned to 16 bytes, max two doubles can be placed on the stack. */
-	if (stack_offset > 16)
+	/* Stack is aligned to 16 bytes. */
+	SLJIT_ASSERT(offset <= 8 * sizeof(sljit_sw));
+
+	if (offset > 4 * sizeof(sljit_sw))
 		FAIL_IF(push_inst(compiler, ADDIU | S(SLJIT_SP) | T(SLJIT_SP) | IMM(-16), DR(SLJIT_SP)));
 
-	types_save = types;
-	arg_count_save = arg_count;
-
 	while (types) {
+		--offsets_ptr;
+
 		switch (types & SLJIT_DEF_MASK) {
 		case SLJIT_ARG_TYPE_F32:
-			arg_count--;
-			if (offsets[arg_count] < 254)
-				ins = SWC1 | S(SLJIT_SP) | FT(float_arg_count) | IMM(offsets[arg_count]);
-			float_arg_count--;
-			break;
-		case SLJIT_ARG_TYPE_F64:
-			arg_count--;
-			if (offsets[arg_count] < 254)
-				ins = SDC1 | S(SLJIT_SP) | FT(float_arg_count) | IMM(offsets[arg_count]);
-			float_arg_count--;
-			break;
-		default:
-			if (offsets[arg_count - 1] >= 16)
-				ins = SW | S(SLJIT_SP) | T(word_arg_count) | IMM(offsets[arg_count - 1]);
-			else if (arg_count != word_arg_count)
-				ins = ADDU | S(word_arg_count) | TA(0) | DA(4 + (offsets[arg_count - 1] >> 2));
-			else if (arg_count == 1)
-				ins = ADDU | S(SLJIT_R0) | TA(0) | DA(4);
-
-			arg_count--;
-			word_arg_count--;
-			break;
-		}
-
-		if (ins != NOP) {
-			if (prev_ins != NOP)
-				FAIL_IF(push_inst(compiler, prev_ins, MOVABLE_INS));
-			prev_ins = ins;
-			ins = NOP;
-		}
-
-		types >>= SLJIT_DEF_SHIFT;
-	}
-
-	types = types_save;
-	arg_count = arg_count_save;
-
-	while (types) {
-		switch (types & SLJIT_DEF_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			arg_count--;
-			if (offsets[arg_count] == 254)
+			if (*offsets_ptr < 4 * sizeof (sljit_sw))
+				ins = MFC1 | TA(4 + (*offsets_ptr >> 2)) | FS(float_arg_count);
+			else if (*offsets_ptr < 254)
+				ins = SWC1 | S(SLJIT_SP) | FT(float_arg_count) | IMM(*offsets_ptr);
+			else if (*offsets_ptr == 254)
 				ins = MOV_S | FMT_S | FS(SLJIT_FR0) | FD(TMP_FREG1);
-			else if (offsets[arg_count] < 16)
-				ins = LW | S(SLJIT_SP) | TA(4 + (offsets[arg_count] >> 2)) | IMM(offsets[arg_count]);
+
+			float_arg_count--;
 			break;
 		case SLJIT_ARG_TYPE_F64:
-			arg_count--;
-			if (offsets[arg_count] == 254)
-				ins = MOV_S | FMT_D | FS(SLJIT_FR0) | FD(TMP_FREG1);
-			else if (offsets[arg_count] < 16) {
+			if (*offsets_ptr < 4 * sizeof (sljit_sw)) {
 				if (prev_ins != NOP)
 					FAIL_IF(push_inst(compiler, prev_ins, MOVABLE_INS));
-				prev_ins = LW | S(SLJIT_SP) | TA(4 + (offsets[arg_count] >> 2)) | IMM(offsets[arg_count]);
-				ins = LW | S(SLJIT_SP) | TA(5 + (offsets[arg_count] >> 2)) | IMM(offsets[arg_count] + sizeof(sljit_sw));
-			}
+
+				/* Must be preceded by at least one other argument,
+				 * and its starting offset must be 8 because of aligment. */
+				SLJIT_ASSERT((*offsets_ptr >> 2) == 2);
+
+				prev_ins = MFC1 | TA(6) | FS(float_arg_count) | (1 << 11);
+				ins = MFC1 | TA(7) | FS(float_arg_count);
+			} else if (*offsets_ptr < 254)
+				ins = SDC1 | S(SLJIT_SP) | FT(float_arg_count) | IMM(*offsets_ptr);
+			else if (*offsets_ptr == 254)
+				ins = MOV_S | FMT_D | FS(SLJIT_FR0) | FD(TMP_FREG1);
+
+			float_arg_count--;
 			break;
 		default:
-			arg_count--;
+			if (*offsets_ptr >= 4 * sizeof (sljit_sw))
+				ins = SW | S(SLJIT_SP) | T(word_arg_count) | IMM(*offsets_ptr);
+			else if ((*offsets_ptr >> 2) != word_arg_count - 1)
+				ins = ADDU | S(word_arg_count) | TA(0) | DA(4 + (*offsets_ptr >> 2));
+			else if (*offsets_ptr == 0)
+				ins = ADDU | S(SLJIT_R0) | TA(0) | DA(4);
+
+			word_arg_count--;
 			break;
 		}
 
@@ -582,30 +558,32 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 
 static sljit_s32 post_call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types)
 {
-	sljit_s32 stack_offset = 0;
+	sljit_s32 offset = 0;
 
 	arg_types >>= SLJIT_DEF_SHIFT;
 
 	while (arg_types) {
 		switch (arg_types & SLJIT_DEF_MASK) {
 		case SLJIT_ARG_TYPE_F32:
-			stack_offset += sizeof(sljit_f32);
+			offset += sizeof(sljit_f32);
 			break;
 		case SLJIT_ARG_TYPE_F64:
-			if (stack_offset & 0x7)
-				stack_offset += sizeof(sljit_sw);
-			stack_offset += sizeof(sljit_f64);
+			if (offset & 0x7)
+				offset += sizeof(sljit_sw);
+			offset += sizeof(sljit_f64);
 			break;
 		default:
-			stack_offset += sizeof(sljit_sw);
+			offset += sizeof(sljit_sw);
 			break;
 		}
 
 		arg_types >>= SLJIT_DEF_SHIFT;
 	}
 
-	/* Stack is aligned to 16 bytes, max two doubles can be placed on the stack. */
-	if (stack_offset > 16)
+	/* Stack is aligned to 16 bytes. */
+	SLJIT_ASSERT(offset <= 8 * sizeof(sljit_sw));
+
+	if (offset > 4 * sizeof(sljit_sw))
 		return push_inst(compiler, ADDIU | S(SLJIT_SP) | T(SLJIT_SP) | IMM(16), DR(SLJIT_SP));
 
 	return SLJIT_SUCCESS;

@@ -98,7 +98,7 @@ static void sparc_cache_flush(sljit_ins *from, sljit_ins *to)
 #define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
 
 static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
-	0, 8, 9, 10, 11, 29, 28, 27, 23, 22, 21, 20, 19, 18, 17, 16, 26, 25, 24, 14, 1, 12, 13, 15
+	0, 8, 9, 10, 11, 23, 22, 21, 20, 19, 18, 17, 16, 29, 28, 27, 26, 25, 24, 14, 1, 12, 13, 15
 };
 
 static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
@@ -156,6 +156,8 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define FSUBS		(OPC1(0x2) | OPC3(0x34) | DOP(0x45))
 #define JMPL		(OPC1(0x2) | OPC3(0x38))
 #define LDD		(OPC1(0x3) | OPC3(0x03))
+#define LDDF		(OPC1(0x3) | OPC3(0x23))
+#define LDF		(OPC1(0x3) | OPC3(0x20))
 #define LDUW		(OPC1(0x3) | OPC3(0x00))
 #define NOP		(OPC1(0x0) | OPC2(0x04))
 #define OR		(OPC1(0x2) | OPC3(0x02))
@@ -170,6 +172,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SRAX		(OPC1(0x2) | OPC3(0x27) | (1 << 12))
 #define SRL		(OPC1(0x2) | OPC3(0x26))
 #define SRLX		(OPC1(0x2) | OPC3(0x26) | (1 << 12))
+#define STD		(OPC1(0x3) | OPC3(0x07))
 #define STDF		(OPC1(0x3) | OPC3(0x27))
 #define STF		(OPC1(0x3) | OPC3(0x24))
 #define STW		(OPC1(0x3) | OPC3(0x04))
@@ -508,6 +511,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
+	sljit_s32 reg_index, float_offset, base, types;
+	sljit_s32 word_arg_index, float_arg_index;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
@@ -515,7 +521,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	local_size = (local_size + SLJIT_LOCALS_OFFSET + 7) & ~0x7;
 	compiler->local_size = local_size;
 
-	if (local_size <= SIMM_MAX) {
+	if (local_size <= -SIMM_MIN) {
 		FAIL_IF(push_inst(compiler, SAVE | D(SLJIT_SP) | S1(SLJIT_SP) | IMM(-local_size), UNMOVABLE_INS));
 	}
 	else {
@@ -523,7 +529,87 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		FAIL_IF(push_inst(compiler, SAVE | D(SLJIT_SP) | S1(SLJIT_SP) | S2(TMP_REG1), UNMOVABLE_INS));
 	}
 
-	/* Arguments are in their appropriate registers. */
+	arg_types >>= SLJIT_DEF_SHIFT;
+
+	types = arg_types;
+	float_offset = 16 * sizeof(sljit_sw);
+	reg_index = 24;
+
+	while (types && reg_index < 24 + 6) {
+		if ((types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F32) {
+			FAIL_IF(push_inst(compiler, STW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
+			float_offset += sizeof(sljit_f64);
+		} else if ((types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F64) {
+			if (reg_index & 0x1) {
+				FAIL_IF(push_inst(compiler, STW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
+				if (reg_index >= 24 + 6 - 1)
+					break;
+				FAIL_IF(push_inst(compiler, STW | DA(reg_index + 1) | S1(SLJIT_SP) | IMM(float_offset + sizeof(sljit_sw)), MOVABLE_INS));
+			} else
+				FAIL_IF(push_inst(compiler, STD | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
+
+			float_offset += sizeof(sljit_f64);
+			reg_index++;
+		}
+
+		reg_index++;
+		types >>= SLJIT_DEF_SHIFT;
+	}
+
+	base = SLJIT_SP;
+	if (types != 0 && local_size >= SIMM_MAX - ((16 + 1 + 6 + 1) * sizeof(sljit_sw))) {
+		FAIL_IF(push_inst(compiler, SUB | D(TMP_REG1) | S1(SLJIT_SP)
+			| ((local_size <= -SIMM_MIN) ? IMM(-local_size) : S2(TMP_REG1)), DR(TMP_REG1)));
+		local_size = 0;
+		base = TMP_REG1;
+	}
+
+	local_size += (16 + 1 + 6) * sizeof(sljit_sw);
+	float_offset = 16 * sizeof(sljit_sw);
+	reg_index = 24;
+	word_arg_index = 24;
+	float_arg_index = 1;
+
+	while (arg_types) {
+		switch (arg_types & SLJIT_DEF_MASK) {
+		case SLJIT_ARG_TYPE_F32:
+			if (reg_index < 24 + 6)
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
+			else
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1(base) | IMM(local_size), MOVABLE_INS));
+			float_arg_index++;
+			float_offset += sizeof(sljit_f64);
+			break;
+		case SLJIT_ARG_TYPE_F64:
+			if (reg_index < 24 + 6 - 1) {
+				FAIL_IF(push_inst(compiler, LDDF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
+			} else if (reg_index < 24 + 6) {
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | (1 << 25) | S1(base) | IMM(local_size), MOVABLE_INS));
+			} else {
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1(base) | IMM(local_size), MOVABLE_INS));
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | (1 << 25) | S1(base) | IMM(local_size + sizeof(sljit_sw)), MOVABLE_INS));
+			}
+
+			float_arg_index++;
+			float_offset += sizeof(sljit_f64);
+			reg_index++;
+			break;
+		default:
+			if (reg_index != word_arg_index) {
+				if (reg_index < 24 + 6)
+					FAIL_IF(push_inst(compiler, OR | DA(word_arg_index) | S1(0) | S2A(reg_index), word_arg_index));
+				else
+					FAIL_IF(push_inst(compiler, LDUW | DA(word_arg_index) | S1(base) | IMM(local_size), word_arg_index));
+			}
+
+			word_arg_index++;
+			break;
+		}
+
+		reg_index++;
+		arg_types >>= SLJIT_DEF_SHIFT;
+	}
 
 	return SLJIT_SUCCESS;
 }

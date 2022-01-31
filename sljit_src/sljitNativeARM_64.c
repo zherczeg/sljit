@@ -916,7 +916,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
-	sljit_s32 args, i, tmp, offs, prev, saved_regs_size;
+	sljit_s32 i, tmp, offs, prev, saved_regs_size;
+	sljit_s32 word_arg_count = 0;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
@@ -965,17 +966,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	if (prev != -1)
 		FAIL_IF(push_inst(compiler, STRI | RT(prev) | RN(SLJIT_SP) | (offs >> 5)));
 
-
 	FAIL_IF(push_inst(compiler, ADDI | RD(TMP_FP) | RN(SLJIT_SP) | (0 << 10)));
 
-	args = get_arg_count(arg_types);
+	arg_types >>= SLJIT_DEF_SHIFT;
 
-	if (args >= 1)
-		FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0) | RN(TMP_ZERO) | RM(SLJIT_R0)));
-	if (args >= 2)
-		FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S1) | RN(TMP_ZERO) | RM(SLJIT_R1)));
-	if (args >= 3)
-		FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S2) | RN(TMP_ZERO) | RM(SLJIT_R2)));
+	while (arg_types > 0) {
+		if ((arg_types & SLJIT_DEF_MASK) < SLJIT_ARG_TYPE_F32) {
+			FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0 - word_arg_count) | RN(TMP_ZERO) | RM(SLJIT_R0 + word_arg_count)));
+			word_arg_count++;
+		}
+		arg_types >>= SLJIT_DEF_SHIFT;
+	}
 
 #ifdef _WIN32
 	if (local_size >= 4096) {

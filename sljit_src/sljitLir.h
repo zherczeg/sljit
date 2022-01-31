@@ -407,7 +407,7 @@ struct sljit_compiler {
 #endif
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	sljit_s32 args;
+	sljit_s32 args_size;
 	sljit_s32 locals_offset;
 	sljit_s32 saveds_offset;
 	sljit_s32 stack_tmp_size;
@@ -605,30 +605,35 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
    available options are listed before sljit_emit_enter.
 
    The function argument list is the combination of SLJIT_ARGx
-   (SLJIT_DEF_ARG1) macros. Currently maximum 3 SW / UW
-   (SLJIT_ARG_TYPE_SW / LJIT_ARG_TYPE_UW) arguments are supported.
-   The first argument goes to SLJIT_S0, the second goes to SLJIT_S1
-   and so on. The register set used by the function must be declared
-   as well. The number of scratch and saved registers used by the
-   function must be passed to sljit_emit_enter. Only R registers
-   between R0 and "scratches" argument can be used later. E.g. if
-   "scratches" is set to 2, the scratch register set will be limited
-   to SLJIT_R0 and SLJIT_R1. The S registers and the floating point
-   registers ("fscratches" and "fsaveds") are specified in a similar
-   manner. The sljit_emit_enter is also capable of allocating a stack
-   space for local variables. The "local_size" argument contains the
-   size in bytes of this local area and its staring address is stored
+   (SLJIT_DEF_ARG1) macros. Currently maximum 4 arguments are
+   supported. The first integer argument is loaded into SLJIT_S0,
+   the second one is loaded into SLJIT_S1, and so on. Similarly,
+   the first floating point argument is loaded into SLJIT_FR0,
+   the second one is loaded into SLJIT_FR1, and so on. Furthermore
+   the register set used by the function must be declared as well.
+   The number of scratch and saved registers used by the function
+   must be passed to sljit_emit_enter. Only R registers between R0
+   and "scratches" argument can be used later. E.g. if "scratches"
+   is set to 2, the scratch register set will be limited to SLJIT_R0
+    and SLJIT_R1. The S registers and the floating point registers
+   ("fscratches" and "fsaveds") are specified in a similar manner.
+   The sljit_emit_enter is also capable of allocating a stack space
+   for local variables. The "local_size" argument contains the size
+   in bytes of this local area and its staring address is stored
    in SLJIT_SP. The memory area between SLJIT_SP (inclusive) and
    SLJIT_SP + local_size (exclusive) can be modified freely until
    the function returns. The stack space is not initialized.
 
    Note: the following conditions must met:
          0 <= scratches <= SLJIT_NUMBER_OF_REGISTERS
-         0 <= saveds <= SLJIT_NUMBER_OF_REGISTERS
+         0 <= saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS
          scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS
          0 <= fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS
-         0 <= fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS
+         0 <= fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS
          fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS
+
+   Note: the compiler can use saved registers as scratch registers,
+         but the opposite is not supported
 
    Note: every call of sljit_emit_enter and sljit_set_context
          overwrites the previous context.

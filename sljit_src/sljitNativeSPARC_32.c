@@ -170,21 +170,20 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			reg_index += 2;
 			break;
 		default:
-			if (reg_index != word_reg_index && reg_index < 14 && reg_index == reg)
+			if (reg_index != word_reg_index && reg_index == reg)
 				move_to_tmp2 = 1;
 			reg_index++;
 			word_reg_index++;
 			break;
 		}
 
-		if (move_to_tmp2) {
-			move_to_tmp2 = 0;
-			if (reg < 14)
-				FAIL_IF(push_inst(compiler, OR | D(TMP_REG1) | S1(0) | S2A(reg), DR(TMP_REG1)));
-			*src = TMP_REG1;
-		}
-
 		arg_types >>= SLJIT_DEF_SHIFT;
+	}
+
+	if (move_to_tmp2) {
+		if (reg < 14)
+			FAIL_IF(push_inst(compiler, OR | D(TMP_REG1) | S1(0) | S2A(reg), DR(TMP_REG1)));
+		*src = TMP_REG1;
 	}
 
 	arg_types = types;
@@ -199,6 +198,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 		case SLJIT_ARG_TYPE_F64:
 			float_arg_index--;
 			if (float_arg_index == 4 && double_arg_count == 4) {
+				/* The address is not doubleword aligned, so two instructions are required to store the double. */
 				FAIL_IF(push_inst(compiler, STF | FD(float_arg_index) | S1(SLJIT_SP) | IMM((16 + 7) * sizeof(sljit_sw)), MOVABLE_INS));
 				FAIL_IF(push_inst(compiler, STF | FD(float_arg_index) | (1 << 25) | S1(SLJIT_SP) | IMM((16 + 8) * sizeof(sljit_sw)), MOVABLE_INS));
 			}
@@ -219,7 +219,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 		switch (types & SLJIT_DEF_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			reg_index--;
-			if (reg_index < 14)
+			if (reg_index < 8 + 6)
 				FAIL_IF(push_inst(compiler, LDUW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), reg_index));
 			float_offset -= sizeof(sljit_f64);
 			break;
@@ -228,10 +228,10 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			if (reg_index < 14) {
 				if ((reg_index & 0x1) != 0) {
 					FAIL_IF(push_inst(compiler, LDUW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), reg_index));
-					if (reg_index < 13)
+					if (reg_index < 8 + 6 - 1)
 						FAIL_IF(push_inst(compiler, LDUW | DA(reg_index + 1) | S1(SLJIT_SP) | IMM(float_offset + sizeof(sljit_sw)), reg_index + 1));
 				}
-				else 
+				else
 					FAIL_IF(push_inst(compiler, LDD | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), reg_index));
 			}
 			float_offset -= sizeof(sljit_f64);

@@ -206,8 +206,10 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define JR		(HI(0) | LO(8))
 #endif /* SLJIT_MIPS_REV >= 6 */
 #define LD		(HI(55))
+#define LDC1		(HI(53))
 #define LUI		(HI(15))
 #define LW		(HI(35))
+#define LWC1		(HI(49))
 #define MFC1		(HI(17))
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)
 #define MOD		(HI(0) | (3 << 6) | LO(26))
@@ -756,7 +758,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
 	sljit_ins base;
-	sljit_s32 args, i, tmp, offs;
+	sljit_s32 i, tmp, offs;
+	sljit_s32 arg_count, word_arg_count, float_arg_count;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
@@ -770,7 +773,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 #endif
 	compiler->local_size = local_size;
 
-	if (local_size <= SIMM_MAX) {
+	if (local_size <= -SIMM_MIN) {
 		/* Frequent case. */
 		FAIL_IF(push_inst(compiler, ADDIU_W | S(SLJIT_SP) | T(SLJIT_SP) | IMM(-local_size), DR(SLJIT_SP)));
 		base = S(SLJIT_SP);
@@ -798,14 +801,85 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(i) | IMM(offs), MOVABLE_INS));
 	}
 
-	args = get_arg_count(arg_types);
+	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_count = 0;
+	word_arg_count = 0;
+	float_arg_count = 0;
 
-	if (args >= 1)
-		FAIL_IF(push_inst(compiler, ADDU_W | SA(4) | TA(0) | D(SLJIT_S0), DR(SLJIT_S0)));
-	if (args >= 2)
-		FAIL_IF(push_inst(compiler, ADDU_W | SA(5) | TA(0) | D(SLJIT_S1), DR(SLJIT_S1)));
-	if (args >= 3)
-		FAIL_IF(push_inst(compiler, ADDU_W | SA(6) | TA(0) | D(SLJIT_S2), DR(SLJIT_S2)));
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	/* The first maximum two floating point arguments are passed in floating point
+	   registers if no integer argument precedes them. The first 16 byte data is
+	   passed in four integer registers, the rest is placed onto the stack.
+	   The floating point registers are also part of the first 16 byte data, so
+	   their corresponding integer registers are not used when they are present. */
+
+	while (arg_types) {
+		switch (arg_types & SLJIT_DEF_MASK) {
+		case SLJIT_ARG_TYPE_F32:
+			float_arg_count++;
+
+			if (word_arg_count == 0 && float_arg_count <= 2) {
+				if (float_arg_count == 1)
+					FAIL_IF(push_inst(compiler, MOV_S | FMT_S | FS(TMP_FREG1) | FD(SLJIT_FR0), MOVABLE_INS));
+			} else if (arg_count < 4)
+				FAIL_IF(push_inst(compiler, MTC1 | TA(4 + arg_count) | FS(float_arg_count), MOVABLE_INS));
+			else
+				FAIL_IF(push_inst(compiler, LWC1 | base | FT(float_arg_count) | IMM(local_size + (arg_count << 2)), MOVABLE_INS));
+			break;
+		case SLJIT_ARG_TYPE_F64:
+			float_arg_count++;
+			if ((arg_count & 0x1) != 0)
+				arg_count++;
+
+			if (word_arg_count == 0 && float_arg_count <= 2) {
+				if (float_arg_count == 1)
+					FAIL_IF(push_inst(compiler, MOV_S | FMT_D | FS(TMP_FREG1) | FD(SLJIT_FR0), MOVABLE_INS));
+			} else if (arg_count < 4) {
+				FAIL_IF(push_inst(compiler, MTC1 | TA(4 + arg_count) | FS(float_arg_count), MOVABLE_INS));
+				FAIL_IF(push_inst(compiler, MTC1 | TA(5 + arg_count) | FS(float_arg_count) | (1 << 11), MOVABLE_INS));
+			} else
+				FAIL_IF(push_inst(compiler, LDC1 | base | FT(float_arg_count) | IMM(local_size + (arg_count << 2)), MOVABLE_INS));
+			arg_count++;
+			break;
+		default:
+			if (arg_count < 4)
+				FAIL_IF(push_inst(compiler, ADDU_W | SA(4 + arg_count) | TA(0) | D(SLJIT_S0 - word_arg_count),
+					DR(SLJIT_S0 - word_arg_count)));
+			else
+				FAIL_IF(push_inst(compiler, LW | base | T(SLJIT_S0 - word_arg_count) | IMM(local_size + (arg_count << 2)),
+					DR(SLJIT_S0 - word_arg_count)));
+			word_arg_count++;
+			break;
+		}
+		arg_count++;
+		arg_types >>= SLJIT_DEF_SHIFT;
+	}
+#else /* !SLJIT_CONFIG_MIPS_32 */
+	while (arg_types) {
+		arg_count++;
+		switch (arg_types & SLJIT_DEF_MASK) {
+		case SLJIT_ARG_TYPE_F32:
+			float_arg_count++;
+			if (arg_count != float_arg_count)
+				FAIL_IF(push_inst(compiler, MOV_S | FMT_S | FS(arg_count) | FD(float_arg_count), MOVABLE_INS));
+			else if (arg_count == 1)
+				FAIL_IF(push_inst(compiler, MOV_S | FMT_S | FS(TMP_FREG1) | FD(SLJIT_FR0), MOVABLE_INS));
+			break;
+		case SLJIT_ARG_TYPE_F64:
+			float_arg_count++;
+			if (arg_count != float_arg_count)
+				FAIL_IF(push_inst(compiler, MOV_S | FMT_D | FS(arg_count) | FD(float_arg_count), MOVABLE_INS));
+			else if (arg_count == 1)
+				FAIL_IF(push_inst(compiler, MOV_S | FMT_D | FS(TMP_FREG1) | FD(SLJIT_FR0), MOVABLE_INS));
+			break;
+		default:
+			FAIL_IF(push_inst(compiler, ADDU_W | SA(3 + arg_count) | TA(0) | D(SLJIT_S0 - word_arg_count), DR(SLJIT_S0 - word_arg_count)));
+			word_arg_count++;
+			break;
+		}
+		arg_types >>= SLJIT_DEF_SHIFT;
+	}
+#endif /* SLJIT_CONFIG_MIPS_32 */
 
 	return SLJIT_SUCCESS;
 }

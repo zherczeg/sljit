@@ -128,7 +128,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
-	sljit_s32 args, i, tmp, size, saved_register_size;
+	sljit_s32 size, saved_register_size, tmp, i;
+	sljit_s32 word_arg_count = 0;
+#ifdef _WIN64
+	sljit_s32 float_arg_count = 0;
+#endif /* _WIN64 */
 	sljit_u8 *inst;
 
 	CHECK_ERROR();
@@ -146,7 +150,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		compiler->locals_offset = 6 * sizeof(sljit_sw);
 	else
 		compiler->locals_offset = ((scratches > 2) ? 4 : 2) * sizeof(sljit_sw);
-#endif
+#endif /* _WIN64 */
 
 	/* Including the return address saved by the call instruction. */
 	saved_register_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
@@ -172,52 +176,54 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		PUSH_REG(reg_lmap[i]);
 	}
 
-	args = get_arg_count(arg_types);
+	arg_types >>= SLJIT_DEF_SHIFT;
 
-	if (args > 0) {
-		size = args * 3;
-		inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
-		FAIL_IF(!inst);
-
-		INC_SIZE(size);
-
+	while (arg_types > 0) {
+		if ((arg_types & SLJIT_DEF_MASK) < SLJIT_ARG_TYPE_F32) {
+			tmp = 0;
 #ifndef _WIN64
-		if (args > 0) {
-			inst[0] = REX_W;
-			inst[1] = MOV_r_rm;
-			inst[2] = MOD_REG | (reg_map[SLJIT_S0] << 3) | 0x7 /* rdi */;
-			inst += 3;
+			switch (word_arg_count) {
+			case 0:
+				tmp = SLJIT_R2;
+				break;
+			case 1:
+				tmp = SLJIT_R1;
+				break;
+			case 2:
+				tmp = TMP_REG1;
+				break;
+			default:
+				tmp = SLJIT_R3;
+				break;
+			}
+#else /* !_WIN64 */
+			switch (word_arg_count + float_arg_count) {
+			case 0:
+				tmp = SLJIT_R3;
+				break;
+			case 1:
+				tmp = SLJIT_R1;
+				break;
+			case 2:
+				tmp = SLJIT_R2;
+				break;
+			default:
+				tmp = TMP_REG1;
+				break;
+			}
+#endif /* _WIN64 */
+			EMIT_MOV(compiler, SLJIT_S0 - word_arg_count, 0, tmp, 0);
+			word_arg_count++;
+		} else {
+#ifdef _WIN64
+			SLJIT_COMPILE_ASSERT(SLJIT_FR0 == 1, float_register_index_start);
+			float_arg_count++;
+			if (float_arg_count != float_arg_count + word_arg_count)
+				FAIL_IF(emit_sse2_load(compiler, (arg_types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F32,
+					float_arg_count, float_arg_count + word_arg_count, 0));
+#endif /* _WIN64 */
 		}
-		if (args > 1) {
-			inst[0] = REX_W | REX_R;
-			inst[1] = MOV_r_rm;
-			inst[2] = MOD_REG | (reg_lmap[SLJIT_S1] << 3) | 0x6 /* rsi */;
-			inst += 3;
-		}
-		if (args > 2) {
-			inst[0] = REX_W | REX_R;
-			inst[1] = MOV_r_rm;
-			inst[2] = MOD_REG | (reg_lmap[SLJIT_S2] << 3) | 0x2 /* rdx */;
-		}
-#else
-		if (args > 0) {
-			inst[0] = REX_W;
-			inst[1] = MOV_r_rm;
-			inst[2] = MOD_REG | (reg_map[SLJIT_S0] << 3) | 0x1 /* rcx */;
-			inst += 3;
-		}
-		if (args > 1) {
-			inst[0] = REX_W;
-			inst[1] = MOV_r_rm;
-			inst[2] = MOD_REG | (reg_map[SLJIT_S1] << 3) | 0x2 /* rdx */;
-			inst += 3;
-		}
-		if (args > 2) {
-			inst[0] = REX_W | REX_B;
-			inst[1] = MOV_r_rm;
-			inst[2] = MOD_REG | (reg_map[SLJIT_S2] << 3) | 0x0 /* r8 */;
-		}
-#endif
+		arg_types >>= SLJIT_DEF_SHIFT;
 	}
 
 	local_size = ((local_size + SLJIT_LOCALS_OFFSET + saved_register_size + 15) & ~15) - saved_register_size;

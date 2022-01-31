@@ -1610,7 +1610,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
-	sljit_s32 args = get_arg_count(arg_types);
+	sljit_s32 arg_count = 0;
 	sljit_sw frame_size;
 
 	CHECK_ERROR();
@@ -1633,13 +1633,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		}
 	}
 
-	if (args >= 1)
-		FAIL_IF(push_inst(compiler, lgr(gpr(SLJIT_S0), gpr(SLJIT_R0))));
-	if (args >= 2)
-		FAIL_IF(push_inst(compiler, lgr(gpr(SLJIT_S1), gpr(SLJIT_R1))));
-	if (args >= 3)
-		FAIL_IF(push_inst(compiler, lgr(gpr(SLJIT_S2), gpr(SLJIT_R2))));
-	SLJIT_ASSERT(args < 4);
+	arg_types >>= SLJIT_DEF_SHIFT;
+	while (arg_types > 0) {
+		if ((arg_types & SLJIT_DEF_MASK) < SLJIT_ARG_TYPE_F32)
+			FAIL_IF(push_inst(compiler, lgr(gpr(SLJIT_S0 - arg_count), gpr(SLJIT_R0 + arg_count))));
+
+		arg_count++;
+		arg_types >>= SLJIT_DEF_SHIFT;
+	}
 
 	return SLJIT_SUCCESS;
 }
