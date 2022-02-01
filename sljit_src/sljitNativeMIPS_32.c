@@ -453,15 +453,15 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 
 	SLJIT_ASSERT(reg_map[TMP_REG1] == 4 && freg_map[TMP_FREG1] == 12);
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	/* See ABI description in sljit_emit_enter. */
 
 	while (arg_types) {
-		types = (types << SLJIT_DEF_SHIFT) | (arg_types & SLJIT_DEF_MASK);
+		types = (types << SLJIT_ARG_SHIFT) | (arg_types & SLJIT_ARG_MASK);
 		*offsets_ptr = (sljit_u8)offset;
 
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			if (word_arg_count == 0 && float_arg_count <= 1)
 				*offsets_ptr = (sljit_u8)(254 + float_arg_count);
@@ -487,7 +487,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			break;
 		}
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 		offsets_ptr++;
 	}
 
@@ -500,7 +500,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	while (types) {
 		--offsets_ptr;
 
-		switch (types & SLJIT_DEF_MASK) {
+		switch (types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			if (*offsets_ptr < 4 * sizeof (sljit_sw))
 				ins = MFC1 | TA(4 + (*offsets_ptr >> 2)) | FS(float_arg_count);
@@ -548,7 +548,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			ins = NOP;
 		}
 
-		types >>= SLJIT_DEF_SHIFT;
+		types >>= SLJIT_ARG_SHIFT;
 	}
 
 	*ins_ptr = prev_ins;
@@ -560,10 +560,10 @@ static sljit_s32 post_call_with_args(struct sljit_compiler *compiler, sljit_s32 
 {
 	sljit_s32 offset = 0;
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types) {
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			offset += sizeof(sljit_f32);
 			break;
@@ -577,7 +577,7 @@ static sljit_s32 post_call_with_args(struct sljit_compiler *compiler, sljit_s32 
 			break;
 		}
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	/* Stack is aligned to 16 bytes. */

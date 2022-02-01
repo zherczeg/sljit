@@ -150,12 +150,12 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	if (src)
 		reg = reg_map[*src & REG_MASK];
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types) {
-		types = (types << SLJIT_DEF_SHIFT) | (arg_types & SLJIT_DEF_MASK);
+		types = (types << SLJIT_ARG_SHIFT) | (arg_types & SLJIT_ARG_MASK);
 
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			float_arg_index++;
 			if (reg_index == reg)
@@ -177,7 +177,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			break;
 		}
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	if (move_to_tmp2) {
@@ -189,7 +189,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	arg_types = types;
 
 	while (arg_types) {
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			float_arg_index--;
 			FAIL_IF(push_inst(compiler, STF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
@@ -210,13 +210,13 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			break;
 		}
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	float_offset = (16 + 6) * sizeof(sljit_sw);
 
 	while (types) {
-		switch (types & SLJIT_DEF_MASK) {
+		switch (types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			reg_index--;
 			if (reg_index < 8 + 6)
@@ -249,7 +249,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			break;
 		}
 
-		types >>= SLJIT_DEF_SHIFT;
+		types >>= SLJIT_ARG_SHIFT;
 	}
 
 	return SLJIT_SUCCESS;

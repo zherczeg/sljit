@@ -801,7 +801,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(i) | IMM(offs), MOVABLE_INS));
 	}
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 	arg_count = 0;
 	word_arg_count = 0;
 	float_arg_count = 0;
@@ -814,7 +814,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	   their corresponding integer registers are not used when they are present. */
 
 	while (arg_types) {
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			float_arg_count++;
 
@@ -852,12 +852,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			break;
 		}
 		arg_count++;
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 #else /* !SLJIT_CONFIG_MIPS_32 */
 	while (arg_types) {
 		arg_count++;
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			float_arg_count++;
 			if (arg_count != float_arg_count)
@@ -877,7 +877,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			word_arg_count++;
 			break;
 		}
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 #endif /* SLJIT_CONFIG_MIPS_32 */
 

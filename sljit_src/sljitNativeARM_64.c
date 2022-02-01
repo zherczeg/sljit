@@ -968,14 +968,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	FAIL_IF(push_inst(compiler, ADDI | RD(TMP_FP) | RN(SLJIT_SP) | (0 << 10)));
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types > 0) {
-		if ((arg_types & SLJIT_DEF_MASK) < SLJIT_ARG_TYPE_F32) {
+		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F32) {
 			FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0 - word_arg_count) | RN(TMP_ZERO) | RM(SLJIT_R0 + word_arg_count)));
 			word_arg_count++;
 		}
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 #ifdef _WIN32

@@ -176,10 +176,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		PUSH_REG(reg_lmap[i]);
 	}
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types > 0) {
-		if ((arg_types & SLJIT_DEF_MASK) < SLJIT_ARG_TYPE_F32) {
+		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F32) {
 			tmp = 0;
 #ifndef _WIN64
 			switch (word_arg_count) {
@@ -219,11 +219,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			SLJIT_COMPILE_ASSERT(SLJIT_FR0 == 1, float_register_index_start);
 			float_arg_count++;
 			if (float_arg_count != float_arg_count + word_arg_count)
-				FAIL_IF(emit_sse2_load(compiler, (arg_types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F32,
+				FAIL_IF(emit_sse2_load(compiler, (arg_types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F32,
 					float_arg_count, float_arg_count + word_arg_count, 0));
 #endif /* _WIN64 */
 		}
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	local_size = ((local_size + SLJIT_LOCALS_OFFSET + saved_register_size + 15) & ~15) - saved_register_size;
@@ -623,12 +623,12 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	compiler->mode32 = 0;
 
 	/* Remove return value. */
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types) {
-		if ((arg_types & SLJIT_DEF_MASK) < SLJIT_ARG_TYPE_F32)
+		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F32)
 			word_arg_count++;
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	if (word_arg_count == 0)
@@ -662,12 +662,12 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	SLJIT_ASSERT(reg_map[SLJIT_R3] == 1 && reg_map[SLJIT_R1] == 2 && reg_map[SLJIT_R2] == 8 && reg_map[TMP_REG1] == 9);
 
 	compiler->mode32 = 0;
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types) {
-		types = (types << SLJIT_DEF_SHIFT) | (arg_types & SLJIT_DEF_MASK);
+		types = (types << SLJIT_ARG_SHIFT) | (arg_types & SLJIT_ARG_MASK);
 
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 		case SLJIT_ARG_TYPE_F64:
 			arg_count++;
@@ -691,7 +691,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			break;
 		}
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	if (!data_trandfer)
@@ -704,7 +704,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	}
 
 	while (types) {
-		switch (types & SLJIT_DEF_MASK) {
+		switch (types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			if (arg_count != float_arg_count)
 				FAIL_IF(emit_sse2_load(compiler, 1, arg_count, float_arg_count, 0));
@@ -725,7 +725,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			break;
 		}
 
-		types >>= SLJIT_DEF_SHIFT;
+		types >>= SLJIT_ARG_SHIFT;
 	}
 
 	return SLJIT_SUCCESS;

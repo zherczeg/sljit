@@ -1103,7 +1103,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	local_size = ((size + local_size + 7) & ~7) - size;
 	compiler->local_size = local_size;
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 	word_arg_count = 0;
 #ifdef __SOFTFP__
 	SLJIT_COMPILE_ASSERT(SLJIT_FR0 == 1, float_register_index_start);
@@ -1112,7 +1112,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	float_arg_count = 0;
 
 	while (arg_types) {
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			if (offset < 4 * sizeof(sljit_sw))
 				FAIL_IF(push_inst32(compiler, VMOV | (float_arg_count << 16) | (offset << 10)));
@@ -1146,7 +1146,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			offset += sizeof(sljit_sw);
 			break;
 		}
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 #else
 	offset = SLJIT_FR0;
@@ -1154,7 +1154,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	f32_offset = 0;
 
 	while (arg_types) {
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			if (f32_offset != 0) {
 				*remap_ptr++ = VMOV_F32 | 0x20 | DD4(offset) | DM4(f32_offset);
@@ -1178,7 +1178,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			word_arg_count++;
 			break;
 		}
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	SLJIT_ASSERT(remap_ptr - remap <= sizeof(remap));
@@ -1984,12 +1984,12 @@ static sljit_s32 softfloat_call_with_args(struct sljit_compiler *compiler, sljit
 	if (src && FAST_IS_REG(*src))
 		src_offset = reg_map[*src] * sizeof(sljit_sw);
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types) {
-		types = (types << SLJIT_DEF_SHIFT) | (arg_types & SLJIT_DEF_MASK);
+		types = (types << SLJIT_ARG_SHIFT) | (arg_types & SLJIT_ARG_MASK);
 
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			*offset_ptr++ = (sljit_u8)offset;
 			offset += sizeof(sljit_f32);
@@ -2009,7 +2009,7 @@ static sljit_s32 softfloat_call_with_args(struct sljit_compiler *compiler, sljit
 			break;
 		}
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	if (offset > 4 * sizeof(sljit_sw))
@@ -2019,7 +2019,7 @@ static sljit_s32 softfloat_call_with_args(struct sljit_compiler *compiler, sljit
 
 	/* Process arguments in reversed direction. */
 	while (types) {
-		switch (types & SLJIT_DEF_MASK) {
+		switch (types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			float_arg_count--;
 			offset = *(--offset_ptr);
@@ -2073,7 +2073,7 @@ static sljit_s32 softfloat_call_with_args(struct sljit_compiler *compiler, sljit
 			break;
 		}
 
-		types >>= SLJIT_DEF_SHIFT;
+		types >>= SLJIT_ARG_SHIFT;
 	}
 
 	return SLJIT_SUCCESS;
@@ -2083,15 +2083,15 @@ static sljit_s32 softfloat_post_call_with_args(struct sljit_compiler *compiler, 
 {
 	sljit_s32 stack_size = 0;
 
-	if ((arg_types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F32)
+	if ((arg_types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F32)
 		FAIL_IF(push_inst32(compiler, VMOV | (0 << 16) | (0 << 12)));
-	if ((arg_types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F64)
+	if ((arg_types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F64)
 		FAIL_IF(push_inst32(compiler, VMOV2 | (1 << 16) | (0 << 12) | 0));
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types) {
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			stack_size += sizeof(sljit_f32);
 			break;
@@ -2105,7 +2105,7 @@ static sljit_s32 softfloat_post_call_with_args(struct sljit_compiler *compiler, 
 			break;
 		}
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	if (stack_size <= 4 * sizeof(sljit_sw))
@@ -2123,10 +2123,10 @@ static sljit_s32 hardfloat_call_with_args(struct sljit_compiler *compiler, sljit
 	sljit_u32 f32_offset = 0;
 
 	/* Remove return value. */
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types) {
-		if ((arg_types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F32) {
+		if ((arg_types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F32) {
 			if (f32_offset != 0) {
 				FAIL_IF(push_inst32(compiler, VMOV_F32 | 0x400000 | DD4(f32_offset) | DM4(offset)));
 				f32_offset = 0;
@@ -2138,14 +2138,14 @@ static sljit_s32 hardfloat_call_with_args(struct sljit_compiler *compiler, sljit
 			}
 			offset++;
 		}
-		else if ((arg_types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F64) {
+		else if ((arg_types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F64) {
 			if (offset != new_offset)
 				FAIL_IF(push_inst32(compiler, VMOV_F32 | SLJIT_32 | DD4(new_offset) | DM4(offset)));
 
 			new_offset++;
 			offset++;
 		}
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	return SLJIT_SUCCESS;

@@ -529,17 +529,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		FAIL_IF(push_inst(compiler, SAVE | D(SLJIT_SP) | S1(SLJIT_SP) | S2(TMP_REG1), UNMOVABLE_INS));
 	}
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	types = arg_types;
 	float_offset = 16 * sizeof(sljit_sw);
 	reg_index = 24;
 
 	while (types && reg_index < 24 + 6) {
-		if ((types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F32) {
+		if ((types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F32) {
 			FAIL_IF(push_inst(compiler, STW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
 			float_offset += sizeof(sljit_f64);
-		} else if ((types & SLJIT_DEF_MASK) == SLJIT_ARG_TYPE_F64) {
+		} else if ((types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F64) {
 			if (reg_index & 0x1) {
 				FAIL_IF(push_inst(compiler, STW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
 				if (reg_index >= 24 + 6 - 1)
@@ -553,7 +553,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		}
 
 		reg_index++;
-		types >>= SLJIT_DEF_SHIFT;
+		types >>= SLJIT_ARG_SHIFT;
 	}
 
 	base = SLJIT_SP;
@@ -571,7 +571,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	float_arg_index = 1;
 
 	while (arg_types) {
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 			if (reg_index < 24 + 6)
 				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
@@ -608,7 +608,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		}
 
 		reg_index++;
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	return SLJIT_SUCCESS;

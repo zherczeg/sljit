@@ -432,12 +432,12 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	if (src)
 		reg = *src & REG_MASK;
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types) {
-		types = (types << SLJIT_DEF_SHIFT) | (arg_types & SLJIT_DEF_MASK);
+		types = (types << SLJIT_ARG_SHIFT) | (arg_types & SLJIT_ARG_MASK);
 
-		switch (arg_types & SLJIT_DEF_MASK) {
+		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 		case SLJIT_ARG_TYPE_F64:
 			arg_count++;
@@ -453,11 +453,11 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			break;
 		}
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 	while (types) {
-		switch (types & SLJIT_DEF_MASK) {
+		switch (types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F32:
 		case SLJIT_ARG_TYPE_F64:
 			arg_count--;
@@ -471,7 +471,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			break;
 		}
 
-		types >>= SLJIT_DEF_SHIFT;
+		types >>= SLJIT_ARG_SHIFT;
 	}
 
 	return SLJIT_SUCCESS;

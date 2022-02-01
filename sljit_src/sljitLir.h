@@ -253,74 +253,80 @@ extern "C" {
 /*  Argument type definitions                                            */
 /* --------------------------------------------------------------------- */
 
-/* Argument type definitions.
-   Used by SLJIT_[DEF_]ARGx and SLJIT_[DEF]_RET macros. */
-
-#define SLJIT_ARG_TYPE_VOID 0
-#define SLJIT_ARG_TYPE_SW 1
-#define SLJIT_ARG_TYPE_UW 2
-#define SLJIT_ARG_TYPE_S32 3
-#define SLJIT_ARG_TYPE_U32 4
-#define SLJIT_ARG_TYPE_F32 5
-#define SLJIT_ARG_TYPE_F64 6
-
 /* The following argument type definitions are used by sljit_emit_enter,
    sljit_set_context, sljit_emit_call, and sljit_emit_icall functions.
-   The following return type definitions are used by sljit_emit_call
-   and sljit_emit_icall functions.
 
-   When a function is called, the first integer argument must be placed
-   in SLJIT_R0, the second in SLJIT_R1, and so on. Similarly the first
-   floating point argument must be placed in SLJIT_FR0, the second in
+   As for sljit_emit_enter, the first integer argument is available in
+   SLJIT_R0, the second one in SLJIT_R1, and so on. Similarly the first
+   floating point argument is available in SLJIT_FR0, the second one in
    SLJIT_FR1, and so on.
 
+   As for sljit_emit_call and sljit_emit_icall, the first integer argument
+   must be placed into SLJIT_R0, the second one into SLJIT_R1, and so on.
+   Similarly the first floating point argument must be placed into SLJIT_FR0,
+   the second one into SLJIT_FR1, and so on.
+
    Example function definition:
-     sljit_f32 SLJIT_FUNC example_c_callback(sljit_sw arg_a,
+     sljit_f32 SLJIT_FUNC example_c_callback(void *arg_a,
          sljit_f64 arg_b, sljit_u32 arg_c, sljit_f32 arg_d);
 
    Argument type definition:
-     SLJIT_DEF_RET(SLJIT_ARG_TYPE_F32)
-        | SLJIT_DEF_ARG1(SLJIT_ARG_TYPE_SW) | SLJIT_DEF_ARG2(SLJIT_ARG_TYPE_F64)
-        | SLJIT_DEF_ARG3(SLJIT_ARG_TYPE_U32) | SLJIT_DEF_ARG2(SLJIT_ARG_TYPE_F32)
+     SLJIT_ARG_RETURN(SLJIT_ARG_TYPE_F32)
+        | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_P, 1) | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_F64, 2)
+        | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_32, 3) | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_F32, 4)
 
    Short form of argument type definition:
-     SLJIT_RET(F32) | SLJIT_ARG1(SW) | SLJIT_ARG2(F64)
-        | SLJIT_ARG3(S32) | SLJIT_ARG4(F32)
+     SLJIT_ARGS4(F32, P, F64, 32, F32)
 
    Argument passing:
      arg_a must be placed in SLJIT_R0
      arg_c must be placed in SLJIT_R1
      arg_b must be placed in SLJIT_FR0
      arg_d must be placed in SLJIT_FR1
+ */
 
-Note:
-   The SLJIT_ARG_TYPE_VOID type is only supported by
-   SLJIT_DEF_RET, and SLJIT_ARG_TYPE_VOID is also the
-   default value when SLJIT_DEF_RET is not specified. */
-#define SLJIT_DEF_SHIFT 4
-#define SLJIT_DEF_RET(type) (type)
-#define SLJIT_DEF_ARG1(type) ((type) << SLJIT_DEF_SHIFT)
-#define SLJIT_DEF_ARG2(type) ((type) << (2 * SLJIT_DEF_SHIFT))
-#define SLJIT_DEF_ARG3(type) ((type) << (3 * SLJIT_DEF_SHIFT))
-#define SLJIT_DEF_ARG4(type) ((type) << (4 * SLJIT_DEF_SHIFT))
+/* Void result, can only be used by SLJIT_ARG_RETURN. */
+#define SLJIT_ARG_TYPE_VOID 0
+/* Machine word sized integer argument or result. */
+#define SLJIT_ARG_TYPE_W 1
+/* 32 bit integer argument or result. */
+#define SLJIT_ARG_TYPE_32 2
+/* Pointer sized integer argument or result. */
+#define SLJIT_ARG_TYPE_P 3
+/* 32 bit floating point argument or result. */
+#define SLJIT_ARG_TYPE_F32 4
+/* 64 bit floating point argument or result. */
+#define SLJIT_ARG_TYPE_F64 5
 
-/* Short form of the macros above.
+#define SLJIT_ARG_SHIFT 4
+#define SLJIT_ARG_RETURN(type) (type)
+#define SLJIT_ARG_VALUE(type, idx) ((type) << ((idx) * SLJIT_ARG_SHIFT))
 
-   For example the following definition:
-   SLJIT_DEF_RET(SLJIT_ARG_TYPE_SW) | SLJIT_DEF_ARG1(SLJIT_ARG_TYPE_F32)
+/* Simplified argument list definitions.
+
+   The following definition:
+       SLJIT_ARG_RETURN(SLJIT_ARG_TYPE_SW) | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_F32, 1)
 
    can be shortened to:
-   SLJIT_RET(SW) | SLJIT_ARG1(F32)
+       SLJIT_ARGS1(W, F32)
+*/
 
-Note:
-   The VOID type is only supported by SLJIT_RET, and
-   VOID is also the default value when SLJIT_RET is
-   not specified. */
-#define SLJIT_RET(type) SLJIT_DEF_RET(SLJIT_ARG_TYPE_ ## type)
-#define SLJIT_ARG1(type) SLJIT_DEF_ARG1(SLJIT_ARG_TYPE_ ## type)
-#define SLJIT_ARG2(type) SLJIT_DEF_ARG2(SLJIT_ARG_TYPE_ ## type)
-#define SLJIT_ARG3(type) SLJIT_DEF_ARG3(SLJIT_ARG_TYPE_ ## type)
-#define SLJIT_ARG4(type) SLJIT_DEF_ARG4(SLJIT_ARG_TYPE_ ## type)
+#define SLJIT_ARG_TO_TYPE(type) SLJIT_ARG_TYPE_ ## type
+
+#define SLJIT_ARGS0(ret) \
+	SLJIT_ARG_RETURN(SLJIT_ARG_TO_TYPE(ret))
+
+#define SLJIT_ARGS1(ret, arg1) \
+	(SLJIT_ARGS0(ret) | SLJIT_ARG_VALUE(SLJIT_ARG_TO_TYPE(arg1), 1))
+
+#define SLJIT_ARGS2(ret, arg1, arg2) \
+	(SLJIT_ARGS1(ret, arg1) | SLJIT_ARG_VALUE(SLJIT_ARG_TO_TYPE(arg2), 2))
+
+#define SLJIT_ARGS3(ret, arg1, arg2, arg3) \
+	(SLJIT_ARGS2(ret, arg1, arg2) | SLJIT_ARG_VALUE(SLJIT_ARG_TO_TYPE(arg3), 3))
+
+#define SLJIT_ARGS4(ret, arg1, arg2, arg3, arg4) \
+	(SLJIT_ARGS3(ret, arg1, arg2, arg3) | SLJIT_ARG_VALUE(SLJIT_ARG_TO_TYPE(arg4), 4))
 
 /* --------------------------------------------------------------------- */
 /*  Main structures and functions                                        */

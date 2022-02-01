@@ -1,5 +1,10 @@
 This file is the short summary of the API changes:
 
+01.02.2022 - Non-backward compatible
+    Rework function argument list descriptor macros used by
+    sljit_emit_enter, sljit_set_context, sljit_emit_call,
+    and sljit_emit_icall functions.
+
 25.01.2022 - Non-backward compatible
     Change SLJIT_I32_OP and SLJIT_F32_OP to SLJIT_32.
 

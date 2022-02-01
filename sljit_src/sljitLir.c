@@ -128,7 +128,7 @@
 #define FAST_IS_REG(reg)	((reg) <= REG_MASK)
 
 /* Mask for argument types. */
-#define SLJIT_DEF_MASK ((1 << SLJIT_DEF_SHIFT) - 1)
+#define SLJIT_ARG_MASK ((1 << SLJIT_ARG_SHIFT) - 1)
 
 /* Jump flags. */
 #define JUMP_LABEL	0x1
@@ -974,7 +974,7 @@ static const char* jump_names[] = {
 };
 
 static const char* call_arg_names[] = {
-	"void", "sw", "uw", "s32", "u32", "f32", "f64"
+	"void", "w", "32", "p", "f32", "f64"
 };
 
 #endif /* SLJIT_VERBOSE */
@@ -1025,22 +1025,21 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 	CHECK_ARGUMENT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
-	CHECK_ARGUMENT((arg_types & SLJIT_DEF_MASK) == 0);
+	CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) <= SLJIT_ARG_TYPE_F64);
 
-	types = (arg_types >> SLJIT_DEF_SHIFT);
+	types = (arg_types >> SLJIT_ARG_SHIFT);
 	word_arg_count = 0;
 	float_arg_count = 0;
 	while (types != 0 && word_arg_count + float_arg_count < 4) {
-		curr_type = (types & SLJIT_DEF_MASK);
-		CHECK_ARGUMENT(curr_type <= SLJIT_ARG_TYPE_F64);
-		if (curr_type == 0)
-			break;
+		curr_type = (types & SLJIT_ARG_MASK);
+		CHECK_ARGUMENT(curr_type <= SLJIT_ARG_TYPE_F64 && curr_type > SLJIT_ARG_TYPE_VOID);
 
 		if (curr_type < SLJIT_ARG_TYPE_F32)
 			word_arg_count++;
 		else
 			float_arg_count++;
-		types >>= SLJIT_DEF_SHIFT;
+
+		types >>= SLJIT_ARG_SHIFT;
 	}
 	CHECK_ARGUMENT(word_arg_count <= saveds);
 	CHECK_ARGUMENT(float_arg_count <= fscratches);
@@ -1052,10 +1051,10 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  enter options:%s args[", (options & SLJIT_F64_ALIGNMENT) ? "f64_align" : "");
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 		while (arg_types) {
-			fprintf(compiler->verbose, "%s", call_arg_names[arg_types & SLJIT_DEF_MASK]);
-			arg_types >>= SLJIT_DEF_SHIFT;
+			fprintf(compiler->verbose, "%s", call_arg_names[arg_types & SLJIT_ARG_MASK]);
+			arg_types >>= SLJIT_ARG_SHIFT;
 			if (arg_types)
 				fprintf(compiler->verbose, ",");
 		}
@@ -1072,7 +1071,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	sljit_s32 types, arg_count, curr_type;
+	sljit_s32 types, word_arg_count, float_arg_count, curr_type;
 #endif
 
 	SLJIT_UNUSED_ARG(compiler);
@@ -1086,16 +1085,25 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 	CHECK_ARGUMENT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
+	CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) <= SLJIT_ARG_TYPE_F64);
 
-	types = (arg_types >> SLJIT_DEF_SHIFT);
-	arg_count = 0;
-	while (types != 0 && arg_count < 3) {
-		curr_type = (types & SLJIT_DEF_MASK);
-		CHECK_ARGUMENT(curr_type == SLJIT_ARG_TYPE_SW || curr_type == SLJIT_ARG_TYPE_UW);
-		arg_count++;
-		types >>= SLJIT_DEF_SHIFT;
+	types = (arg_types >> SLJIT_ARG_SHIFT);
+	word_arg_count = 0;
+	float_arg_count = 0;
+	while (types != 0 && word_arg_count + float_arg_count < 4) {
+		curr_type = (types & SLJIT_ARG_MASK);
+		CHECK_ARGUMENT(curr_type <= SLJIT_ARG_TYPE_F64 && curr_type > SLJIT_ARG_TYPE_VOID);
+
+		if (curr_type < SLJIT_ARG_TYPE_F32)
+			word_arg_count++;
+		else
+			float_arg_count++;
+
+		types >>= SLJIT_ARG_SHIFT;
 	}
-	CHECK_ARGUMENT(arg_count <= saveds && types == 0);
+	CHECK_ARGUMENT(word_arg_count <= saveds);
+	CHECK_ARGUMENT(float_arg_count <= fscratches);
+	CHECK_ARGUMENT(types == 0);
 
 	compiler->last_flags = 0;
 #endif
@@ -1103,10 +1111,10 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  set_context options:%s args[", (options & SLJIT_F64_ALIGNMENT) ? "f64_align" : "");
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 		while (arg_types) {
-			fprintf(compiler->verbose, "%s", call_arg_names[arg_types & SLJIT_DEF_MASK]);
-			arg_types >>= SLJIT_DEF_SHIFT;
+			fprintf(compiler->verbose, "%s", call_arg_names[arg_types & SLJIT_ARG_MASK]);
+			arg_types >>= SLJIT_ARG_SHIFT;
 			if (arg_types)
 				fprintf(compiler->verbose, ",");
 		}
@@ -1631,28 +1639,27 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_call(struct sljit_compile
 
 	types = arg_types;
 
-	curr_type = (types & SLJIT_DEF_MASK);
+	curr_type = (types & SLJIT_ARG_MASK);
 
 	if (curr_type >= SLJIT_ARG_TYPE_F32) {
 		CHECK_ARGUMENT(compiler->fscratches > 0);
-	} else if (curr_type >= SLJIT_ARG_TYPE_SW) {
+	} else if (curr_type >= SLJIT_ARG_TYPE_W) {
 		CHECK_ARGUMENT(compiler->scratches > 0);
 	}
 
-	types = (arg_types >> SLJIT_DEF_SHIFT);
+	types = (arg_types >> SLJIT_ARG_SHIFT);
 	word_arg_count = 0;
 	float_arg_count = 0;
 	while (types != 0 && word_arg_count + float_arg_count < 4) {
-		curr_type = (types & SLJIT_DEF_MASK);
-		CHECK_ARGUMENT(curr_type <= SLJIT_ARG_TYPE_F64);
-		if (curr_type == 0)
-			break;
+		curr_type = (types & SLJIT_ARG_MASK);
+		CHECK_ARGUMENT(curr_type <= SLJIT_ARG_TYPE_F64 && curr_type > SLJIT_ARG_TYPE_VOID);
 
 		if (curr_type < SLJIT_ARG_TYPE_F32)
 			word_arg_count++;
 		else
 			float_arg_count++;
-		types >>= SLJIT_DEF_SHIFT;
+
+		types >>= SLJIT_ARG_SHIFT;
 	}
 
 	CHECK_ARGUMENT(compiler->scratches >= word_arg_count);
@@ -1662,14 +1669,14 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_call(struct sljit_compile
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  %s%s ret[%s", jump_names[type & 0xff],
-			!(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r", call_arg_names[arg_types & SLJIT_DEF_MASK]);
+			!(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r", call_arg_names[arg_types & SLJIT_ARG_MASK]);
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 		if (arg_types) {
 			fprintf(compiler->verbose, "], args[");
 			do {
-				fprintf(compiler->verbose, "%s", call_arg_names[arg_types & SLJIT_DEF_MASK]);
-				arg_types >>= SLJIT_DEF_SHIFT;
+				fprintf(compiler->verbose, "%s", call_arg_names[arg_types & SLJIT_ARG_MASK]);
+				arg_types >>= SLJIT_ARG_SHIFT;
 				if (arg_types)
 					fprintf(compiler->verbose, ",");
 			} while (arg_types);
@@ -1763,28 +1770,27 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_icall(struct sljit_compil
 
 	types = arg_types;
 
-	curr_type = (types & SLJIT_DEF_MASK);
+	curr_type = (types & SLJIT_ARG_MASK);
 
 	if (curr_type >= SLJIT_ARG_TYPE_F32) {
 		CHECK_ARGUMENT(compiler->fscratches > 0);
-	} else if (curr_type >= SLJIT_ARG_TYPE_SW) {
+	} else if (curr_type >= SLJIT_ARG_TYPE_W) {
 		CHECK_ARGUMENT(compiler->scratches > 0);
 	}
 
-	types = (arg_types >> SLJIT_DEF_SHIFT);
+	types = (arg_types >> SLJIT_ARG_SHIFT);
 	word_arg_count = 0;
 	float_arg_count = 0;
 	while (types != 0 && word_arg_count + float_arg_count < 4) {
-		curr_type = (types & SLJIT_DEF_MASK);
-		CHECK_ARGUMENT(curr_type <= SLJIT_ARG_TYPE_F64);
-		if (curr_type == 0)
-			break;
+		curr_type = (types & SLJIT_ARG_MASK);
+		CHECK_ARGUMENT(curr_type <= SLJIT_ARG_TYPE_F64 && curr_type > SLJIT_ARG_TYPE_VOID);
 
 		if (curr_type < SLJIT_ARG_TYPE_F32)
 			word_arg_count++;
 		else
 			float_arg_count++;
-		types >>= SLJIT_DEF_SHIFT;
+
+		types >>= SLJIT_ARG_SHIFT;
 	}
 
 	CHECK_ARGUMENT(compiler->scratches >= word_arg_count);
@@ -1794,14 +1800,14 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_icall(struct sljit_compil
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  i%s%s ret[%s", jump_names[type & 0xff],
-			!(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r", call_arg_names[arg_types & SLJIT_DEF_MASK]);
+			!(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r", call_arg_names[arg_types & SLJIT_ARG_MASK]);
 
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 		if (arg_types) {
 			fprintf(compiler->verbose, "], args[");
 			do {
-				fprintf(compiler->verbose, "%s", call_arg_names[arg_types & SLJIT_DEF_MASK]);
-				arg_types >>= SLJIT_DEF_SHIFT;
+				fprintf(compiler->verbose, "%s", call_arg_names[arg_types & SLJIT_ARG_MASK]);
+				arg_types >>= SLJIT_ARG_SHIFT;
 				if (arg_types)
 					fprintf(compiler->verbose, ",");
 			} while (arg_types);

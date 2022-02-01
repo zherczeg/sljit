@@ -739,10 +739,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	local_size = (local_size + 15) & ~0xf;
 	compiler->local_size = local_size;
 
-	arg_types >>= SLJIT_DEF_SHIFT;
+	arg_types >>= SLJIT_ARG_SHIFT;
 
 	while (arg_types > 0) {
-		if ((arg_types & SLJIT_DEF_MASK) < SLJIT_ARG_TYPE_F32) {
+		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F32) {
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 			FAIL_IF(push_inst(compiler, OR | S(SLJIT_R0 + arg_count) | A(SLJIT_S0 - word_arg_count) | B(SLJIT_R0 + arg_count)));
 #else
@@ -754,7 +754,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		arg_count++;
 #endif
-		arg_types >>= SLJIT_DEF_SHIFT;
+		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
