@@ -88,15 +88,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	args_size = sizeof(sljit_sw);
 	while (types) {
 		switch (types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			float_arg_count++;
-			FAIL_IF(emit_sse2_load(compiler, 1, float_arg_count, SLJIT_MEM1(SLJIT_SP), args_size));
-			args_size += sizeof(sljit_f32);
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			float_arg_count++;
 			FAIL_IF(emit_sse2_load(compiler, 0, float_arg_count, SLJIT_MEM1(SLJIT_SP), args_size));
 			args_size += sizeof(sljit_f64);
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			float_arg_count++;
+			FAIL_IF(emit_sse2_load(compiler, 1, float_arg_count, SLJIT_MEM1(SLJIT_SP), args_size));
+			args_size += sizeof(sljit_f32);
 			break;
 		default:
 			word_arg_count++;
@@ -154,11 +154,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	args_size = (size + 1) * sizeof(sljit_sw);
 	while (arg_types) {
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			args_size += sizeof(sljit_f32);
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			args_size += sizeof(sljit_f64);
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			args_size += sizeof(sljit_f32);
 			break;
 		default:
 			word_arg_count++;
@@ -285,11 +285,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	args_size = 0;
 	while (arg_types) {
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			args_size += sizeof(sljit_f32);
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			args_size += sizeof(sljit_f64);
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			args_size += sizeof(sljit_f32);
 			break;
 		default:
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
@@ -575,11 +575,11 @@ static sljit_s32 c_fast_call_get_stack_size(sljit_s32 arg_types, sljit_s32 *word
 
 	while (arg_types) {
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			stack_size += sizeof(sljit_f32);
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			stack_size += sizeof(sljit_f64);
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			stack_size += sizeof(sljit_f32);
 			break;
 		default:
 			word_arg_count++;
@@ -622,15 +622,15 @@ static sljit_s32 c_fast_call_with_args(struct sljit_compiler *compiler,
 		float_arg_count = 0;
 		while (arg_types) {
 			switch (arg_types & SLJIT_ARG_MASK) {
-			case SLJIT_ARG_TYPE_F32:
-				float_arg_count++;
-				FAIL_IF(emit_sse2_store(compiler, 1, SLJIT_MEM1(SLJIT_SP), stack_size, float_arg_count));
-				stack_size += sizeof(sljit_f32);
-				break;
 			case SLJIT_ARG_TYPE_F64:
 				float_arg_count++;
 				FAIL_IF(emit_sse2_store(compiler, 0, SLJIT_MEM1(SLJIT_SP), stack_size, float_arg_count));
 				stack_size += sizeof(sljit_f64);
+				break;
+			case SLJIT_ARG_TYPE_F32:
+				float_arg_count++;
+				FAIL_IF(emit_sse2_store(compiler, 1, SLJIT_MEM1(SLJIT_SP), stack_size, float_arg_count));
+				stack_size += sizeof(sljit_f32);
 				break;
 			default:
 				word_arg_count++;
@@ -681,11 +681,11 @@ static sljit_s32 cdecl_call_get_stack_size(struct sljit_compiler *compiler, slji
 
 	while (arg_types) {
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			stack_size += sizeof(sljit_f32);
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			stack_size += sizeof(sljit_f64);
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			stack_size += sizeof(sljit_f32);
 			break;
 		default:
 			word_arg_count++;
@@ -727,15 +727,15 @@ static sljit_s32 cdecl_call_with_args(struct sljit_compiler *compiler,
 
 	while (arg_types) {
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			float_arg_count++;
-			FAIL_IF(emit_sse2_store(compiler, 1, SLJIT_MEM1(SLJIT_SP), stack_size, float_arg_count));
-			stack_size += sizeof(sljit_f32);
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			float_arg_count++;
 			FAIL_IF(emit_sse2_store(compiler, 0, SLJIT_MEM1(SLJIT_SP), stack_size, float_arg_count));
 			stack_size += sizeof(sljit_f64);
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			float_arg_count++;
+			FAIL_IF(emit_sse2_store(compiler, 1, SLJIT_MEM1(SLJIT_SP), stack_size, float_arg_count));
+			stack_size += sizeof(sljit_f32);
 			break;
 		default:
 			word_arg_count++;
@@ -760,7 +760,7 @@ static sljit_s32 post_call_with_args(struct sljit_compiler *compiler,
 		FAIL_IF(emit_cum_binary(compiler, BINARY_OPCODE(ADD),
 			SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, stack_size));
 
-	if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F32)
+	if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64)
 		return SLJIT_SUCCESS;
 
 	single = ((arg_types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F32);

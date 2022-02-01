@@ -511,7 +511,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
-	sljit_s32 reg_index, float_offset, base, types;
+	sljit_s32 reg_index, float_offset, args_offset, types;
 	sljit_s32 word_arg_index, float_arg_index;
 
 	CHECK_ERROR();
@@ -536,10 +536,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	reg_index = 24;
 
 	while (types && reg_index < 24 + 6) {
-		if ((types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F32) {
-			FAIL_IF(push_inst(compiler, STW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
-			float_offset += sizeof(sljit_f64);
-		} else if ((types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F64) {
+		switch (types & SLJIT_ARG_MASK) {
+		case SLJIT_ARG_TYPE_F64:
 			if (reg_index & 0x1) {
 				FAIL_IF(push_inst(compiler, STW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
 				if (reg_index >= 24 + 6 - 1)
@@ -550,21 +548,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 			float_offset += sizeof(sljit_f64);
 			reg_index++;
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			FAIL_IF(push_inst(compiler, STW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
+			float_offset += sizeof(sljit_f64);
+			break;
 		}
 
 		reg_index++;
 		types >>= SLJIT_ARG_SHIFT;
 	}
 
-	base = SLJIT_SP;
-	if (types != 0 && local_size >= SIMM_MAX - ((16 + 1 + 6 + 1) * sizeof(sljit_sw))) {
-		FAIL_IF(push_inst(compiler, SUB | D(TMP_REG1) | S1(SLJIT_SP)
-			| ((local_size <= -SIMM_MIN) ? IMM(-local_size) : S2(TMP_REG1)), DR(TMP_REG1)));
-		local_size = 0;
-		base = TMP_REG1;
-	}
-
-	local_size += (16 + 1 + 6) * sizeof(sljit_sw);
+	args_offset = (16 + 1 + 6) * sizeof(sljit_sw);
 	float_offset = 16 * sizeof(sljit_sw);
 	reg_index = 24;
 	word_arg_index = 24;
@@ -572,35 +567,35 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	while (arg_types) {
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			if (reg_index < 24 + 6)
-				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
-			else
-				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1(base) | IMM(local_size), MOVABLE_INS));
-			float_arg_index++;
-			float_offset += sizeof(sljit_f64);
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			if (reg_index < 24 + 6 - 1) {
 				FAIL_IF(push_inst(compiler, LDDF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
 			} else if (reg_index < 24 + 6) {
 				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
-				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | (1 << 25) | S1(base) | IMM(local_size), MOVABLE_INS));
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | (1 << 25) | S1A(30) | IMM(args_offset), MOVABLE_INS));
 			} else {
-				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1(base) | IMM(local_size), MOVABLE_INS));
-				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | (1 << 25) | S1(base) | IMM(local_size + sizeof(sljit_sw)), MOVABLE_INS));
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1A(30) | IMM(args_offset), MOVABLE_INS));
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | (1 << 25) | S1A(30) | IMM(args_offset + sizeof(sljit_sw)), MOVABLE_INS));
 			}
 
 			float_arg_index++;
 			float_offset += sizeof(sljit_f64);
 			reg_index++;
 			break;
+		case SLJIT_ARG_TYPE_F32:
+			if (reg_index < 24 + 6)
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
+			else
+				FAIL_IF(push_inst(compiler, LDF | FD(float_arg_index) | S1A(30) | IMM(args_offset), MOVABLE_INS));
+			float_arg_index++;
+			float_offset += sizeof(sljit_f64);
+			break;
 		default:
 			if (reg_index != word_arg_index) {
 				if (reg_index < 24 + 6)
 					FAIL_IF(push_inst(compiler, OR | DA(word_arg_index) | S1(0) | S2A(reg_index), word_arg_index));
 				else
-					FAIL_IF(push_inst(compiler, LDUW | DA(word_arg_index) | S1(base) | IMM(local_size), word_arg_index));
+					FAIL_IF(push_inst(compiler, LDUW | DA(word_arg_index) | S1A(30) | IMM(args_offset), word_arg_index));
 			}
 
 			word_arg_index++;

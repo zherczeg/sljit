@@ -462,13 +462,6 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 		*offsets_ptr = (sljit_u8)offset;
 
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			if (word_arg_count == 0 && float_arg_count <= 1)
-				*offsets_ptr = (sljit_u8)(254 + float_arg_count);
-
-			offset += sizeof(sljit_f32);
-			float_arg_count++;
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			if (offset & 0x7) {
 				offset += sizeof(sljit_sw);
@@ -479,6 +472,13 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 				*offsets_ptr = (sljit_u8)(254 + float_arg_count);
 
 			offset += sizeof(sljit_f64);
+			float_arg_count++;
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			if (word_arg_count == 0 && float_arg_count <= 1)
+				*offsets_ptr = (sljit_u8)(254 + float_arg_count);
+
+			offset += sizeof(sljit_f32);
 			float_arg_count++;
 			break;
 		default:
@@ -501,16 +501,6 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 		--offsets_ptr;
 
 		switch (types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			if (*offsets_ptr < 4 * sizeof (sljit_sw))
-				ins = MFC1 | TA(4 + (*offsets_ptr >> 2)) | FS(float_arg_count);
-			else if (*offsets_ptr < 254)
-				ins = SWC1 | S(SLJIT_SP) | FT(float_arg_count) | IMM(*offsets_ptr);
-			else if (*offsets_ptr == 254)
-				ins = MOV_S | FMT_S | FS(SLJIT_FR0) | FD(TMP_FREG1);
-
-			float_arg_count--;
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			if (*offsets_ptr < 4 * sizeof (sljit_sw)) {
 				if (prev_ins != NOP)
@@ -526,6 +516,16 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 				ins = SDC1 | S(SLJIT_SP) | FT(float_arg_count) | IMM(*offsets_ptr);
 			else if (*offsets_ptr == 254)
 				ins = MOV_S | FMT_D | FS(SLJIT_FR0) | FD(TMP_FREG1);
+
+			float_arg_count--;
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			if (*offsets_ptr < 4 * sizeof (sljit_sw))
+				ins = MFC1 | TA(4 + (*offsets_ptr >> 2)) | FS(float_arg_count);
+			else if (*offsets_ptr < 254)
+				ins = SWC1 | S(SLJIT_SP) | FT(float_arg_count) | IMM(*offsets_ptr);
+			else if (*offsets_ptr == 254)
+				ins = MOV_S | FMT_S | FS(SLJIT_FR0) | FD(TMP_FREG1);
 
 			float_arg_count--;
 			break;
@@ -564,13 +564,13 @@ static sljit_s32 post_call_with_args(struct sljit_compiler *compiler, sljit_s32 
 
 	while (arg_types) {
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			offset += sizeof(sljit_f32);
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			if (offset & 0x7)
 				offset += sizeof(sljit_sw);
 			offset += sizeof(sljit_f64);
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			offset += sizeof(sljit_f32);
 			break;
 		default:
 			offset += sizeof(sljit_sw);

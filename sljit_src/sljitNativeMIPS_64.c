@@ -580,8 +580,8 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 		types = (types << SLJIT_ARG_SHIFT) | (arg_types & SLJIT_ARG_MASK);
 
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
 		case SLJIT_ARG_TYPE_F64:
+		case SLJIT_ARG_TYPE_F32:
 			arg_count++;
 			float_arg_count++;
 			break;
@@ -596,19 +596,19 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 
 	while (types) {
 		switch (types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			if (arg_count != float_arg_count)
-				ins = MOV_S | FMT_S | FS(float_arg_count) | FD(arg_count);
-			else if (arg_count == 1)
-				ins = MOV_S | FMT_S | FS(SLJIT_FR0) | FD(TMP_FREG1);
-			arg_count--;
-			float_arg_count--;
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			if (arg_count != float_arg_count)
 				ins = MOV_S | FMT_D | FS(float_arg_count) | FD(arg_count);
 			else if (arg_count == 1)
 				ins = MOV_S | FMT_D | FS(SLJIT_FR0) | FD(TMP_FREG1);
+			arg_count--;
+			float_arg_count--;
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			if (arg_count != float_arg_count)
+				ins = MOV_S | FMT_S | FS(float_arg_count) | FD(arg_count);
+			else if (arg_count == 1)
+				ins = MOV_S | FMT_S | FS(SLJIT_FR0) | FD(TMP_FREG1);
 			arg_count--;
 			float_arg_count--;
 			break;

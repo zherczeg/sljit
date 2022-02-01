@@ -438,8 +438,8 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 		types = (types << SLJIT_ARG_SHIFT) | (arg_types & SLJIT_ARG_MASK);
 
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
 		case SLJIT_ARG_TYPE_F64:
+		case SLJIT_ARG_TYPE_F32:
 			arg_count++;
 			break;
 		default:
@@ -458,8 +458,8 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 
 	while (types) {
 		switch (types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
 		case SLJIT_ARG_TYPE_F64:
+		case SLJIT_ARG_TYPE_F32:
 			arg_count--;
 			break;
 		default:

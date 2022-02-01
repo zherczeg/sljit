@@ -815,17 +815,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	while (arg_types) {
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			float_arg_count++;
-
-			if (word_arg_count == 0 && float_arg_count <= 2) {
-				if (float_arg_count == 1)
-					FAIL_IF(push_inst(compiler, MOV_S | FMT_S | FS(TMP_FREG1) | FD(SLJIT_FR0), MOVABLE_INS));
-			} else if (arg_count < 4)
-				FAIL_IF(push_inst(compiler, MTC1 | TA(4 + arg_count) | FS(float_arg_count), MOVABLE_INS));
-			else
-				FAIL_IF(push_inst(compiler, LWC1 | base | FT(float_arg_count) | IMM(local_size + (arg_count << 2)), MOVABLE_INS));
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			float_arg_count++;
 			if ((arg_count & 0x1) != 0)
@@ -840,6 +829,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			} else
 				FAIL_IF(push_inst(compiler, LDC1 | base | FT(float_arg_count) | IMM(local_size + (arg_count << 2)), MOVABLE_INS));
 			arg_count++;
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			float_arg_count++;
+
+			if (word_arg_count == 0 && float_arg_count <= 2) {
+				if (float_arg_count == 1)
+					FAIL_IF(push_inst(compiler, MOV_S | FMT_S | FS(TMP_FREG1) | FD(SLJIT_FR0), MOVABLE_INS));
+			} else if (arg_count < 4)
+				FAIL_IF(push_inst(compiler, MTC1 | TA(4 + arg_count) | FS(float_arg_count), MOVABLE_INS));
+			else
+				FAIL_IF(push_inst(compiler, LWC1 | base | FT(float_arg_count) | IMM(local_size + (arg_count << 2)), MOVABLE_INS));
 			break;
 		default:
 			if (arg_count < 4)
@@ -858,19 +858,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	while (arg_types) {
 		arg_count++;
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			float_arg_count++;
-			if (arg_count != float_arg_count)
-				FAIL_IF(push_inst(compiler, MOV_S | FMT_S | FS(arg_count) | FD(float_arg_count), MOVABLE_INS));
-			else if (arg_count == 1)
-				FAIL_IF(push_inst(compiler, MOV_S | FMT_S | FS(TMP_FREG1) | FD(SLJIT_FR0), MOVABLE_INS));
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			float_arg_count++;
 			if (arg_count != float_arg_count)
 				FAIL_IF(push_inst(compiler, MOV_S | FMT_D | FS(arg_count) | FD(float_arg_count), MOVABLE_INS));
 			else if (arg_count == 1)
 				FAIL_IF(push_inst(compiler, MOV_S | FMT_D | FS(TMP_FREG1) | FD(SLJIT_FR0), MOVABLE_INS));
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			float_arg_count++;
+			if (arg_count != float_arg_count)
+				FAIL_IF(push_inst(compiler, MOV_S | FMT_S | FS(arg_count) | FD(float_arg_count), MOVABLE_INS));
+			else if (arg_count == 1)
+				FAIL_IF(push_inst(compiler, MOV_S | FMT_S | FS(TMP_FREG1) | FD(SLJIT_FR0), MOVABLE_INS));
 			break;
 		default:
 			FAIL_IF(push_inst(compiler, ADDU_W | SA(3 + arg_count) | TA(0) | D(SLJIT_S0 - word_arg_count), DR(SLJIT_S0 - word_arg_count)));

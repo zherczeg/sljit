@@ -156,18 +156,18 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 		types = (types << SLJIT_ARG_SHIFT) | (arg_types & SLJIT_ARG_MASK);
 
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			float_arg_index++;
-			if (reg_index == reg)
-				move_to_tmp2 = 1;
-			reg_index++;
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			float_arg_index++;
 			double_arg_count++;
 			if (reg_index == reg || reg_index + 1 == reg)
 				move_to_tmp2 = 1;
 			reg_index += 2;
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			float_arg_index++;
+			if (reg_index == reg)
+				move_to_tmp2 = 1;
+			reg_index++;
 			break;
 		default:
 			if (reg_index != word_reg_index && reg_index == reg)
@@ -190,11 +190,6 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 
 	while (arg_types) {
 		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			float_arg_index--;
-			FAIL_IF(push_inst(compiler, STF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
-			float_offset -= sizeof(sljit_f64);
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			float_arg_index--;
 			if (float_arg_index == 4 && double_arg_count == 4) {
@@ -204,6 +199,11 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			}
 			else
 				FAIL_IF(push_inst(compiler, STDF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
+			float_offset -= sizeof(sljit_f64);
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			float_arg_index--;
+			FAIL_IF(push_inst(compiler, STF | FD(float_arg_index) | S1(SLJIT_SP) | IMM(float_offset), MOVABLE_INS));
 			float_offset -= sizeof(sljit_f64);
 			break;
 		default:
@@ -217,12 +217,6 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 
 	while (types) {
 		switch (types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F32:
-			reg_index--;
-			if (reg_index < 8 + 6)
-				FAIL_IF(push_inst(compiler, LDUW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), reg_index));
-			float_offset -= sizeof(sljit_f64);
-			break;
 		case SLJIT_ARG_TYPE_F64:
 			reg_index -= 2;
 			if (reg_index < 14) {
@@ -234,6 +228,12 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 				else
 					FAIL_IF(push_inst(compiler, LDD | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), reg_index));
 			}
+			float_offset -= sizeof(sljit_f64);
+			break;
+		case SLJIT_ARG_TYPE_F32:
+			reg_index--;
+			if (reg_index < 8 + 6)
+				FAIL_IF(push_inst(compiler, LDUW | DA(reg_index) | S1(SLJIT_SP) | IMM(float_offset), reg_index));
 			float_offset -= sizeof(sljit_f64);
 			break;
 		default:

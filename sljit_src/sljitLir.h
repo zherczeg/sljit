@@ -293,10 +293,10 @@ extern "C" {
 #define SLJIT_ARG_TYPE_32 2
 /* Pointer sized integer argument or result. */
 #define SLJIT_ARG_TYPE_P 3
-/* 32 bit floating point argument or result. */
-#define SLJIT_ARG_TYPE_F32 4
 /* 64 bit floating point argument or result. */
-#define SLJIT_ARG_TYPE_F64 5
+#define SLJIT_ARG_TYPE_F64 4
+/* 32 bit floating point argument or result. */
+#define SLJIT_ARG_TYPE_F32 5
 
 #define SLJIT_ARG_SHIFT 4
 #define SLJIT_ARG_RETURN(type) (type)
