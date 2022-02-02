@@ -472,7 +472,9 @@ struct sljit_compiler {
 	/* Flags specified by the last arithmetic instruction.
 	   It contains the type of the variable flag. */
 	sljit_s32 last_flags;
-	/* Local size passed to the functions. */
+	/* Return value type set by entry functions. */
+	sljit_s32 last_return;
+	/* Local size passed to entry functions. */
 	sljit_s32 logical_local_size;
 #endif
 

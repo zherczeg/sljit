@@ -4238,7 +4238,7 @@ static void test44(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 1 << SLJIT_POINTER_SHIFT);
 	sljit_emit_op1(compiler, SLJIT_MOV_P, SLJIT_MEM2(SLJIT_R2, SLJIT_R1), 2, SLJIT_R0, 0);
 
-	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
+	sljit_emit_return(compiler, SLJIT_MOV_P, SLJIT_R0, 0);
 
 	code.code = sljit_generate_code(compiler);
 	CHECK(compiler);
