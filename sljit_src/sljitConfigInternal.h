@@ -60,7 +60,7 @@ extern "C" {
      SLJIT_LITTLE_ENDIAN : little endian architecture
      SLJIT_BIG_ENDIAN : big endian architecture
      SLJIT_UNALIGNED : allows unaligned memory accesses for non-fpu operations (only!)
-     SLJIT_INDIRECT_CALL : see SLJIT_FUNC_OFFSET() for more information
+     SLJIT_INDIRECT_CALL : see SLJIT_FUNC_ADDR() for more information
 
    Constants:
      SLJIT_NUMBER_OF_REGISTERS : number of available registers

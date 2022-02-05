@@ -90,6 +90,8 @@
 
 #if !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 
+#define SSIZE_OF(type) ((sljit_s32)sizeof(sljit_ ## type))
+
 #define VARIABLE_FLAG_SHIFT (10)
 #define VARIABLE_FLAG_MASK (0x3f << VARIABLE_FLAG_SHIFT)
 #define GET_FLAG_TYPE(op) ((op) >> VARIABLE_FLAG_SHIFT)
@@ -246,7 +248,7 @@
 #define GET_SAVED_REGISTERS_SIZE(scratches, saveds, extra) \
 	(((scratches < SLJIT_NUMBER_OF_SCRATCH_REGISTERS ? 0 : (scratches - SLJIT_NUMBER_OF_SCRATCH_REGISTERS)) + \
 		(saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? saveds : SLJIT_NUMBER_OF_SAVED_REGISTERS) + \
-		extra) * sizeof(sljit_sw))
+		(sljit_s32)(extra)) * (sljit_s32)sizeof(sljit_sw))
 
 #define ADJUST_LOCAL_OFFSET(p, i) \
 	if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
@@ -514,7 +516,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_d
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
 {
 	if (SLJIT_LIKELY(!!jump) && SLJIT_LIKELY(!!label)) {
-		jump->flags &= ~JUMP_ADDR;
+		jump->flags &= (sljit_uw)~JUMP_ADDR;
 		jump->flags |= JUMP_LABEL;
 		jump->u.label = label;
 	}
@@ -523,7 +525,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_label(struct sljit_jump *jump, struct sl
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
 {
 	if (SLJIT_LIKELY(!!jump)) {
-		jump->flags &= ~JUMP_LABEL;
+		jump->flags &= (sljit_uw)~JUMP_LABEL;
 		jump->flags |= JUMP_ADDR;
 		jump->u.target = target;
 	}
@@ -610,7 +612,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_alloc_memory(struct sljit_compiler *compile
 		return NULL;
 	size = (size + 3) & ~3;
 #endif
-	return ensure_abuf(compiler, size);
+	return ensure_abuf(compiler, (sljit_uw)size);
 }
 
 static SLJIT_INLINE void reverse_buf(struct sljit_compiler *compiler)
@@ -702,7 +704,7 @@ static SLJIT_INLINE void set_label(struct sljit_label *label, struct sljit_compi
 	compiler->last_label = label;
 }
 
-static SLJIT_INLINE void set_jump(struct sljit_jump *jump, struct sljit_compiler *compiler, sljit_s32 flags)
+static SLJIT_INLINE void set_jump(struct sljit_jump *jump, struct sljit_compiler *compiler, sljit_u32 flags)
 {
 	jump->next = NULL;
 	jump->flags = flags;
@@ -1416,10 +1418,10 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_float_register_index(sljit
 }
 
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_custom(struct sljit_compiler *compiler,
-	void *instruction, sljit_s32 size)
+	void *instruction, sljit_u32 size)
 {
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
-	int i;
+	sljit_u32 i;
 #endif
 
 	SLJIT_UNUSED_ARG(compiler);
@@ -2500,7 +2502,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 reg)
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
-	void *instruction, sljit_s32 size)
+	void *instruction, sljit_u32 size)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(instruction);

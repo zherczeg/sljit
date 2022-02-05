@@ -404,7 +404,7 @@ struct sljit_compiler {
 	/* Code size. */
 	sljit_uw size;
 	/* Relative offset of the executable mapping from the writable mapping. */
-	sljit_uw executable_offset;
+	sljit_sw executable_offset;
 	/* Executable size for statistical purposes. */
 	sljit_uw executable_size;
 
@@ -1462,14 +1462,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_st
 
 #if !(defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
 
-/* Get the entry address of a given function. */
-#define SLJIT_FUNC_OFFSET(func_name)	((sljit_sw)func_name)
+/* Get the entry address of a given function (signed, unsigned result). */
+#define SLJIT_FUNC_ADDR(func_name)	((sljit_sw)func_name)
+#define SLJIT_FUNC_UADDR(func_name)	((sljit_uw)func_name)
 
 #else /* !(defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL) */
 
 /* All JIT related code should be placed in the same context (library, binary, etc.). */
 
-#define SLJIT_FUNC_OFFSET(func_name)	(*(sljit_sw*)(void*)func_name)
+/* Get the entry address of a given function (signed, unsigned result). */
+#define SLJIT_FUNC_ADDR(func_name)	(*(sljit_sw*)(void*)func_name)
+#define SLJIT_FUNC_UADDR(func_name)	(*(sljit_uw*)(void*)func_name)
 
 /* For powerpc64, the function pointers point to a context descriptor. */
 struct sljit_function_context {
@@ -1524,7 +1527,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
    Otherwise: size must be 4 and instruction argument must be 4 byte aligned. */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
-	void *instruction, sljit_s32 size);
+	void *instruction, sljit_u32 size);
 
 /* Flags were set by a 32 bit operation. */
 #define SLJIT_CURRENT_FLAGS_32			SLJIT_32

@@ -1,5 +1,10 @@
 This file is the short summary of the API changes:
 
+06.02.2022 - Non-backward compatible
+    The SLJIT_FUNC_OFFSET macro is renamed to SLJIT_FUNC_ADDR.
+    Furthermore a new SLJIT_FUNC_UADDR macro is added which
+    returns with an unsigned address.
+
 01.02.2022 - Non-backward compatible
     Rework function argument list descriptor macros used by
     sljit_emit_enter, sljit_set_context, sljit_emit_call,

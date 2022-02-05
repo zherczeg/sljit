@@ -67,7 +67,7 @@ void devel(void)
 	code.code = sljit_generate_code(compiler);
 	sljit_free_compiler(compiler);
 
-	printf("Code at: %p\n", (void*)SLJIT_FUNC_OFFSET(code.code));
+	printf("Code at: %p\n", (void*)SLJIT_FUNC_ADDR(code.code));
 
 	printf("Function returned with %ld\n", (long)code.func((sljit_sw*)buf));
 	printf("buf[0] = %ld\n", (long)buf[0]);
