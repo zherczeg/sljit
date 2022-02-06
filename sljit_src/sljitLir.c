@@ -493,7 +493,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_d
 	SLJIT_UNUSED_ARG(exec_allocator_data);
 
 	/* Remove thumb mode flag. */
-	SLJIT_FREE_EXEC((void*)((sljit_uw)code & ~0x1), exec_allocator_data);
+	SLJIT_FREE_EXEC((void*)((sljit_uw)code & ~(sljit_uw)0x1), exec_allocator_data);
 }
 #elif (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_data)
