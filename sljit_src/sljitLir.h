@@ -443,7 +443,7 @@ struct sljit_compiler {
 #endif
 
 #if (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
-	sljit_sw imm;
+	sljit_u32 imm;
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
@@ -1476,15 +1476,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_st
 
 /* For powerpc64, the function pointers point to a context descriptor. */
 struct sljit_function_context {
-	sljit_sw addr;
-	sljit_sw r2;
-	sljit_sw r11;
+	sljit_uw addr;
+	sljit_uw r2;
+	sljit_uw r11;
 };
 
 /* Fill the context arguments using the addr and the function.
    If func_ptr is NULL, it will not be set to the address of context
    If addr is NULL, the function address also comes from the func pointer. */
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_sw addr, void* func);
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_uw addr, void* func);
 
 #endif /* !(defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL) */
 

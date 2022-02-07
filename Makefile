@@ -16,7 +16,7 @@ EXTRA_LDFLAGS=
 endif
 
 CPPFLAGS = $(EXTRA_CPPFLAGS) -Isljit_src
-CFLAGS += -O2 -Wall
+CFLAGS += -O2 -Wall -Wconversion
 REGEX_CFLAGS += $(CFLAGS) -fshort-wchar
 LDFLAGS = $(EXTRA_LDFLAGS)
 

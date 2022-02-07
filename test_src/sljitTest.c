@@ -3767,27 +3767,27 @@ static void test41(void)
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 	/* add rD, rA, rB */
-	inst = (31 << 26) | (266 << 1) | (sljit_get_register_index(SLJIT_RETURN_REG) << 21)
-		| (sljit_get_register_index(SLJIT_S0) << 16)
-		| (sljit_get_register_index(SLJIT_S1) << 11);
+	inst = (31 << 26) | (266 << 1) | ((sljit_u32)sljit_get_register_index(SLJIT_RETURN_REG) << 21)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_S0) << 16)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_S1) << 11);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 	/* addu rd, rs, rt */
-	inst = 33 | (sljit_get_register_index(SLJIT_RETURN_REG) << 11)
-		| (sljit_get_register_index(SLJIT_S0) << 21)
-		| (sljit_get_register_index(SLJIT_S1) << 16);
+	inst = 33 | ((sljit_u32)sljit_get_register_index(SLJIT_RETURN_REG) << 11)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_S0) << 21)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_S1) << 16);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 	/* daddu rd, rs, rt */
-	inst = 45 | (sljit_get_register_index(SLJIT_RETURN_REG) << 11)
-		| (sljit_get_register_index(SLJIT_S0) << 21)
-		| (sljit_get_register_index(SLJIT_S1) << 16);
+	inst = 45 | ((sljit_u32)sljit_get_register_index(SLJIT_RETURN_REG) << 11)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_S0) << 21)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_S1) << 16);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 	/* add rd, rs1, rs2 */
-	inst = (0x2 << 30) | (sljit_get_register_index(SLJIT_RETURN_REG) << 25)
-		| (sljit_get_register_index(SLJIT_S0) << 14)
-		| sljit_get_register_index(SLJIT_S1);
+	inst = (0x2u << 30) | ((sljit_u32)sljit_get_register_index(SLJIT_RETURN_REG) << 25)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_S0) << 14)
+		| (sljit_u32)sljit_get_register_index(SLJIT_S1);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	/* agrk rd, rs1, rs2 */
@@ -3869,22 +3869,22 @@ static void test41(void)
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 		/* fadd frD, frA, frB */
-		inst = (63 << 26) | (21 << 1) | (sljit_get_float_register_index(SLJIT_FR0) << 21)
-			| (sljit_get_float_register_index(SLJIT_FR0) << 16)
-			| (sljit_get_float_register_index(SLJIT_FR1) << 11);
+		inst = (63u << 26) | (21u << 1) | ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 21)
+			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 16)
+			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR1) << 11);
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 		/* add.d fd, fs, ft */
-		inst = (17 << 26) | (17 << 21) | (sljit_get_float_register_index(SLJIT_FR0) << 6)
-			| (sljit_get_float_register_index(SLJIT_FR0) << 11)
-			| (sljit_get_float_register_index(SLJIT_FR1) << 16);
+		inst = (17 << 26) | (17 << 21) | ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 6)
+			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 11)
+			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR1) << 16);
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 		/* faddd rd, rs1, rs2 */
-		inst = (0x2 << 30) | (0x34 << 19) | (0x42 << 5)
-			| (sljit_get_float_register_index(SLJIT_FR0) << 25)
-			| (sljit_get_float_register_index(SLJIT_FR0) << 14)
-			| sljit_get_float_register_index(SLJIT_FR1);
+		inst = (0x2u << 30) | (0x34u << 19) | (0x42u << 5)
+			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 25)
+			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 14)
+			| (sljit_u32)sljit_get_float_register_index(SLJIT_FR1);
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #endif
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_f64), SLJIT_FR0, 0);

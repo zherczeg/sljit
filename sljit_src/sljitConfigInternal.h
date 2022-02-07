@@ -683,12 +683,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #define SLJIT_NUMBER_OF_REGISTERS 23
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 17
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) || (defined _AIX)
-#define SLJIT_LOCALS_OFFSET_BASE ((6 + 8) * sizeof(sljit_sw))
+#define SLJIT_LOCALS_OFFSET_BASE ((6 + 8) * (sljit_s32)sizeof(sljit_sw))
 #elif (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
 /* Add +1 for double alignment. */
-#define SLJIT_LOCALS_OFFSET_BASE ((3 + 1) * sizeof(sljit_sw))
+#define SLJIT_LOCALS_OFFSET_BASE ((3 + 1) * (sljit_s32)sizeof(sljit_sw))
 #else
-#define SLJIT_LOCALS_OFFSET_BASE (3 * sizeof(sljit_sw))
+#define SLJIT_LOCALS_OFFSET_BASE (3 * (sljit_s32)sizeof(sljit_sw))
 #endif /* SLJIT_CONFIG_PPC_64 || _AIX */
 
 #elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
@@ -696,7 +696,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #define SLJIT_NUMBER_OF_REGISTERS 21
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 8
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-#define SLJIT_LOCALS_OFFSET_BASE (4 * sizeof(sljit_sw))
+#define SLJIT_LOCALS_OFFSET_BASE (4 * (sljit_s32)sizeof(sljit_sw))
 #else
 #define SLJIT_LOCALS_OFFSET_BASE 0
 #endif
@@ -708,7 +708,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 /* saved registers (16), return struct pointer (1), space for 6 argument words (1),
    4th double arg (2), double alignment (1). */
-#define SLJIT_LOCALS_OFFSET_BASE ((16 + 1 + 6 + 2 + 1) * sizeof(sljit_sw))
+#define SLJIT_LOCALS_OFFSET_BASE ((16 + 1 + 6 + 2 + 1) * (sljit_s32)sizeof(sljit_sw))
 #endif
 
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)

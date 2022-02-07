@@ -437,12 +437,12 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ta
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset)
 {
-	sljit_set_jump_addr(addr, new_constant, executable_offset);
+	sljit_set_jump_addr(addr, (sljit_uw)new_constant, executable_offset);
 }
 
 static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types, sljit_ins *ins_ptr)
 {
-	sljit_s32 offset = 0;
+	sljit_u32 offset = 0;
 	sljit_s32 float_arg_count = 0;
 	sljit_s32 word_arg_count = 0;
 	sljit_s32 types = 0;
@@ -558,7 +558,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 
 static sljit_s32 post_call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types)
 {
-	sljit_s32 offset = 0;
+	sljit_u32 offset = 0;
 
 	arg_types >>= SLJIT_ARG_SHIFT;
 
