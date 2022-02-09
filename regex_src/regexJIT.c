@@ -151,8 +151,8 @@ struct stack_fragment {
 struct stack {
 	struct stack_fragment *first;
 	struct stack_fragment *last;
-	int index;
-	int count;
+	sljit_uw index;
+	sljit_uw count;
 };
 
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
@@ -289,20 +289,20 @@ static SLJIT_INLINE void stack_clone(struct stack *src, struct stack *dst)
 static int stack_push_copy(struct stack *stack, int items, int length)
 {
 	struct stack_fragment *frag1;
-	int ind1;
 	struct stack_fragment *frag2;
-	int ind2;
-	sljit_sw counter;
+	sljit_uw ind1, ind2;
+	sljit_uw counter;
 
-	SLJIT_ASSERT(stack->count >= length && items <= length && items > 0);
+	SLJIT_ASSERT(stack->count >= (sljit_uw)length && items <= length && items > 0);
 
 	/* Allocate the necessary elements. */
-	counter = items;
+	counter = (sljit_uw)items;
 	frag1 = stack->last;
 	ind1 = stack->index;
 	while (counter > 0) {
 		if (stack->index + counter >= STACK_FRAGMENT_SIZE) {
-			counter -= (sljit_sw)STACK_FRAGMENT_SIZE - stack->index - 1 + 1;
+			SLJIT_ASSERT(counter >= STACK_FRAGMENT_SIZE - stack->index - 1 + 1);
+			counter -= STACK_FRAGMENT_SIZE - stack->index - 1 + 1;
 			stack->index = 0;
 			if (!stack->last->data.next) {
 				stack->last->data.next = (struct stack_fragment*)SLJIT_MALLOC(sizeof(struct stack_fragment), NULL);
@@ -314,7 +314,7 @@ static int stack_push_copy(struct stack *stack, int items, int length)
 			stack->last = stack->last->data.next;
 		}
 		else {
-			stack->index += (int)counter;
+			stack->index += counter;
 			counter = 0;
 		}
 	}
@@ -322,22 +322,26 @@ static int stack_push_copy(struct stack *stack, int items, int length)
 	frag2 = stack->last;
 	ind2 = stack->index;
 	while (length > 0) {
-		frag2->items[ind2--] = frag1->items[ind1--];
-		if (ind1 < 0) {
-			ind1 = STACK_FRAGMENT_SIZE - 1;
+		frag2->items[ind2] = frag1->items[ind1];
+
+		if (ind1 == 0) {
+			ind1 = STACK_FRAGMENT_SIZE;
 			frag1 = frag1->data.prev;
 		}
-		if (ind2 < 0) {
-			ind2 = STACK_FRAGMENT_SIZE - 1;
+		if (ind2 == 0) {
+			ind2 = STACK_FRAGMENT_SIZE;
 			frag2 = frag2->data.prev;
 		}
+
+		ind1--;
+		ind2--;
 		length--;
 	}
 
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	stack_check(stack);
 #endif
-	stack->count += items;
+	stack->count += (sljit_uw)items;
 	return 0;
 }
 
@@ -455,7 +459,7 @@ static int iterate(struct stack *stack, int min, int max)
 			SLJIT_ASSERT(depth > 0);
 			depth--;
 			if (depth == 0)
-				count = it.count;
+				count = (int)it.count;
 			break;
 
 		case type_select:
@@ -466,7 +470,7 @@ static int iterate(struct stack *stack, int min, int max)
 		default:
 			SLJIT_ASSERT(item->type != type_begin && item->type != type_end);
 			if (depth == 0)
-				count = it.count;
+				count = (int)it.count;
 			len++;
 			break;
 		}
@@ -483,7 +487,7 @@ static int iterate(struct stack *stack, int min, int max)
 		return len;
 	}
 
-	count = stack->count - count;
+	count = (int)stack->count - count;
 
 	/* Put an open bracket before the sequence. */
 	if (stack_push_copy(stack, 1, count))
@@ -2188,7 +2192,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 		sljit_set_label(fast_forward_jump, label);
 	CHECK(sljit_emit_return_void(compiler_common.compiler));
 
-	for (ind = 1; ind < compiler_common.dfa_size - 1; ind++) {
+	for (ind = 1; ind < (sljit_sw)compiler_common.dfa_size - 1; ind++) {
 		if (compiler_common.search_states[ind].type >= 0) {
 			SLJIT_ASSERT(compiler_common.search_states[ind].type < compiler_common.terms_size);
 			EMIT_LABEL(label);
@@ -2233,7 +2237,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 		}
 	}
 
-	if (ind == compiler_common.dfa_size - 1) {
+	if (ind == (sljit_sw)compiler_common.dfa_size - 1) {
 		/* Generate an init stub function. */
 		EMIT_LABEL(label);
 		CHECK(sljit_emit_enter(compiler_common.compiler, 0, SLJIT_ARGS2(W, P, P), 3, 3, 0, 0, 0));

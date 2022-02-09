@@ -295,7 +295,8 @@ static sljit_s32 push_inst(struct sljit_compiler *compiler, sljit_ins ins, sljit
 {
 	sljit_ins *ptr = (sljit_ins*)ensure_buf(compiler, sizeof(sljit_ins));
 	SLJIT_ASSERT(delay_slot == MOVABLE_INS || delay_slot >= UNMOVABLE_INS
-		|| delay_slot == ((ins >> 11) & 0x1f) || delay_slot == ((ins >> 16) & 0x1f));
+		|| (sljit_ins)delay_slot == ((ins >> 11) & 0x1f)
+		|| (sljit_ins)delay_slot == ((ins >> 16) & 0x1f));
 	FAIL_IF(!ptr);
 	*ptr = ins;
 	compiler->size++;

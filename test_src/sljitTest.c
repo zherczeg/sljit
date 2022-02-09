@@ -535,7 +535,7 @@ static void test7(void)
 	FAILED(buf[3] != 0x00A0A0A0, "test7 case 5 failed\n");
 	FAILED(buf[4] != 0x00FF80B0, "test7 case 6 failed\n");
 	FAILED(buf[5] != 0x00FF4040, "test7 case 7 failed\n");
-	FAILED(buf[6] != 0xa56c82c0, "test7 case 8 failed\n");
+	FAILED(buf[6] != (sljit_sw)0xa56c82c0, "test7 case 8 failed\n");
 	FAILED(buf[7] != 0x3b3a8095, "test7 case 9 failed\n");
 
 	sljit_free_code(code.code, NULL);
@@ -898,7 +898,7 @@ static void test11(void)
 	const4_addr = sljit_get_const_addr(const4);
 	sljit_free_compiler(compiler);
 
-	FAILED(code.func1((sljit_sw)&buf) != 0xf7afcdb7, "test11 case 1 failed\n");
+	FAILED(code.func1((sljit_sw)&buf) != (sljit_sw)0xf7afcdb7, "test11 case 1 failed\n");
 	FAILED(buf[0] != -0x81b9, "test11 case 2 failed\n");
 	FAILED(buf[1] != -65535, "test11 case 3 failed\n");
 	FAILED(buf[2] != word_value1, "test11 case 4 failed\n");
@@ -911,7 +911,7 @@ static void test11(void)
 	FAILED(code.func1((sljit_sw)&buf) != -60089, "test11 case 5 failed\n");
 	FAILED(buf[0] != -1, "test11 case 6 failed\n");
 	FAILED(buf[1] != word_value2, "test11 case 7 failed\n");
-	FAILED(buf[2] != 0xbab0fea1, "test11 case 8 failed\n");
+	FAILED(buf[2] != (sljit_sw)0xbab0fea1, "test11 case 8 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -1483,11 +1483,11 @@ static void test18(void)
 	FAILED(buf[7] != 1, "test18 case 8 failed\n");
 	FAILED(buf[8] != 0, "test18 case 9 failed\n");
 #if (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
-	FAILED(buf[9] != 0xfff00000, "test18 case 10 failed\n");
-	FAILED(buf[10] != 0xffffffff, "test18 case 11 failed\n");
+	FAILED(buf[9] != (sljit_sw)0xfff00000, "test18 case 10 failed\n");
+	FAILED(buf[10] != (sljit_sw)0xffffffff, "test18 case 11 failed\n");
 #else
-	FAILED(buf[9] != SLJIT_W(0xfff0000000000000), "test18 case 10 failed\n");
-	FAILED(buf[10] != SLJIT_W(0xffffffff00000000), "test18 case 11 failed\n");
+	FAILED(buf[9] != (sljit_sw)SLJIT_W(0xfff0000000000000), "test18 case 10 failed\n");
+	FAILED(buf[10] != (sljit_sw)SLJIT_W(0xffffffff00000000), "test18 case 11 failed\n");
 #endif
 #else
 	FAILED(buf[0] != 0x11223344, "test18 case 1 failed\n");
@@ -2207,7 +2207,7 @@ static void test27(void)
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_u8 buf[41];
-	sljit_s32 i;
+	sljit_u32 i;
 #ifdef SLJIT_PREF_SHIFT_REG
 	sljit_s32 shift_reg = SLJIT_PREF_SHIFT_REG;
 #else
@@ -2492,7 +2492,7 @@ static void test28(void)
 	FAILED(buf[1] != -1872, "test28 case 2 failed\n");
 	FAILED(buf[2] != 1, "test28 case 3 failed\n");
 	FAILED(buf[3] != 2, "test28 case 4 failed\n");
-	FAILED(buf[4] != label_addr, "test28 case 5 failed\n");
+	FAILED(buf[4] != (sljit_sw)label_addr, "test28 case 5 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -4107,10 +4107,10 @@ static void test42(void)
 	FAILED(buf[14] != -471654166, "test42 case 15 failed\n");
 #endif
 
-	FAILED(buf[15] != SLJIT_W(56), "test42 case 16 failed\n");
-	FAILED(buf[16] != SLJIT_W(58392872), "test42 case 17 failed\n");
-	FAILED(buf[17] != SLJIT_W(-47), "test42 case 18 failed\n");
-	FAILED(buf[18] != SLJIT_W(35949148), "test42 case 19 failed\n");
+	FAILED(buf[15] != 56, "test42 case 16 failed\n");
+	FAILED(buf[16] != 58392872, "test42 case 17 failed\n");
+	FAILED(buf[17] != -47, "test42 case 18 failed\n");
+	FAILED(buf[18] != 35949148, "test42 case 19 failed\n");
 
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	FAILED(buf[19] != SLJIT_W(0x3340bfc), "test42 case 20 failed\n");
@@ -4124,10 +4124,10 @@ static void test42(void)
 	FAILED(buf[22] != SLJIT_W(0xd357), "test42 case 23 failed\n");
 #endif
 
-	FAILED(buf[23] != SLJIT_W(0x0), "test42 case 24 failed\n");
-	FAILED(buf[24] != SLJIT_W(0xf2906b14), "test42 case 25 failed\n");
-	FAILED(buf[25] != SLJIT_W(-0x8), "test42 case 26 failed\n");
-	FAILED(buf[26] != SLJIT_W(-0xa63c923), "test42 case 27 failed\n");
+	FAILED(buf[23] != 0x0, "test42 case 24 failed\n");
+	FAILED(buf[24] != (sljit_sw)0xf2906b14, "test42 case 25 failed\n");
+	FAILED(buf[25] != -0x8, "test42 case 26 failed\n");
+	FAILED(buf[26] != -0xa63c923, "test42 case 27 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -5865,7 +5865,7 @@ static void test60(void)
 	/* Test memory accesses with pre/post updates. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
-	sljit_s32 i;
+	sljit_u32 i;
 	sljit_s32 supported[10];
 	sljit_sw wbuf[18];
 	sljit_s8 bbuf[4];
@@ -6049,7 +6049,7 @@ static void test61(void)
 	/* Test float memory accesses with pre/post updates. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
-	sljit_s32 i;
+	sljit_u32 i;
 	sljit_s32 supported[6];
 	sljit_sw wbuf[6];
 	sljit_f64 dbuf[4];
@@ -6298,7 +6298,7 @@ static void test63(void)
 
 	sljit_free_compiler(compiler);
 
-	FAILED(code.func1((sljit_sw)&buf) != addr[0], "test63 case 1 failed\n");
+	FAILED(code.func1((sljit_sw)&buf) != (sljit_sw)addr[0], "test63 case 1 failed\n");
 	FAILED(buf[0] != addr[0], "test63 case 2 failed\n");
 	FAILED(buf[1] != addr[0], "test63 case 3 failed\n");
 	FAILED(buf[2] != addr[1], "test63 case 4 failed\n");
@@ -6396,7 +6396,7 @@ static void test64(void)
 	sljit_free_compiler(compiler);
 	SLJIT_ASSERT(SLJIT_FUNC_UADDR(code.code) >= malloc_addr && SLJIT_FUNC_UADDR(code.code) <= malloc_addr + 8);
 
-	FAILED(code.func1((sljit_sw)&buf) != label[3].addr, "test64 case 1 failed\n");
+	FAILED(code.func1((sljit_sw)&buf) != (sljit_sw)label[3].addr, "test64 case 1 failed\n");
 	FAILED(buf[0] != label[0].addr, "test64 case 2 failed\n");
 	FAILED(buf[1] != label[0].addr, "test64 case 3 failed\n");
 	FAILED(buf[2] != label[1].addr, "test64 case 4 failed\n");
@@ -7131,7 +7131,7 @@ static void test71(void)
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
-	FAILED(code.func0() != 0x81482114, "test71 case 4 failed\n");
+	FAILED(code.func0() != (sljit_sw)0x81482114, "test71 case 4 failed\n");
 
 	sljit_free_code(code.code, NULL);
 

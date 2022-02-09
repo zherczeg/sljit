@@ -1032,7 +1032,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 #ifdef __SOFTFP__
 	sljit_u32 float_arg_count;
 #else
-	sljit_s32 old_offset, f32_offset;
+	sljit_u32 old_offset, f32_offset;
 	sljit_u32 remap[3];
 	sljit_u32 *remap_ptr = remap;
 #endif
@@ -1135,7 +1135,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
-	SLJIT_ASSERT(remap_ptr - remap <= sizeof(remap));
+	SLJIT_ASSERT((sljit_uw)(remap_ptr - remap) <= sizeof(remap));
 
 	while (remap_ptr > remap)
 		FAIL_IF(push_inst(compiler, *(--remap_ptr)));

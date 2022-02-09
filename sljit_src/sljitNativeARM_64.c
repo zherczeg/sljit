@@ -331,8 +331,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				break;
 			}
 
-			SLJIT_ASSERT((jump->flags & (PATCH_ABS48 | PATCH_ABS64)) || (sljit_uw)addr <= 0xffffffffl);
-			SLJIT_ASSERT((jump->flags & PATCH_ABS64) || addr <= (sljit_uw)0xffffffffffffl);
+			SLJIT_ASSERT((jump->flags & (PATCH_ABS48 | PATCH_ABS64)) || (sljit_uw)addr <= (sljit_uw)0xffffffff);
+			SLJIT_ASSERT((jump->flags & PATCH_ABS64) || (sljit_uw)addr <= (sljit_uw)0xffffffffffff);
 
 			dst = buf_ptr[0] & 0x1f;
 			buf_ptr[0] = MOVZ | dst | (((sljit_ins)addr & 0xffff) << 5);
@@ -1080,7 +1080,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 	/* Load LR as early as possible. */
 	if (local_size == 0)
 		FAIL_IF(push_inst(compiler, LDP | RT(TMP_FP) | RT2(TMP_LR) | RN(SLJIT_SP)));
-	else if (local_size < 63 * sizeof(sljit_sw)) {
+	else if (local_size < 63 * SSIZE_OF(sw)) {
 		FAIL_IF(push_inst(compiler, LDP_PRE | RT(TMP_FP) | RT2(TMP_LR)
 			| RN(SLJIT_SP) | ((sljit_ins)local_size << (15 - 3))));
 	}
