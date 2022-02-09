@@ -3791,10 +3791,10 @@ static void test41(void)
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	/* agrk rd, rs1, rs2 */
-	inst = (0xb9e8 << 16)
-		| (sljit_get_register_index(SLJIT_RETURN_REG) << 4)
-		| (sljit_get_register_index(SLJIT_S0) << 12)
-		| sljit_get_register_index(SLJIT_S1);
+	inst = (0xb9e8u << 16)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_RETURN_REG) << 4)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_S0) << 12)
+		| (sljit_u32)sljit_get_register_index(SLJIT_S1);
 	sljit_emit_op_custom(compiler, &inst, sizeof(inst));
 #else
 	inst = 0;
