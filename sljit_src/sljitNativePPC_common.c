@@ -798,12 +798,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)
+static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 {
 	sljit_s32 i, tmp, offs;
 
-	CHECK_ERROR();
-	CHECK(check_sljit_emit_return_void(compiler));
+	/* The 288 bytes below the stack pointer is available as
+	   volatile storage which is not preserved across function calls. */
 
 	if (compiler->local_size <= SIMM_MAX)
 		FAIL_IF(push_inst(compiler, ADDI | D(SLJIT_SP) | A(SLJIT_SP) | IMM(compiler->local_size)));
@@ -832,13 +832,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 		offs += (sljit_s32)(sizeof(sljit_sw));
 	}
 
-	FAIL_IF(push_inst(compiler, STACK_LOAD | D(TMP_ZERO) | A(SLJIT_SP) | IMM(offs)));
 	SLJIT_ASSERT(offs == -(sljit_sw)(sizeof(sljit_sw)));
+	FAIL_IF(push_inst(compiler, STACK_LOAD | D(TMP_ZERO) | A(SLJIT_SP) | IMM(offs)));
 
-	FAIL_IF(push_inst(compiler, MTLR | S(0)));
-	FAIL_IF(push_inst(compiler, BLR));
+	return push_inst(compiler, MTLR | S(0));
+}
 
-	return SLJIT_SUCCESS;
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_return_void(compiler));
+
+	FAIL_IF(emit_stack_frame_release(compiler));
+	return push_inst(compiler, BLR);
 }
 
 #undef STACK_STORE
@@ -2084,6 +2090,11 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	PTR_FAIL_IF(call_with_args(compiler, arg_types, NULL));
 #endif
 
+	if (type & SLJIT_TAIL_CALL) {
+		PTR_FAIL_IF(emit_stack_frame_release(compiler));
+		type = SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP);
+	}
+
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
 		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	compiler->skip_checks = 1;
@@ -2103,25 +2114,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 
 	if (FAST_IS_REG(src)) {
 #if (defined SLJIT_PASS_ENTRY_ADDR_TO_CALL && SLJIT_PASS_ENTRY_ADDR_TO_CALL)
-		if (type >= SLJIT_CALL) {
+		if (type >= SLJIT_CALL && src != TMP_CALL_REG) {
 			FAIL_IF(push_inst(compiler, OR | S(src) | A(TMP_CALL_REG) | B(src)));
 			src_r = TMP_CALL_REG;
 		}
 		else
 			src_r = src;
-#else
+#else /* SLJIT_PASS_ENTRY_ADDR_TO_CALL */
 		src_r = src;
-#endif
+#endif /* SLJIT_PASS_ENTRY_ADDR_TO_CALL */
 	} else if (src & SLJIT_IMM) {
 		/* These jumps are converted to jump/call instructions when possible. */
 		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 		FAIL_IF(!jump);
 		set_jump(jump, compiler, JUMP_ADDR);
 		jump->u.target = (sljit_uw)srcw;
+
 #if (defined SLJIT_PASS_ENTRY_ADDR_TO_CALL && SLJIT_PASS_ENTRY_ADDR_TO_CALL)
 		if (type >= SLJIT_CALL)
 			jump->flags |= IS_CALL;
-#endif
+#endif /* SLJIT_PASS_ENTRY_ADDR_TO_CALL */
+
 		FAIL_IF(emit_const(compiler, TMP_CALL_REG, 0));
 		src_r = TMP_CALL_REG;
 	}
@@ -2143,13 +2156,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
 
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (src & SLJIT_MEM) {
 		ADJUST_LOCAL_OFFSET(src, srcw);
 		FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, TMP_CALL_REG, 0, TMP_REG1, 0, src, srcw));
 		src = TMP_CALL_REG;
 	}
 
+	if (type & SLJIT_TAIL_CALL) {
+		if (src >= SLJIT_FIRST_SAVED_REG && src <= SLJIT_S0) {
+			FAIL_IF(push_inst(compiler, OR | S(src) | A(TMP_CALL_REG) | B(src)));
+			src = TMP_CALL_REG;
+		}
+
+		FAIL_IF(emit_stack_frame_release(compiler));
+		type = SLJIT_JUMP;
+	}
+
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	FAIL_IF(call_with_args(compiler, arg_types, &src));
 #endif
 

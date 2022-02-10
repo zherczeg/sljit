@@ -440,6 +440,10 @@ struct sljit_compiler {
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 	/* Temporary fields. */
 	sljit_uw shift_imm;
+#endif /* SLJIT_CONFIG_ARM_V5 || SLJIT_CONFIG_ARM_V7 */
+
+#if (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) && (defined __SOFTFP__)
+	sljit_uw args_size;
 #endif
 
 #if (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
@@ -1215,9 +1219,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
    the called function returns to the caller of the current function. The
    stack usage is reduced before the call, but it is not necessarily reduced
    to zero. In the latter case the compiler needs to allocate space for some
-   arguments.
+   arguments and the return register must be kept as well.
 
-   The feature is highly experimental and only supported in x86 currently. */
+   This feature is highly experimental and only supported on x86, ARM, and PPC
+   platforms at the moment. */
 #define SLJIT_TAIL_CALL			0x2000
 
 /* Emit a jump instruction. The destination is not set, only the type of the jump.
