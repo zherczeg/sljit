@@ -440,8 +440,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 	sljit_set_jump_addr(addr, (sljit_uw)new_constant, executable_offset);
 }
 
-static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types, sljit_ins *ins_ptr)
+static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types, sljit_ins *ins_ptr, sljit_u32 *extra_space)
 {
+	sljit_u32 is_tail_call = *extra_space & SLJIT_TAIL_CALL;
 	sljit_u32 offset = 0;
 	sljit_s32 float_arg_count = 0;
 	sljit_s32 word_arg_count = 0;
@@ -494,8 +495,20 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	/* Stack is aligned to 16 bytes. */
 	SLJIT_ASSERT(offset <= 8 * sizeof(sljit_sw));
 
-	if (offset > 4 * sizeof(sljit_sw))
-		FAIL_IF(push_inst(compiler, ADDIU | S(SLJIT_SP) | T(SLJIT_SP) | IMM(-16), DR(SLJIT_SP)));
+	if (offset > 4 * sizeof(sljit_sw) && (!is_tail_call || offset > compiler->args_size)) {
+		if (is_tail_call) {
+			offset = (offset + sizeof(sljit_sw) + 15) & ~(sljit_uw)0xf;
+			FAIL_IF(emit_stack_frame_release(compiler, (sljit_s32)offset, &prev_ins));
+			*extra_space = offset;
+		} else {
+			FAIL_IF(push_inst(compiler, ADDIU | S(SLJIT_SP) | T(SLJIT_SP) | IMM(-16), DR(SLJIT_SP)));
+			*extra_space = 16;
+		}
+	} else {
+		if (is_tail_call)
+			FAIL_IF(emit_stack_frame_release(compiler, 0, &prev_ins));
+		*extra_space = 0;
+	}
 
 	while (types) {
 		--offsets_ptr;
@@ -507,7 +520,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 					FAIL_IF(push_inst(compiler, prev_ins, MOVABLE_INS));
 
 				/* Must be preceded by at least one other argument,
-				 * and its starting offset must be 8 because of aligment. */
+				 * and its starting offset must be 8 because of alignment. */
 				SLJIT_ASSERT((*offsets_ptr >> 2) == 2);
 
 				prev_ins = MFC1 | TA(6) | FS(float_arg_count) | (1 << 11);
@@ -556,43 +569,11 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	return SLJIT_SUCCESS;
 }
 
-static sljit_s32 post_call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types)
-{
-	sljit_u32 offset = 0;
-
-	arg_types >>= SLJIT_ARG_SHIFT;
-
-	while (arg_types) {
-		switch (arg_types & SLJIT_ARG_MASK) {
-		case SLJIT_ARG_TYPE_F64:
-			if (offset & 0x7)
-				offset += sizeof(sljit_sw);
-			offset += sizeof(sljit_f64);
-			break;
-		case SLJIT_ARG_TYPE_F32:
-			offset += sizeof(sljit_f32);
-			break;
-		default:
-			offset += sizeof(sljit_sw);
-			break;
-		}
-
-		arg_types >>= SLJIT_ARG_SHIFT;
-	}
-
-	/* Stack is aligned to 16 bytes. */
-	SLJIT_ASSERT(offset <= 8 * sizeof(sljit_sw));
-
-	if (offset > 4 * sizeof(sljit_sw))
-		return push_inst(compiler, ADDIU | S(SLJIT_SP) | T(SLJIT_SP) | IMM(16), DR(SLJIT_SP));
-
-	return SLJIT_SUCCESS;
-}
-
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 arg_types)
 {
 	struct sljit_jump *jump;
+	sljit_u32 extra_space = (sljit_u32)type;
 	sljit_ins ins;
 
 	CHECK_ERROR_PTR();
@@ -601,21 +582,34 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	PTR_FAIL_IF(!jump);
 	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
-	type &= 0xff;
 
-	PTR_FAIL_IF(call_with_args(compiler, arg_types, &ins));
+	PTR_FAIL_IF(call_with_args(compiler, arg_types, &ins, &extra_space));
 
 	SLJIT_ASSERT(DR(PIC_ADDR_REG) == 25 && PIC_ADDR_REG == TMP_REG2);
 
 	PTR_FAIL_IF(emit_const(compiler, PIC_ADDR_REG, 0));
 
-	jump->flags |= IS_JAL | IS_CALL;
-	PTR_FAIL_IF(push_inst(compiler, JALR | S(PIC_ADDR_REG) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
+	if (!(type & SLJIT_TAIL_CALL) || extra_space > 0) {
+		jump->flags |= IS_JAL | IS_CALL;
+		PTR_FAIL_IF(push_inst(compiler, JALR | S(PIC_ADDR_REG) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
+	} else
+		PTR_FAIL_IF(push_inst(compiler, JR | S(PIC_ADDR_REG), UNMOVABLE_INS));
+
 	jump->addr = compiler->size;
 	PTR_FAIL_IF(push_inst(compiler, ins, UNMOVABLE_INS));
 
-	PTR_FAIL_IF(post_call_with_args(compiler, arg_types));
+	if (extra_space == 0)
+		return jump;
 
+	if (type & SLJIT_TAIL_CALL)
+		PTR_FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, RETURN_ADDR_REG,
+			SLJIT_MEM1(SLJIT_SP), (sljit_sw)(extra_space - sizeof(sljit_sw))));
+
+	if (type & SLJIT_TAIL_CALL)
+		PTR_FAIL_IF(push_inst(compiler, JR | SA(RETURN_ADDR_REG), UNMOVABLE_INS));
+
+	PTR_FAIL_IF(push_inst(compiler, ADDIU | S(SLJIT_SP) | T(SLJIT_SP) | IMM(extra_space),
+		(type & SLJIT_TAIL_CALL) ? UNMOVABLE_INS : DR(SLJIT_SP)));
 	return jump;
 }
 
@@ -623,6 +617,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	sljit_s32 arg_types,
 	sljit_s32 src, sljit_sw srcw)
 {
+	sljit_u32 extra_space = (sljit_u32)type;
 	sljit_ins ins;
 
 	CHECK_ERROR();
@@ -639,10 +634,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 		FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, DR(PIC_ADDR_REG), src, srcw));
 	}
 
-	FAIL_IF(call_with_args(compiler, arg_types, &ins));
+	FAIL_IF(call_with_args(compiler, arg_types, &ins, &extra_space));
 
 	/* Register input. */
-	FAIL_IF(push_inst(compiler, JALR | S(PIC_ADDR_REG) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
+	if (!(type & SLJIT_TAIL_CALL) || extra_space > 0)
+		FAIL_IF(push_inst(compiler, JALR | S(PIC_ADDR_REG) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
+	else
+		FAIL_IF(push_inst(compiler, JR | S(PIC_ADDR_REG), UNMOVABLE_INS));
 	FAIL_IF(push_inst(compiler, ins, UNMOVABLE_INS));
-	return post_call_with_args(compiler, arg_types);
+
+	if (extra_space == 0)
+		return SLJIT_SUCCESS;
+
+	if (type & SLJIT_TAIL_CALL)
+		FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, RETURN_ADDR_REG,
+			SLJIT_MEM1(SLJIT_SP), (sljit_sw)(extra_space - sizeof(sljit_sw))));
+
+	if (type & SLJIT_TAIL_CALL)
+		FAIL_IF(push_inst(compiler, JR | SA(RETURN_ADDR_REG), UNMOVABLE_INS));
+
+	return push_inst(compiler, ADDIU | S(SLJIT_SP) | T(SLJIT_SP) | IMM(extra_space),
+		(type & SLJIT_TAIL_CALL) ? UNMOVABLE_INS : DR(SLJIT_SP));
 }

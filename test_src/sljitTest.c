@@ -6996,7 +6996,8 @@ static void test70(void)
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 		|| (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
-		|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
+		|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC) \
+		|| (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 
 static sljit_sw SLJIT_FUNC test71_f1(sljit_sw a)
 {
@@ -7044,7 +7045,8 @@ static void test71(void)
 {
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 		|| (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
-		|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
+		|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC) \
+		|| (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 	/* Test tail calls. */
 	executable_code code;
 	struct sljit_compiler* compiler;
@@ -7280,6 +7282,24 @@ static void test71(void)
 		sljit_free_compiler(compiler);
 
 		FAILED(code.test71_f2(4061.25, -3291.75, 8703.5) != 5074526, "test71 case 11 failed\n");
+
+		sljit_free_code(code.code, NULL);
+
+		compiler = sljit_create_compiler(NULL, NULL);
+		FAILED(!compiler, "cannot create compiler\n");
+
+		sljit_emit_enter(compiler, SLJIT_F64_ALIGNMENT, SLJIT_ARGS3(W, F64, F64, F64), SLJIT_NUMBER_OF_SCRATCH_REGISTERS + 1, 1, 3, 0, SLJIT_MAX_LOCAL_SIZE);
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1706);
+		jump = sljit_emit_call(compiler, SLJIT_CALL | SLJIT_TAIL_CALL, SLJIT_ARGS4(W, F64, F64, F64, W));
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM0(), 0);
+
+		sljit_set_target(jump, SLJIT_FUNC_UADDR(test71_f7));
+
+		code.code = sljit_generate_code(compiler);
+		CHECK(compiler);
+		sljit_free_compiler(compiler);
+
+		FAILED(code.test71_f2(4061.25, -3291.75, 8703.5) != 5074526, "test71 case 12 failed\n");
 
 		sljit_free_code(code.code, NULL);
 	}

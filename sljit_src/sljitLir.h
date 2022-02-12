@@ -456,6 +456,10 @@ struct sljit_compiler {
 	sljit_sw cache_argw;
 #endif
 
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	sljit_uw args_size;
+#endif
+
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 	sljit_s32 delay_slot;
 	sljit_s32 cache_arg;
@@ -1221,8 +1225,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
    to zero. In the latter case the compiler needs to allocate space for some
    arguments and the return register must be kept as well.
 
-   This feature is highly experimental and only supported on x86, ARM, and PPC
-   platforms at the moment. */
+   This feature is highly experimental and only supported on x86, ARM, PPC,
+   and MIPS platforms at the moment. */
 #define SLJIT_TAIL_CALL			0x2000
 
 /* Emit a jump instruction. The destination is not set, only the type of the jump.
