@@ -305,7 +305,7 @@ extern "C" {
 /* Simplified argument list definitions.
 
    The following definition:
-       SLJIT_ARG_RETURN(SLJIT_ARG_TYPE_SW) | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_F32, 1)
+       SLJIT_ARG_RETURN(SLJIT_ARG_TYPE_W) | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_F32, 1)
 
    can be shortened to:
        SLJIT_ARGS1(W, F32)
