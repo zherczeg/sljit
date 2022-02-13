@@ -115,6 +115,7 @@ void *sljit_test_malloc_exec(sljit_uw size, void *exec_allocator_data)
 /* For interface testing. */
 void sljit_test_free_code(void* code, void *exec_allocator_data)
 {
+	SLJIT_UNUSED_ARG(exec_allocator_data);
 	SLJIT_BUILTIN_FREE_EXEC(code, exec_allocator_data);
 }
 
@@ -1994,7 +1995,7 @@ static void test24(void)
 
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_IMM, 9 * sizeof(sljit_sw));
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 4 * sizeof(sljit_sw));
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, -4 << SLJIT_WORD_SHIFT);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, -(4 << SLJIT_WORD_SHIFT));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM2(SLJIT_R0, SLJIT_R2), 0, SLJIT_MEM2(SLJIT_R1, SLJIT_R2), 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)&buf - 0x7fff8000 + 6 * (sljit_sw)sizeof(sljit_sw));
@@ -2286,7 +2287,7 @@ static void test27(void)
 	SET_NEXT_BYTE(SLJIT_GREATER_EQUAL);
 	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_LESS_EQUAL, SLJIT_R0, 0, SLJIT_R1, 0, SLJIT_IMM, -2);
 	SET_NEXT_BYTE(SLJIT_LESS_EQUAL);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, (sljit_sw)-1 << ((8 * sizeof(sljit_sw)) - 1));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, (sljit_sw)((sljit_uw)1 << ((8 * sizeof(sljit_uw)) - 1)));
 	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_SIG_LESS, SLJIT_R0, 0, SLJIT_R1, 0, SLJIT_IMM, 1);
 	SET_NEXT_BYTE(SLJIT_SIG_LESS);
 	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_SIG_GREATER, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, -1);
@@ -6669,7 +6670,7 @@ static void test69(void)
 	sljit_set_current_flags(compiler, SLJIT_SET_Z | SLJIT_CURRENT_FLAGS_ADD_SUB | SLJIT_CURRENT_FLAGS_COMPARE);
 	cond_set(compiler, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_sw), SLJIT_ZERO);
 
-	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, -1 << 31);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 1 << 31);
 	sljit_emit_op2u(compiler, SLJIT_ADD32 | SLJIT_SET_Z, SLJIT_R1, 0, SLJIT_R1, 0);
 	sljit_emit_label(compiler);
 	sljit_set_current_flags(compiler, SLJIT_SET_Z | SLJIT_CURRENT_FLAGS_32 | SLJIT_CURRENT_FLAGS_ADD_SUB);
