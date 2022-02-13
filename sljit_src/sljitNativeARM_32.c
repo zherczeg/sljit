@@ -2376,6 +2376,7 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_OVERFLOW:
 		if (!(compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB))
 			return 0x10000000;
+		/* fallthrough */
 
 	case SLJIT_UNORDERED_F64:
 		return 0x60000000;
@@ -2383,6 +2384,7 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_NOT_OVERFLOW:
 		if (!(compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB))
 			return 0x00000000;
+		/* fallthrough */
 
 	case SLJIT_ORDERED_F64:
 		return 0x70000000;
