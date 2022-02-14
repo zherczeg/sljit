@@ -194,6 +194,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 				return (cc0 | cc3);
 			return (cc0 | cc2);
 		}
+		/* fallthrough */
 
 	case SLJIT_EQUAL_F64:
 		return cc0;
@@ -207,6 +208,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 				return (cc1 | cc2);
 			return (cc1 | cc3);
 		}
+		/* fallthrough */
 
 	case SLJIT_NOT_EQUAL_F64:
 		return (cc1 | cc2 | cc3);
@@ -245,6 +247,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 	case SLJIT_OVERFLOW:
 		if (compiler->status_flags_state & SLJIT_SET_Z)
 			return (cc2 | cc3);
+		/* fallthrough */
 
 	case SLJIT_UNORDERED_F64:
 		return cc3;
@@ -252,6 +255,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 	case SLJIT_NOT_OVERFLOW:
 		if (compiler->status_flags_state & SLJIT_SET_Z)
 			return (cc0 | cc1);
+		/* fallthrough */
 
 	case SLJIT_ORDERED_F64:
 		return (cc0 | cc1 | cc2);
@@ -1244,7 +1248,7 @@ struct ins_forms {
 };
 
 static sljit_s32 emit_commutative(struct sljit_compiler *compiler, const struct ins_forms *forms,
-	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 dst,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
@@ -1327,7 +1331,7 @@ static sljit_s32 emit_commutative(struct sljit_compiler *compiler, const struct 
 }
 
 static sljit_s32 emit_non_commutative(struct sljit_compiler *compiler, const struct ins_forms *forms,
-	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 dst,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
@@ -2174,7 +2178,7 @@ static sljit_s32 sljit_emit_add(struct sljit_compiler *compiler, sljit_s32 op,
 	}
 
 	forms = sets_overflow ? &add_forms : &logical_add_forms;
-	FAIL_IF(emit_commutative(compiler, forms, dst, dstw, src1, src1w, src2, src2w));
+	FAIL_IF(emit_commutative(compiler, forms, dst, src1, src1w, src2, src2w));
 
 done:
 	if (sets_zero_overflow)
@@ -2299,7 +2303,7 @@ static sljit_s32 sljit_emit_sub(struct sljit_compiler *compiler, sljit_s32 op,
 	}
 
 	forms = sets_signed ? &sub_forms : &logical_sub_forms;
-	FAIL_IF(emit_non_commutative(compiler, forms, dst, dstw, src1, src1w, src2, src2w));
+	FAIL_IF(emit_non_commutative(compiler, forms, dst, src1, src1w, src2, src2w));
 
 done:
 	if (sets_signed) {
@@ -2345,7 +2349,7 @@ static const struct ins_forms multiply_overflow_forms = {
 };
 
 static sljit_s32 sljit_emit_multiply(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 dst,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
@@ -2363,7 +2367,7 @@ static sljit_s32 sljit_emit_multiply(struct sljit_compiler *compiler, sljit_s32 
 		FAIL_IF(push_inst(compiler, ipm(flag_r)));
 		FAIL_IF(push_inst(compiler, oilh(flag_r, 0x2000))); */
 
-		return emit_commutative(compiler, &multiply_overflow_forms, dst, dstw, src1, src1w, src2, src2w);
+		return emit_commutative(compiler, &multiply_overflow_forms, dst, src1, src1w, src2, src2w);
 	}
 
 	if (src2 & SLJIT_IMM) {
@@ -2378,11 +2382,11 @@ static sljit_s32 sljit_emit_multiply(struct sljit_compiler *compiler, sljit_s32 
 		}
 	}
 
-	return emit_commutative(compiler, &multiply_forms, dst, dstw, src1, src1w, src2, src2w);
+	return emit_commutative(compiler, &multiply_forms, dst, src1, src1w, src2, src2w);
 }
 
 static sljit_s32 sljit_emit_bitwise_imm(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 dst,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_uw imm, sljit_s32 count16)
 {
@@ -2466,7 +2470,7 @@ static const struct ins_forms bitwise_xor_forms = {
 };
 
 static sljit_s32 sljit_emit_bitwise(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 dst,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
@@ -2507,7 +2511,7 @@ static sljit_s32 sljit_emit_bitwise(struct sljit_compiler *compiler, sljit_s32 o
 		}
 
 		if (!(op & SLJIT_SET_Z))
-			return sljit_emit_bitwise_imm(compiler, type, dst, dstw, src1, src1w, imm, count16);
+			return sljit_emit_bitwise_imm(compiler, type, dst, src1, src1w, imm, count16);
 	}
 
 	if (type == SLJIT_AND)
@@ -2517,11 +2521,11 @@ static sljit_s32 sljit_emit_bitwise(struct sljit_compiler *compiler, sljit_s32 o
 	else
 		forms = &bitwise_xor_forms;
 
-	return emit_commutative(compiler, forms, dst, dstw, src1, src1w, src2, src2w);
+	return emit_commutative(compiler, forms, dst, src1, src1w, src2, src2w);
 }
 
 static sljit_s32 sljit_emit_shift(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 dst,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
@@ -2624,29 +2628,29 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	case SLJIT_ADD:
 		return sljit_emit_add(compiler, op, dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_ADDC:
-		FAIL_IF(emit_commutative(compiler, &addc_forms, dst, dstw, src1, src1w, src2, src2w));
+		FAIL_IF(emit_commutative(compiler, &addc_forms, dst, src1, src1w, src2, src2w));
 		if (dst & SLJIT_MEM)
 			return store_word(compiler, tmp0, dst, dstw, op & SLJIT_32);
 		return SLJIT_SUCCESS;
 	case SLJIT_SUB:
 		return sljit_emit_sub(compiler, op, dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_SUBC:
-		FAIL_IF(emit_non_commutative(compiler, &subc_forms, dst, dstw, src1, src1w, src2, src2w));
+		FAIL_IF(emit_non_commutative(compiler, &subc_forms, dst, src1, src1w, src2, src2w));
 		if (dst & SLJIT_MEM)
 			return store_word(compiler, tmp0, dst, dstw, op & SLJIT_32);
 		return SLJIT_SUCCESS;
 	case SLJIT_MUL:
-		FAIL_IF(sljit_emit_multiply(compiler, op, dst, dstw, src1, src1w, src2, src2w));
+		FAIL_IF(sljit_emit_multiply(compiler, op, dst, src1, src1w, src2, src2w));
 		break;
 	case SLJIT_AND:
 	case SLJIT_OR:
 	case SLJIT_XOR:
-		FAIL_IF(sljit_emit_bitwise(compiler, op, dst, dstw, src1, src1w, src2, src2w));
+		FAIL_IF(sljit_emit_bitwise(compiler, op, dst, src1, src1w, src2, src2w));
 		break;
 	case SLJIT_SHL:
 	case SLJIT_LSHR:
 	case SLJIT_ASHR:
-		FAIL_IF(sljit_emit_shift(compiler, op, dst, dstw, src1, src1w, src2, src2w));
+		FAIL_IF(sljit_emit_shift(compiler, op, dst, src1, src1w, src2, src2w));
 		break;
 	}
 
@@ -2735,6 +2739,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
+	SLJIT_UNUSED_ARG(op);
+	SLJIT_UNUSED_ARG(dst);
+	SLJIT_UNUSED_ARG(dstw);
+	SLJIT_UNUSED_ARG(src);
+	SLJIT_UNUSED_ARG(srcw);
 	CHECK_ERROR();
 	abort();
 }
@@ -2744,6 +2753,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
+	SLJIT_UNUSED_ARG(op);
+	SLJIT_UNUSED_ARG(dst);
+	SLJIT_UNUSED_ARG(dstw);
+	SLJIT_UNUSED_ARG(src1);
+	SLJIT_UNUSED_ARG(src1w);
+	SLJIT_UNUSED_ARG(src2);
+	SLJIT_UNUSED_ARG(src2w);
 	CHECK_ERROR();
 	abort();
 }
