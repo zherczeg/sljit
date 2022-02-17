@@ -2851,8 +2851,8 @@ static void test32(void)
 	sljit_emit_fop1(compiler, SLJIT_CMP_F64 | SLJIT_SET_NOT_EQUAL_F, SLJIT_FR1, 0, SLJIT_FR2, 0);
 	cond_set(compiler, SLJIT_MEM1(SLJIT_S0), 9 * sizeof(sljit_sw), SLJIT_NOT_EQUAL_F64);
 
-	sljit_emit_fop1(compiler, SLJIT_CMP_F64 | SLJIT_SET_UNORDERED_F, SLJIT_FR2, 0, SLJIT_MEM1(SLJIT_S1), 3 * sizeof(sljit_f64));
 	sljit_emit_fop2(compiler, SLJIT_ADD_F64, SLJIT_FR3, 0, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_f64));
+	sljit_emit_fop1(compiler, SLJIT_CMP_F64 | SLJIT_SET_UNORDERED_F, SLJIT_FR2, 0, SLJIT_MEM1(SLJIT_S1), 3 * sizeof(sljit_f64));
 	cond_set(compiler, SLJIT_MEM1(SLJIT_S0), 10 * sizeof(sljit_sw), SLJIT_UNORDERED_F64);
 	sljit_emit_fop1(compiler, SLJIT_CMP_F64 | SLJIT_SET_EQUAL_F, SLJIT_FR2, 0, SLJIT_MEM1(SLJIT_S1), 3 * sizeof(sljit_f64));
 	cond_set(compiler, SLJIT_MEM1(SLJIT_S0), 11 * sizeof(sljit_sw), SLJIT_EQUAL_F64);
@@ -3886,6 +3886,12 @@ static void test41(void)
 		inst = (0x2u << 30) | (0x34u << 19) | (0x42u << 5)
 			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 25)
 			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 14)
+			| (sljit_u32)sljit_get_float_register_index(SLJIT_FR1);
+		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
+#elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+		/* adbr r1, r2 */
+		inst = 0xb31a0000
+			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 4)
 			| (sljit_u32)sljit_get_float_register_index(SLJIT_FR1);
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #endif
@@ -6995,10 +7001,7 @@ static void test70(void)
 	successful_tests++;
 }
 
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
-		|| (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
-		|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC) \
-		|| (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
+#if !(defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC)
 
 static sljit_sw SLJIT_FUNC test71_f1(sljit_sw a)
 {
@@ -7040,14 +7043,11 @@ static sljit_sw SLJIT_FUNC test71_f7(sljit_f64 a, sljit_f64 b, sljit_f64 c, slji
 	return 0;
 }
 
-#endif /* SLJIT_CONFIG_X86 || SLJIT_CONFIG_ARM */
+#endif /* !SLJIT_CONFIG_SPARC */
 
 static void test71(void)
 {
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
-		|| (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
-		|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC) \
-		|| (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
+#if !(defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC)
 	/* Test tail calls. */
 	executable_code code;
 	struct sljit_compiler* compiler;
@@ -7304,7 +7304,7 @@ static void test71(void)
 
 		sljit_free_code(code.code, NULL);
 	}
-#endif /* SLJIT_CONFIG_X86 || SLJIT_CONFIG_ARM || SLJIT_CONFIG_PPC */
+#endif /* !SLJIT_CONFIG_SPARC */
 
 	successful_tests++;
 }

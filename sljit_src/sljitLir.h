@@ -1094,29 +1094,29 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 /* Convert opcodes: CONV[DST_TYPE].FROM[SRC_TYPE]
    SRC/DST TYPE can be: D - double, S - single, W - signed word, I - signed int
    Rounding mode when the destination is W or I: round towards zero. */
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_CONV_F64_FROM_F32		(SLJIT_FOP1_BASE + 1)
 #define SLJIT_CONV_F32_FROM_F64		(SLJIT_CONV_F64_FROM_F32 | SLJIT_32)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_CONV_SW_FROM_F64		(SLJIT_FOP1_BASE + 2)
 #define SLJIT_CONV_SW_FROM_F32		(SLJIT_CONV_SW_FROM_F64 | SLJIT_32)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_CONV_S32_FROM_F64		(SLJIT_FOP1_BASE + 3)
 #define SLJIT_CONV_S32_FROM_F32		(SLJIT_CONV_S32_FROM_F64 | SLJIT_32)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_CONV_F64_FROM_SW		(SLJIT_FOP1_BASE + 4)
 #define SLJIT_CONV_F32_FROM_SW		(SLJIT_CONV_F64_FROM_SW | SLJIT_32)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_CONV_F64_FROM_S32		(SLJIT_FOP1_BASE + 5)
 #define SLJIT_CONV_F32_FROM_S32		(SLJIT_CONV_F64_FROM_S32 | SLJIT_32)
 /* Note: dst is the left and src is the right operand for SLJIT_CMPD.
    Flags: EQUAL_F | LESS_F | GREATER_EQUAL_F | GREATER_F | LESS_EQUAL_F */
 #define SLJIT_CMP_F64			(SLJIT_FOP1_BASE + 6)
 #define SLJIT_CMP_F32			(SLJIT_CMP_F64 | SLJIT_32)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_NEG_F64			(SLJIT_FOP1_BASE + 7)
 #define SLJIT_NEG_F32			(SLJIT_NEG_F64 | SLJIT_32)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_ABS_F64			(SLJIT_FOP1_BASE + 8)
 #define SLJIT_ABS_F32			(SLJIT_ABS_F64 | SLJIT_32)
 
@@ -1127,16 +1127,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 /* Starting index of opcodes for sljit_emit_fop2. */
 #define SLJIT_FOP2_BASE			192
 
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_ADD_F64			(SLJIT_FOP2_BASE + 0)
 #define SLJIT_ADD_F32			(SLJIT_ADD_F64 | SLJIT_32)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_SUB_F64			(SLJIT_FOP2_BASE + 1)
 #define SLJIT_SUB_F32			(SLJIT_SUB_F64 | SLJIT_32)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_MUL_F64			(SLJIT_FOP2_BASE + 2)
 #define SLJIT_MUL_F32			(SLJIT_MUL_F64 | SLJIT_32)
-/* Flags: - (does not modify flags) */
+/* Flags: - (may destroy flags) */
 #define SLJIT_DIV_F64			(SLJIT_FOP2_BASE + 3)
 #define SLJIT_DIV_F32			(SLJIT_DIV_F64 | SLJIT_32)
 
@@ -1225,8 +1225,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
    to zero. In the latter case the compiler needs to allocate space for some
    arguments and the return register must be kept as well.
 
-   This feature is highly experimental and only supported on x86, ARM, PPC,
-   and MIPS platforms at the moment. */
+   This feature is highly experimental and not supported on SPARC platform
+   at the moment. */
 #define SLJIT_TAIL_CALL			0x2000
 
 /* Emit a jump instruction. The destination is not set, only the type of the jump.

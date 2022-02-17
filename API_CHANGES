@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+17.02.2022 - Non-backward compatible
+    Many floating point operations may destroy flags.
+
 06.02.2022 - Non-backward compatible
     The SLJIT_FUNC_OFFSET macro is renamed to SLJIT_FUNC_ADDR.
     Furthermore a new SLJIT_FUNC_UADDR macro is added which
