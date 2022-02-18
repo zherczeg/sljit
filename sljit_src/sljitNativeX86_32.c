@@ -26,6 +26,10 @@
 
 /* x86 32-bit arch dependent functions. */
 
+/* --------------------------------------------------------------------- */
+/*  Operators                                                            */
+/* --------------------------------------------------------------------- */
+
 static sljit_s32 emit_do_imm(struct sljit_compiler *compiler, sljit_u8 opcode, sljit_sw imm)
 {
 	sljit_u8 *inst;
@@ -37,6 +41,180 @@ static sljit_s32 emit_do_imm(struct sljit_compiler *compiler, sljit_u8 opcode, s
 	sljit_unaligned_store_sw(inst, imm);
 	return SLJIT_SUCCESS;
 }
+
+/* Size contains the flags as well. */
+static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw size,
+	/* The register or immediate operand. */
+	sljit_s32 a, sljit_sw imma,
+	/* The general operand (not immediate). */
+	sljit_s32 b, sljit_sw immb)
+{
+	sljit_u8 *inst;
+	sljit_u8 *buf_ptr;
+	sljit_u8 reg_map_b;
+	sljit_uw flags = size;
+	sljit_uw inst_size;
+
+	/* Both cannot be switched on. */
+	SLJIT_ASSERT((flags & (EX86_BIN_INS | EX86_SHIFT_INS)) != (EX86_BIN_INS | EX86_SHIFT_INS));
+	/* Size flags not allowed for typed instructions. */
+	SLJIT_ASSERT(!(flags & (EX86_BIN_INS | EX86_SHIFT_INS)) || (flags & (EX86_BYTE_ARG | EX86_HALF_ARG)) == 0);
+	/* Both size flags cannot be switched on. */
+	SLJIT_ASSERT((flags & (EX86_BYTE_ARG | EX86_HALF_ARG)) != (EX86_BYTE_ARG | EX86_HALF_ARG));
+	/* SSE2 and immediate is not possible. */
+	SLJIT_ASSERT(!(a & SLJIT_IMM) || !(flags & EX86_SSE2));
+	SLJIT_ASSERT((flags & (EX86_PREF_F2 | EX86_PREF_F3)) != (EX86_PREF_F2 | EX86_PREF_F3)
+		&& (flags & (EX86_PREF_F2 | EX86_PREF_66)) != (EX86_PREF_F2 | EX86_PREF_66)
+		&& (flags & (EX86_PREF_F3 | EX86_PREF_66)) != (EX86_PREF_F3 | EX86_PREF_66));
+
+	size &= 0xf;
+	inst_size = size;
+
+	if (flags & (EX86_PREF_F2 | EX86_PREF_F3))
+		inst_size++;
+	if (flags & EX86_PREF_66)
+		inst_size++;
+
+	/* Calculate size of b. */
+	inst_size += 1; /* mod r/m byte. */
+	if (b & SLJIT_MEM) {
+		if (!(b & REG_MASK))
+			inst_size += sizeof(sljit_sw);
+		else if (immb != 0 && !(b & OFFS_REG_MASK)) {
+			/* Immediate operand. */
+			if (immb <= 127 && immb >= -128)
+				inst_size += sizeof(sljit_s8);
+			else
+				inst_size += sizeof(sljit_sw);
+		}
+		else if (reg_map[b & REG_MASK] == 5)
+			inst_size += sizeof(sljit_s8);
+
+		if ((b & REG_MASK) == SLJIT_SP && !(b & OFFS_REG_MASK))
+			b |= TO_OFFS_REG(SLJIT_SP);
+
+		if (b & OFFS_REG_MASK)
+			inst_size += 1; /* SIB byte. */
+	}
+
+	/* Calculate size of a. */
+	if (a & SLJIT_IMM) {
+		if (flags & EX86_BIN_INS) {
+			if (imma <= 127 && imma >= -128) {
+				inst_size += 1;
+				flags |= EX86_BYTE_ARG;
+			} else
+				inst_size += 4;
+		}
+		else if (flags & EX86_SHIFT_INS) {
+			imma &= 0x1f;
+			if (imma != 1) {
+				inst_size ++;
+				flags |= EX86_BYTE_ARG;
+			}
+		} else if (flags & EX86_BYTE_ARG)
+			inst_size++;
+		else if (flags & EX86_HALF_ARG)
+			inst_size += sizeof(short);
+		else
+			inst_size += sizeof(sljit_sw);
+	}
+	else
+		SLJIT_ASSERT(!(flags & EX86_SHIFT_INS) || a == SLJIT_PREF_SHIFT_REG);
+
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + inst_size);
+	PTR_FAIL_IF(!inst);
+
+	/* Encoding the byte. */
+	INC_SIZE(inst_size);
+	if (flags & EX86_PREF_F2)
+		*inst++ = 0xf2;
+	if (flags & EX86_PREF_F3)
+		*inst++ = 0xf3;
+	if (flags & EX86_PREF_66)
+		*inst++ = 0x66;
+
+	buf_ptr = inst + size;
+
+	/* Encode mod/rm byte. */
+	if (!(flags & EX86_SHIFT_INS)) {
+		if ((flags & EX86_BIN_INS) && (a & SLJIT_IMM))
+			*inst = (flags & EX86_BYTE_ARG) ? GROUP_BINARY_83 : GROUP_BINARY_81;
+
+		if (a & SLJIT_IMM)
+			*buf_ptr = 0;
+		else if (!(flags & EX86_SSE2_OP1))
+			*buf_ptr = U8(reg_map[a] << 3);
+		else
+			*buf_ptr = U8(a << 3);
+	}
+	else {
+		if (a & SLJIT_IMM) {
+			if (imma == 1)
+				*inst = GROUP_SHIFT_1;
+			else
+				*inst = GROUP_SHIFT_N;
+		} else
+			*inst = GROUP_SHIFT_CL;
+		*buf_ptr = 0;
+	}
+
+	if (!(b & SLJIT_MEM)) {
+		*buf_ptr = U8(*buf_ptr | MOD_REG | (!(flags & EX86_SSE2_OP2) ? reg_map[b] : b));
+		buf_ptr++;
+	} else if (b & REG_MASK) {
+		reg_map_b = reg_map[b & REG_MASK];
+
+		if (!(b & OFFS_REG_MASK) || (b & OFFS_REG_MASK) == TO_OFFS_REG(SLJIT_SP) || reg_map_b == 5) {
+			if (immb != 0 || reg_map_b == 5) {
+				if (immb <= 127 && immb >= -128)
+					*buf_ptr |= 0x40;
+				else
+					*buf_ptr |= 0x80;
+			}
+
+			if (!(b & OFFS_REG_MASK))
+				*buf_ptr++ |= reg_map_b;
+			else {
+				*buf_ptr++ |= 0x04;
+				*buf_ptr++ = U8(reg_map_b | (reg_map[OFFS_REG(b)] << 3));
+			}
+
+			if (immb != 0 || reg_map_b == 5) {
+				if (immb <= 127 && immb >= -128)
+					*buf_ptr++ = U8(immb); /* 8 bit displacement. */
+				else {
+					sljit_unaligned_store_sw(buf_ptr, immb); /* 32 bit displacement. */
+					buf_ptr += sizeof(sljit_sw);
+				}
+			}
+		}
+		else {
+			*buf_ptr++ |= 0x04;
+			*buf_ptr++ = U8(reg_map_b | (reg_map[OFFS_REG(b)] << 3) | (immb << 6));
+		}
+	}
+	else {
+		*buf_ptr++ |= 0x05;
+		sljit_unaligned_store_sw(buf_ptr, immb); /* 32 bit displacement. */
+		buf_ptr += sizeof(sljit_sw);
+	}
+
+	if (a & SLJIT_IMM) {
+		if (flags & EX86_BYTE_ARG)
+			*buf_ptr = U8(imma);
+		else if (flags & EX86_HALF_ARG)
+			sljit_unaligned_store_s16(buf_ptr, (sljit_s16)imma);
+		else if (!(flags & EX86_SHIFT_INS))
+			sljit_unaligned_store_sw(buf_ptr, imma);
+	}
+
+	return !(flags & EX86_SHIFT_INS) ? inst : (inst + 1);
+}
+
+/* --------------------------------------------------------------------- */
+/*  Enter / return                                                       */
+/* --------------------------------------------------------------------- */
 
 static sljit_u8* generate_far_jump_code(struct sljit_jump *jump, sljit_u8 *code_ptr, sljit_sw executable_offset)
 {
@@ -406,180 +584,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 
 	RET();
 	return SLJIT_SUCCESS;
-}
-
-/* --------------------------------------------------------------------- */
-/*  Operators                                                            */
-/* --------------------------------------------------------------------- */
-
-/* Size contains the flags as well. */
-static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw size,
-	/* The register or immediate operand. */
-	sljit_s32 a, sljit_sw imma,
-	/* The general operand (not immediate). */
-	sljit_s32 b, sljit_sw immb)
-{
-	sljit_u8 *inst;
-	sljit_u8 *buf_ptr;
-	sljit_u8 reg_map_b;
-	sljit_uw flags = size;
-	sljit_uw inst_size;
-
-	/* Both cannot be switched on. */
-	SLJIT_ASSERT((flags & (EX86_BIN_INS | EX86_SHIFT_INS)) != (EX86_BIN_INS | EX86_SHIFT_INS));
-	/* Size flags not allowed for typed instructions. */
-	SLJIT_ASSERT(!(flags & (EX86_BIN_INS | EX86_SHIFT_INS)) || (flags & (EX86_BYTE_ARG | EX86_HALF_ARG)) == 0);
-	/* Both size flags cannot be switched on. */
-	SLJIT_ASSERT((flags & (EX86_BYTE_ARG | EX86_HALF_ARG)) != (EX86_BYTE_ARG | EX86_HALF_ARG));
-	/* SSE2 and immediate is not possible. */
-	SLJIT_ASSERT(!(a & SLJIT_IMM) || !(flags & EX86_SSE2));
-	SLJIT_ASSERT((flags & (EX86_PREF_F2 | EX86_PREF_F3)) != (EX86_PREF_F2 | EX86_PREF_F3)
-		&& (flags & (EX86_PREF_F2 | EX86_PREF_66)) != (EX86_PREF_F2 | EX86_PREF_66)
-		&& (flags & (EX86_PREF_F3 | EX86_PREF_66)) != (EX86_PREF_F3 | EX86_PREF_66));
-
-	size &= 0xf;
-	inst_size = size;
-
-	if (flags & (EX86_PREF_F2 | EX86_PREF_F3))
-		inst_size++;
-	if (flags & EX86_PREF_66)
-		inst_size++;
-
-	/* Calculate size of b. */
-	inst_size += 1; /* mod r/m byte. */
-	if (b & SLJIT_MEM) {
-		if (!(b & REG_MASK))
-			inst_size += sizeof(sljit_sw);
-		else if (immb != 0 && !(b & OFFS_REG_MASK)) {
-			/* Immediate operand. */
-			if (immb <= 127 && immb >= -128)
-				inst_size += sizeof(sljit_s8);
-			else
-				inst_size += sizeof(sljit_sw);
-		}
-		else if (reg_map[b & REG_MASK] == 5)
-			inst_size += sizeof(sljit_s8);
-
-		if ((b & REG_MASK) == SLJIT_SP && !(b & OFFS_REG_MASK))
-			b |= TO_OFFS_REG(SLJIT_SP);
-
-		if (b & OFFS_REG_MASK)
-			inst_size += 1; /* SIB byte. */
-	}
-
-	/* Calculate size of a. */
-	if (a & SLJIT_IMM) {
-		if (flags & EX86_BIN_INS) {
-			if (imma <= 127 && imma >= -128) {
-				inst_size += 1;
-				flags |= EX86_BYTE_ARG;
-			} else
-				inst_size += 4;
-		}
-		else if (flags & EX86_SHIFT_INS) {
-			imma &= 0x1f;
-			if (imma != 1) {
-				inst_size ++;
-				flags |= EX86_BYTE_ARG;
-			}
-		} else if (flags & EX86_BYTE_ARG)
-			inst_size++;
-		else if (flags & EX86_HALF_ARG)
-			inst_size += sizeof(short);
-		else
-			inst_size += sizeof(sljit_sw);
-	}
-	else
-		SLJIT_ASSERT(!(flags & EX86_SHIFT_INS) || a == SLJIT_PREF_SHIFT_REG);
-
-	inst = (sljit_u8*)ensure_buf(compiler, 1 + inst_size);
-	PTR_FAIL_IF(!inst);
-
-	/* Encoding the byte. */
-	INC_SIZE(inst_size);
-	if (flags & EX86_PREF_F2)
-		*inst++ = 0xf2;
-	if (flags & EX86_PREF_F3)
-		*inst++ = 0xf3;
-	if (flags & EX86_PREF_66)
-		*inst++ = 0x66;
-
-	buf_ptr = inst + size;
-
-	/* Encode mod/rm byte. */
-	if (!(flags & EX86_SHIFT_INS)) {
-		if ((flags & EX86_BIN_INS) && (a & SLJIT_IMM))
-			*inst = (flags & EX86_BYTE_ARG) ? GROUP_BINARY_83 : GROUP_BINARY_81;
-
-		if (a & SLJIT_IMM)
-			*buf_ptr = 0;
-		else if (!(flags & EX86_SSE2_OP1))
-			*buf_ptr = U8(reg_map[a] << 3);
-		else
-			*buf_ptr = U8(a << 3);
-	}
-	else {
-		if (a & SLJIT_IMM) {
-			if (imma == 1)
-				*inst = GROUP_SHIFT_1;
-			else
-				*inst = GROUP_SHIFT_N;
-		} else
-			*inst = GROUP_SHIFT_CL;
-		*buf_ptr = 0;
-	}
-
-	if (!(b & SLJIT_MEM)) {
-		*buf_ptr = U8(*buf_ptr | MOD_REG | (!(flags & EX86_SSE2_OP2) ? reg_map[b] : b));
-		buf_ptr++;
-	} else if (b & REG_MASK) {
-		reg_map_b = reg_map[b & REG_MASK];
-
-		if (!(b & OFFS_REG_MASK) || (b & OFFS_REG_MASK) == TO_OFFS_REG(SLJIT_SP) || reg_map_b == 5) {
-			if (immb != 0 || reg_map_b == 5) {
-				if (immb <= 127 && immb >= -128)
-					*buf_ptr |= 0x40;
-				else
-					*buf_ptr |= 0x80;
-			}
-
-			if (!(b & OFFS_REG_MASK))
-				*buf_ptr++ |= reg_map_b;
-			else {
-				*buf_ptr++ |= 0x04;
-				*buf_ptr++ = U8(reg_map_b | (reg_map[OFFS_REG(b)] << 3));
-			}
-
-			if (immb != 0 || reg_map_b == 5) {
-				if (immb <= 127 && immb >= -128)
-					*buf_ptr++ = U8(immb); /* 8 bit displacement. */
-				else {
-					sljit_unaligned_store_sw(buf_ptr, immb); /* 32 bit displacement. */
-					buf_ptr += sizeof(sljit_sw);
-				}
-			}
-		}
-		else {
-			*buf_ptr++ |= 0x04;
-			*buf_ptr++ = U8(reg_map_b | (reg_map[OFFS_REG(b)] << 3) | (immb << 6));
-		}
-	}
-	else {
-		*buf_ptr++ |= 0x05;
-		sljit_unaligned_store_sw(buf_ptr, immb); /* 32 bit displacement. */
-		buf_ptr += sizeof(sljit_sw);
-	}
-
-	if (a & SLJIT_IMM) {
-		if (flags & EX86_BYTE_ARG)
-			*buf_ptr = U8(imma);
-		else if (flags & EX86_HALF_ARG)
-			sljit_unaligned_store_s16(buf_ptr, (sljit_s16)imma);
-		else if (!(flags & EX86_SHIFT_INS))
-			sljit_unaligned_store_sw(buf_ptr, imma);
-	}
-
-	return !(flags & EX86_SHIFT_INS) ? inst : (inst + 1);
 }
 
 /* --------------------------------------------------------------------- */

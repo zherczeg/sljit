@@ -421,9 +421,6 @@ struct sljit_compiler {
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	sljit_s32 mode32;
-#ifdef _WIN64
-	sljit_s32 locals_offset;
-#endif
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)

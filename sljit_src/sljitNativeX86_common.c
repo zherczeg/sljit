@@ -65,6 +65,8 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
     15 - R15
 */
 
+#define TMP_FREG	(0)
+
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 
 /* Last register + 1. */
@@ -115,11 +117,11 @@ static const sljit_u8 reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 4] = {
 
 /* Args: xmm0-xmm3 */
 static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
-	4, 0, 1, 2, 3, 5, 6
+	4, 0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
 };
 /* low-map. freg_map & 0x7. */
 static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
-	4, 0, 1, 2, 3, 5, 6
+	4, 0, 1, 2, 3, 5, 6, 7, 0, 1, 2,  3,  4,  5,  6,  7
 };
 
 #define REX_W		0x48
@@ -145,7 +147,6 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 
 #define U8(v)			((sljit_u8)(v))
 
-#define TMP_FREG	(0)
 
 /* Size flags for emit_x86_instruction: */
 #define EX86_BIN_INS		0x0010
@@ -213,6 +214,8 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define MOV_rm_i32	0xc7
 #define MOV_rm8_i8	0xc6
 #define MOV_rm8_r8	0x88
+#define MOVAPS_x_xm	0x28
+#define MOVAPS_xm_x	0x29
 #define MOVSD_x_xm	0x10
 #define MOVSD_xm_x	0x11
 #define MOVSXD_r_rm	0x63

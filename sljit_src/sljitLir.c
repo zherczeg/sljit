@@ -247,8 +247,11 @@
 
 #define GET_SAVED_REGISTERS_SIZE(scratches, saveds, extra) \
 	(((scratches < SLJIT_NUMBER_OF_SCRATCH_REGISTERS ? 0 : (scratches - SLJIT_NUMBER_OF_SCRATCH_REGISTERS)) + \
-		(saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? saveds : SLJIT_NUMBER_OF_SAVED_REGISTERS) + \
-		(sljit_s32)(extra)) * (sljit_s32)sizeof(sljit_sw))
+		(saveds) + (sljit_s32)(extra)) * (sljit_s32)sizeof(sljit_sw))
+
+#define GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, size) \
+	(((fscratches < SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS ? 0 : (fscratches - SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS)) + \
+		(fsaveds)) * (sljit_s32)(size))
 
 #define ADJUST_LOCAL_OFFSET(p, i) \
 	if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
@@ -1060,10 +1063,10 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(!(options & ~SLJIT_F64_ALIGNMENT));
 	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
-	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_REGISTERS);
+	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	CHECK_ARGUMENT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(fscratches >= 0 && fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
-	CHECK_ARGUMENT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
+	CHECK_ARGUMENT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64);
@@ -1104,10 +1107,10 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(!(options & ~SLJIT_F64_ALIGNMENT));
 	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
-	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_REGISTERS);
+	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	CHECK_ARGUMENT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(fscratches >= 0 && fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
-	CHECK_ARGUMENT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
+	CHECK_ARGUMENT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64);

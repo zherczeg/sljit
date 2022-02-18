@@ -65,7 +65,7 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 };
 
 static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
-	0, 0, 1, 2, 3, 4, 5, 6, 7
+	0, 0, 1, 2, 3, 4, 5, 15, 14, 13, 12, 11, 10, 9, 8, 6, 7
 };
 
 #define RM(rm) ((sljit_uw)reg_map[rm])
@@ -128,6 +128,8 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define VMRS		0xeef1fa10
 #define VMUL_F32	0xee200a00
 #define VNEG_F32	0xeeb10a40
+#define VPOP		0xecbd0b00
+#define VPUSH		0xed2d0b00
 #define VSTR_F32	0xed000a00
 #define VSUB_F32	0xee300a40
 
@@ -1019,6 +1021,23 @@ static const sljit_uw data_transfer_insts[16] = {
 #define EMIT_FPU_OPERATION(opcode, mode, dst, src1, src2) \
 	((sljit_uw)(opcode) | (sljit_uw)(mode) | VD(dst) | VM(src1) | VN(src2))
 
+/* Flags for emit_op: */
+  /* Arguments are swapped. */
+#define ARGS_SWAPPED	0x01
+  /* Inverted immediate. */
+#define INV_IMM		0x02
+  /* Source and destination is register. */
+#define MOVE_REG_CONV	0x04
+  /* Unused return value. */
+#define UNUSED_RETURN	0x08
+/* SET_FLAGS must be (1 << 20) as it is also the value of S bit (can be used for optimization). */
+#define SET_FLAGS	(1 << 20)
+/* dst: reg
+   src1: reg
+   src2: reg or imm (if allowed)
+   SRC2_IMM must be (1 << 25) as it is also the value of I bit (can be used for optimization). */
+#define SRC2_IMM	(1 << 25)
+
 static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 inp_flags,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src1, sljit_sw src1w,
@@ -1044,8 +1063,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	imm = 0;
 
-	tmp = saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - saveds) : SLJIT_FIRST_SAVED_REG;
-	for (i = SLJIT_S0; i >= tmp; i--)
+	tmp = SLJIT_S0 - saveds;
+	for (i = SLJIT_S0; i > tmp; i--)
 		imm |= (sljit_uw)1 << reg_map[i];
 
 	for (i = scratches; i >= SLJIT_FIRST_SAVED_REG; i--)
@@ -1063,7 +1082,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	/* Stack must be aligned to 8 bytes: */
 	size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
-	local_size = ((size + local_size + 7) & ~7) - size;
+
+	if (fsaveds > 0 || fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG) {
+		if ((size & SSIZE_OF(sw)) != 0) {
+			FAIL_IF(push_inst(compiler, SUB | RD(SLJIT_SP) | RN(SLJIT_SP) | SRC2_IMM | sizeof(sljit_sw)));
+			size += SSIZE_OF(sw);
+		}
+
+		if (fsaveds + fscratches >= SLJIT_NUMBER_OF_FLOAT_REGISTERS) {
+			FAIL_IF(push_inst(compiler, VPUSH | VD(SLJIT_FS0) | ((sljit_uw)SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS << 1)));
+		} else {
+			if (fsaveds > 0)
+				FAIL_IF(push_inst(compiler, VPUSH | VD(SLJIT_FS0) | ((sljit_uw)fsaveds << 1)));
+			if (fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG)
+				FAIL_IF(push_inst(compiler, VPUSH | VD(fscratches) | ((sljit_uw)(fscratches - (SLJIT_FIRST_SAVED_FLOAT_REG - 1)) << 1)));
+		}
+	}
+
+	local_size = ((size + local_size + 0x7) & ~0x7) - size;
 	compiler->local_size = local_size;
 
 	arg_types >>= SLJIT_ARG_SHIFT;
@@ -1167,7 +1203,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	set_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
 	size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
-	compiler->local_size = ((size + local_size + 7) & ~7) - size;
+
+	if ((size & SSIZE_OF(sw)) != 0 && (fsaveds > 0 || fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG))
+		size += SSIZE_OF(sw);
+
+	compiler->local_size = ((size + local_size + 0x7) & ~0x7) - size;
 	return SLJIT_SUCCESS;
 }
 
@@ -1185,11 +1225,31 @@ static sljit_s32 emit_add_sp(struct sljit_compiler *compiler, sljit_uw imm)
 
 static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit_s32 frame_size)
 {
-	sljit_s32 i, tmp;
+	sljit_s32 local_size, fscratches, fsaveds, i, tmp;
 	sljit_s32 lr_dst = TMP_PC;
 	sljit_uw reg_list;
 
 	SLJIT_ASSERT(reg_map[TMP_REG2] == 14);
+
+	local_size = compiler->local_size;
+	fscratches = compiler->fscratches;
+	fsaveds = compiler->fsaveds;
+
+	if (fsaveds > 0 || fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG) {
+		if (local_size > 0)
+			FAIL_IF(emit_add_sp(compiler, (sljit_uw)local_size));
+
+		if (fsaveds + fscratches >= SLJIT_NUMBER_OF_FLOAT_REGISTERS) {
+			FAIL_IF(push_inst(compiler, VPOP | VD(SLJIT_FS0) | ((sljit_uw)SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS << 1)));
+		} else {
+			if (fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG)
+				FAIL_IF(push_inst(compiler, VPOP | VD(fscratches) | ((sljit_uw)(fscratches - (SLJIT_FIRST_SAVED_FLOAT_REG - 1)) << 1)));
+			if (fsaveds > 0)
+				FAIL_IF(push_inst(compiler, VPOP | VD(SLJIT_FS0) | ((sljit_uw)fsaveds << 1)));
+		}
+
+		local_size = GET_SAVED_REGISTERS_SIZE(compiler->scratches, compiler->saveds, 1) & 0x7;
+	}
 
 	if (frame_size < 0) {
 		lr_dst = TMP_REG2;
@@ -1201,25 +1261,24 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 	if (lr_dst != 0)
 		reg_list |= (sljit_uw)1 << reg_map[lr_dst];
 
-	tmp = compiler->saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - compiler->saveds) : SLJIT_FIRST_SAVED_REG;
-	for (i = SLJIT_S0; i >= tmp; i--)
+	tmp = SLJIT_S0 - compiler->saveds;
+	for (i = SLJIT_S0; i > tmp; i--)
 		reg_list |= (sljit_uw)1 << reg_map[i];
 
 	for (i = compiler->scratches; i >= SLJIT_FIRST_SAVED_REG; i--)
 		reg_list |= (sljit_uw)1 << reg_map[i];
 
-	tmp = compiler->local_size;
 	if (lr_dst == 0 && (reg_list & (reg_list - 1)) == 0) {
 		/* The local_size does not include the saved registers. */
-		tmp += SSIZE_OF(sw);
+		local_size += SSIZE_OF(sw);
 
 		if (reg_list != 0)
-			tmp += SSIZE_OF(sw);
+			local_size += SSIZE_OF(sw);
 
-		if (frame_size > tmp)
-			FAIL_IF(push_inst(compiler, SUB | RD(SLJIT_SP) | RN(SLJIT_SP) | (1 << 25) | (sljit_uw)(frame_size - tmp)));
-		else if (frame_size < tmp)
-			FAIL_IF(emit_add_sp(compiler, (sljit_uw)(tmp - frame_size)));
+		if (frame_size > local_size)
+			FAIL_IF(push_inst(compiler, SUB | RD(SLJIT_SP) | RN(SLJIT_SP) | (1 << 25) | (sljit_uw)(frame_size - local_size)));
+		else if (frame_size < local_size)
+			FAIL_IF(emit_add_sp(compiler, (sljit_uw)(local_size - frame_size)));
 
 		if (reg_list == 0)
 			return SLJIT_SUCCESS;
@@ -1236,8 +1295,8 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 			| RN(SLJIT_SP) | RD(lr_dst) | (sljit_uw)(frame_size - 2 * SSIZE_OF(sw)));
 	}
 
-	if (tmp > 0)
-		FAIL_IF(emit_add_sp(compiler, (sljit_uw)tmp));
+	if (local_size > 0)
+		FAIL_IF(emit_add_sp(compiler, (sljit_uw)local_size));
 
 	/* Pop saved and temporary registers
 	   multiple registers: ldmia sp!, {...}
@@ -1268,23 +1327,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 /* --------------------------------------------------------------------- */
 /*  Operators                                                            */
 /* --------------------------------------------------------------------- */
-
-/* flags: */
-  /* Arguments are swapped. */
-#define ARGS_SWAPPED	0x01
-  /* Inverted immediate. */
-#define INV_IMM		0x02
-  /* Source and destination is register. */
-#define MOVE_REG_CONV	0x04
-  /* Unused return value. */
-#define UNUSED_RETURN	0x08
-/* SET_FLAGS must be (1 << 20) as it is also the value of S bit (can be used for optimization). */
-#define SET_FLAGS	(1 << 20)
-/* dst: reg
-   src1: reg
-   src2: reg or imm (if allowed)
-   SRC2_IMM must be (1 << 25) as it is also the value of I bit (can be used for optimization). */
-#define SRC2_IMM	(1 << 25)
 
 #define EMIT_SHIFT_INS_AND_RETURN(opcode) \
 	SLJIT_ASSERT(!(flags & INV_IMM) && !(src2 & SRC2_IMM)); \
