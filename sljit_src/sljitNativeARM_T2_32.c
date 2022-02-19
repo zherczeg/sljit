@@ -1086,9 +1086,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_u32 remap[3];
 	sljit_u32 *remap_ptr = remap;
 #endif
-#ifdef _WIN32
-	sljit_uw imm;
-#endif
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
