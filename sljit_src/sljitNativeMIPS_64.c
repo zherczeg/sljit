@@ -650,7 +650,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	PTR_FAIL_IF(!jump);
 	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 
-	if (type & SLJIT_TAIL_CALL)
+	if (type & SLJIT_CALL_RETURN)
 		PTR_FAIL_IF(emit_stack_frame_release(compiler, 0, &ins));
 
 	PTR_FAIL_IF(call_with_args(compiler, arg_types, &ins));
@@ -659,7 +659,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 
 	PTR_FAIL_IF(emit_const(compiler, PIC_ADDR_REG, 0));
 
-	if (!(type & SLJIT_TAIL_CALL)) {
+	if (!(type & SLJIT_CALL_RETURN)) {
 		jump->flags |= IS_JAL | IS_CALL;
 		PTR_FAIL_IF(push_inst(compiler, JALR | S(PIC_ADDR_REG) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
 	} else
@@ -691,13 +691,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 		FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, DR(PIC_ADDR_REG), src, srcw));
 	}
 
-	if (type & SLJIT_TAIL_CALL)
+	if (type & SLJIT_CALL_RETURN)
 		FAIL_IF(emit_stack_frame_release(compiler, 0, &ins));
 
 	FAIL_IF(call_with_args(compiler, arg_types, &ins));
 
 	/* Register input. */
-	if (!(type & SLJIT_TAIL_CALL))
+	if (!(type & SLJIT_CALL_RETURN))
 		FAIL_IF(push_inst(compiler, JALR | S(PIC_ADDR_REG) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
 	else
 		FAIL_IF(push_inst(compiler, JR | S(PIC_ADDR_REG), UNMOVABLE_INS));

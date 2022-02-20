@@ -442,7 +442,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 
 static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types, sljit_ins *ins_ptr, sljit_u32 *extra_space)
 {
-	sljit_u32 is_tail_call = *extra_space & SLJIT_TAIL_CALL;
+	sljit_u32 is_tail_call = *extra_space & SLJIT_CALL_RETURN;
 	sljit_u32 offset = 0;
 	sljit_s32 float_arg_count = 0;
 	sljit_s32 word_arg_count = 0;
@@ -589,7 +589,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 
 	PTR_FAIL_IF(emit_const(compiler, PIC_ADDR_REG, 0));
 
-	if (!(type & SLJIT_TAIL_CALL) || extra_space > 0) {
+	if (!(type & SLJIT_CALL_RETURN) || extra_space > 0) {
 		jump->flags |= IS_JAL | IS_CALL;
 		PTR_FAIL_IF(push_inst(compiler, JALR | S(PIC_ADDR_REG) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
 	} else
@@ -601,15 +601,15 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	if (extra_space == 0)
 		return jump;
 
-	if (type & SLJIT_TAIL_CALL)
+	if (type & SLJIT_CALL_RETURN)
 		PTR_FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, RETURN_ADDR_REG,
 			SLJIT_MEM1(SLJIT_SP), (sljit_sw)(extra_space - sizeof(sljit_sw))));
 
-	if (type & SLJIT_TAIL_CALL)
+	if (type & SLJIT_CALL_RETURN)
 		PTR_FAIL_IF(push_inst(compiler, JR | SA(RETURN_ADDR_REG), UNMOVABLE_INS));
 
 	PTR_FAIL_IF(push_inst(compiler, ADDIU | S(SLJIT_SP) | T(SLJIT_SP) | IMM(extra_space),
-		(type & SLJIT_TAIL_CALL) ? UNMOVABLE_INS : DR(SLJIT_SP)));
+		(type & SLJIT_CALL_RETURN) ? UNMOVABLE_INS : DR(SLJIT_SP)));
 	return jump;
 }
 
@@ -637,7 +637,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	FAIL_IF(call_with_args(compiler, arg_types, &ins, &extra_space));
 
 	/* Register input. */
-	if (!(type & SLJIT_TAIL_CALL) || extra_space > 0)
+	if (!(type & SLJIT_CALL_RETURN) || extra_space > 0)
 		FAIL_IF(push_inst(compiler, JALR | S(PIC_ADDR_REG) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
 	else
 		FAIL_IF(push_inst(compiler, JR | S(PIC_ADDR_REG), UNMOVABLE_INS));
@@ -646,13 +646,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	if (extra_space == 0)
 		return SLJIT_SUCCESS;
 
-	if (type & SLJIT_TAIL_CALL)
+	if (type & SLJIT_CALL_RETURN)
 		FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, RETURN_ADDR_REG,
 			SLJIT_MEM1(SLJIT_SP), (sljit_sw)(extra_space - sizeof(sljit_sw))));
 
-	if (type & SLJIT_TAIL_CALL)
+	if (type & SLJIT_CALL_RETURN)
 		FAIL_IF(push_inst(compiler, JR | SA(RETURN_ADDR_REG), UNMOVABLE_INS));
 
 	return push_inst(compiler, ADDIU | S(SLJIT_SP) | T(SLJIT_SP) | IMM(extra_space),
-		(type & SLJIT_TAIL_CALL) ? UNMOVABLE_INS : DR(SLJIT_SP));
+		(type & SLJIT_CALL_RETURN) ? UNMOVABLE_INS : DR(SLJIT_SP));
 }

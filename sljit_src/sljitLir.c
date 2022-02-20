@@ -1668,11 +1668,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_call(struct sljit_compile
 	sljit_s32 arg_types)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_TAIL_CALL)));
+	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_CALL_RETURN)));
 	CHECK_ARGUMENT((type & 0xff) == SLJIT_CALL || (type & 0xff) == SLJIT_CALL_CDECL);
 	CHECK_ARGUMENT(function_check_arguments(arg_types, compiler->scratches, compiler->fscratches, compiler->scratches));
 
-	if (type & SLJIT_TAIL_CALL) {
+	if (type & SLJIT_CALL_RETURN) {
 		CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) == compiler->last_return);
 	}
 #endif
@@ -1680,7 +1680,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_call(struct sljit_compile
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  %s%s%s ret[%s", jump_names[type & 0xff],
 			!(type & SLJIT_REWRITABLE_JUMP) ? "" : ".r",
-			!(type & SLJIT_TAIL_CALL) ? "" : ".tail",
+			!(type & SLJIT_CALL_RETURN) ? "" : ".ret",
 			call_arg_names[arg_types & SLJIT_ARG_MASK]);
 
 		arg_types >>= SLJIT_ARG_SHIFT;
@@ -1775,18 +1775,18 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_icall(struct sljit_compil
 	sljit_s32 src, sljit_sw srcw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_TAIL_CALL)));
+	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_CALL_RETURN)));
 	CHECK_ARGUMENT((type & 0xff) == SLJIT_CALL || (type & 0xff) == SLJIT_CALL_CDECL);
 	FUNCTION_CHECK_SRC(src, srcw);
 
-	if (type & SLJIT_TAIL_CALL) {
+	if (type & SLJIT_CALL_RETURN) {
 		CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) == compiler->last_return);
 	}
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  i%s%s ret[%s", jump_names[type & 0xff],
-			!(type & SLJIT_TAIL_CALL) ? "" : ".tail",
+			!(type & SLJIT_CALL_RETURN) ? "" : ".ret",
 			call_arg_names[arg_types & SLJIT_ARG_MASK]);
 
 		arg_types >>= SLJIT_ARG_SHIFT;

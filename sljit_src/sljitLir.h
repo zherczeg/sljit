@@ -1224,7 +1224,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 
    This feature is highly experimental and not supported on SPARC platform
    at the moment. */
-#define SLJIT_TAIL_CALL			0x2000
+#define SLJIT_CALL_RETURN			0x2000
 
 /* Emit a jump instruction. The destination is not set, only the type of the jump.
     type must be between SLJIT_EQUAL and SLJIT_FAST_CALL
@@ -1235,7 +1235,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 
 /* Emit a C compiler (ABI) compatible function call.
     type must be SLJIT_CALL or SLJIT_CALL_CDECL
-    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP and SLJIT_TAIL_CALL
+    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP and SLJIT_CALL_RETURN
     arg_types is the combination of SLJIT_RET / SLJIT_ARGx (SLJIT_DEF_RET / SLJIT_DEF_ARGx) macros
 
    Flags: destroy all flags. */
@@ -1284,7 +1284,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
    Direct form: set src to SLJIT_IMM() and srcw to the address
    Indirect form: any other valid addressing mode
     type must be SLJIT_CALL or SLJIT_CALL_CDECL
-    type can be combined (or'ed) with SLJIT_TAIL_CALL
+    type can be combined (or'ed) with SLJIT_CALL_RETURN
     arg_types is the combination of SLJIT_RET / SLJIT_ARGx (SLJIT_DEF_RET / SLJIT_DEF_ARGx) macros
 
    Flags: destroy all flags. */

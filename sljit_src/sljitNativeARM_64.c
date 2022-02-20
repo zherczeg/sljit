@@ -1801,7 +1801,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	CHECK_ERROR_PTR();
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
-	if (type & SLJIT_TAIL_CALL) {
+	if (type & SLJIT_CALL_RETURN) {
 		PTR_FAIL_IF(emit_stack_frame_release(compiler));
 		type = SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP);
 	}
@@ -1889,7 +1889,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 		src = TMP_REG1;
 	}
 
-	if (type & SLJIT_TAIL_CALL) {
+	if (type & SLJIT_CALL_RETURN) {
 		if (src >= SLJIT_FIRST_SAVED_REG && src <= SLJIT_S0) {
 			FAIL_IF(push_inst(compiler, ORR | RD(TMP_REG1) | RN(TMP_ZERO) | RM(src)));
 			src = TMP_REG1;
@@ -2073,6 +2073,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_local_base(struct sljit_compiler *c
 
 	dst_reg = FAST_IS_REG(dst) ? dst : TMP_REG1;
 
+	/* Not all instruction forms support accessing SP register. */
 	if (offset <= 0xffffff && offset >= -0xffffff) {
 		ins = ADDI;
 		if (offset < 0) {

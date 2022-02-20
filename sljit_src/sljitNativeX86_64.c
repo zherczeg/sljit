@@ -786,7 +786,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 
 	PTR_FAIL_IF(call_with_args(compiler, arg_types, NULL));
 
-	if (type & SLJIT_TAIL_CALL) {
+	if (type & SLJIT_CALL_RETURN) {
 		PTR_FAIL_IF(emit_stack_frame_release(compiler));
 		type = SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP);
 	}
@@ -813,7 +813,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 		src = TMP_REG2;
 	}
 
-	if (type & SLJIT_TAIL_CALL) {
+	if (type & SLJIT_CALL_RETURN) {
 		if (src >= SLJIT_FIRST_SAVED_REG && src <= SLJIT_S0) {
 			EMIT_MOV(compiler, TMP_REG2, 0, src, srcw);
 			src = TMP_REG2;

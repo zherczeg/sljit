@@ -1214,7 +1214,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	CHECK_ERROR_PTR();
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
-	if (type & SLJIT_TAIL_CALL) {
+	if (type & SLJIT_CALL_RETURN) {
 		stack_size = type;
 		PTR_FAIL_IF(tail_call_with_args(compiler, &stack_size, arg_types, SLJIT_IMM, 0));
 
@@ -1281,7 +1281,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
 
-	if (type & SLJIT_TAIL_CALL) {
+	if (type & SLJIT_CALL_RETURN) {
 		stack_size = type;
 		FAIL_IF(tail_call_with_args(compiler, &stack_size, arg_types, src, srcw));
 
