@@ -109,7 +109,7 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 7] = {
 };
 
 static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
-	0, 1, 2, 3, 4, 5, 6, 0, 7
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 0, 13
 };
 
 /* --------------------------------------------------------------------- */
@@ -182,6 +182,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define FSUB		(HI(63) | LO(20))
 #define FSUBS		(HI(59) | LO(20))
 #define LD		(HI(58) | 0)
+#define LFD		(HI(50))
 #define LWZ		(HI(32))
 #define MFCR		(HI(31) | LO(19))
 #define MFLR		(HI(31) | LO(339) | 0x80000)
@@ -215,6 +216,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define STD		(HI(62) | 0)
 #define STDU		(HI(62) | 1)
 #define STDUX		(HI(31) | LO(181))
+#define STFD		(HI(54))
 #define STFIWX		(HI(31) | LO(983))
 #define STW		(HI(36))
 #define STWU		(HI(37))
@@ -705,11 +707,19 @@ ALT_FORM5		0x010000 */
 #define STACK_LOAD	LD
 #endif
 
+#if (defined SLJIT_PPC_STACK_FRAME_V2 && SLJIT_PPC_STACK_FRAME_V2)
+#define LR_SAVE_OFFSET		2 * SSIZE_OF(sw)
+#else
+#define LR_SAVE_OFFSET		SSIZE_OF(sw)
+#endif
+
+#define STACK_MAX_DISTANCE	(0x8000 - SSIZE_OF(sw) - LR_SAVE_OFFSET)
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compiler,
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
-	sljit_s32 i, tmp, offset;
+	sljit_s32 i, tmp, base, offset;
 	sljit_s32 word_arg_count = 0;
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	sljit_s32 arg_count = 0;
@@ -719,34 +729,62 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
-	FAIL_IF(push_inst(compiler, MFLR | D(0)));
-	offset = -(sljit_s32)(sizeof(sljit_sw));
-	FAIL_IF(push_inst(compiler, STACK_STORE | S(TMP_ZERO) | A(SLJIT_SP) | IMM(offset)));
+	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1)
+		+ GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, sizeof(sljit_f64));
+	local_size = (local_size + SLJIT_LOCALS_OFFSET + 15) & ~0xf;
+	compiler->local_size = local_size;
 
-	tmp = saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - saveds) : SLJIT_FIRST_SAVED_REG;
-	for (i = SLJIT_S0; i >= tmp; i--) {
-		offset -= (sljit_s32)(sizeof(sljit_sw));
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(i) | A(SLJIT_SP) | IMM(offset)));
+	FAIL_IF(push_inst(compiler, MFLR | D(0)));
+
+	base = SLJIT_SP;
+	offset = local_size;
+
+	if (local_size <= STACK_MAX_DISTANCE) {
+#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
+		FAIL_IF(push_inst(compiler, STWU | S(SLJIT_SP) | A(SLJIT_SP) | IMM(-local_size)));
+#else
+		FAIL_IF(push_inst(compiler, STDU | S(SLJIT_SP) | A(SLJIT_SP) | IMM(-local_size)));
+#endif
+	} else {
+		base = TMP_REG1;
+		FAIL_IF(push_inst(compiler, OR | S(SLJIT_SP) | A(TMP_REG1) | B(SLJIT_SP)));
+		FAIL_IF(load_immediate(compiler, TMP_REG2, -local_size));
+#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
+		FAIL_IF(push_inst(compiler, STWUX | S(SLJIT_SP) | A(SLJIT_SP) | B(TMP_REG2)));
+#else
+		FAIL_IF(push_inst(compiler, STDUX | S(SLJIT_SP) | A(SLJIT_SP) | B(TMP_REG2)));
+#endif
+		local_size = 0;
+		offset = 0;
+	}
+
+	tmp = SLJIT_FS0 - fsaveds;
+	for (i = SLJIT_FS0; i > tmp; i--) {
+		offset -= SSIZE_OF(f64);
+		FAIL_IF(push_inst(compiler, STFD | FS(i) | A(base) | IMM(offset)));
+	}
+
+	for (i = fscratches; i >= SLJIT_FIRST_SAVED_FLOAT_REG; i--) {
+		offset -= SSIZE_OF(f64);
+		FAIL_IF(push_inst(compiler, STFD | FS(i) | A(base) | IMM(offset)));
+	}
+
+	offset -= SSIZE_OF(sw);
+	FAIL_IF(push_inst(compiler, STACK_STORE | S(TMP_ZERO) | A(base) | IMM(offset)));
+
+	tmp = SLJIT_S0 - saveds;
+	for (i = SLJIT_S0; i > tmp; i--) {
+		offset -= SSIZE_OF(sw);
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(i) | A(base) | IMM(offset)));
 	}
 
 	for (i = scratches; i >= SLJIT_FIRST_SAVED_REG; i--) {
-		offset -= (sljit_s32)(sizeof(sljit_sw));
-		FAIL_IF(push_inst(compiler, STACK_STORE | S(i) | A(SLJIT_SP) | IMM(offset)));
+		offset -= SSIZE_OF(sw);
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(i) | A(base) | IMM(offset)));
 	}
 
-	SLJIT_ASSERT(offset == -(sljit_s32)GET_SAVED_REGISTERS_SIZE(compiler->scratches, compiler->saveds, 1));
-
-#if (defined SLJIT_PPC_STACK_FRAME_V2 && SLJIT_PPC_STACK_FRAME_V2)
-	FAIL_IF(push_inst(compiler, STACK_STORE | S(0) | A(SLJIT_SP) | IMM(2 * sizeof(sljit_sw))));
-#else
-	FAIL_IF(push_inst(compiler, STACK_STORE | S(0) | A(SLJIT_SP) | IMM(sizeof(sljit_sw))));
-#endif
-
+	FAIL_IF(push_inst(compiler, STACK_STORE | S(0) | A(base) | IMM(local_size + LR_SAVE_OFFSET)));
 	FAIL_IF(push_inst(compiler, ADDI | D(TMP_ZERO) | A(0) | 0));
-
-	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1) + SLJIT_LOCALS_OFFSET;
-	local_size = (local_size + 15) & ~0xf;
-	compiler->local_size = local_size;
 
 	arg_types >>= SLJIT_ARG_SHIFT;
 
@@ -766,22 +804,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
-#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
-	if (local_size <= -SIMM_MIN)
-		FAIL_IF(push_inst(compiler, STWU | S(SLJIT_SP) | A(SLJIT_SP) | IMM(-local_size)));
-	else {
-		FAIL_IF(load_immediate(compiler, 0, -local_size));
-		FAIL_IF(push_inst(compiler, STWUX | S(SLJIT_SP) | A(SLJIT_SP) | B(0)));
-	}
-#else
-	if (local_size <= -SIMM_MIN)
-		FAIL_IF(push_inst(compiler, STDU | S(SLJIT_SP) | A(SLJIT_SP) | IMM(-local_size)));
-	else {
-		FAIL_IF(load_immediate(compiler, 0, -local_size));
-		FAIL_IF(push_inst(compiler, STDUX | S(SLJIT_SP) | A(SLJIT_SP) | B(0)));
-	}
-#endif
-
 	return SLJIT_SUCCESS;
 }
 
@@ -793,49 +815,65 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	CHECK(check_sljit_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
-	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1) + SLJIT_LOCALS_OFFSET;
-	compiler->local_size = (local_size + 15) & ~0xf;
+	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1)
+		+ GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, sizeof(sljit_f64));
+	compiler->local_size = (local_size + SLJIT_LOCALS_OFFSET + 15) & ~0xf;
 	return SLJIT_SUCCESS;
 }
 
+
 static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 {
-	sljit_s32 i, tmp, offs;
+	sljit_s32 i, tmp, base, offset;
+	sljit_s32 local_size = compiler->local_size;
 
-	/* The 288 bytes below the stack pointer is available as
-	   volatile storage which is not preserved across function calls. */
-
-	if (compiler->local_size <= SIMM_MAX)
-		FAIL_IF(push_inst(compiler, ADDI | D(SLJIT_SP) | A(SLJIT_SP) | IMM(compiler->local_size)));
-	else {
-		FAIL_IF(load_immediate(compiler, 0, compiler->local_size));
-		FAIL_IF(push_inst(compiler, ADD | D(SLJIT_SP) | A(SLJIT_SP) | B(0)));
+	base = SLJIT_SP;
+	if (local_size > STACK_MAX_DISTANCE) {
+		base = TMP_REG1;
+		if (local_size > 2 * STACK_MAX_DISTANCE + LR_SAVE_OFFSET) {
+			FAIL_IF(push_inst(compiler, STACK_LOAD | D(base) | A(SLJIT_SP) | IMM(0)));
+			local_size = 0;
+		} else {
+			FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG1) | A(SLJIT_SP) | IMM(local_size - STACK_MAX_DISTANCE)));
+			local_size = STACK_MAX_DISTANCE;
+		}
 	}
 
-#if (defined SLJIT_PPC_STACK_FRAME_V2 && SLJIT_PPC_STACK_FRAME_V2)
-	FAIL_IF(push_inst(compiler, STACK_LOAD | D(0) | A(SLJIT_SP) | IMM(2 * sizeof(sljit_sw))));
-#else
-	FAIL_IF(push_inst(compiler, STACK_LOAD | D(0) | A(SLJIT_SP) | IMM(sizeof(sljit_sw))));
-#endif
+	offset = local_size;
+	FAIL_IF(push_inst(compiler, STACK_LOAD | S(0) | A(base) | IMM(offset + LR_SAVE_OFFSET)));
 
-	offs = -(sljit_s32)GET_SAVED_REGISTERS_SIZE(compiler->scratches, compiler->saveds, 1);
-
-	tmp = compiler->scratches;
-	for (i = SLJIT_FIRST_SAVED_REG; i <= tmp; i++) {
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(i) | A(SLJIT_SP) | IMM(offs)));
-		offs += (sljit_s32)(sizeof(sljit_sw));
+	tmp = SLJIT_FS0 - compiler->fsaveds;
+	for (i = SLJIT_FS0; i > tmp; i--) {
+		offset -= SSIZE_OF(f64);
+		FAIL_IF(push_inst(compiler, LFD | FS(i) | A(base) | IMM(offset)));
 	}
 
-	tmp = compiler->saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - compiler->saveds) : SLJIT_FIRST_SAVED_REG;
-	for (i = tmp; i <= SLJIT_S0; i++) {
-		FAIL_IF(push_inst(compiler, STACK_LOAD | D(i) | A(SLJIT_SP) | IMM(offs)));
-		offs += (sljit_s32)(sizeof(sljit_sw));
+	for (i = compiler->fscratches; i >= SLJIT_FIRST_SAVED_FLOAT_REG; i--) {
+		offset -= SSIZE_OF(f64);
+		FAIL_IF(push_inst(compiler, LFD | FS(i) | A(base) | IMM(offset)));
 	}
 
-	SLJIT_ASSERT(offs == -(sljit_sw)(sizeof(sljit_sw)));
-	FAIL_IF(push_inst(compiler, STACK_LOAD | D(TMP_ZERO) | A(SLJIT_SP) | IMM(offs)));
+	offset -= SSIZE_OF(sw);
+	FAIL_IF(push_inst(compiler, STACK_LOAD | S(TMP_ZERO) | A(base) | IMM(offset)));
 
-	return push_inst(compiler, MTLR | S(0));
+	tmp = SLJIT_S0 - compiler->saveds;
+	for (i = SLJIT_S0; i > tmp; i--) {
+		offset -= SSIZE_OF(sw);
+		FAIL_IF(push_inst(compiler, STACK_LOAD | S(i) | A(base) | IMM(offset)));
+	}
+
+	for (i = compiler->scratches; i >= SLJIT_FIRST_SAVED_REG; i--) {
+		offset -= SSIZE_OF(sw);
+		FAIL_IF(push_inst(compiler, STACK_LOAD | S(i) | A(base) | IMM(offset)));
+	}
+
+	push_inst(compiler, MTLR | S(0));
+
+	if (local_size > 0)
+		return push_inst(compiler, ADDI | D(SLJIT_SP) | A(base) | IMM(local_size));
+
+	SLJIT_ASSERT(base == TMP_REG1);
+	return push_inst(compiler, OR | S(base) | A(SLJIT_SP) | B(base));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)

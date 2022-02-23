@@ -86,13 +86,13 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 
 static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
-	0, 0, 14, 2, 4, 6, 8, 12, 10, 16
+	0, 0, 14, 2, 4, 6, 8, 18, 30, 28, 26, 24, 22, 20, 12, 10, 16
 };
 
 #else
 
 static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
-	0, 0, 13, 14, 15, 16, 17, 12, 18, 10
+	0, 0, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 1, 2, 3, 4, 5, 6, 7, 8, 9, 31, 30, 29, 28, 27, 26, 25, 24, 12, 11, 10
 };
 
 #endif
@@ -769,47 +769,95 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
 	sljit_ins base;
-	sljit_s32 i, tmp, offs;
+	sljit_s32 i, tmp, offset;
 	sljit_s32 arg_count, word_arg_count, float_arg_count;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
-	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1) + SLJIT_LOCALS_OFFSET;
+	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	local_size = (local_size + 15) & ~0xf;
+	if (fsaveds > 0 || fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG) {
+		if ((local_size & SSIZE_OF(sw)) != 0)
+			local_size += SSIZE_OF(sw);
+		local_size += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, sizeof(sljit_f64));
+	}
+
+	local_size = (local_size + SLJIT_LOCALS_OFFSET + 15) & ~0xf;
 #else
-	local_size = (local_size + 31) & ~0x1f;
+	local_size += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, sizeof(sljit_f64));
+	local_size = (local_size + SLJIT_LOCALS_OFFSET + 31) & ~0x1f;
 #endif
 	compiler->local_size = local_size;
 
-	if (local_size <= -SIMM_MIN) {
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	tmp = arg_types >> SLJIT_ARG_SHIFT;
+	arg_count = 0;
+	offset = 0;
+
+	while (tmp) {
+		offset = arg_count;
+		if ((tmp & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F64) {
+			if ((arg_count & 0x1) != 0)
+				arg_count++;
+			arg_count++;
+		}
+
+		arg_count++;
+		tmp >>= SLJIT_ARG_SHIFT;
+	}
+
+	compiler->args_size = (sljit_uw)arg_count << 2;
+	offset = (offset >= 4) ? (offset << 2) : 0;
+#else /* !SLJIT_CONFIG_MIPS_32 */
+	offset = 0;
+#endif /* SLJIT_CONFIG_MIPS_32 */
+
+	if (local_size + offset <= -SIMM_MIN) {
 		/* Frequent case. */
 		FAIL_IF(push_inst(compiler, ADDIU_W | S(SLJIT_SP) | T(SLJIT_SP) | IMM(-local_size), DR(SLJIT_SP)));
 		base = S(SLJIT_SP);
-		offs = local_size - SSIZE_OF(sw);
-	}
-	else {
+		offset = local_size - SSIZE_OF(sw);
+	} else {
 		FAIL_IF(load_immediate(compiler, DR(OTHER_FLAG), local_size));
 		FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_SP) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
 		FAIL_IF(push_inst(compiler, SUBU_W | S(SLJIT_SP) | T(OTHER_FLAG) | D(SLJIT_SP), DR(SLJIT_SP)));
 		base = S(TMP_REG2);
+		offset = -SSIZE_OF(sw);
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 		local_size = 0;
-		offs = -(sljit_sw)sizeof(sljit_sw);
+#endif
 	}
 
-	FAIL_IF(push_inst(compiler, STACK_STORE | base | TA(RETURN_ADDR_REG) | IMM(offs), MOVABLE_INS));
+	FAIL_IF(push_inst(compiler, STACK_STORE | base | TA(RETURN_ADDR_REG) | IMM(offset), MOVABLE_INS));
 
-	tmp = saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - saveds) : SLJIT_FIRST_SAVED_REG;
-	for (i = SLJIT_S0; i >= tmp; i--) {
-		offs -= (sljit_s32)(sizeof(sljit_sw));
-		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(i) | IMM(offs), MOVABLE_INS));
+	tmp = SLJIT_S0 - saveds;
+	for (i = SLJIT_S0; i > tmp; i--) {
+		offset -= SSIZE_OF(sw);
+		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(i) | IMM(offset), MOVABLE_INS));
 	}
 
 	for (i = scratches; i >= SLJIT_FIRST_SAVED_REG; i--) {
-		offs -= (sljit_s32)(sizeof(sljit_sw));
-		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(i) | IMM(offs), MOVABLE_INS));
+		offset -= SSIZE_OF(sw);
+		FAIL_IF(push_inst(compiler, STACK_STORE | base | T(i) | IMM(offset), MOVABLE_INS));
+	}
+
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	/* This alignment is valid because offset is not used after storing FPU regs. */
+	if ((offset & SSIZE_OF(sw)) != 0)
+		offset -= SSIZE_OF(sw);
+#endif
+
+	tmp = SLJIT_FS0 - fsaveds;
+	for (i = SLJIT_FS0; i > tmp; i--) {
+		offset -= SSIZE_OF(f64);
+		FAIL_IF(push_inst(compiler, SDC1 | base | FT(i) | IMM(offset), MOVABLE_INS));
+	}
+
+	for (i = fscratches; i >= SLJIT_FIRST_SAVED_FLOAT_REG; i--) {
+		offset -= SSIZE_OF(f64);
+		FAIL_IF(push_inst(compiler, SDC1 | base | FT(i) | IMM(offset), MOVABLE_INS));
 	}
 
 	arg_types >>= SLJIT_ARG_SHIFT;
@@ -866,7 +914,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
-	compiler->args_size = (sljit_uw)arg_count << 2;
+	SLJIT_ASSERT(compiler->args_size == (sljit_uw)arg_count << 2);
 #else /* !SLJIT_CONFIG_MIPS_32 */
 	while (arg_types) {
 		arg_count++;
@@ -905,45 +953,51 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	CHECK(check_sljit_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
-	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1) + SLJIT_LOCALS_OFFSET;
+	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	compiler->local_size = (local_size + 15) & ~0xf;
+	if (fsaveds > 0 || fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG) {
+		if ((local_size & SSIZE_OF(sw)) != 0)
+			local_size += SSIZE_OF(sw);
+		local_size += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, sizeof(sljit_f64));
+	}
+
+	compiler->local_size = (local_size + SLJIT_LOCALS_OFFSET + 15) & ~0xf;
 #else
-	compiler->local_size = (local_size + 31) & ~0x1f;
+	local_size += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, sizeof(sljit_f64));
+	compiler->local_size = (local_size + SLJIT_LOCALS_OFFSET + 31) & ~0x1f;
 #endif
 	return SLJIT_SUCCESS;
 }
 
 static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit_s32 frame_size, sljit_ins *ins_ptr)
 {
-	sljit_s32 local_size, i, tmp, offs;
+	sljit_s32 local_size, i, tmp, offset;
+	sljit_s32 scratches = compiler->scratches;
+	sljit_s32 saveds = compiler->saveds;
+	sljit_s32 fsaveds = compiler->fsaveds;
+	sljit_s32 fscratches = compiler->fscratches;
 
 	local_size = compiler->local_size;
 
-	tmp = (sljit_s32)GET_SAVED_REGISTERS_SIZE(compiler->scratches, compiler->saveds, 1);
-
-	if (frame_size > 0) {
-		SLJIT_ASSERT(frame_size >= 2 * SSIZE_OF(sw));
-		local_size -= SSIZE_OF(sw);
-		tmp -= SSIZE_OF(sw);
-		frame_size -= SSIZE_OF(sw);
+	tmp = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	if (fsaveds > 0 || fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG) {
+		if ((tmp & SSIZE_OF(sw)) != 0)
+			tmp += SSIZE_OF(sw);
+		tmp += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, sizeof(sljit_f64));
 	}
+#else
+	tmp += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, sizeof(sljit_f64));
+#endif
 
 	if (local_size <= SIMM_MAX) {
-		offs = local_size - tmp;
-
 		if (local_size < frame_size) {
-			offs = frame_size - tmp;
 			FAIL_IF(push_inst(compiler, ADDIU_W | S(SLJIT_SP) | T(SLJIT_SP) | IMM(local_size - frame_size), DR(SLJIT_SP)));
 			local_size = frame_size;
 		}
 	} else {
-		offs = 0;
-
-		if (tmp < frame_size) {
-			offs = frame_size - tmp;
+		if (tmp < frame_size)
 			tmp = frame_size;
-		}
 
 		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), local_size - tmp));
 		FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_SP) | T(TMP_REG1) | D(SLJIT_SP), DR(SLJIT_SP)));
@@ -952,22 +1006,37 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 
 	SLJIT_ASSERT(local_size >= frame_size);
 
+	offset = local_size - SSIZE_OF(sw);
 	if (frame_size == 0)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | S(SLJIT_SP) | TA(RETURN_ADDR_REG) | IMM(local_size - SSIZE_OF(sw)), RETURN_ADDR_REG));
+		FAIL_IF(push_inst(compiler, STACK_LOAD | S(SLJIT_SP) | TA(RETURN_ADDR_REG) | IMM(offset), RETURN_ADDR_REG));
 
-	tmp = compiler->scratches;
-	for (i = SLJIT_FIRST_SAVED_REG; i <= tmp; i++) {
-		FAIL_IF(push_inst(compiler, STACK_LOAD | S(SLJIT_SP) | T(i) | IMM(offs), DR(i)));
-		offs += SSIZE_OF(sw);
+	tmp = SLJIT_S0 - saveds;
+	for (i = SLJIT_S0; i > tmp; i--) {
+		offset -= SSIZE_OF(sw);
+		FAIL_IF(push_inst(compiler, STACK_LOAD | S(SLJIT_SP) | T(i) | IMM(offset), MOVABLE_INS));
 	}
 
-	tmp = compiler->saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - compiler->saveds) : SLJIT_FIRST_SAVED_REG;
-	for (i = tmp; i <= SLJIT_S0; i++) {
-		FAIL_IF(push_inst(compiler, STACK_LOAD | S(SLJIT_SP) | T(i) | IMM(offs), DR(i)));
-		offs += SSIZE_OF(sw);
+	for (i = scratches; i >= SLJIT_FIRST_SAVED_REG; i--) {
+		offset -= SSIZE_OF(sw);
+		FAIL_IF(push_inst(compiler, STACK_LOAD | S(SLJIT_SP) | T(i) | IMM(offset), MOVABLE_INS));
 	}
 
-	SLJIT_ASSERT(offs == local_size - (frame_size == 0 ? SSIZE_OF(sw) : 0));
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	/* This alignment is valid because offset is not used after storing FPU regs. */
+	if ((offset & SSIZE_OF(sw)) != 0)
+		offset -= SSIZE_OF(sw);
+#endif
+
+	tmp = SLJIT_FS0 - fsaveds;
+	for (i = SLJIT_FS0; i > tmp; i--) {
+		offset -= SSIZE_OF(f64);
+		FAIL_IF(push_inst(compiler, LDC1 | S(SLJIT_SP) | FT(i) | IMM(offset), MOVABLE_INS));
+	}
+
+	for (i = fscratches; i >= SLJIT_FIRST_SAVED_FLOAT_REG; i--) {
+		offset -= SSIZE_OF(f64);
+		FAIL_IF(push_inst(compiler, LDC1 | S(SLJIT_SP) | FT(i) | IMM(offset), MOVABLE_INS));
+	}
 
 	if (local_size > frame_size)
 		*ins_ptr = ADDIU_W | S(SLJIT_SP) | T(SLJIT_SP) | IMM(local_size - frame_size);
