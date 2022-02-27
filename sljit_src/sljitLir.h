@@ -652,9 +652,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
          overwrites the previous context.
 */
 
-/* The absolute address returned by sljit_get_local_base with
-offset 0 is aligned to sljit_f64. Otherwise it is aligned to sljit_sw. */
-#define SLJIT_F64_ALIGNMENT 0x00000001
+/* The compiled function uses cdecl calling
+ * convention instead of SLJIT_FUNC. */
+#define SLJIT_ENTER_CDECL 0x00000001
 
 /* The local_size must be >= 0 and <= SLJIT_MAX_LOCAL_SIZE. */
 #define SLJIT_MAX_LOCAL_SIZE	65536

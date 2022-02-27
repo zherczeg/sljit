@@ -1061,7 +1061,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 	SLJIT_UNUSED_ARG(compiler);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(options & ~SLJIT_F64_ALIGNMENT));
+	CHECK_ARGUMENT(!(options & ~SLJIT_ENTER_CDECL));
 	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	CHECK_ARGUMENT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
@@ -1091,7 +1091,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 		}
 
 		fprintf(compiler->verbose, "],%s scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
-			(options & SLJIT_F64_ALIGNMENT) ? " align:f64," : "",
+			(options & SLJIT_ENTER_CDECL) ? " enter:cdecl," : "",
 			scratches, saveds, fscratches, fsaveds, local_size);
 	}
 #endif
@@ -1105,7 +1105,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 	SLJIT_UNUSED_ARG(compiler);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(options & ~SLJIT_F64_ALIGNMENT));
+	CHECK_ARGUMENT(!(options & ~SLJIT_ENTER_CDECL));
 	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	CHECK_ARGUMENT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
@@ -1135,7 +1135,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 		}
 
 		fprintf(compiler->verbose, "],%s scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
-			(options & SLJIT_F64_ALIGNMENT) ? " align:f64," : "",
+			(options & SLJIT_ENTER_CDECL) ? " enter:cdecl," : "",
 			scratches, saveds, fscratches, fsaveds, local_size);
 	}
 #endif
@@ -1777,6 +1777,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_icall(struct sljit_compil
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_CALL_RETURN)));
 	CHECK_ARGUMENT((type & 0xff) == SLJIT_CALL || (type & 0xff) == SLJIT_CALL_CDECL);
+	CHECK_ARGUMENT(function_check_arguments(arg_types, compiler->scratches, compiler->fscratches, compiler->scratches));
 	FUNCTION_CHECK_SRC(src, srcw);
 
 	if (type & SLJIT_CALL_RETURN) {

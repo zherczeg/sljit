@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+27.02.2022 - Non-backward compatible
+    The SLJIT_F64_ALIGNMENT option is removed.
+
 17.02.2022 - Non-backward compatible
     Many floating point operations may destroy flags.
 

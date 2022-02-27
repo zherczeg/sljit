@@ -248,7 +248,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
 	sljit_s32 word_arg_count, float_arg_count, args_size, types;
-	sljit_uw size;
+	sljit_s32 size, locals_offset;
 	sljit_u8 *inst;
 
 	CHECK_ERROR();
@@ -280,11 +280,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		default:
 			word_arg_count++;
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-			if (word_arg_count > 2)
-				args_size += SSIZE_OF(sw);
-#else
-			args_size += SSIZE_OF(sw);
+			if (word_arg_count <= 2 && !(options & SLJIT_ENTER_CDECL))
+				break;
 #endif
+			args_size += SSIZE_OF(sw);
 			break;
 		}
 		types >>= SLJIT_ARG_SHIFT;
@@ -294,30 +293,33 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	compiler->args_size = args_size;
 
 	/* [esp+0] for saving temporaries and function calls. */
-	compiler->stack_tmp_size = 2 * SSIZE_OF(sw);
+	locals_offset = 2 * SSIZE_OF(sw);
 
-#if !(defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-	if (scratches > 3)
-		compiler->stack_tmp_size = 3 * SSIZE_OF(sw);
+#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
+	if ((options & SLJIT_ENTER_CDECL) && scratches >= 3)
+		locals_offset = 4 * SSIZE_OF(sw);
+#else
+	if (scratches >= 3)
+		locals_offset = 4 * SSIZE_OF(sw);
 #endif
 
-	compiler->saveds_offset = compiler->stack_tmp_size;
-	if (scratches > 3)
-		compiler->saveds_offset += ((scratches > (3 + 6)) ? 6 : (scratches - 3)) * SSIZE_OF(sw);
+	compiler->stack_tmp_size = locals_offset;
 
-	compiler->locals_offset = compiler->saveds_offset;
+	if (scratches > 3)
+		locals_offset += ((scratches > (3 + 6)) ? 6 : (scratches - 3)) * SSIZE_OF(sw);
+
+	compiler->saveds_offset = locals_offset;
 
 	if (saveds > 3)
-		compiler->locals_offset += (saveds - 3) * SSIZE_OF(sw);
+		locals_offset += (saveds - 3) * SSIZE_OF(sw);
 
-	if (options & SLJIT_F64_ALIGNMENT)
-		compiler->locals_offset = (compiler->locals_offset + SSIZE_OF(f64) - 1) & ~(SSIZE_OF(f64) - 1);
+	compiler->locals_offset = locals_offset;
 
-	size = (sljit_uw)(1 + (scratches > 9 ? (scratches - 9) : 0) + (saveds <= 3 ? saveds : 3));
-	inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
+	size = 1 + (scratches > 9 ? (scratches - 9) : 0) + (saveds <= 3 ? saveds : 3);
+	inst = (sljit_u8*)ensure_buf(compiler, (sljit_uw)(size + 1));
 	FAIL_IF(!inst);
 
-	INC_SIZE(size);
+	INC_SIZE((sljit_uw)size);
 	PUSH_REG(reg_map[TMP_REG1]);
 	if (saveds > 2 || scratches > 9)
 		PUSH_REG(reg_map[SLJIT_S2]);
@@ -326,11 +328,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	if (saveds > 0 || scratches > 11)
 		PUSH_REG(reg_map[SLJIT_S0]);
 
+	size *= SSIZE_OF(sw);
+
 	if (word_arg_count >= 4)
-		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_MEM1(SLJIT_SP), args_size + (sljit_s32)(size * sizeof(sljit_sw)));
+		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_MEM1(SLJIT_SP), args_size + size);
+
+	size += SSIZE_OF(sw);
+
+#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
+	if (!(options & SLJIT_ENTER_CDECL))
+		size += args_size;
+#endif
+
+	local_size = ((locals_offset + local_size + size + 0xf) & ~0xf) - size;
+	compiler->local_size = local_size;
+
+#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
+	if (!(options & SLJIT_ENTER_CDECL))
+		size -= args_size;
+#endif
 
 	word_arg_count = 0;
-	args_size = (sljit_s32)((size + 1) * sizeof(sljit_sw));
+	args_size = size;
 	while (arg_types) {
 		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F64:
@@ -343,7 +362,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			word_arg_count++;
 			if (word_arg_count <= 3) {
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-				if (word_arg_count <= 2)
+				if (!(options & SLJIT_ENTER_CDECL) && word_arg_count <= 2)
 					break;
 #endif
 				EMIT_MOV(compiler, SLJIT_S0 + 1 - word_arg_count, 0, SLJIT_MEM1(SLJIT_SP), args_size);
@@ -355,92 +374,59 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	}
 
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-	if (word_arg_count > 0)
-		EMIT_MOV(compiler, SLJIT_S0, 0, SLJIT_R2, 0);
-	if (word_arg_count > 1)
-		EMIT_MOV(compiler, SLJIT_S1, 0, SLJIT_R1, 0);
+	if (!(options & SLJIT_ENTER_CDECL)) {
+		if (word_arg_count > 0)
+			EMIT_MOV(compiler, SLJIT_S0, 0, SLJIT_R2, 0);
+		if (word_arg_count > 1)
+			EMIT_MOV(compiler, SLJIT_S1, 0, SLJIT_R1, 0);
+	}
 #endif
 
 	SLJIT_ASSERT(SLJIT_LOCALS_OFFSET > 0);
 
-#if defined(__APPLE__)
-	/* Ignore pushed registers and SLJIT_LOCALS_OFFSET when computing the aligned local size. */
-	saveds = (2 + (scratches > 9 ? (scratches - 9) : 0) + (saveds <= 3 ? saveds : 3)) * SSIZE_OF(sw);
-	local_size = ((SLJIT_LOCALS_OFFSET + saveds + local_size + 15) & ~15) - saveds;
-#else
-	if (options & SLJIT_F64_ALIGNMENT)
-		local_size = SLJIT_LOCALS_OFFSET + ((local_size + SSIZE_OF(f64) - 1) & ~(SSIZE_OF(f64) - 1));
-	else
-		local_size = SLJIT_LOCALS_OFFSET + ((local_size + SSIZE_OF(sw) - 1) & ~(SSIZE_OF(sw) - 1));
-#endif
-
-	compiler->local_size = local_size;
-
 #ifdef _WIN32
-	if (local_size > 0) {
+	if (local_size > 4096) {
 		if (local_size <= 4 * 4096) {
-			if (local_size > 4096)
-				EMIT_MOV(compiler, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), -4096);
+			EMIT_MOV(compiler, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), -4096);
+
 			if (local_size > 2 * 4096)
 				EMIT_MOV(compiler, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), -4096 * 2);
 			if (local_size > 3 * 4096)
 				EMIT_MOV(compiler, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), -4096 * 3);
 		}
 		else {
-			EMIT_MOV(compiler, SLJIT_R0, 0, SLJIT_SP, 0);
-			EMIT_MOV(compiler, SLJIT_R1, 0, SLJIT_IMM, (local_size - 1) >> 12);
+			EMIT_MOV(compiler, SLJIT_R2, 0, SLJIT_IMM, local_size >> 12);
 
-			SLJIT_ASSERT (reg_map[SLJIT_R0] == 0);
-
-			EMIT_MOV(compiler, SLJIT_R2, 0, SLJIT_MEM1(SLJIT_R0), -4096);
+			EMIT_MOV(compiler, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), -4096);
 			FAIL_IF(emit_non_cum_binary(compiler, BINARY_OPCODE(SUB),
-				SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 4096));
+				SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, 4096));
 			FAIL_IF(emit_non_cum_binary(compiler, BINARY_OPCODE(SUB),
-				SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_IMM, 1));
+				SLJIT_R2, 0, SLJIT_R2, 0, SLJIT_IMM, 1));
 
 			inst = (sljit_u8*)ensure_buf(compiler, 1 + 2);
 			FAIL_IF(!inst);
 
 			INC_SIZE(2);
 			inst[0] = JNE_i8;
-			inst[1] = (sljit_s8) -16;
+			inst[1] = (sljit_u8)-18;
+			local_size &= 0xfff;
 		}
 	}
-#endif
+
+	if (local_size > 0) {
+		EMIT_MOV(compiler, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), -local_size);
+		FAIL_IF(emit_non_cum_binary(compiler, BINARY_OPCODE(SUB),
+			SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, local_size));
+	}
+
+#else /* !_WIN32 */
 
 	SLJIT_ASSERT(local_size > 0);
 
-#if !defined(__APPLE__)
-	if (options & SLJIT_F64_ALIGNMENT) {
-		EMIT_MOV(compiler, SLJIT_R0, 0, SLJIT_SP, 0);
-
-		/* Some space might allocated during sljit_grow_stack() above on WIN32. */
-		FAIL_IF(emit_non_cum_binary(compiler, BINARY_OPCODE(SUB),
-			SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, local_size + SSIZE_OF(sw)));
-
-#if defined _WIN32 && !(defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-		if (compiler->local_size > 1024)
-			FAIL_IF(emit_cum_binary(compiler, BINARY_OPCODE(ADD),
-				SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, SSIZE_OF(sw)));
-#endif
-
-		inst = (sljit_u8*)ensure_buf(compiler, 1 + 6);
-		FAIL_IF(!inst);
-
-		INC_SIZE(6);
-		inst[0] = GROUP_BINARY_81;
-		inst[1] = MOD_REG | AND | reg_map[SLJIT_SP];
-		sljit_unaligned_store_sw(inst + 2, ~(SSIZE_OF(f64) - 1));
-
-		if (word_arg_count == 4)
-			EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), compiler->locals_offset - SSIZE_OF(sw), TMP_REG1, 0);
-
-		/* The real local size must be used. */
-		return emit_mov(compiler, SLJIT_MEM1(SLJIT_SP), compiler->local_size, SLJIT_R0, 0);
-	}
-#endif
 	FAIL_IF(emit_non_cum_binary(compiler, BINARY_OPCODE(SUB),
 		SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, local_size));
+
+#endif /* _WIN32 */
 
 	if (word_arg_count == 4)
 		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), compiler->locals_offset - SSIZE_OF(sw), TMP_REG1, 0);
@@ -452,7 +438,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
-	sljit_s32 args_size;
+	sljit_s32 args_size, locals_offset;
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 	sljit_s32 word_arg_count = 0;
 #endif
@@ -487,34 +473,36 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	compiler->args_size = args_size;
 
 	/* [esp+0] for saving temporaries and function calls. */
-	compiler->stack_tmp_size = 2 * SSIZE_OF(sw);
+	locals_offset = 2 * SSIZE_OF(sw);
 
-#if !(defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-	if (scratches > 3)
-		compiler->stack_tmp_size = 3 * SSIZE_OF(sw);
+#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
+	if ((options & SLJIT_ENTER_CDECL) && scratches >= 3)
+		locals_offset = 4 * SSIZE_OF(sw);
+#else
+	if (scratches >= 3)
+		locals_offset = 4 * SSIZE_OF(sw);
 #endif
 
-	compiler->saveds_offset = compiler->stack_tmp_size;
-	if (scratches > 3)
-		compiler->saveds_offset += ((scratches > (3 + 6)) ? 6 : (scratches - 3)) * SSIZE_OF(sw);
+	compiler->stack_tmp_size = locals_offset;
 
-	compiler->locals_offset = compiler->saveds_offset;
+	if (scratches > 3)
+		locals_offset += ((scratches > (3 + 6)) ? 6 : (scratches - 3)) * SSIZE_OF(sw);
+
+	compiler->saveds_offset = locals_offset;
 
 	if (saveds > 3)
-		compiler->locals_offset += (saveds - 3) * SSIZE_OF(sw);
+		locals_offset += (saveds - 3) * SSIZE_OF(sw);
 
-	if (options & SLJIT_F64_ALIGNMENT)
-		compiler->locals_offset = (compiler->locals_offset + SSIZE_OF(f64) - 1) & ~(SSIZE_OF(f64) - 1);
+	compiler->locals_offset = locals_offset;
 
-#if defined(__APPLE__)
 	saveds = (2 + (scratches > 9 ? (scratches - 9) : 0) + (saveds <= 3 ? saveds : 3)) * SSIZE_OF(sw);
-	compiler->local_size = ((SLJIT_LOCALS_OFFSET + saveds + local_size + 15) & ~15) - saveds;
-#else
-	if (options & SLJIT_F64_ALIGNMENT)
-		compiler->local_size = SLJIT_LOCALS_OFFSET + ((local_size + SSIZE_OF(f64) - 1) & ~(SSIZE_OF(f64) - 1));
-	else
-		compiler->local_size = SLJIT_LOCALS_OFFSET + ((local_size + SSIZE_OF(sw) - 1) & ~(SSIZE_OF(sw) - 1));
+
+#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
+	if (!(options & SLJIT_ENTER_CDECL))
+		saveds += args_size;
 #endif
+
+	compiler->local_size = ((locals_offset + local_size + saveds + 0xf) & ~0xf) - saveds;
 	return SLJIT_SUCCESS;
 }
 
@@ -552,22 +540,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 	SLJIT_ASSERT(compiler->args_size >= 0);
 	SLJIT_ASSERT(compiler->local_size > 0);
 
-#if !defined(__APPLE__)
-	if (compiler->options & SLJIT_F64_ALIGNMENT)
-		EMIT_MOV(compiler, SLJIT_SP, 0, SLJIT_MEM1(SLJIT_SP), compiler->local_size)
-	else
-		FAIL_IF(emit_cum_binary(compiler, BINARY_OPCODE(ADD),
-			SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, compiler->local_size));
-#else
 	FAIL_IF(emit_cum_binary(compiler, BINARY_OPCODE(ADD),
 		SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, compiler->local_size));
-#endif
 
 	FAIL_IF(emit_stack_frame_release(compiler));
 
 	size = 1;
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-	if (compiler->args_size > 0)
+	if (compiler->args_size > 0 && !(compiler->options & SLJIT_ENTER_CDECL))
 		size = 3;
 #endif
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
@@ -576,7 +556,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 	INC_SIZE(size);
 
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-	if (compiler->args_size > 0) {
+	if (compiler->args_size > 0 && !(compiler->options & SLJIT_ENTER_CDECL)) {
 		RET_I16(U8(compiler->args_size));
 		return SLJIT_SUCCESS;
 	}
@@ -728,11 +708,7 @@ static sljit_s32 cdecl_call_get_stack_size(struct sljit_compiler *compiler, slji
 	if (stack_size <= compiler->stack_tmp_size)
 		return 0;
 
-#if defined(__APPLE__)
-	return ((stack_size - compiler->stack_tmp_size + 15) & ~15);
-#else
-	return stack_size - compiler->stack_tmp_size;
-#endif
+	return ((stack_size - compiler->stack_tmp_size + 0xf) & ~0xf);
 }
 
 static sljit_s32 cdecl_call_with_args(struct sljit_compiler *compiler,
@@ -808,7 +784,7 @@ static sljit_s32 tail_call_with_args(struct sljit_compiler *compiler,
 	sljit_sw args_size, prev_args_size, saved_regs_size;
 	sljit_sw types, word_arg_count, float_arg_count;
 	sljit_sw stack_size, prev_stack_size, min_size, offset;
-	sljit_sw base_reg, word_arg4_offset;
+	sljit_sw word_arg4_offset;
 	sljit_u8 r2_offset = 0;
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 	sljit_u8 fast_call = (*extra_space & 0xff) == SLJIT_CALL;
@@ -852,7 +828,11 @@ static sljit_s32 tail_call_with_args(struct sljit_compiler *compiler,
 		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
-	if (args_size <= compiler->args_size) {
+	if (args_size <= compiler->args_size
+#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
+			&& (!(compiler->options & SLJIT_ENTER_CDECL) || args_size == 0 || !fast_call)
+#endif /* SLJIT_X86_32_FASTCALL */
+			&& 1) {
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
 		*extra_space = fast_call ? 0 : args_size;
 		prev_args_size = compiler->args_size;
@@ -862,18 +842,7 @@ static sljit_s32 tail_call_with_args(struct sljit_compiler *compiler,
 		stack_size = args_size + SSIZE_OF(sw) + saved_regs_size;
 #endif /* SLJIT_X86_32_FASTCALL */
 
-#if !defined(__APPLE__)
-		if (compiler->options & SLJIT_F64_ALIGNMENT) {
-			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_MEM1(SLJIT_SP), compiler->local_size);
-			offset = stack_size;
-			base_reg = SLJIT_MEM1(TMP_REG1);
-		} else {
-#endif /* !__APPLE__ */
-			offset = stack_size + compiler->local_size;
-			base_reg = SLJIT_MEM1(SLJIT_SP);
-#if !defined(__APPLE__)
-		}
-#endif /* !__APPLE__ */
+		offset = stack_size + compiler->local_size;
 
 		if (!(src & SLJIT_IMM) && src != SLJIT_R0) {
 			if (word_arg_count >= 1) {
@@ -884,31 +853,33 @@ static sljit_s32 tail_call_with_args(struct sljit_compiler *compiler,
 		}
 
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-		if (!fast_call)
-			offset -= SSIZE_OF(sw);
+		if (!(compiler->options & SLJIT_ENTER_CDECL)) {
+			if (!fast_call)
+				offset -= SSIZE_OF(sw);
 
-		if (word_arg_count >= 3) {
-			word_arg4_offset = SSIZE_OF(sw);
+			if (word_arg_count >= 3) {
+				word_arg4_offset = SSIZE_OF(sw);
 
-			if (word_arg_count + float_arg_count >= 4) {
-				word_arg4_offset = SSIZE_OF(sw) + SSIZE_OF(sw);
-				if ((types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F64)
-					word_arg4_offset = SSIZE_OF(sw) + SSIZE_OF(f64);
+				if (word_arg_count + float_arg_count >= 4) {
+					word_arg4_offset = SSIZE_OF(sw) + SSIZE_OF(sw);
+					if ((types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F64)
+						word_arg4_offset = SSIZE_OF(sw) + SSIZE_OF(f64);
+				}
+
+				/* In cdecl mode, at least one more word value must
+				 * be present on the stack before the return address. */
+				EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), offset - word_arg4_offset, SLJIT_R2, 0);
 			}
 
-			/* In cdecl mode, at least one more word value must
-			 * be present on the stack before the return address. */
-			EMIT_MOV(compiler, base_reg, offset - word_arg4_offset, SLJIT_R2, 0);
-		}
-
-		if (fast_call) {
-			if (args_size < prev_args_size) {
-				EMIT_MOV(compiler, SLJIT_R2, 0, base_reg, offset - prev_args_size - SSIZE_OF(sw));
-				EMIT_MOV(compiler, base_reg, offset - args_size - SSIZE_OF(sw), SLJIT_R2, 0);
+			if (fast_call) {
+				if (args_size < prev_args_size) {
+					EMIT_MOV(compiler, SLJIT_R2, 0, SLJIT_MEM1(SLJIT_SP), offset - prev_args_size - SSIZE_OF(sw));
+					EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), offset - args_size - SSIZE_OF(sw), SLJIT_R2, 0);
+				}
+			} else if (prev_args_size > 0) {
+				EMIT_MOV(compiler, SLJIT_R2, 0, SLJIT_MEM1(SLJIT_SP), offset - prev_args_size);
+				EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), offset, SLJIT_R2, 0);
 			}
-		} else if (prev_args_size > 0) {
-			EMIT_MOV(compiler, SLJIT_R2, 0, base_reg, offset - prev_args_size);
-			EMIT_MOV(compiler, base_reg, offset, SLJIT_R2, 0);
 		}
 #endif /* SLJIT_X86_32_FASTCALL */
 
@@ -916,12 +887,12 @@ static sljit_s32 tail_call_with_args(struct sljit_compiler *compiler,
 			switch (types & SLJIT_ARG_MASK) {
 			case SLJIT_ARG_TYPE_F64:
 				offset -= SSIZE_OF(f64);
-				FAIL_IF(emit_sse2_store(compiler, 0, base_reg, offset, float_arg_count));
+				FAIL_IF(emit_sse2_store(compiler, 0, SLJIT_MEM1(SLJIT_SP), offset, float_arg_count));
 				float_arg_count--;
 				break;
 			case SLJIT_ARG_TYPE_F32:
 				offset -= SSIZE_OF(f32);
-				FAIL_IF(emit_sse2_store(compiler, 0, base_reg, offset, float_arg_count));
+				FAIL_IF(emit_sse2_store(compiler, 0, SLJIT_MEM1(SLJIT_SP), offset, float_arg_count));
 				float_arg_count--;
 				break;
 			default:
@@ -936,9 +907,9 @@ static sljit_s32 tail_call_with_args(struct sljit_compiler *compiler,
 					offset -= SSIZE_OF(sw);
 					if (r2_offset != 0) {
 						EMIT_MOV(compiler, SLJIT_R2, 0, SLJIT_MEM1(SLJIT_SP), 0);
-						EMIT_MOV(compiler, base_reg, offset, SLJIT_R2, 0);
+						EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), offset, SLJIT_R2, 0);
 					} else
-						EMIT_MOV(compiler, base_reg, offset, SLJIT_R0, 0);
+						EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), offset, SLJIT_R0, 0);
 					break;
 				case 2:
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
@@ -946,7 +917,7 @@ static sljit_s32 tail_call_with_args(struct sljit_compiler *compiler,
 						break;
 #endif
 					offset -= SSIZE_OF(sw);
-					EMIT_MOV(compiler, base_reg, offset, SLJIT_R1, 0);
+					EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), offset, SLJIT_R1, 0);
 					break;
 				case 3:
 					offset -= SSIZE_OF(sw);
@@ -954,7 +925,7 @@ static sljit_s32 tail_call_with_args(struct sljit_compiler *compiler,
 				case 4:
 					offset -= SSIZE_OF(sw);
 					EMIT_MOV(compiler, SLJIT_R2, 0, SLJIT_MEM1(SLJIT_SP), compiler->saveds_offset - SSIZE_OF(sw));
-					EMIT_MOV(compiler, base_reg, offset, SLJIT_R2, 0);
+					EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), offset, SLJIT_R2, 0);
 					break;
 				}
 				word_arg_count--;
@@ -963,16 +934,8 @@ static sljit_s32 tail_call_with_args(struct sljit_compiler *compiler,
 			types >>= SLJIT_ARG_SHIFT;
 		}
 
-#if !defined(__APPLE__)
-		if (compiler->options & SLJIT_F64_ALIGNMENT) {
-			EMIT_MOV(compiler, SLJIT_SP, 0, TMP_REG1, 0);
-		} else {
-#endif /* !__APPLE__ */
-			FAIL_IF(emit_cum_binary(compiler, BINARY_OPCODE(ADD),
-				SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, compiler->local_size));
-#if !defined(__APPLE__)
-		}
-#endif /* !__APPLE__ */
+		FAIL_IF(emit_cum_binary(compiler, BINARY_OPCODE(ADD),
+			SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, compiler->local_size));
 		FAIL_IF(emit_stack_frame_release(compiler));
 
 #if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
@@ -994,56 +957,32 @@ static sljit_s32 tail_call_with_args(struct sljit_compiler *compiler,
 	if (word_arg_count >= 3)
 		stack_size += SSIZE_OF(sw);
 
-#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-	prev_args_size = compiler->args_size;
-#else
 	prev_args_size = 0;
+#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
+	if (!(compiler->options & SLJIT_ENTER_CDECL))
+		prev_args_size = compiler->args_size;
 #endif
 
 	prev_stack_size = prev_args_size + SSIZE_OF(sw) + saved_regs_size;
 	min_size = prev_stack_size + compiler->local_size;
 
-	base_reg = SLJIT_MEM1(SLJIT_SP);
 	word_arg4_offset = compiler->saveds_offset - SSIZE_OF(sw);
 
-#if !defined(__APPLE__)
-	if (compiler->options & SLJIT_F64_ALIGNMENT) {
-		min_size += 2 * SSIZE_OF(sw);
-
-		if (stack_size < min_size)
-			stack_size = min_size;
-
-		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_MEM1(SLJIT_SP), compiler->local_size);
+	if (stack_size > min_size) {
 		FAIL_IF(emit_non_cum_binary(compiler, BINARY_OPCODE(SUB),
-			TMP_REG1, 0, TMP_REG1, 0, SLJIT_IMM, stack_size - prev_stack_size));
-
-		inst = emit_x86_instruction(compiler, 1, SLJIT_SP, 0, TMP_REG1, 0);
-		FAIL_IF(!inst);
-		*inst = XCHG_r_rm;
-
+			SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, stack_size - min_size));
 		if (src == SLJIT_MEM1(SLJIT_SP))
-			src = SLJIT_MEM1(TMP_REG1);
-		base_reg = SLJIT_MEM1(TMP_REG1);
-	} else {
-#endif /* !__APPLE__ */
-		if (stack_size > min_size) {
-			FAIL_IF(emit_non_cum_binary(compiler, BINARY_OPCODE(SUB),
-				SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, stack_size - min_size));
-			if (src == SLJIT_MEM1(SLJIT_SP))
-				srcw += stack_size - min_size;
-			word_arg4_offset += stack_size - min_size;
-		}
-		else
-			stack_size = min_size;
-#if !defined(__APPLE__)
+			srcw += stack_size - min_size;
+		word_arg4_offset += stack_size - min_size;
 	}
-#endif /* !__APPLE__ */
+	else
+		stack_size = min_size;
 
 	if (word_arg_count >= 3) {
 		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), r2_offset, SLJIT_R2, 0);
 
 		if (word_arg_count >= 4)
-			EMIT_MOV(compiler, SLJIT_R2, 0, base_reg, word_arg4_offset);
+			EMIT_MOV(compiler, SLJIT_R2, 0, SLJIT_MEM1(SLJIT_SP), word_arg4_offset);
 	}
 
 	if (!(src & SLJIT_IMM) && src != SLJIT_R0) {
@@ -1412,36 +1351,18 @@ static sljit_s32 emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src
 
 static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
 {
-	sljit_sw size, saved_size;
-	sljit_s32 has_f64_aligment;
+	sljit_sw size;
 
 	/* Don't adjust shadow stack if it isn't enabled.  */
-	if (!cpu_has_shadow_stack ())
+	if (!cpu_has_shadow_stack())
 		return SLJIT_SUCCESS;
 
 	SLJIT_ASSERT(compiler->args_size >= 0);
 	SLJIT_ASSERT(compiler->local_size > 0);
 
-#if !defined(__APPLE__)
-	has_f64_aligment = compiler->options & SLJIT_F64_ALIGNMENT;
-#else
-	has_f64_aligment = 0;
-#endif
-
 	size = compiler->local_size;
-	saved_size = (1 + (compiler->scratches > 9 ? (compiler->scratches - 9) : 0)
+	size += (1 + (compiler->scratches > 9 ? (compiler->scratches - 9) : 0)
 		+ (compiler->saveds <= 3 ? compiler->saveds : 3)) * SSIZE_OF(sw);
-
-	if (has_f64_aligment) {
-		/* mov TMP_REG1, [esp + local_size].  */
-		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_MEM1(SLJIT_SP), size);
-		/* mov TMP_REG1, [TMP_REG1+ saved_size].  */
-		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_MEM1(TMP_REG1), saved_size);
-		/* Move return address to [esp]. */
-		EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), 0, TMP_REG1, 0);
-		size = 0;
-	} else
-		size += saved_size;
 
 	return adjust_shadow_stack(compiler, SLJIT_MEM1(SLJIT_SP), size);
 }
