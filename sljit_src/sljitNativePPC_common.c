@@ -721,6 +721,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 {
 	sljit_s32 i, tmp, base, offset;
 	sljit_s32 word_arg_count = 0;
+	sljit_s32 saved_arg_count = 0;
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	sljit_s32 arg_count = 0;
 #endif
@@ -791,9 +792,22 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	while (arg_types > 0) {
 		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-			FAIL_IF(push_inst(compiler, OR | S(SLJIT_R0 + arg_count) | A(SLJIT_S0 - word_arg_count) | B(SLJIT_R0 + arg_count)));
+			do {
+				if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
+					tmp = SLJIT_S0 - saved_arg_count;
+					saved_arg_count++;
+				} else if (arg_count != word_arg_count)
+					tmp = SLJIT_R0 + word_arg_count;
+				else
+					break;
+
+				FAIL_IF(push_inst(compiler, OR | S(SLJIT_R0 + arg_count) | A(tmp) | B(SLJIT_R0 + arg_count)));
+			} while (0);
 #else
-			FAIL_IF(push_inst(compiler, OR | S(SLJIT_R0 + word_arg_count) | A(SLJIT_S0 - word_arg_count) | B(SLJIT_R0 + word_arg_count)));
+			if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
+				FAIL_IF(push_inst(compiler, OR | S(SLJIT_R0 + word_arg_count) | A(SLJIT_S0 - saved_arg_count) | B(SLJIT_R0 + word_arg_count)));
+				saved_arg_count++;
+			}
 #endif
 			word_arg_count++;
 		}

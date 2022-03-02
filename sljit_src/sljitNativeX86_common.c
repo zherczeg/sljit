@@ -79,7 +79,7 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 3] = {
 #define CHECK_EXTRA_REGS(p, w, do) \
 	if (p >= SLJIT_R3 && p <= SLJIT_S3) { \
 		if (p <= compiler->scratches) \
-			w = compiler->saveds_offset - ((p) - SLJIT_R2) * SSIZE_OF(sw); \
+			w = compiler->scratches_offset + ((p) - SLJIT_R3) * SSIZE_OF(sw); \
 		else \
 			w = compiler->locals_offset + ((p) - SLJIT_S2) * SSIZE_OF(sw); \
 		p = SLJIT_MEM1(SLJIT_SP); \
@@ -208,6 +208,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define JMP_i32		0xe9
 #define JMP_rm		(/* GROUP_FF */ 4 << 3)
 #define LEA_r_m		0x8d
+#define LOOP_i8		0xe2
 #define MOV_r_rm	0x8b
 #define MOV_r_i32	0xb8
 #define MOV_rm_r	0x89
@@ -685,17 +686,40 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 
 #define BINARY_OPCODE(opcode) (((opcode ## _EAX_i32) << 24) | ((opcode ## _r_rm) << 16) | ((opcode ## _rm_r) << 8) | (opcode))
 
-static sljit_s32 emit_cum_binary(struct sljit_compiler *compiler,
-	sljit_u32 op_types,
-	sljit_s32 dst, sljit_sw dstw,
-	sljit_s32 src1, sljit_sw src1w,
-	sljit_s32 src2, sljit_sw src2w);
+#define BINARY_IMM32(op_imm, immw, arg, argw) \
+	do { \
+		inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, immw, arg, argw); \
+		FAIL_IF(!inst); \
+		*(inst + 1) |= (op_imm); \
+	} while (0)
 
-static sljit_s32 emit_non_cum_binary(struct sljit_compiler *compiler,
-	sljit_u32 op_types,
-	sljit_s32 dst, sljit_sw dstw,
-	sljit_s32 src1, sljit_sw src1w,
-	sljit_s32 src2, sljit_sw src2w);
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+
+#define BINARY_IMM(op_imm, op_mr, immw, arg, argw) \
+	do { \
+		if (IS_HALFWORD(immw) || compiler->mode32) { \
+			BINARY_IMM32(op_imm, immw, arg, argw); \
+		} \
+		else { \
+			FAIL_IF(emit_load_imm64(compiler, (arg == TMP_REG1) ? TMP_REG2 : TMP_REG1, immw)); \
+			inst = emit_x86_instruction(compiler, 1, (arg == TMP_REG1) ? TMP_REG2 : TMP_REG1, 0, arg, argw); \
+			FAIL_IF(!inst); \
+			*inst = (op_mr); \
+		} \
+	} while (0)
+
+#define BINARY_EAX_IMM(op_eax_imm, immw) \
+	FAIL_IF(emit_do_imm32(compiler, (!compiler->mode32) ? REX_W : 0, (op_eax_imm), immw))
+
+#else /* !SLJIT_CONFIG_X86_64 */
+
+#define BINARY_IMM(op_imm, op_mr, immw, arg, argw) \
+	BINARY_IMM32(op_imm, immw, arg, argw)
+
+#define BINARY_EAX_IMM(op_eax_imm, immw) \
+	FAIL_IF(emit_do_imm(compiler, (op_eax_imm), immw))
+
+#endif /* SLJIT_CONFIG_X86_64 */
 
 static sljit_s32 emit_mov(struct sljit_compiler *compiler,
 	sljit_s32 dst, sljit_sw dstw,
@@ -1560,36 +1584,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 	return SLJIT_SUCCESS;
 }
-
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-
-#define BINARY_IMM(op_imm, op_mr, immw, arg, argw) \
-	if (IS_HALFWORD(immw) || compiler->mode32) { \
-		inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, immw, arg, argw); \
-		FAIL_IF(!inst); \
-		*(inst + 1) |= (op_imm); \
-	} \
-	else { \
-		FAIL_IF(emit_load_imm64(compiler, (arg == TMP_REG1) ? TMP_REG2 : TMP_REG1, immw)); \
-		inst = emit_x86_instruction(compiler, 1, (arg == TMP_REG1) ? TMP_REG2 : TMP_REG1, 0, arg, argw); \
-		FAIL_IF(!inst); \
-		*inst = (op_mr); \
-	}
-
-#define BINARY_EAX_IMM(op_eax_imm, immw) \
-	FAIL_IF(emit_do_imm32(compiler, (!compiler->mode32) ? REX_W : 0, (op_eax_imm), immw))
-
-#else
-
-#define BINARY_IMM(op_imm, op_mr, immw, arg, argw) \
-	inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, immw, arg, argw); \
-	FAIL_IF(!inst); \
-	*(inst + 1) |= (op_imm);
-
-#define BINARY_EAX_IMM(op_eax_imm, immw) \
-	FAIL_IF(emit_do_imm(compiler, (op_eax_imm), immw))
-
-#endif
 
 static sljit_s32 emit_cum_binary(struct sljit_compiler *compiler,
 	sljit_u32 op_types,

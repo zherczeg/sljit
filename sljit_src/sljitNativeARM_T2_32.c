@@ -1078,7 +1078,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
-	sljit_s32 size, i, tmp, word_arg_count;
+	sljit_s32 size, i, tmp, word_arg_count, saved_arg_count;
 	sljit_uw offset;
 	sljit_uw imm = 0;
 #ifdef __SOFTFP__
@@ -1129,6 +1129,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	arg_types >>= SLJIT_ARG_SHIFT;
 	word_arg_count = 0;
+	saved_arg_count = 0;
 #ifdef __SOFTFP__
 	SLJIT_COMPILE_ASSERT(SLJIT_FR0 == 1, float_register_index_start);
 
@@ -1147,7 +1148,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 				FAIL_IF(push_inst32(compiler, VLDR_F32 | 0x800100 | RN4(SLJIT_SP)
 					| (float_arg_count << 12) | ((offset + (sljit_uw)size - 4 * sizeof(sljit_sw)) >> 2)));
 			float_arg_count++;
-			offset += sizeof(sljit_f64);
+			offset += sizeof(sljit_f64) - sizeof(sljit_sw);
 			break;
 		case SLJIT_ARG_TYPE_F32:
 			if (offset < 4 * sizeof(sljit_sw))
@@ -1156,21 +1157,29 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 				FAIL_IF(push_inst32(compiler, VLDR_F32 | 0x800000 | RN4(SLJIT_SP)
 					| (float_arg_count << 12) | ((offset + (sljit_uw)size - 4 * sizeof(sljit_sw)) >> 2)));
 			float_arg_count++;
-			offset += sizeof(sljit_f32);
 			break;
 		default:
-			SLJIT_ASSERT(reg_map[SLJIT_S0 - word_arg_count] <= 7);
+			word_arg_count++;
+
+			if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
+				tmp = SLJIT_S0 - saved_arg_count;
+				saved_arg_count++;
+			} else if (word_arg_count - 1 != (sljit_s32)(offset >> 2))
+				tmp = word_arg_count;
+			else
+				break;
+
+			SLJIT_ASSERT(reg_map[tmp] <= 7);
 
 			if (offset < 4 * sizeof(sljit_sw))
-				FAIL_IF(push_inst16(compiler, MOV | RD3(SLJIT_S0 - word_arg_count) | (offset << 1)));
+				FAIL_IF(push_inst16(compiler, MOV | RD3(tmp) | (offset << 1)));
 			else
-				FAIL_IF(push_inst16(compiler, LDR_SP | RDN3(SLJIT_S0 - word_arg_count)
+				FAIL_IF(push_inst16(compiler, LDR_SP | RDN3(tmp)
 					| ((offset + (sljit_uw)size - 4 * sizeof(sljit_sw)) >> 2)));
-
-			word_arg_count++;
-			offset += sizeof(sljit_sw);
 			break;
 		}
+
+		offset += sizeof(sljit_sw);
 		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
@@ -1201,7 +1210,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			offset++;
 			break;
 		default:
-			FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_S0 - word_arg_count, SLJIT_R0 + word_arg_count)));
+			if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
+				FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(SLJIT_S0 - saved_arg_count, SLJIT_R0 + word_arg_count)));
+				saved_arg_count++;
+			}
+
 			word_arg_count++;
 			break;
 		}

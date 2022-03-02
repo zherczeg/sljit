@@ -130,7 +130,8 @@
 #define FAST_IS_REG(reg)	((reg) <= REG_MASK)
 
 /* Mask for argument types. */
-#define SLJIT_ARG_MASK ((1 << SLJIT_ARG_SHIFT) - 1)
+#define SLJIT_ARG_MASK		0x7
+#define SLJIT_ARG_FULL_MASK	(SLJIT_ARG_MASK | SLJIT_ARG_TYPE_SCRATCH_REG)
 
 /* Jump flags. */
 #define JUMP_LABEL	0x1
@@ -747,11 +748,11 @@ static SLJIT_INLINE void set_put_label(struct sljit_put_label *put_label, struct
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 
-static sljit_s32 function_check_arguments(sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 fscratches, sljit_s32 word_arg_limit)
+static sljit_s32 function_check_arguments(sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds, sljit_s32 fscratches)
 {
-	sljit_s32 word_arg_count, float_arg_count, curr_type;
+	sljit_s32 word_arg_count, scratch_arg_end, saved_arg_count, float_arg_count, curr_type;
 
-	curr_type = (arg_types & SLJIT_ARG_MASK);
+	curr_type = (arg_types & SLJIT_ARG_FULL_MASK);
 
 	if (curr_type >= SLJIT_ARG_TYPE_F64) {
 		if (curr_type > SLJIT_ARG_TYPE_F32 || fscratches == 0)
@@ -764,21 +765,39 @@ static sljit_s32 function_check_arguments(sljit_s32 arg_types, sljit_s32 scratch
 	arg_types >>= SLJIT_ARG_SHIFT;
 
 	word_arg_count = 0;
+	scratch_arg_end = 0;
+	saved_arg_count = 0;
 	float_arg_count = 0;
-	while (arg_types != 0 && word_arg_count + float_arg_count < 4) {
-		curr_type = (arg_types & SLJIT_ARG_MASK);
-		if (curr_type < SLJIT_ARG_TYPE_W || curr_type > SLJIT_ARG_TYPE_F32)
+	while (arg_types != 0) {
+		if (word_arg_count + float_arg_count >= 4)
 			return 0;
 
-		if (curr_type < SLJIT_ARG_TYPE_F64)
+		curr_type = (arg_types & SLJIT_ARG_MASK);
+
+		if (arg_types & SLJIT_ARG_TYPE_SCRATCH_REG) {
+			if (saveds == -1 || curr_type < SLJIT_ARG_TYPE_W || curr_type > SLJIT_ARG_TYPE_P)
+				return 0;
+
 			word_arg_count++;
-		else
-			float_arg_count++;
+			scratch_arg_end = word_arg_count;
+		} else {
+			if (curr_type < SLJIT_ARG_TYPE_W || curr_type > SLJIT_ARG_TYPE_F32)
+				return 0;
+
+			if (curr_type < SLJIT_ARG_TYPE_F64) {
+				word_arg_count++;
+				saved_arg_count++;
+			} else
+				float_arg_count++;
+		}
 
 		arg_types >>= SLJIT_ARG_SHIFT;
 	}
 
-	return (arg_types == 0 && word_arg_count <= word_arg_limit && float_arg_count <= fscratches);
+	if (saveds == -1)
+		return (word_arg_count <= scratches && float_arg_count <= fscratches);
+
+	return (saved_arg_count <= saveds && scratch_arg_end <= scratches && float_arg_count <= fscratches);
 }
 
 #define FUNCTION_CHECK_IS_REG(r) \
@@ -1069,21 +1088,21 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 	CHECK_ARGUMENT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
-	CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64);
-	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, fscratches, saveds));
+	CHECK_ARGUMENT((arg_types & SLJIT_ARG_FULL_MASK) < SLJIT_ARG_TYPE_F64);
+	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, saveds, fscratches));
 
 	compiler->last_flags = 0;
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  enter ret[%s",
-			call_arg_names[arg_types & SLJIT_ARG_MASK]);
+		fprintf(compiler->verbose, "  enter ret[%s", call_arg_names[arg_types & SLJIT_ARG_MASK]);
 
 		arg_types >>= SLJIT_ARG_SHIFT;
 		if (arg_types) {
 			fprintf(compiler->verbose, "], args[");
 			do {
-				fprintf(compiler->verbose, "%s", call_arg_names[arg_types & SLJIT_ARG_MASK]);
+				fprintf(compiler->verbose, "%s%s", call_arg_names[arg_types & SLJIT_ARG_MASK],
+					(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG) ? "_r" : "");
 				arg_types >>= SLJIT_ARG_SHIFT;
 				if (arg_types)
 					fprintf(compiler->verbose, ",");
@@ -1113,21 +1132,21 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 	CHECK_ARGUMENT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
-	CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64);
-	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, fscratches, saveds));
+	CHECK_ARGUMENT((arg_types & SLJIT_ARG_FULL_MASK) < SLJIT_ARG_TYPE_F64);
+	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, saveds, fscratches));
 
 	compiler->last_flags = 0;
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  set_context ret[%s",
-			call_arg_names[arg_types & SLJIT_ARG_MASK]);
+		fprintf(compiler->verbose, "  set_context ret[%s", call_arg_names[arg_types & SLJIT_ARG_MASK]);
 
 		arg_types >>= SLJIT_ARG_SHIFT;
 		if (arg_types) {
 			fprintf(compiler->verbose, "], args[");
 			do {
-				fprintf(compiler->verbose, "%s", call_arg_names[arg_types & SLJIT_ARG_MASK]);
+				fprintf(compiler->verbose, "%s%s", call_arg_names[arg_types & SLJIT_ARG_MASK],
+					(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG) ? "_r" : "");
 				arg_types >>= SLJIT_ARG_SHIFT;
 				if (arg_types)
 					fprintf(compiler->verbose, ",");
@@ -1670,7 +1689,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_call(struct sljit_compile
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_CALL_RETURN)));
 	CHECK_ARGUMENT((type & 0xff) == SLJIT_CALL || (type & 0xff) == SLJIT_CALL_CDECL);
-	CHECK_ARGUMENT(function_check_arguments(arg_types, compiler->scratches, compiler->fscratches, compiler->scratches));
+	CHECK_ARGUMENT(function_check_arguments(arg_types, compiler->scratches, -1, compiler->fscratches));
 
 	if (type & SLJIT_CALL_RETURN) {
 		CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) == compiler->last_return);
@@ -1777,7 +1796,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_icall(struct sljit_compil
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_CALL_RETURN)));
 	CHECK_ARGUMENT((type & 0xff) == SLJIT_CALL || (type & 0xff) == SLJIT_CALL_CDECL);
-	CHECK_ARGUMENT(function_check_arguments(arg_types, compiler->scratches, compiler->fscratches, compiler->scratches));
+	CHECK_ARGUMENT(function_check_arguments(arg_types, compiler->scratches, -1, compiler->fscratches));
 	FUNCTION_CHECK_SRC(src, srcw);
 
 	if (type & SLJIT_CALL_RETURN) {

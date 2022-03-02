@@ -256,15 +256,18 @@ extern "C" {
 /* The following argument type definitions are used by sljit_emit_enter,
    sljit_set_context, sljit_emit_call, and sljit_emit_icall functions.
 
-   As for sljit_emit_enter, the first integer argument is available in
-   SLJIT_R0, the second one in SLJIT_R1, and so on. Similarly the first
-   floating point argument is available in SLJIT_FR0, the second one in
-   SLJIT_FR1, and so on.
-
    As for sljit_emit_call and sljit_emit_icall, the first integer argument
    must be placed into SLJIT_R0, the second one into SLJIT_R1, and so on.
    Similarly the first floating point argument must be placed into SLJIT_FR0,
    the second one into SLJIT_FR1, and so on.
+
+   As for sljit_emit_enter and sljit_set_context, the integer arguments
+   can be stored in scratch or saved registers. The first integer argument
+   without _R postfix is stored in SLJIT_S0, the next one in SLJIT_S1,
+   and so on. The integer arguments with _R postfix are placed into scratch
+   registers. The index of the scratch register is the count of the previous
+   integer arguments starting from SLJIT_R0. The floating point arguments
+   are always placed into SLJIT_FR0, SLJIT_FR1, and so on.
 
    Example function definition:
      sljit_f32 SLJIT_FUNC example_c_callback(void *arg_a,
@@ -276,27 +279,51 @@ extern "C" {
         | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_32, 3) | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_F32, 4)
 
    Short form of argument type definition:
-     SLJIT_ARGS4(F32, P, F64, 32, F32)
+     SLJIT_ARGS4(32, P, F64, 32, F32)
 
    Argument passing:
      arg_a must be placed in SLJIT_R0
      arg_c must be placed in SLJIT_R1
      arg_b must be placed in SLJIT_FR0
      arg_d must be placed in SLJIT_FR1
- */
+
+   Examples for argument processing by sljit_emit_enter:
+     SLJIT_ARGS4(VOID, P, 32_R, F32, W)
+     Arguments are placed into: SLJIT_S0, SLJIT_R1, SLJIT_FR0, SLJIT_S1
+
+     SLJIT_ARGS4(VOID, W, W_R, W, W_R)
+     Arguments are placed into: SLJIT_S0, SLJIT_R1, SLJIT_S1, SLJIT_R3
+
+     SLJIT_ARGS4(VOID, F64, W, F32, W_R)
+     Arguments are placed into: SLJIT_FR0, SLJIT_S0, SLJIT_FR1, SLJIT_R1
+
+     Note: it is recommended to pass the scratch arguments first
+     followed by the saved arguments:
+
+       SLJIT_ARGS4(VOID, W_R, W_R, W, W)
+       Arguments are placed into: SLJIT_R0, SLJIT_R1, SLJIT_S0, SLJIT_S1
+*/
+
+/* The following flag is only allowed for the integer arguments of
+   sljit_emit_enter. When the flag is set, the integer argument is
+   stored in a scratch register instead of a saved register. */
+#define SLJIT_ARG_TYPE_SCRATCH_REG 0x8
 
 /* Void result, can only be used by SLJIT_ARG_RETURN. */
-#define SLJIT_ARG_TYPE_VOID 0
+#define SLJIT_ARG_TYPE_VOID	0
 /* Machine word sized integer argument or result. */
-#define SLJIT_ARG_TYPE_W 1
+#define SLJIT_ARG_TYPE_W	1
+#define SLJIT_ARG_TYPE_W_R	(SLJIT_ARG_TYPE_W | SLJIT_ARG_TYPE_SCRATCH_REG)
 /* 32 bit integer argument or result. */
-#define SLJIT_ARG_TYPE_32 2
+#define SLJIT_ARG_TYPE_32	2
+#define SLJIT_ARG_TYPE_32_R	(SLJIT_ARG_TYPE_32 | SLJIT_ARG_TYPE_SCRATCH_REG)
 /* Pointer sized integer argument or result. */
-#define SLJIT_ARG_TYPE_P 3
+#define SLJIT_ARG_TYPE_P	3
+#define SLJIT_ARG_TYPE_P_R	(SLJIT_ARG_TYPE_P | SLJIT_ARG_TYPE_SCRATCH_REG)
 /* 64 bit floating point argument or result. */
-#define SLJIT_ARG_TYPE_F64 4
+#define SLJIT_ARG_TYPE_F64	4
 /* 32 bit floating point argument or result. */
-#define SLJIT_ARG_TYPE_F32 5
+#define SLJIT_ARG_TYPE_F32	5
 
 #define SLJIT_ARG_SHIFT 4
 #define SLJIT_ARG_RETURN(type) (type)
@@ -415,8 +442,7 @@ struct sljit_compiler {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	sljit_s32 args_size;
 	sljit_s32 locals_offset;
-	sljit_s32 saveds_offset;
-	sljit_s32 stack_tmp_size;
+	sljit_s32 scratches_offset;
 #endif
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)

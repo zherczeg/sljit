@@ -1012,9 +1012,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		FAIL_IF(push_inst(compiler, SUBI | RD(SLJIT_SP) | RN(SLJIT_SP) | (1 << 10) | (1 << 22)));
 #endif /* _WIN32 */
 
+	tmp = 0;
 	while (arg_types > 0) {
 		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {
-			FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0 - word_arg_count) | RN(TMP_ZERO) | RM(SLJIT_R0 + word_arg_count)));
+			if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
+				FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0 - tmp) | RN(TMP_ZERO) | RM(SLJIT_R0 + word_arg_count)));
+				tmp++;
+			}
 			word_arg_count++;
 		}
 		arg_types >>= SLJIT_ARG_SHIFT;
