@@ -261,13 +261,18 @@ extern "C" {
    Similarly the first floating point argument must be placed into SLJIT_FR0,
    the second one into SLJIT_FR1, and so on.
 
-   As for sljit_emit_enter and sljit_set_context, the integer arguments
-   can be stored in scratch or saved registers. The first integer argument
-   without _R postfix is stored in SLJIT_S0, the next one in SLJIT_S1,
-   and so on. The integer arguments with _R postfix are placed into scratch
-   registers. The index of the scratch register is the count of the previous
-   integer arguments starting from SLJIT_R0. The floating point arguments
-   are always placed into SLJIT_FR0, SLJIT_FR1, and so on.
+   As for sljit_emit_enter, the integer arguments can be stored in scratch
+   or saved registers. The first integer argument without _R postfix is
+   stored in SLJIT_S0, the next one in SLJIT_S1, and so on. The integer
+   arguments with _R postfix are placed into scratch registers. The index
+   of the scratch register is the count of the previous integer arguments
+   starting from SLJIT_R0. The floating point arguments are always placed
+   into SLJIT_FR0, SLJIT_FR1, and so on.
+
+   Note: if a function is called by sljit_emit_call/sljit_emit_icall and
+         an argument is stored in a scratch register by sljit_emit_enter,
+         that argument uses the same scratch register index for both
+         integer and floating point arguments.
 
    Example function definition:
      sljit_f32 SLJIT_FUNC example_c_callback(void *arg_a,
