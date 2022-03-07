@@ -274,8 +274,12 @@ extern "C" {
 
 #ifndef SLJIT_INLINE
 /* Inline functions. Some old compilers do not support them. */
-#if defined(__SUNPRO_C) && __SUNPRO_C <= 0x510
+#ifdef __SUNPRO_C
+#if __SUNPRO_C < 0x560
 #define SLJIT_INLINE
+#else
+#define SLJIT_INLINE inline
+#endif /* __SUNPRO_C */
 #else
 #define SLJIT_INLINE __inline
 #endif
