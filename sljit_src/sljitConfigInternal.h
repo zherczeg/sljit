@@ -156,7 +156,7 @@ extern "C" {
 #define SLJIT_CONFIG_MIPS_32 1
 #elif defined(__mips64)
 #define SLJIT_CONFIG_MIPS_64 1
-#elif defined(__sparc__) || defined(__sparc)
+#elif (defined(__sparc__) || defined(__sparc)) && !defined(_LP64)
 #define SLJIT_CONFIG_SPARC_32 1
 #elif defined(__s390x__)
 #define SLJIT_CONFIG_S390X 1
