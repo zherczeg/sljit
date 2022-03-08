@@ -326,8 +326,14 @@ extern "C" {
 #if (!defined SLJIT_CACHE_FLUSH && defined __has_builtin)
 #if __has_builtin(__builtin___clear_cache)
 
+/*
+ * https://gcc.gnu.org/bugzilla//show_bug.cgi?id=91248
+ * clear_cache builtin in sparc's gcc is broken
+ */
+#ifndef SLJIT_CONFIG_SPARC_32
 #define SLJIT_CACHE_FLUSH(from, to) \
 	__builtin___clear_cache((char*)(from), (char*)(to))
+#endif /* SLJIT_CONFIG_SPARC_32 */
 
 #endif /* __has_builtin(__builtin___clear_cache) */
 #endif /* (!defined SLJIT_CACHE_FLUSH && defined __has_builtin) */
@@ -355,6 +361,13 @@ extern "C" {
 	ppc_cache_flush((from), (to))
 #define SLJIT_CACHE_FLUSH_OWN_IMPL 1
 
+#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
+
+/* The __clear_cache() implementation of GCC is a dummy function on Sparc. */
+#define SLJIT_CACHE_FLUSH(from, to) \
+	sparc_cache_flush((from), (to))
+#define SLJIT_CACHE_FLUSH_OWN_IMPL 1
+
 #elif (defined(__GNUC__) && (__GNUC__ >= 5 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)))
 
 #define SLJIT_CACHE_FLUSH(from, to) \
@@ -366,13 +379,6 @@ extern "C" {
 
 #define SLJIT_CACHE_FLUSH(from, to) \
     cacheflush((long)(from), (long)(to), 0)
-
-#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-
-/* The __clear_cache() implementation of GCC is a dummy function on Sparc. */
-#define SLJIT_CACHE_FLUSH(from, to) \
-	sparc_cache_flush((from), (to))
-#define SLJIT_CACHE_FLUSH_OWN_IMPL 1
 
 #elif defined _WIN32
 
