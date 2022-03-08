@@ -156,7 +156,7 @@ extern "C" {
 #define SLJIT_CONFIG_MIPS_32 1
 #elif defined(__mips64)
 #define SLJIT_CONFIG_MIPS_64 1
-#elif defined(__sparc__) || defined(__sparc)
+#elif (defined(__sparc__) || defined(__sparc)) && !defined(_LP64)
 #define SLJIT_CONFIG_SPARC_32 1
 #elif defined(__s390x__)
 #define SLJIT_CONFIG_S390X 1
@@ -274,8 +274,12 @@ extern "C" {
 
 #ifndef SLJIT_INLINE
 /* Inline functions. Some old compilers do not support them. */
-#if defined(__SUNPRO_C) && __SUNPRO_C <= 0x510
+#ifdef __SUNPRO_C
+#if __SUNPRO_C < 0x560
 #define SLJIT_INLINE
+#else
+#define SLJIT_INLINE inline
+#endif /* __SUNPRO_C */
 #else
 #define SLJIT_INLINE __inline
 #endif
