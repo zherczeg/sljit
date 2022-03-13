@@ -324,18 +324,19 @@ extern "C" {
 /****************************/
 
 #if (!defined SLJIT_CACHE_FLUSH && defined __has_builtin)
-#if __has_builtin(__builtin___clear_cache)
+#if __has_builtin(__builtin___clear_cache) && !defined(__clang__)
 
 /*
  * https://gcc.gnu.org/bugzilla//show_bug.cgi?id=91248
- * clear_cache builtin in sparc's gcc is broken
+ * https://gcc.gnu.org/bugzilla//show_bug.cgi?id=93811
+ * gcc's clear_cache builtin for power and sparc are broken
  */
-#ifndef SLJIT_CONFIG_SPARC_32
+#if !defined(SLJIT_CONFIG_PPC) && !defined(SLJIT_CONFIG_SPARC_32)
 #define SLJIT_CACHE_FLUSH(from, to) \
 	__builtin___clear_cache((char*)(from), (char*)(to))
-#endif /* SLJIT_CONFIG_SPARC_32 */
+#endif
 
-#endif /* __has_builtin(__builtin___clear_cache) */
+#endif /* gcc >= 10 */
 #endif /* (!defined SLJIT_CACHE_FLUSH && defined __has_builtin) */
 
 #ifndef SLJIT_CACHE_FLUSH
