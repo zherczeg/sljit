@@ -341,7 +341,8 @@ extern "C" {
 
 #ifndef SLJIT_CACHE_FLUSH
 
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
+	|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 
 /* Not required to implement on archs with unified caches. */
 #define SLJIT_CACHE_FLUSH(from, to)
