@@ -1206,8 +1206,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_SET_OVERFLOW		SLJIT_SET(SLJIT_OVERFLOW)
 #define SLJIT_NOT_OVERFLOW		11
 
-/* There is no SLJIT_CARRY or SLJIT_NOT_CARRY. */
-#define SLJIT_SET_CARRY			SLJIT_SET(12)
+/* Unlike other flags, sljit_emit_jump may destroy this flag. */
+#define SLJIT_CARRY			12
+#define SLJIT_SET_CARRY			SLJIT_SET(SLJIT_CARRY)
+#define SLJIT_NOT_CARRY			13
 
 /* Floating point comparison types. */
 #define SLJIT_EQUAL_F64			14
@@ -1569,12 +1571,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 /* Flags were set by a 32 bit operation. */
 #define SLJIT_CURRENT_FLAGS_32			SLJIT_32
 
-/* Flags were set by an ADD, ADDC, SUB, SUBC, or NEG operation. */
-#define SLJIT_CURRENT_FLAGS_ADD_SUB		0x01
+/* Flags were set by an ADD or ADDC operations. */
+#define SLJIT_CURRENT_FLAGS_ADD			0x01
+/* Flags were set by a SUB, SUBC, or NEG operation. */
+#define SLJIT_CURRENT_FLAGS_SUB			0x02
 
 /* Flags were set by sljit_emit_op2u with SLJIT_SUB opcode.
-   Must be combined with SLJIT_CURRENT_FLAGS_ADD_SUB. */
-#define SLJIT_CURRENT_FLAGS_COMPARE		0x02
+   Must be combined with SLJIT_CURRENT_FLAGS_SUB. */
+#define SLJIT_CURRENT_FLAGS_COMPARE		0x04
 
 /* Define the currently available CPU status flags. It is usually used after
    an sljit_emit_label or sljit_emit_op_custom operations to define which CPU

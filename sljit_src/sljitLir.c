@@ -542,7 +542,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_put_label(struct sljit_put_label *put_la
 }
 
 #define SLJIT_CURRENT_FLAGS_ALL \
-	(SLJIT_CURRENT_FLAGS_32 | SLJIT_CURRENT_FLAGS_ADD_SUB | SLJIT_CURRENT_FLAGS_COMPARE)
+	(SLJIT_CURRENT_FLAGS_32 | SLJIT_CURRENT_FLAGS_ADD | SLJIT_CURRENT_FLAGS_SUB | SLJIT_CURRENT_FLAGS_COMPARE)
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *compiler, sljit_s32 current_flags)
 {
@@ -1663,14 +1663,16 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_jump(struct sljit_compile
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_32)));
-	CHECK_ARGUMENT((type & 0xff) != GET_FLAG_TYPE(SLJIT_SET_CARRY) && (type & 0xff) != (GET_FLAG_TYPE(SLJIT_SET_CARRY) + 1));
 	CHECK_ARGUMENT((type & 0xff) >= SLJIT_EQUAL && (type & 0xff) <= SLJIT_FAST_CALL);
 	CHECK_ARGUMENT((type & 0xff) < SLJIT_JUMP || !(type & SLJIT_32));
 
 	if ((type & 0xff) < SLJIT_JUMP) {
 		if ((type & 0xff) <= SLJIT_NOT_ZERO)
 			CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
-		else
+		else if ((compiler->last_flags & 0xff) == SLJIT_CARRY) {
+			CHECK_ARGUMENT((type & 0xff) == SLJIT_CARRY || (type & 0xff) == SLJIT_NOT_CARRY);
+			compiler->last_flags = 0;
+		} else
 			CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff)
 				|| ((type & 0xff) == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW));
 	}
@@ -1834,7 +1836,6 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_flags(struct sljit_com
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_32)));
 	CHECK_ARGUMENT((type & 0xff) >= SLJIT_EQUAL && (type & 0xff) <= SLJIT_ORDERED_F64);
-	CHECK_ARGUMENT((type & 0xff) != GET_FLAG_TYPE(SLJIT_SET_CARRY) && (type & 0xff) != (GET_FLAG_TYPE(SLJIT_SET_CARRY) + 1));
 	CHECK_ARGUMENT(op == SLJIT_MOV || op == SLJIT_MOV32
 		|| (GET_OPCODE(op) >= SLJIT_AND && GET_OPCODE(op) <= SLJIT_XOR));
 	CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK));
@@ -1843,6 +1844,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_flags(struct sljit_com
 		CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
 	else
 		CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff)
+			|| ((type & 0xff) == SLJIT_NOT_CARRY && (compiler->last_flags & 0xff) == SLJIT_CARRY)
 			|| ((type & 0xff) == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW));
 
 	FUNCTION_CHECK_DST(dst, dstw);

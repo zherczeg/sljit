@@ -1584,7 +1584,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		return emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_NEG:
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
+		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
 		return emit_op(compiler, SLJIT_SUB | GET_ALL_FLAGS(op), flags | IMM_OP, dst, dstw, SLJIT_IMM, 0, src, srcw);
 
 	case SLJIT_CLZ:
@@ -1621,12 +1621,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
 	case SLJIT_ADDC:
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
+		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
 		return emit_op(compiler, op, flags | CUMULATIVE_OP | IMM_OP, dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_SUB:
 	case SLJIT_SUBC:
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
+		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
 		return emit_op(compiler, op, flags | IMM_OP, dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_MUL:
@@ -2070,6 +2070,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	case SLJIT_SIG_LESS:
 	case SLJIT_SIG_GREATER:
 	case SLJIT_OVERFLOW:
+	case SLJIT_CARRY:
 		BR_Z(OTHER_FLAG);
 		break;
 	case SLJIT_GREATER_EQUAL:
@@ -2077,6 +2078,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	case SLJIT_SIG_GREATER_EQUAL:
 	case SLJIT_SIG_LESS_EQUAL:
 	case SLJIT_NOT_OVERFLOW:
+	case SLJIT_NOT_CARRY:
 		BR_NZ(OTHER_FLAG);
 		break;
 	case SLJIT_NOT_EQUAL_F64:
@@ -2333,7 +2335,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		break;
 	case SLJIT_OVERFLOW:
 	case SLJIT_NOT_OVERFLOW:
-		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB) {
+		if (compiler->status_flags_state & (SLJIT_CURRENT_FLAGS_ADD | SLJIT_CURRENT_FLAGS_SUB)) {
 			src_ar = OTHER_FLAG;
 			break;
 		}

@@ -387,10 +387,12 @@ static sljit_u8 get_jump_code(sljit_uw type)
 		return 0x85 /* jne */;
 
 	case SLJIT_LESS:
+	case SLJIT_CARRY:
 	case SLJIT_LESS_F64:
 		return 0x82 /* jc */;
 
 	case SLJIT_GREATER_EQUAL:
+	case SLJIT_NOT_CARRY:
 	case SLJIT_GREATER_EQUAL_F64:
 		return 0x83 /* jae */;
 

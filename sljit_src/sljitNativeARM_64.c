@@ -645,12 +645,15 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			FAIL_IF(load_immediate(compiler, dst, (flags & INT_OP) ? (~imm & 0xffffffff) : ~imm));
 			goto set_flags;
 		case SLJIT_SUB:
+			compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
 			if (flags & ARG1_IMM)
 				break;
 			imm = -imm;
 			/* Fall through. */
 		case SLJIT_ADD:
-			compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
+			if (op != SLJIT_SUB)
+				compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
+
 			if (imm == 0) {
 				CHECK_FLAGS(1 << 29);
 				return push_inst(compiler, ((op == SLJIT_ADD ? ADDI : SUBI) ^ inv_bits) | RD(dst) | RN(reg));
@@ -793,7 +796,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		break; /* Set flags. */
 	case SLJIT_NEG:
 		SLJIT_ASSERT(arg1 == TMP_REG1);
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
+		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
 		if (flags & SET_FLAGS)
 			inv_bits |= 1 << 29;
 		return push_inst(compiler, (SUB ^ inv_bits) | RD(dst) | RN(TMP_ZERO) | RM(arg2));
@@ -801,17 +804,19 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		SLJIT_ASSERT(arg1 == TMP_REG1);
 		return push_inst(compiler, (CLZ ^ inv_bits) | RD(dst) | RN(arg2));
 	case SLJIT_ADD:
+		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
 		CHECK_FLAGS(1 << 29);
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
 		return push_inst(compiler, (ADD ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
 	case SLJIT_ADDC:
+		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
 		CHECK_FLAGS(1 << 29);
 		return push_inst(compiler, (ADC ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
 	case SLJIT_SUB:
+		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
 		CHECK_FLAGS(1 << 29);
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
 		return push_inst(compiler, (SUB ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
 	case SLJIT_SUBC:
+		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
 		CHECK_FLAGS(1 << 29);
 		return push_inst(compiler, (SBC ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
 	case SLJIT_MUL:
@@ -1707,9 +1712,19 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_NOT_EQUAL_F64:
 		return 0x0;
 
+	case SLJIT_CARRY:
+		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD)
+			return 0x3;
+		/* fallthrough */
+
 	case SLJIT_LESS:
 	case SLJIT_LESS_F64:
 		return 0x2;
+
+	case SLJIT_NOT_CARRY:
+		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD)
+			return 0x2;
+		/* fallthrough */
 
 	case SLJIT_GREATER_EQUAL:
 	case SLJIT_GREATER_EQUAL_F64:
@@ -1736,7 +1751,7 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 		return 0xc;
 
 	case SLJIT_OVERFLOW:
-		if (!(compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB))
+		if (!(compiler->status_flags_state & (SLJIT_CURRENT_FLAGS_ADD | SLJIT_CURRENT_FLAGS_SUB)))
 			return 0x0;
 		/* fallthrough */
 
@@ -1744,7 +1759,7 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 		return 0x7;
 
 	case SLJIT_NOT_OVERFLOW:
-		if (!(compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB))
+		if (!(compiler->status_flags_state & (SLJIT_CURRENT_FLAGS_ADD | SLJIT_CURRENT_FLAGS_SUB)))
 			return 0x1;
 		/* fallthrough */
 

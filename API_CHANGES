@@ -1,5 +1,10 @@
 This file is the short summary of the API changes:
 
+31.01.2022 - Non-backward compatible
+    The SLJIT_CURRENT_FLAGS_ADD_SUB option is
+    split into SLJIT_CURRENT_FLAGS_ADD and
+    SLJIT_CURRENT_FLAGS_SUB.
+
 27.02.2022 - Non-backward compatible
     The SLJIT_F64_ALIGNMENT option is removed.
 

@@ -793,8 +793,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 /* CPU status flags management. */
 /********************************/
 
-#if (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) \
-	|| (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
+#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
+	|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC) \
 	|| (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
 	|| (defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC) \
 	|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)

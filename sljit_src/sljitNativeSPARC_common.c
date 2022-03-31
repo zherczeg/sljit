@@ -1401,10 +1401,12 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 
 	case SLJIT_LESS:
 	case SLJIT_GREATER_F64: /* Unordered. */
+	case SLJIT_CARRY:
 		return DA(0x5);
 
 	case SLJIT_GREATER_EQUAL:
 	case SLJIT_LESS_EQUAL_F64:
+	case SLJIT_NOT_CARRY:
 		return DA(0xd);
 
 	case SLJIT_GREATER:
@@ -1428,7 +1430,7 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 		return DA(0x2);
 
 	case SLJIT_OVERFLOW:
-		if (!(compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB))
+		if (!(compiler->status_flags_state & (SLJIT_CURRENT_FLAGS_ADD | SLJIT_CURRENT_FLAGS_SUB)))
 			return DA(0x9);
 		/* fallthrough */
 
@@ -1436,7 +1438,7 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 		return DA(0x7);
 
 	case SLJIT_NOT_OVERFLOW:
-		if (!(compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB))
+		if (!(compiler->status_flags_state & (SLJIT_CURRENT_FLAGS_ADD | SLJIT_CURRENT_FLAGS_SUB)))
 			return DA(0x1);
 		/* fallthrough */
 
