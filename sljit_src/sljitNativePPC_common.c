@@ -1167,8 +1167,11 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 		flags |= REG1_SOURCE;
 	}
 	else if (src1 & SLJIT_IMM) {
-		FAIL_IF(load_immediate(compiler, TMP_REG1, src1w));
-		src1_r = TMP_REG1;
+		src1_r = TMP_ZERO;
+		if (src1w != 0) {
+			FAIL_IF(load_immediate(compiler, TMP_REG1, src1w));
+			src1_r = TMP_REG1;
+		}
 	}
 	else {
 		FAIL_IF(emit_op_mem(compiler, input_flags | LOAD_DATA, TMP_REG1, src1, src1w, TMP_REG1));
@@ -1184,8 +1187,11 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 			dst_r = src2_r;
 	}
 	else if (src2 & SLJIT_IMM) {
-		FAIL_IF(load_immediate(compiler, sugg_src2_r, src2w));
-		src2_r = sugg_src2_r;
+		src2_r = TMP_ZERO;
+		if (src2w != 0) {
+			FAIL_IF(load_immediate(compiler, sugg_src2_r, src2w));
+			src2_r = sugg_src2_r;
+		}
 	}
 	else {
 		FAIL_IF(emit_op_mem(compiler, input_flags | LOAD_DATA, sugg_src2_r, src2, src2w, TMP_REG2));
@@ -1291,8 +1297,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	op = GET_OPCODE(op);
-	if ((src & SLJIT_IMM) && srcw == 0)
-		src = TMP_ZERO;
 
 	if (GET_FLAG_TYPE(op_flags) == SLJIT_OVERFLOW)
 		FAIL_IF(push_inst(compiler, MTXER | S(TMP_ZERO)));
@@ -1356,10 +1360,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 	case SLJIT_NOT:
 		return emit_op(compiler, SLJIT_NOT, flags, dst, dstw, TMP_REG1, 0, src, srcw);
-
-	case SLJIT_NEG:
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
-		return emit_op(compiler, SLJIT_NEG, flags | (GET_FLAG_TYPE(op_flags) ? ALT_FORM1 : 0), dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_CLZ:
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
@@ -1438,11 +1438,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
-
-	if ((src1 & SLJIT_IMM) && src1w == 0)
-		src1 = TMP_ZERO;
-	if ((src2 & SLJIT_IMM) && src2w == 0)
-		src2 = TMP_ZERO;
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (op & SLJIT_32) {

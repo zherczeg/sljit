@@ -2033,13 +2033,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_NOT:
 		return emit_op(compiler, op, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, src, srcw);
 
-	case SLJIT_NEG:
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-		compiler->skip_checks = 1;
-#endif
-		return sljit_emit_op2(compiler, SLJIT_SUB | GET_ALL_FLAGS(op), dst, dstw, SLJIT_IMM, 0, src, srcw);
-
 	case SLJIT_CLZ:
 		return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src, srcw);
 	}

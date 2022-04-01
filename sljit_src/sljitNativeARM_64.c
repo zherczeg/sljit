@@ -630,7 +630,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 
 		switch (op) {
 		case SLJIT_MUL:
-		case SLJIT_NEG:
 		case SLJIT_CLZ:
 		case SLJIT_ADDC:
 		case SLJIT_SUBC:
@@ -794,12 +793,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		SLJIT_ASSERT(arg1 == TMP_REG1);
 		FAIL_IF(push_inst(compiler, (ORN ^ inv_bits) | RD(dst) | RN(TMP_ZERO) | RM(arg2)));
 		break; /* Set flags. */
-	case SLJIT_NEG:
-		SLJIT_ASSERT(arg1 == TMP_REG1);
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
-		if (flags & SET_FLAGS)
-			inv_bits |= 1 << 29;
-		return push_inst(compiler, (SUB ^ inv_bits) | RD(dst) | RN(TMP_ZERO) | RM(arg2));
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(arg1 == TMP_REG1);
 		return push_inst(compiler, (CLZ ^ inv_bits) | RD(dst) | RN(arg2));

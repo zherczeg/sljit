@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+01.03.2022 - Non-backward compatible
+    Remove SLJIT_NEG. Instead substraction from
+    immedate 0 is preferred.
+
 31.01.2022 - Non-backward compatible
     The SLJIT_CURRENT_FLAGS_ADD_SUB option is
     split into SLJIT_CURRENT_FLAGS_ADD and

@@ -995,7 +995,7 @@ static const char* op0_names[] = {
 static const char* op1_names[] = {
 	"", ".u8", ".s8", ".u16",
 	".s16", ".u32", ".s32", "32",
-	".p", "not", "neg", "clz",
+	".p", "not", "clz",
 };
 
 static const char* op2_names[] = {
@@ -1269,10 +1269,6 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	case SLJIT_NOT:
 		/* Only SLJIT_32 and SLJIT_SET_Z are allowed. */
 		CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK));
-		break;
-	case SLJIT_NEG:
-		CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK)
-			|| GET_FLAG_TYPE(op) == SLJIT_OVERFLOW);
 		break;
 	case SLJIT_MOV:
 	case SLJIT_MOV_U32:

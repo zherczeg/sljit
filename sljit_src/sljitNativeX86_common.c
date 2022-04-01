@@ -1577,9 +1577,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 			return emit_not_with_flags(compiler, dst, dstw, src, srcw);
 		return emit_unary(compiler, NOT_rm, dst, dstw, src, srcw);
 
-	case SLJIT_NEG:
-		return emit_unary(compiler, NEG_rm, dst, dstw, src, srcw);
-
 	case SLJIT_CLZ:
 		return emit_clz(compiler, op_flags, dst, dstw, src, srcw);
 	}
@@ -2263,6 +2260,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		return emit_cum_binary(compiler, BINARY_OPCODE(ADC),
 			dst, dstw, src1, src1w, src2, src2w);
 	case SLJIT_SUB:
+		if (src1 == SLJIT_IMM && src1w == 0)
+			return emit_unary(compiler, NEG_rm, dst, dstw, src2, src2w);
+
 		if (!HAS_FLAGS(op)) {
 			if ((src2 & SLJIT_IMM) && emit_lea_binary(compiler, dst, dstw, src1, src1w, SLJIT_IMM, -src2w) != SLJIT_ERR_UNSUPPORTED)
 				return compiler->error;

@@ -1024,9 +1024,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_NOT:
 	case SLJIT_CLZ:
 		return emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, src, srcw);
-
-	case SLJIT_NEG:
-		return emit_op(compiler, SLJIT_SUB, flags | IMM_OP, dst, dstw, SLJIT_IMM, 0, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;

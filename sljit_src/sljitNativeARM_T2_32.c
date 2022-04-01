@@ -1619,14 +1619,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		return emit_op_mem(compiler, flags | STORE, dst_r, dst, dstw, TMP_REG2);
 	}
 
-	if (op == SLJIT_NEG) {
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-		compiler->skip_checks = 1;
-#endif
-		return sljit_emit_op2(compiler, SLJIT_SUB | op_flags, dst, dstw, SLJIT_IMM, 0, src, srcw);
-	}
-
 	flags = HAS_FLAGS(op_flags) ? SET_FLAGS : 0;
 
 	if (src & SLJIT_MEM) {
