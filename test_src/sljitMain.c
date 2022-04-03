@@ -31,17 +31,17 @@
 
 int sljit_test(int argc, char* argv[]);
 
-void error(const char* str)
-{
-	printf("An error occured: %s\n", str);
-	exit(-1);
-}
-
 union executable_code {
 	void* code;
 	sljit_sw (SLJIT_FUNC *func)(sljit_sw* a);
 };
 typedef union executable_code executable_code;
+
+static void error(const char* str)
+{
+	printf("An error occured: %s\n", str);
+	exit(-1);
+}
 
 void devel(void)
 {

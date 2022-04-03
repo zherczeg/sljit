@@ -6658,7 +6658,7 @@ static void test69(void)
 	sljit_set_current_flags(compiler, SLJIT_SET_Z | SLJIT_CURRENT_FLAGS_SUB | SLJIT_CURRENT_FLAGS_COMPARE);
 	cond_set(compiler, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_sw), SLJIT_ZERO);
 
-	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 1 << 31);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, (sljit_sw)(1u << 31));
 	sljit_emit_op2u(compiler, SLJIT_ADD32 | SLJIT_SET_Z, SLJIT_R1, 0, SLJIT_R1, 0);
 	sljit_emit_label(compiler);
 	sljit_set_current_flags(compiler, SLJIT_SET_Z | SLJIT_CURRENT_FLAGS_32 | SLJIT_CURRENT_FLAGS_ADD);
