@@ -104,7 +104,7 @@ struct test_case {
 	const regex_char_t *string;	/* NULL : end of tests. */
 };
 
-void run_tests(struct test_case* test, int verbose, int silent)
+static void run_tests(struct test_case* test, int verbose, int silent)
 {
 	int error;
 	const regex_char_t *ptr;
