@@ -1736,7 +1736,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 #	define flags (sljit_u32)0
 #else
-	sljit_u32 flags = (GET_OPCODE(op) == SLJIT_CONV_SW_FROM_F64) << 21;
+	sljit_u32 flags = ((sljit_u32)(GET_OPCODE(op) == SLJIT_CONV_SW_FROM_F64)) << 21;
 #endif
 
 	if (src & SLJIT_MEM) {
@@ -1764,7 +1764,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_sw(struct sljit_comp
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 #	define flags (sljit_u32)0
 #else
-	sljit_u32 flags = (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_SW) << 21;
+	sljit_u32 flags = ((sljit_u32)(GET_OPCODE(op) == SLJIT_CONV_F64_FROM_SW)) << 21;
 #endif
 
 	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
