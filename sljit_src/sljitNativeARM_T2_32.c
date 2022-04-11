@@ -1984,11 +1984,15 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 {
 	switch (type) {
 	case SLJIT_EQUAL:
-	case SLJIT_EQUAL_F64:
+	case SLJIT_F_EQUAL:
+	case SLJIT_ORDERED_EQUAL:
+	case SLJIT_UNORDERED_OR_EQUAL: /* Not supported. */
 		return 0x0;
 
 	case SLJIT_NOT_EQUAL:
-	case SLJIT_NOT_EQUAL_F64:
+	case SLJIT_F_NOT_EQUAL:
+	case SLJIT_UNORDERED_OR_NOT_EQUAL:
+	case SLJIT_ORDERED_NOT_EQUAL: /* Not supported. */
 		return 0x1;
 
 	case SLJIT_CARRY:
@@ -1997,7 +2001,6 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 		/* fallthrough */
 
 	case SLJIT_LESS:
-	case SLJIT_LESS_F64:
 		return 0x3;
 
 	case SLJIT_NOT_CARRY:
@@ -2006,27 +2009,33 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 		/* fallthrough */
 
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_GREATER_EQUAL_F64:
 		return 0x2;
 
 	case SLJIT_GREATER:
-	case SLJIT_GREATER_F64:
+	case SLJIT_UNORDERED_OR_GREATER:
 		return 0x8;
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_LESS_EQUAL_F64:
+	case SLJIT_F_LESS_EQUAL:
+	case SLJIT_ORDERED_LESS_EQUAL:
 		return 0x9;
 
 	case SLJIT_SIG_LESS:
+	case SLJIT_UNORDERED_OR_LESS:
 		return 0xb;
 
 	case SLJIT_SIG_GREATER_EQUAL:
+	case SLJIT_F_GREATER_EQUAL:
+	case SLJIT_ORDERED_GREATER_EQUAL:
 		return 0xa;
 
 	case SLJIT_SIG_GREATER:
+	case SLJIT_F_GREATER:
+	case SLJIT_ORDERED_GREATER:
 		return 0xc;
 
 	case SLJIT_SIG_LESS_EQUAL:
+	case SLJIT_UNORDERED_OR_LESS_EQUAL:
 		return 0xd;
 
 	case SLJIT_OVERFLOW:
@@ -2034,7 +2043,7 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 			return 0x1;
 		/* fallthrough */
 
-	case SLJIT_UNORDERED_F64:
+	case SLJIT_UNORDERED:
 		return 0x6;
 
 	case SLJIT_NOT_OVERFLOW:
@@ -2042,8 +2051,15 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 			return 0x0;
 		/* fallthrough */
 
-	case SLJIT_ORDERED_F64:
+	case SLJIT_ORDERED:
 		return 0x7;
+
+	case SLJIT_F_LESS:
+	case SLJIT_ORDERED_LESS:
+		return 0x4;
+
+	case SLJIT_UNORDERED_OR_GREATER_EQUAL:
+		return 0x5;
 
 	default: /* SLJIT_JUMP */
 		SLJIT_UNREACHABLE();

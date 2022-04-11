@@ -469,6 +469,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	}
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
+{
+	return (type >= SLJIT_UNORDERED && type <= SLJIT_ORDERED_LESS_EQUAL);
+}
+
 /* --------------------------------------------------------------------- */
 /*  Entry, exit                                                          */
 /* --------------------------------------------------------------------- */
@@ -1389,41 +1394,50 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 {
 	switch (type) {
 	case SLJIT_EQUAL:
-	case SLJIT_NOT_EQUAL_F64: /* Unordered. */
+	case SLJIT_UNORDERED_OR_NOT_EQUAL:
 		return DA(0x1);
 
 	case SLJIT_NOT_EQUAL:
-	case SLJIT_EQUAL_F64:
+	case SLJIT_F_EQUAL:
+	case SLJIT_ORDERED_EQUAL:
 		return DA(0x9);
 
 	case SLJIT_LESS:
-	case SLJIT_GREATER_F64: /* Unordered. */
+	case SLJIT_UNORDERED_OR_GREATER:
 	case SLJIT_CARRY:
 		return DA(0x5);
 
 	case SLJIT_GREATER_EQUAL:
-	case SLJIT_LESS_EQUAL_F64:
 	case SLJIT_NOT_CARRY:
+	case SLJIT_F_LESS_EQUAL:
+	case SLJIT_ORDERED_LESS_EQUAL:
 		return DA(0xd);
 
 	case SLJIT_GREATER:
-	case SLJIT_GREATER_EQUAL_F64: /* Unordered. */
+	case SLJIT_UNORDERED_OR_GREATER_EQUAL:
 		return DA(0xc);
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_LESS_F64:
+	case SLJIT_F_LESS:
+	case SLJIT_ORDERED_LESS:
 		return DA(0x4);
 
 	case SLJIT_SIG_LESS:
+	case SLJIT_UNORDERED_OR_LESS:
 		return DA(0x3);
 
 	case SLJIT_SIG_GREATER_EQUAL:
+	case SLJIT_F_GREATER_EQUAL:
+	case SLJIT_ORDERED_GREATER_EQUAL:
 		return DA(0xb);
 
 	case SLJIT_SIG_GREATER:
+	case SLJIT_UNORDERED_OR_EQUAL:
 		return DA(0xa);
 
 	case SLJIT_SIG_LESS_EQUAL:
+	case SLJIT_F_NOT_EQUAL:
+	case SLJIT_ORDERED_NOT_EQUAL:
 		return DA(0x2);
 
 	case SLJIT_OVERFLOW:
@@ -1431,7 +1445,7 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 			return DA(0x9);
 		/* fallthrough */
 
-	case SLJIT_UNORDERED_F64:
+	case SLJIT_UNORDERED:
 		return DA(0x7);
 
 	case SLJIT_NOT_OVERFLOW:
@@ -1439,8 +1453,15 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 			return DA(0x1);
 		/* fallthrough */
 
-	case SLJIT_ORDERED_F64:
+	case SLJIT_ORDERED:
 		return DA(0xf);
+
+	case SLJIT_F_GREATER:
+	case SLJIT_ORDERED_GREATER:
+		return DA(0x6);
+
+	case SLJIT_UNORDERED_OR_LESS_EQUAL:
+		return DA(0xe);
 
 	default:
 		SLJIT_UNREACHABLE();
@@ -1460,7 +1481,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 	type &= 0xff;
 
-	if (type < SLJIT_EQUAL_F64) {
+	if (type < SLJIT_F_EQUAL) {
 		jump->flags |= IS_COND;
 		if (((compiler->delay_slot & DST_INS_MASK) != UNMOVABLE_INS) && !(compiler->delay_slot & ICC_IS_SET))
 			jump->flags |= IS_MOVABLE;
@@ -1592,7 +1613,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		FAIL_IF(emit_op_mem2(compiler, WORD_DATA | LOAD_DATA, TMP_REG1, dst, dstw, dst, dstw));
 
 	type &= 0xff;
-	if (type < SLJIT_EQUAL_F64)
+	if (type < SLJIT_F_EQUAL)
 		FAIL_IF(push_inst(compiler, BICC | get_cc(compiler, type) | 3, UNMOVABLE_INS));
 	else
 		FAIL_IF(push_inst(compiler, FBFCC | get_cc(compiler, type) | 3, UNMOVABLE_INS));

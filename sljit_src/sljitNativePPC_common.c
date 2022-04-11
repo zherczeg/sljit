@@ -649,6 +649,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	}
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
+{
+	return (type >= SLJIT_UNORDERED && type <= SLJIT_ORDERED_LESS_EQUAL);
+}
+
 /* --------------------------------------------------------------------- */
 /*  Entry, exit                                                          */
 /* --------------------------------------------------------------------- */
@@ -1899,7 +1904,21 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 		src2 = TMP_FREG2;
 	}
 
-	return push_inst(compiler, FCMPU | CRD(4) | FA(src1) | FB(src2));
+	FAIL_IF(push_inst(compiler, FCMPU | CRD(4) | FA(src1) | FB(src2)));
+
+	switch (GET_FLAG_TYPE(op)) {
+	case SLJIT_UNORDERED_OR_EQUAL:
+	case SLJIT_ORDERED_NOT_EQUAL:
+		return push_inst(compiler, CROR | ((4 + 2) << 21) | ((4 + 2) << 16) | ((4 + 3) << 11));
+	case SLJIT_UNORDERED_OR_LESS:
+	case SLJIT_ORDERED_GREATER_EQUAL:
+		return push_inst(compiler, CROR | ((4 + 0) << 21) | ((4 + 0) << 16) | ((4 + 3) << 11));
+	case SLJIT_UNORDERED_OR_GREATER:
+	case SLJIT_ORDERED_LESS_EQUAL:
+		return push_inst(compiler, CROR | ((4 + 1) << 21) | ((4 + 1) << 16) | ((4 + 3) << 11));
+	}
+
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compiler, sljit_s32 op,
@@ -2076,34 +2095,46 @@ static sljit_ins get_bo_bi_flags(struct sljit_compiler *compiler, sljit_s32 type
 	case SLJIT_SIG_LESS_EQUAL:
 		return (4 << 21) | (1 << 16);
 
-	case SLJIT_LESS_F64:
-		return (12 << 21) | ((4 + 0) << 16);
-
-	case SLJIT_GREATER_EQUAL_F64:
-		return (4 << 21) | ((4 + 0) << 16);
-
-	case SLJIT_GREATER_F64:
-		return (12 << 21) | ((4 + 1) << 16);
-
-	case SLJIT_LESS_EQUAL_F64:
-		return (4 << 21) | ((4 + 1) << 16);
-
 	case SLJIT_OVERFLOW:
 		return (12 << 21) | (3 << 16);
 
 	case SLJIT_NOT_OVERFLOW:
 		return (4 << 21) | (3 << 16);
 
-	case SLJIT_EQUAL_F64:
+	case SLJIT_F_LESS:
+	case SLJIT_ORDERED_LESS:
+	case SLJIT_UNORDERED_OR_LESS:
+		return (12 << 21) | ((4 + 0) << 16);
+
+	case SLJIT_F_GREATER_EQUAL:
+	case SLJIT_ORDERED_GREATER_EQUAL:
+	case SLJIT_UNORDERED_OR_GREATER_EQUAL:
+		return (4 << 21) | ((4 + 0) << 16);
+
+	case SLJIT_F_GREATER:
+	case SLJIT_ORDERED_GREATER:
+	case SLJIT_UNORDERED_OR_GREATER:
+		return (12 << 21) | ((4 + 1) << 16);
+
+	case SLJIT_F_LESS_EQUAL:
+	case SLJIT_ORDERED_LESS_EQUAL:
+	case SLJIT_UNORDERED_OR_LESS_EQUAL:
+		return (4 << 21) | ((4 + 1) << 16);
+
+	case SLJIT_F_EQUAL:
+	case SLJIT_ORDERED_EQUAL:
+	case SLJIT_UNORDERED_OR_EQUAL:
 		return (12 << 21) | ((4 + 2) << 16);
 
-	case SLJIT_NOT_EQUAL_F64:
+	case SLJIT_F_NOT_EQUAL:
+	case SLJIT_ORDERED_NOT_EQUAL:
+	case SLJIT_UNORDERED_OR_NOT_EQUAL:
 		return (4 << 21) | ((4 + 2) << 16);
 
-	case SLJIT_UNORDERED_F64:
+	case SLJIT_UNORDERED:
 		return (12 << 21) | ((4 + 3) << 16);
 
-	case SLJIT_ORDERED_F64:
+	case SLJIT_ORDERED:
 		return (4 << 21) | ((4 + 3) << 16);
 
 	default:
@@ -2332,38 +2363,50 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		invert = (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD) != 0;
 		break;
 
-	case SLJIT_LESS_F64:
+	case SLJIT_F_LESS:
+	case SLJIT_ORDERED_LESS:
+	case SLJIT_UNORDERED_OR_LESS:
 		bit = 4 + 0;
 		break;
 
-	case SLJIT_GREATER_EQUAL_F64:
+	case SLJIT_F_GREATER_EQUAL:
+	case SLJIT_ORDERED_GREATER_EQUAL:
+	case SLJIT_UNORDERED_OR_GREATER_EQUAL:
 		bit = 4 + 0;
 		invert = 1;
 		break;
 
-	case SLJIT_GREATER_F64:
+	case SLJIT_F_GREATER:
+	case SLJIT_ORDERED_GREATER:
+	case SLJIT_UNORDERED_OR_GREATER:
 		bit = 4 + 1;
 		break;
 
-	case SLJIT_LESS_EQUAL_F64:
+	case SLJIT_F_LESS_EQUAL:
+	case SLJIT_ORDERED_LESS_EQUAL:
+	case SLJIT_UNORDERED_OR_LESS_EQUAL:
 		bit = 4 + 1;
 		invert = 1;
 		break;
 
-	case SLJIT_EQUAL_F64:
+	case SLJIT_F_EQUAL:
+	case SLJIT_ORDERED_EQUAL:
+	case SLJIT_UNORDERED_OR_EQUAL:
 		bit = 4 + 2;
 		break;
 
-	case SLJIT_NOT_EQUAL_F64:
+	case SLJIT_F_NOT_EQUAL:
+	case SLJIT_ORDERED_NOT_EQUAL:
+	case SLJIT_UNORDERED_OR_NOT_EQUAL:
 		bit = 4 + 2;
 		invert = 1;
 		break;
 
-	case SLJIT_UNORDERED_F64:
+	case SLJIT_UNORDERED:
 		bit = 4 + 3;
 		break;
 
-	case SLJIT_ORDERED_F64:
+	case SLJIT_ORDERED:
 		bit = 4 + 3;
 		invert = 1;
 		break;

@@ -634,6 +634,20 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type);
 
+/* If type is between SLJIT_ORDERED_EQUAL and SLJIT_ORDERED_LESS_EQUAL,
+   sljit_cmp_info returns one, if the cpu supports the passed floating
+   point comparison type.
+
+   If type is SLJIT_UNORDERED or SLJIT_ORDERED, sljit_cmp_info returns
+   one, if the cpu supports checking the unordered comparison result
+   regardless of the comparison type passed to the comparison instruction.
+   The returned value is always one, if there is at least one type between
+   SLJIT_ORDERED_EQUAL and SLJIT_ORDERED_LESS_EQUAL where sljit_cmp_info
+   returns with a zero value.
+
+   Otherwise it returns zero. */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type);
+
 /* Instruction generation. Returns with any error code. If there is no
    error, they return with SLJIT_SUCCESS. */
 
@@ -1207,41 +1221,70 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_SET_CARRY			SLJIT_SET(SLJIT_CARRY)
 #define SLJIT_NOT_CARRY			13
 
-/* Floating point comparison types. */
-#define SLJIT_EQUAL_F64			14
-#define SLJIT_EQUAL_F32			(SLJIT_EQUAL_F64 | SLJIT_32)
-#define SLJIT_SET_EQUAL_F		SLJIT_SET(SLJIT_EQUAL_F64)
-#define SLJIT_NOT_EQUAL_F64		15
-#define SLJIT_NOT_EQUAL_F32		(SLJIT_NOT_EQUAL_F64 | SLJIT_32)
-#define SLJIT_SET_NOT_EQUAL_F		SLJIT_SET(SLJIT_NOT_EQUAL_F64)
-#define SLJIT_LESS_F64			16
-#define SLJIT_LESS_F32			(SLJIT_LESS_F64 | SLJIT_32)
-#define SLJIT_SET_LESS_F		SLJIT_SET(SLJIT_LESS_F64)
-#define SLJIT_GREATER_EQUAL_F64		17
-#define SLJIT_GREATER_EQUAL_F32		(SLJIT_GREATER_EQUAL_F64 | SLJIT_32)
-#define SLJIT_SET_GREATER_EQUAL_F	SLJIT_SET(SLJIT_GREATER_EQUAL_F64)
-#define SLJIT_GREATER_F64		18
-#define SLJIT_GREATER_F32		(SLJIT_GREATER_F64 | SLJIT_32)
-#define SLJIT_SET_GREATER_F		SLJIT_SET(SLJIT_GREATER_F64)
-#define SLJIT_LESS_EQUAL_F64		19
-#define SLJIT_LESS_EQUAL_F32		(SLJIT_LESS_EQUAL_F64 | SLJIT_32)
-#define SLJIT_SET_LESS_EQUAL_F		SLJIT_SET(SLJIT_LESS_EQUAL_F64)
-#define SLJIT_UNORDERED_F64		20
-#define SLJIT_UNORDERED_F32		(SLJIT_UNORDERED_F64 | SLJIT_32)
-#define SLJIT_SET_UNORDERED_F		SLJIT_SET(SLJIT_UNORDERED_F64)
-#define SLJIT_ORDERED_F64		21
-#define SLJIT_ORDERED_F32		(SLJIT_ORDERED_F64 | SLJIT_32)
-#define SLJIT_SET_ORDERED_F		SLJIT_SET(SLJIT_ORDERED_F64)
+/* Basic floating point comparison types.
+
+   Note: when the comparison result is unordered, their behaviour is unspecified. */
+
+#define SLJIT_F_EQUAL				14
+#define SLJIT_SET_F_EQUAL			SLJIT_SET(SLJIT_F_EQUAL)
+#define SLJIT_F_NOT_EQUAL			15
+#define SLJIT_SET_F_NOT_EQUAL			SLJIT_SET(SLJIT_F_NOT_EQUAL)
+#define SLJIT_F_LESS				16
+#define SLJIT_SET_F_LESS			SLJIT_SET(SLJIT_F_LESS)
+#define SLJIT_F_GREATER_EQUAL			17
+#define SLJIT_SET_F_GREATER_EQUAL		SLJIT_SET(SLJIT_F_GREATER_EQUAL)
+#define SLJIT_F_GREATER				18
+#define SLJIT_SET_F_GREATER			SLJIT_SET(SLJIT_F_GREATER)
+#define SLJIT_F_LESS_EQUAL			19
+#define SLJIT_SET_F_LESS_EQUAL			SLJIT_SET(SLJIT_F_LESS_EQUAL)
+
+/* Jumps when either argument contains a NaN value. */
+#define SLJIT_UNORDERED				20
+#define SLJIT_SET_UNORDERED			SLJIT_SET(SLJIT_UNORDERED)
+/* Jumps when neither argument contains a NaN value. */
+#define SLJIT_ORDERED				21
+#define SLJIT_SET_ORDERED			SLJIT_SET(SLJIT_ORDERED)
+
+/* Ordered / unordered floating point comparison types.
+
+   Note: each comparison type has an ordered and unordered form. Some
+         architectures supports only either of them (see: sljit_cmp_info). */
+
+#define SLJIT_ORDERED_EQUAL			22
+#define SLJIT_SET_ORDERED_EQUAL			SLJIT_SET(SLJIT_ORDERED_EQUAL)
+#define SLJIT_UNORDERED_OR_NOT_EQUAL		23
+#define SLJIT_SET_UNORDERED_OR_NOT_EQUAL	SLJIT_SET(SLJIT_UNORDERED_OR_NOT_EQUAL)
+#define SLJIT_ORDERED_LESS			24
+#define SLJIT_SET_ORDERED_LESS			SLJIT_SET(SLJIT_ORDERED_LESS)
+#define SLJIT_UNORDERED_OR_GREATER_EQUAL	25
+#define SLJIT_SET_UNORDERED_OR_GREATER_EQUAL	SLJIT_SET(SLJIT_UNORDERED_OR_GREATER_EQUAL)
+#define SLJIT_ORDERED_GREATER			26
+#define SLJIT_SET_ORDERED_GREATER		SLJIT_SET(SLJIT_ORDERED_GREATER)
+#define SLJIT_UNORDERED_OR_LESS_EQUAL		27
+#define SLJIT_SET_UNORDERED_OR_LESS_EQUAL	SLJIT_SET(SLJIT_UNORDERED_OR_LESS_EQUAL)
+
+#define SLJIT_UNORDERED_OR_EQUAL		28
+#define SLJIT_SET_UNORDERED_OR_EQUAL		SLJIT_SET(SLJIT_UNORDERED_OR_EQUAL)
+#define SLJIT_ORDERED_NOT_EQUAL			29
+#define SLJIT_SET_ORDERED_NOT_EQUAL		SLJIT_SET(SLJIT_ORDERED_NOT_EQUAL)
+#define SLJIT_UNORDERED_OR_LESS			30
+#define SLJIT_SET_UNORDERED_OR_LESS		SLJIT_SET(SLJIT_UNORDERED_OR_LESS)
+#define SLJIT_ORDERED_GREATER_EQUAL		31
+#define SLJIT_SET_ORDERED_GREATER_EQUAL		SLJIT_SET(SLJIT_ORDERED_GREATER_EQUAL)
+#define SLJIT_UNORDERED_OR_GREATER		32
+#define SLJIT_SET_UNORDERED_OR_GREATER		SLJIT_SET(SLJIT_UNORDERED_OR_GREATER)
+#define SLJIT_ORDERED_LESS_EQUAL		33
+#define SLJIT_SET_ORDERED_LESS_EQUAL		SLJIT_SET(SLJIT_ORDERED_LESS_EQUAL)
 
 /* Unconditional jump types. */
-#define SLJIT_JUMP			22
+#define SLJIT_JUMP			34
 	/* Fast calling method. See sljit_emit_fast_enter / SLJIT_FAST_RETURN. */
-#define SLJIT_FAST_CALL			23
+#define SLJIT_FAST_CALL			35
 	/* Called function must be declared with the SLJIT_FUNC attribute. */
-#define SLJIT_CALL			24
+#define SLJIT_CALL			36
 	/* Called function must be declared with cdecl attribute.
 	   This is the default attribute for C functions. */
-#define SLJIT_CALL_CDECL		25
+#define SLJIT_CALL_CDECL		37
 
 /* The target can be changed during runtime (see: sljit_set_jump_addr). */
 #define SLJIT_REWRITABLE_JUMP		0x1000
@@ -1287,7 +1330,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
    sljit_emit_jump. However some architectures (i.e: MIPS) may employ
    special optimizations here. It is suggested to use this comparison form
    when appropriate.
-    type must be between SLJIT_EQUAL_F64 and SLJIT_ORDERED_F32
+    type must be between SLJIT_F_EQUAL and SLJIT_ORDERED_LESS_EQUAL
     type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
    Flags: destroy flags.
    Note: if either operand is NaN, the behaviour is undefined for
@@ -1320,7 +1363,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 arg_types, sljit_s32 src, sljit_sw srcw);
 
 /* Perform the operation using the conditional flags as the second argument.
-   Type must always be between SLJIT_EQUAL and SLJIT_ORDERED_F64. The value
+   Type must always be between SLJIT_EQUAL and SLJIT_ORDERED_LESS_EQUAL. The value
    represented by the type is 1, if the condition represented by the type
    is fulfilled, and 0 otherwise.
 
@@ -1339,7 +1382,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
    if the condition is satisfied. Unlike other arithmetic operations this
    instruction does not support memory access.
 
-   type must be between SLJIT_EQUAL and SLJIT_ORDERED_F64
+   type must be between SLJIT_EQUAL and SLJIT_ORDERED_LESS_EQUAL
    dst_reg must be a valid register and it can be combined
       with SLJIT_32 to perform a 32 bit arithmetic operation
    src must be register or immediate (SLJIT_IMM)

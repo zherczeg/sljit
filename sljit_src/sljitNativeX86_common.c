@@ -379,29 +379,41 @@ static sljit_u8 get_jump_code(sljit_uw type)
 {
 	switch (type) {
 	case SLJIT_EQUAL:
-	case SLJIT_EQUAL_F64:
+	case SLJIT_F_EQUAL:
+	case SLJIT_UNORDERED_OR_EQUAL:
+	case SLJIT_ORDERED_EQUAL: /* Not supported. */
 		return 0x84 /* je */;
 
 	case SLJIT_NOT_EQUAL:
-	case SLJIT_NOT_EQUAL_F64:
+	case SLJIT_F_NOT_EQUAL:
+	case SLJIT_ORDERED_NOT_EQUAL:
+	case SLJIT_UNORDERED_OR_NOT_EQUAL: /* Not supported. */
 		return 0x85 /* jne */;
 
 	case SLJIT_LESS:
 	case SLJIT_CARRY:
-	case SLJIT_LESS_F64:
+	case SLJIT_F_LESS:
+	case SLJIT_UNORDERED_OR_LESS:
+	case SLJIT_ORDERED_LESS: /* Not supported. */
 		return 0x82 /* jc */;
 
 	case SLJIT_GREATER_EQUAL:
 	case SLJIT_NOT_CARRY:
-	case SLJIT_GREATER_EQUAL_F64:
+	case SLJIT_F_GREATER_EQUAL:
+	case SLJIT_ORDERED_GREATER_EQUAL:
+	case SLJIT_UNORDERED_OR_GREATER_EQUAL: /* Not supported. */
 		return 0x83 /* jae */;
 
 	case SLJIT_GREATER:
-	case SLJIT_GREATER_F64:
+	case SLJIT_F_GREATER:
+	case SLJIT_ORDERED_GREATER:
+	case SLJIT_UNORDERED_OR_GREATER: /* Not supported. */
 		return 0x87 /* jnbe */;
 
 	case SLJIT_LESS_EQUAL:
-	case SLJIT_LESS_EQUAL_F64:
+	case SLJIT_F_LESS_EQUAL:
+	case SLJIT_UNORDERED_OR_LESS_EQUAL:
+	case SLJIT_ORDERED_LESS_EQUAL: /* Not supported. */
 		return 0x86 /* jbe */;
 
 	case SLJIT_SIG_LESS:
@@ -422,10 +434,10 @@ static sljit_u8 get_jump_code(sljit_uw type)
 	case SLJIT_NOT_OVERFLOW:
 		return 0x81 /* jno */;
 
-	case SLJIT_UNORDERED_F64:
+	case SLJIT_UNORDERED:
 		return 0x8a /* jp */;
 
-	case SLJIT_ORDERED_F64:
+	case SLJIT_ORDERED:
 		return 0x8b /* jpo */;
 	}
 	return 0;
@@ -680,6 +692,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	default:
 		return 0;
 	}
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
+{
+	if (type < SLJIT_UNORDERED || type > SLJIT_ORDERED_LESS_EQUAL)
+		return 0;
+
+	switch (type) {
+	case SLJIT_ORDERED_EQUAL:
+	case SLJIT_UNORDERED_OR_NOT_EQUAL:
+	case SLJIT_ORDERED_LESS:
+	case SLJIT_UNORDERED_OR_GREATER_EQUAL:
+	case SLJIT_UNORDERED_OR_GREATER:
+	case SLJIT_ORDERED_LESS_EQUAL:
+		return 0;
+	}
+
+	return 1;
 }
 
 /* --------------------------------------------------------------------- */
