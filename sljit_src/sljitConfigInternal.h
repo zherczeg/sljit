@@ -330,8 +330,14 @@ extern "C" {
  * older versions are known to abort in some targets
  * https://github.com/PhilipHazel/pcre2/issues/92
  *
- * beware APPLE is known to have removed the code in iOS so
- * it will need to be excempted or result in broken builds
+ * beware some vendors (ex: Microsoft, Apple) are known to have
+ * removed the code to support this builtin even if the call for
+ * __has_builtin reports it is available.
+ *
+ * make sure linking doesn't fail because __clear_cache() is
+ * missing before changing it or add an exception so that the
+ * system provided method that should be defined below is used
+ * instead.
  */
 #if (!defined SLJIT_CACHE_FLUSH && defined __has_builtin)
 #if __has_builtin(__builtin___clear_cache) && !defined(__clang__)
@@ -380,6 +386,11 @@ extern "C" {
 	sparc_cache_flush((from), (to))
 #define SLJIT_CACHE_FLUSH_OWN_IMPL 1
 
+#elif defined(_WIN32)
+
+#define SLJIT_CACHE_FLUSH(from, to) \
+	FlushInstructionCache(GetCurrentProcess(), (void*)(from), (char*)(to) - (char*)(from))
+
 #elif (defined(__GNUC__) && (__GNUC__ >= 5 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))) || defined(__clang__)
 
 #define SLJIT_CACHE_FLUSH(from, to) \
@@ -391,11 +402,6 @@ extern "C" {
 #include <sys/cachectl.h>
 #define SLJIT_CACHE_FLUSH(from, to) \
 	cacheflush((long)(from), (long)(to), 0)
-
-#elif defined _WIN32
-
-#define SLJIT_CACHE_FLUSH(from, to) \
-	FlushInstructionCache(GetCurrentProcess(), (void*)(from), (char*)(to) - (char*)(from))
 
 #else
 
