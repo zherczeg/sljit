@@ -913,7 +913,11 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *comp
 
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 #ifdef _WIN64
+#ifdef __GNUC__
+#	define SLJIT_PRINT_D	"ll"
+#else
 #	define SLJIT_PRINT_D	"I64"
+#endif
 #else
 #	define SLJIT_PRINT_D	"l"
 #endif
