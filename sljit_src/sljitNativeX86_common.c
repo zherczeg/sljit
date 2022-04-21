@@ -2799,7 +2799,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	CHECK_EXTRA_REGS(dst, dstw, (void)0);
 
-	type &= 0xff;
 	/* setcc = jcc + 0x10. */
 	cond_set = U8(get_jump_code((sljit_uw)type) + 0x10);
 
@@ -3001,7 +3000,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	inst = emit_x86_instruction(compiler, 2, dst_reg, 0, src, srcw);
 	FAIL_IF(!inst);
 	*inst++ = GROUP_0F;
-	*inst = U8(get_jump_code(type & 0xff) - 0x40);
+	*inst = U8(get_jump_code((sljit_uw)type) - 0x40);
 	return SLJIT_SUCCESS;
 }
 

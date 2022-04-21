@@ -2463,7 +2463,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	op = GET_OPCODE(op);
-	cc = get_cc(compiler, type & 0xff);
+	cc = get_cc(compiler, type);
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 
 	if (op < SLJIT_ADD) {
@@ -2515,7 +2515,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 
 	dst_reg &= ~SLJIT_32;
 
-	cc = get_cc(compiler, type & 0xff);
+	cc = get_cc(compiler, type);
 
 	if (!(src & SLJIT_IMM)) {
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));

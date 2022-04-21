@@ -2364,8 +2364,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	if (op >= SLJIT_ADD && (dst & SLJIT_MEM))
 		FAIL_IF(emit_op_mem2(compiler, mem_type | LOAD_DATA, DR(TMP_REG1), dst, dstw, dst, dstw));
 
-	type &= 0xff;
-
 	if (type < SLJIT_F_EQUAL) {
 		src_ar = OTHER_FLAG;
 		invert = type & 0x1;
@@ -2465,7 +2463,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 
 	dst_reg &= ~SLJIT_32;
 
-	switch (type & 0xff) {
+	switch (type) {
 	case SLJIT_EQUAL:
 		ins = MOVZ | TA(EQUAL_FLAG);
 		break;

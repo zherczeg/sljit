@@ -1612,7 +1612,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	if (op >= SLJIT_ADD && (dst & SLJIT_MEM))
 		FAIL_IF(emit_op_mem2(compiler, WORD_DATA | LOAD_DATA, TMP_REG1, dst, dstw, dst, dstw));
 
-	type &= 0xff;
 	if (type < SLJIT_F_EQUAL)
 		FAIL_IF(push_inst(compiler, BICC | get_cc(compiler, type) | 3, UNMOVABLE_INS));
 	else

@@ -1516,7 +1516,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_cmp(struct sljit_com
 	sljit_s32 src2, sljit_sw src2w)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	compiler->last_flags = GET_FLAG_TYPE(op) | (op & (SLJIT_32 | SLJIT_SET_Z));
+	compiler->last_flags = GET_FLAG_TYPE(op) | (op & SLJIT_32);
 #endif
 
 	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
@@ -1675,9 +1675,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_jump(struct sljit_compile
 	}
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_32)));
+	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP)));
 	CHECK_ARGUMENT((type & 0xff) >= SLJIT_EQUAL && (type & 0xff) <= SLJIT_FAST_CALL);
-	CHECK_ARGUMENT((type & 0xff) < SLJIT_JUMP || !(type & SLJIT_32));
 
 	if ((type & 0xff) < SLJIT_JUMP) {
 		if ((type & 0xff) <= SLJIT_NOT_ZERO)
@@ -1849,18 +1848,17 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_flags(struct sljit_com
 	sljit_s32 type)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_32)));
-	CHECK_ARGUMENT((type & 0xff) >= SLJIT_EQUAL && (type & 0xff) <= SLJIT_ORDERED_LESS_EQUAL);
+	CHECK_ARGUMENT(type >= SLJIT_EQUAL && type <= SLJIT_ORDERED_LESS_EQUAL);
 	CHECK_ARGUMENT(op == SLJIT_MOV || op == SLJIT_MOV32
 		|| (GET_OPCODE(op) >= SLJIT_AND && GET_OPCODE(op) <= SLJIT_XOR));
 	CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK));
 
-	if ((type & 0xff) <= SLJIT_NOT_ZERO)
+	if (type <= SLJIT_NOT_ZERO)
 		CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
 	else
-		CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff)
-			|| ((type & 0xff) == SLJIT_NOT_CARRY && (compiler->last_flags & 0xff) == SLJIT_CARRY)
-			|| ((type & 0xff) == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW)
+		CHECK_ARGUMENT(type == (compiler->last_flags & 0xff)
+			|| (type == SLJIT_NOT_CARRY && (compiler->last_flags & 0xff) == SLJIT_CARRY)
+			|| (type == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW)
 			|| CHECK_UNORDERED(type, compiler->last_flags));
 
 	FUNCTION_CHECK_DST(dst, dstw);
@@ -1875,7 +1873,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_flags(struct sljit_com
 			GET_OPCODE(op) < SLJIT_OP2_BASE ? op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE] : ((op & SLJIT_32) ? "32" : ""),
 			!(op & SLJIT_SET_Z) ? "" : ".z");
 		sljit_verbose_param(compiler, dst, dstw);
-		fprintf(compiler->verbose, ", %s\n", jump_names[type & 0xff]);
+		fprintf(compiler->verbose, ", %s\n", jump_names[type]);
 	}
 #endif
 	CHECK_RETURN_OK;
@@ -1886,8 +1884,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_cmov(struct sljit_compile
 	sljit_s32 src, sljit_sw srcw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_32)));
-	CHECK_ARGUMENT((type & 0xff) >= SLJIT_EQUAL && (type & 0xff) <= SLJIT_ORDERED_LESS_EQUAL);
+	CHECK_ARGUMENT(type >= SLJIT_EQUAL && type <= SLJIT_ORDERED_LESS_EQUAL);
 
 	CHECK_ARGUMENT(compiler->scratches != -1 && compiler->saveds != -1);
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(dst_reg & ~SLJIT_32));
@@ -1896,19 +1893,19 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_cmov(struct sljit_compile
 		CHECK_ARGUMENT(srcw == 0);
 	}
 
-	if ((type & 0xff) <= SLJIT_NOT_ZERO)
+	if (type <= SLJIT_NOT_ZERO)
 		CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
 	else
-		CHECK_ARGUMENT((type & 0xff) == (compiler->last_flags & 0xff)
-			|| ((type & 0xff) == SLJIT_NOT_CARRY && (compiler->last_flags & 0xff) == SLJIT_CARRY)
-			|| ((type & 0xff) == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW)
+		CHECK_ARGUMENT(type == (compiler->last_flags & 0xff)
+			|| (type == SLJIT_NOT_CARRY && (compiler->last_flags & 0xff) == SLJIT_CARRY)
+			|| (type == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW)
 			|| CHECK_UNORDERED(type, compiler->last_flags));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  cmov%s %s, ",
 			!(dst_reg & SLJIT_32) ? "" : "32",
-			jump_names[type & 0xff]);
+			jump_names[type]);
 		sljit_verbose_reg(compiler, dst_reg & ~SLJIT_32);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, src, srcw);
