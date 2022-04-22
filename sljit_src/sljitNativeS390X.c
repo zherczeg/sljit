@@ -220,7 +220,8 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 		}
 		/* fallthrough */
 
-	case SLJIT_EQUAL_F64:
+	case SLJIT_F_EQUAL:
+	case SLJIT_ORDERED_EQUAL:
 		return cc0;
 
 	case SLJIT_NOT_EQUAL:
@@ -234,13 +235,14 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 		}
 		/* fallthrough */
 
-	case SLJIT_NOT_EQUAL_F64:
+	case SLJIT_UNORDERED_OR_NOT_EQUAL:
 		return (cc1 | cc2 | cc3);
 
 	case SLJIT_LESS:
 		return cc1;
 
 	case SLJIT_GREATER_EQUAL:
+	case SLJIT_UNORDERED_OR_GREATER_EQUAL:
 		return (cc0 | cc2 | cc3);
 
 	case SLJIT_GREATER:
@@ -254,7 +256,8 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 		return (cc0 | cc1 | cc2);
 
 	case SLJIT_SIG_LESS:
-	case SLJIT_LESS_F64:
+	case SLJIT_F_LESS:
+	case SLJIT_ORDERED_LESS:
 		return cc1;
 
 	case SLJIT_NOT_CARRY:
@@ -263,7 +266,8 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 		/* fallthrough */
 
 	case SLJIT_SIG_LESS_EQUAL:
-	case SLJIT_LESS_EQUAL_F64:
+	case SLJIT_F_LESS_EQUAL:
+	case SLJIT_ORDERED_LESS_EQUAL:
 		return (cc0 | cc1);
 
 	case SLJIT_CARRY:
@@ -272,6 +276,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 		/* fallthrough */
 
 	case SLJIT_SIG_GREATER:
+	case SLJIT_UNORDERED_OR_GREATER:
 		/* Overflow is considered greater, see SLJIT_SUB. */
 		return cc2 | cc3;
 
@@ -283,7 +288,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 			return (cc2 | cc3);
 		/* fallthrough */
 
-	case SLJIT_UNORDERED_F64:
+	case SLJIT_UNORDERED:
 		return cc3;
 
 	case SLJIT_NOT_OVERFLOW:
@@ -291,14 +296,29 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 			return (cc0 | cc1);
 		/* fallthrough */
 
-	case SLJIT_ORDERED_F64:
+	case SLJIT_ORDERED:
 		return (cc0 | cc1 | cc2);
 
-	case SLJIT_GREATER_F64:
+	case SLJIT_F_NOT_EQUAL:
+	case SLJIT_ORDERED_NOT_EQUAL:
+		return (cc1 | cc2);
+
+	case SLJIT_F_GREATER:
+	case SLJIT_ORDERED_GREATER:
 		return cc2;
 
-	case SLJIT_GREATER_EQUAL_F64:
+	case SLJIT_F_GREATER_EQUAL:
+	case SLJIT_ORDERED_GREATER_EQUAL:
 		return (cc0 | cc2);
+
+	case SLJIT_UNORDERED_OR_LESS_EQUAL:
+		return (cc0 | cc1 | cc3);
+
+	case SLJIT_UNORDERED_OR_EQUAL:
+		return (cc0 | cc3);
+
+	case SLJIT_UNORDERED_OR_LESS:
+		return (cc1 | cc3);
 	}
 
 	SLJIT_UNREACHABLE();
@@ -1626,6 +1646,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 1;
 	}
 	return 0;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
+{
+	return (type >= SLJIT_UNORDERED && type <= SLJIT_ORDERED_LESS_EQUAL);
 }
 
 /* --------------------------------------------------------------------- */
