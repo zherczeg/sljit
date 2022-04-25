@@ -924,14 +924,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
 	sljit_s32 prev, fprev, saved_regs_size, i, tmp;
-	sljit_s32 word_arg_count = 0;
+	sljit_s32 saved_arg_count = SLJIT_KEPT_SAVEDS_COUNT(options);
 	sljit_ins offs;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
-	saved_regs_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 2);
+	saved_regs_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds - saved_arg_count, 2);
 	saved_regs_size += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, SSIZE_OF(f64));
 
 	local_size = (local_size + saved_regs_size + 0xf) & ~0xf;
@@ -954,7 +954,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	prev = -1;
 
 	tmp = SLJIT_S0 - saveds;
-	for (i = SLJIT_S0; i > tmp; i--) {
+	for (i = SLJIT_S0 - saved_arg_count; i > tmp; i--) {
 		if (prev == -1) {
 			prev = i;
 			continue;
@@ -1014,10 +1014,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	while (arg_types > 0) {
 		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {
 			if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
-				FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0 - tmp) | RN(TMP_ZERO) | RM(SLJIT_R0 + word_arg_count)));
-				tmp++;
+				FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0 - saved_arg_count) | RN(TMP_ZERO) | RM(SLJIT_R0 + tmp)));
+				saved_arg_count++;
 			}
-			word_arg_count++;
+			tmp++;
 		}
 		arg_types >>= SLJIT_ARG_SHIFT;
 	}
@@ -1100,7 +1100,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	CHECK(check_sljit_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
-	saved_regs_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 2);
+	saved_regs_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds - SLJIT_KEPT_SAVEDS_COUNT(options), 2);
 	saved_regs_size += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, SSIZE_OF(f64));
 
 	compiler->local_size = (local_size + saved_regs_size + 0xf) & ~0xf;
@@ -1137,7 +1137,7 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 	prev = -1;
 
 	tmp = SLJIT_S0 - compiler->saveds;
-	for (i = SLJIT_S0; i > tmp; i--) {
+	for (i = SLJIT_S0 - SLJIT_KEPT_SAVEDS_COUNT(compiler->options); i > tmp; i--) {
 		if (prev == -1) {
 			prev = i;
 			continue;

@@ -1082,7 +1082,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
-	sljit_s32 size, i, tmp, word_arg_count, saved_arg_count;
+	sljit_s32 size, i, tmp, word_arg_count;
+	sljit_s32 saved_arg_count = SLJIT_KEPT_SAVEDS_COUNT(options);
 	sljit_uw offset;
 	sljit_uw imm = 0;
 #ifdef __SOFTFP__
@@ -1098,7 +1099,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	set_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
 	tmp = SLJIT_S0 - saveds;
-	for (i = SLJIT_S0; i > tmp; i--)
+	for (i = SLJIT_S0 - saved_arg_count; i > tmp; i--)
 		imm |= (sljit_uw)1 << reg_map[i];
 
 	for (i = scratches; i >= SLJIT_FIRST_SAVED_REG; i--)
@@ -1110,7 +1111,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		: push_inst16(compiler, PUSH | (1 << 8) | imm));
 
 	/* Stack must be aligned to 8 bytes: (LR, R4) */
-	size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
+	size = GET_SAVED_REGISTERS_SIZE(scratches, saveds - saved_arg_count, 1);
 
 	if (fsaveds > 0 || fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG) {
 		if ((size & SSIZE_OF(sw)) != 0) {
@@ -1133,7 +1134,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	arg_types >>= SLJIT_ARG_SHIFT;
 	word_arg_count = 0;
-	saved_arg_count = 0;
 #ifdef __SOFTFP__
 	SLJIT_COMPILE_ASSERT(SLJIT_FR0 == 1, float_register_index_start);
 
@@ -1173,13 +1173,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			else
 				break;
 
-			SLJIT_ASSERT(reg_map[tmp] <= 7);
-
 			if (offset < 4 * sizeof(sljit_sw))
-				FAIL_IF(push_inst16(compiler, MOV | RD3(tmp) | (offset << 1)));
-			else
+				FAIL_IF(push_inst16(compiler, MOV | ((sljit_ins)reg_map[tmp] & 0x7) | (((sljit_ins)reg_map[tmp] & 0x8) << 4) | (offset << 1)));
+			else if (reg_map[tmp] <= 7)
 				FAIL_IF(push_inst16(compiler, LDR_SP | RDN3(tmp)
 					| ((offset + (sljit_uw)size - 4 * sizeof(sljit_sw)) >> 2)));
+			else
+				FAIL_IF(push_inst32(compiler, LDR | RT4(tmp) | RN4(SLJIT_SP)
+					| ((offset + (sljit_uw)size - 4 * sizeof(sljit_sw)))));
 			break;
 		}
 
@@ -1293,7 +1294,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	CHECK(check_sljit_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
-	size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
+	size = GET_SAVED_REGISTERS_SIZE(scratches, saveds - SLJIT_KEPT_SAVEDS_COUNT(options), 1);
 
 	if ((size & SSIZE_OF(sw)) != 0 && (fsaveds > 0 || fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG))
 		size += SSIZE_OF(sw);
@@ -1325,6 +1326,7 @@ static sljit_s32 emit_add_sp(struct sljit_compiler *compiler, sljit_uw imm)
 static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit_s32 frame_size)
 {
 	sljit_s32 local_size, fscratches, fsaveds, i, tmp;
+	sljit_s32 saveds_restore_start = SLJIT_S0 - SLJIT_KEPT_SAVEDS_COUNT(compiler->options);
 	sljit_s32 lr_dst = TMP_PC;
 	sljit_uw reg_list;
 
@@ -1358,8 +1360,11 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 
 	reg_list = 0;
 	tmp = SLJIT_S0 - compiler->saveds;
-	for (i = SLJIT_S0; i > tmp; i--)
-		reg_list |= (sljit_uw)1 << reg_map[i];
+	if (saveds_restore_start != tmp) {
+		for (i = saveds_restore_start; i > tmp; i--)
+			reg_list |= (sljit_uw)1 << reg_map[i];
+	} else
+		saveds_restore_start = 0;
 
 	for (i = compiler->scratches; i >= SLJIT_FIRST_SAVED_REG; i--)
 		reg_list |= (sljit_uw)1 << reg_map[i];
@@ -1379,9 +1384,9 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 		if (reg_list == 0)
 			return SLJIT_SUCCESS;
 
-		if (compiler->saveds > 0) {
-			SLJIT_ASSERT(reg_list == ((sljit_uw)1 << reg_map[SLJIT_S0]));
-			lr_dst = SLJIT_S0;
+		if (saveds_restore_start != 0) {
+			SLJIT_ASSERT(reg_list == ((sljit_uw)1 << reg_map[saveds_restore_start]));
+			lr_dst = saveds_restore_start;
 		} else {
 			SLJIT_ASSERT(reg_list == ((sljit_uw)1 << reg_map[SLJIT_FIRST_SAVED_REG]));
 			lr_dst = SLJIT_FIRST_SAVED_REG;

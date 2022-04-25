@@ -366,7 +366,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 {
 	sljit_uw size;
 	sljit_s32 word_arg_count = 0;
-	sljit_s32 saved_arg_count = 0;
+	sljit_s32 saved_arg_count = SLJIT_KEPT_SAVEDS_COUNT(options);
 	sljit_s32 saved_regs_size, tmp, i;
 #ifdef _WIN64
 	sljit_s32 saved_float_regs_size;
@@ -385,10 +385,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	compiler->mode32 = 0;
 
 	/* Including the return address saved by the call instruction. */
-	saved_regs_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
+	saved_regs_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds - saved_arg_count, 1);
 
 	tmp = SLJIT_S0 - saveds;
-	for (i = SLJIT_S0; i > tmp; i--) {
+	for (i = SLJIT_S0 - saved_arg_count; i > tmp; i--) {
 		size = reg_map[i] >= 8 ? 2 : 1;
 		inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
 		FAIL_IF(!inst);
@@ -561,7 +561,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 #endif /* _WIN64 */
 
 	/* Including the return address saved by the call instruction. */
-	saved_regs_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds, 1);
+	saved_regs_size = GET_SAVED_REGISTERS_SIZE(scratches, saveds - SLJIT_KEPT_SAVEDS_COUNT(options), 1);
 	compiler->local_size = ((local_size + saved_regs_size + 0xf) & ~0xf) - saved_regs_size;
 	return SLJIT_SUCCESS;
 }
@@ -633,8 +633,8 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 		POP_REG(reg_lmap[i]);
 	}
 
-	tmp = compiler->saveds < SLJIT_NUMBER_OF_SAVED_REGISTERS ? (SLJIT_S0 + 1 - compiler->saveds) : SLJIT_FIRST_SAVED_REG;
-	for (i = tmp; i <= SLJIT_S0; i++) {
+	tmp = SLJIT_S0 - SLJIT_KEPT_SAVEDS_COUNT(compiler->options);
+	for (i = SLJIT_S0 + 1 - compiler->saveds; i <= tmp; i++) {
 		size = reg_map[i] >= 8 ? 2 : 1;
 		inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
 		FAIL_IF(!inst);

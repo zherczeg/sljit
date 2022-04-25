@@ -133,6 +133,9 @@
 #define SLJIT_ARG_MASK		0x7
 #define SLJIT_ARG_FULL_MASK	(SLJIT_ARG_MASK | SLJIT_ARG_TYPE_SCRATCH_REG)
 
+/* Mask for sljit_emit_enter. */
+#define SLJIT_KEPT_SAVEDS_COUNT(options) ((options) & 0x3)
+
 /* Jump flags. */
 #define JUMP_LABEL	0x1
 #define JUMP_ADDR	0x2
@@ -1086,7 +1089,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 	SLJIT_UNUSED_ARG(compiler);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(options & ~SLJIT_ENTER_CDECL));
+	CHECK_ARGUMENT(!(options & ~(SLJIT_ENTER_KEEP_S0 | SLJIT_ENTER_KEEP_S0_S1 | SLJIT_ENTER_CDECL)));
+	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 2 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
 	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	CHECK_ARGUMENT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
@@ -1095,7 +1099,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	CHECK_ARGUMENT((arg_types & SLJIT_ARG_FULL_MASK) < SLJIT_ARG_TYPE_F64);
-	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, saveds, fscratches));
+	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, saveds - SLJIT_KEPT_SAVEDS_COUNT(options), fscratches));
 
 	compiler->last_flags = 0;
 #endif
@@ -1115,8 +1119,14 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 			} while (arg_types);
 		}
 
-		fprintf(compiler->verbose, "],%s scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
-			(options & SLJIT_ENTER_CDECL) ? " enter:cdecl," : "",
+		fprintf(compiler->verbose, "],");
+
+		if (options & SLJIT_ENTER_CDECL)
+			fprintf(compiler->verbose, " enter:cdecl,");
+		if (SLJIT_KEPT_SAVEDS_COUNT(options) > 0)
+			fprintf(compiler->verbose, " keep:%d,", SLJIT_KEPT_SAVEDS_COUNT(options));
+
+		fprintf(compiler->verbose, "scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
 			scratches, saveds, fscratches, fsaveds, local_size);
 	}
 #endif
@@ -1130,7 +1140,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 	SLJIT_UNUSED_ARG(compiler);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(options & ~SLJIT_ENTER_CDECL));
+	CHECK_ARGUMENT(!(options & ~(SLJIT_ENTER_KEEP_S0 | SLJIT_ENTER_KEEP_S0_S1 | SLJIT_ENTER_CDECL)));
+	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 2 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
 	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	CHECK_ARGUMENT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
@@ -1139,7 +1150,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	CHECK_ARGUMENT((arg_types & SLJIT_ARG_FULL_MASK) < SLJIT_ARG_TYPE_F64);
-	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, saveds, fscratches));
+	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, saveds - SLJIT_KEPT_SAVEDS_COUNT(options), fscratches));
 
 	compiler->last_flags = 0;
 #endif
@@ -1159,8 +1170,14 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 			} while (arg_types);
 		}
 
-		fprintf(compiler->verbose, "],%s scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
-			(options & SLJIT_ENTER_CDECL) ? " enter:cdecl," : "",
+		fprintf(compiler->verbose, "],");
+
+		if (options & SLJIT_ENTER_CDECL)
+			fprintf(compiler->verbose, " enter:cdecl,");
+		if (SLJIT_KEPT_SAVEDS_COUNT(options) > 0)
+			fprintf(compiler->verbose, " keep:%d,", SLJIT_KEPT_SAVEDS_COUNT(options));
+
+		fprintf(compiler->verbose, " scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
 			scratches, saveds, fscratches, fsaveds, local_size);
 	}
 #endif

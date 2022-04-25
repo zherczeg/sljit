@@ -697,9 +697,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type);
          overwrites the previous context.
 */
 
+/* The SLJIT_S0/SLJIT_S1 registers are not saved / restored on function
+   enter / return. Instead, these registers can be used to pass / return
+   data (such as global / local context pointers) across function calls.
+   This is an sljit specific (non ABI compatible) function call extension
+   so both the caller and called function must be compiled by sljit. */
+#define SLJIT_ENTER_KEEP_S0	0x00000001
+#define SLJIT_ENTER_KEEP_S0_S1	0x00000002
+
 /* The compiled function uses cdecl calling
  * convention instead of SLJIT_FUNC. */
-#define SLJIT_ENTER_CDECL 0x00000001
+#define SLJIT_ENTER_CDECL	0x00000004
 
 /* The local_size must be >= 0 and <= SLJIT_MAX_LOCAL_SIZE. */
 #define SLJIT_MAX_LOCAL_SIZE	65536
