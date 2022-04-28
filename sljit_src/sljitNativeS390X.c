@@ -1661,7 +1661,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
 	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
 {
-	sljit_s32 word_arg_count = 0;
+	sljit_s32 saved_arg_count = SLJIT_KEPT_SAVEDS_COUNT(options);
 	sljit_s32 offset, i, tmp;
 
 	CHECK_ERROR();
@@ -1673,8 +1673,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	offset = 2 * SSIZE_OF(sw);
 	if (saveds + scratches >= SLJIT_NUMBER_OF_REGISTERS) {
-		FAIL_IF(push_inst(compiler, stmg(r6, r14, offset, r15))); /* save registers TODO(MGM): optimize */
-		offset += 9 * SSIZE_OF(sw);
+		if (saved_arg_count == 0) {
+			FAIL_IF(push_inst(compiler, stmg(r6, r14, offset, r15)));
+			offset += 9 * SSIZE_OF(sw);
+		} else {
+			FAIL_IF(push_inst(compiler, stmg(r6, r13 - (sljit_gpr)saved_arg_count, offset, r15)));
+			offset += (8 - saved_arg_count) * SSIZE_OF(sw);
+		}
 	} else {
 		if (scratches == SLJIT_FIRST_SAVED_REG) {
 			FAIL_IF(push_inst(compiler, stg(r6, offset, 0, r15)));
@@ -1684,13 +1689,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			offset += (scratches - (SLJIT_FIRST_SAVED_REG - 1)) * SSIZE_OF(sw);
 		}
 
-		if (saveds == 0) {
-			FAIL_IF(push_inst(compiler, stg(r14, offset, 0, r15)));
-			offset += SSIZE_OF(sw);
-		} else {
-			FAIL_IF(push_inst(compiler, stmg(r14 - (sljit_gpr)saveds, r14, offset, r15)));
-			offset += (saveds + 1) * SSIZE_OF(sw);
+		if (saved_arg_count == 0) {
+			if (saveds == 0) {
+				FAIL_IF(push_inst(compiler, stg(r14, offset, 0, r15)));
+				offset += SSIZE_OF(sw);
+			} else {
+				FAIL_IF(push_inst(compiler, stmg(r14 - (sljit_gpr)saveds, r14, offset, r15)));
+				offset += (saveds + 1) * SSIZE_OF(sw);
+			}
+		} else if (saveds > saved_arg_count) {
+			if (saveds == saved_arg_count + 1) {
+				FAIL_IF(push_inst(compiler, stg(r14 - (sljit_gpr)saveds, offset, 0, r15)));
+				offset += SSIZE_OF(sw);
+			} else {
+				FAIL_IF(push_inst(compiler, stmg(r14 - (sljit_gpr)saveds, r13 - (sljit_gpr)saved_arg_count, offset, r15)));
+				offset += (saveds - saved_arg_count) * SSIZE_OF(sw);
+			}
 		}
+	}
+
+	if (saved_arg_count > 0) {
+		FAIL_IF(push_inst(compiler, stg(r14, offset, 0, r15)));
+		offset += SSIZE_OF(sw);
 	}
 
 	tmp = SLJIT_FS0 - fsaveds;
@@ -1714,10 +1734,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	while (arg_types > 0) {
 		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {
 			if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
-				FAIL_IF(push_inst(compiler, lgr(gpr(SLJIT_S0 - tmp), gpr(SLJIT_R0 + word_arg_count))));
-				tmp++;
+				FAIL_IF(push_inst(compiler, lgr(gpr(SLJIT_S0 - saved_arg_count), gpr(SLJIT_R0 + tmp))));
+				saved_arg_count++;
 			}
-			word_arg_count++;
+			tmp++;
 		}
 
 		arg_types >>= SLJIT_ARG_SHIFT;
@@ -1744,6 +1764,7 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 	sljit_s32 local_size = compiler->local_size;
 	sljit_s32 saveds = compiler->saveds;
 	sljit_s32 scratches = compiler->scratches;
+	sljit_s32 kept_saveds_count = SLJIT_KEPT_SAVEDS_COUNT(compiler->options);
 
 	if (is_u12(local_size))
 		FAIL_IF(push_inst(compiler, 0x41000000 /* ly */ | R20A(r15) | R12A(r15) | (sljit_ins)local_size));
@@ -1752,8 +1773,13 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 
 	offset = 2 * SSIZE_OF(sw);
 	if (saveds + scratches >= SLJIT_NUMBER_OF_REGISTERS) {
-		FAIL_IF(push_inst(compiler, lmg(r6, r14, offset, r15))); /* save registers TODO(MGM): optimize */
-		offset += 9 * SSIZE_OF(sw);
+		if (kept_saveds_count == 0) {
+			FAIL_IF(push_inst(compiler, lmg(r6, r14, offset, r15)));
+			offset += 9 * SSIZE_OF(sw);
+		} else {
+			FAIL_IF(push_inst(compiler, lmg(r6, r13 - (sljit_gpr)kept_saveds_count, offset, r15)));
+			offset += (8 - kept_saveds_count) * SSIZE_OF(sw);
+		}
 	} else {
 		if (scratches == SLJIT_FIRST_SAVED_REG) {
 			FAIL_IF(push_inst(compiler, lg(r6, offset, 0, r15)));
@@ -1763,13 +1789,28 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 			offset += (scratches - (SLJIT_FIRST_SAVED_REG - 1)) * SSIZE_OF(sw);
 		}
 
-		if (saveds == 0) {
-			FAIL_IF(push_inst(compiler, lg(r14, offset, 0, r15)));
-			offset += SSIZE_OF(sw);
-		} else {
-			FAIL_IF(push_inst(compiler, lmg(r14 - (sljit_gpr)saveds, r14, offset, r15)));
-			offset += (saveds + 1) * SSIZE_OF(sw);
+		if (kept_saveds_count == 0) {
+			if (saveds == 0) {
+				FAIL_IF(push_inst(compiler, lg(r14, offset, 0, r15)));
+				offset += SSIZE_OF(sw);
+			} else {
+				FAIL_IF(push_inst(compiler, lmg(r14 - (sljit_gpr)saveds, r14, offset, r15)));
+				offset += (saveds + 1) * SSIZE_OF(sw);
+			}
+		} else if (saveds > kept_saveds_count) {
+			if (saveds == kept_saveds_count + 1) {
+				FAIL_IF(push_inst(compiler, lg(r14 - (sljit_gpr)saveds, offset, 0, r15)));
+				offset += SSIZE_OF(sw);
+			} else {
+				FAIL_IF(push_inst(compiler, lmg(r14 - (sljit_gpr)saveds, r13 - (sljit_gpr)kept_saveds_count, offset, r15)));
+				offset += (saveds - kept_saveds_count) * SSIZE_OF(sw);
+			}
 		}
+	}
+
+	if (kept_saveds_count > 0) {
+		FAIL_IF(push_inst(compiler, lg(r14, offset, 0, r15)));
+		offset += SSIZE_OF(sw);
 	}
 
 	tmp = SLJIT_FS0 - compiler->fsaveds;
