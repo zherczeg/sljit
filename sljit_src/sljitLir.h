@@ -488,6 +488,11 @@ struct sljit_compiler {
 	sljit_uw args_size;
 #endif
 
+#if (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
+	sljit_s32 cache_arg;
+	sljit_sw cache_argw;
+#endif
+
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 	sljit_s32 delay_slot;
 	sljit_s32 cache_arg;

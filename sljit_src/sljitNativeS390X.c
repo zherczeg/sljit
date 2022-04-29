@@ -3183,6 +3183,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 arg_types)
 {
+	SLJIT_UNUSED_ARG(arg_types);
 	CHECK_ERROR_PTR();
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 

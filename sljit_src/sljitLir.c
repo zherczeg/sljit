@@ -226,6 +226,22 @@
 #	define FCSR_FCC		33
 #endif
 
+#if (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
+#	define IS_COND		0x004
+#	define IS_CALL		0x008
+
+#	define PATCH_B		0x010
+#	define PATCH_J		0x020
+
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+#	define PATCH_REL32	0x040
+#	define PATCH_ABS32	0x080
+#	define PATCH_ABS52	0x100
+#else /* !SLJIT_CONFIG_RISCV_64 */
+#	define PATCH_REL32	0x0
+#endif /* SLJIT_CONFIG_RISCV_64 */
+#endif
+
 #if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 #	define IS_MOVABLE	0x04
 #	define IS_COND		0x08
@@ -2114,7 +2130,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 		|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC) \
 		|| (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
-		|| ((defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) && !(defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1 && SLJIT_MIPS_REV < 6))
+		|| ((defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) && !(defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1 && SLJIT_MIPS_REV < 6)) \
+		|| (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 
 static SLJIT_INLINE sljit_s32 sljit_emit_cmov_generic(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 dst_reg,
@@ -2189,13 +2206,16 @@ static SLJIT_INLINE sljit_s32 sljit_emit_cmov_generic(struct sljit_compiler *com
 #	include "sljitNativePPC_common.c"
 #elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 #	include "sljitNativeMIPS_common.c"
+#elif (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
+#	include "sljitNativeRISCV_common.c"
 #elif (defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC)
 #	include "sljitNativeSPARC_common.c"
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 #	include "sljitNativeS390X.c"
 #endif
 
-#if !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
+#if !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
+	&& !(defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 src1, sljit_sw src1w,

@@ -3782,6 +3782,12 @@ static void test41(void)
 		| ((sljit_u32)sljit_get_register_index(SLJIT_S0) << 21)
 		| ((sljit_u32)sljit_get_register_index(SLJIT_S1) << 16);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
+#elif (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
+	/* add rd, rs1, rs2 */
+	inst = 0x33 | (0 << 12) | (0 << 25) | ((sljit_u32)sljit_get_register_index(SLJIT_RETURN_REG) << 7)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_S0) << 15)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_S1) << 20);
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 	/* add rd, rs1, rs2 */
 	inst = (0x2u << 30) | ((sljit_u32)sljit_get_register_index(SLJIT_RETURN_REG) << 25)

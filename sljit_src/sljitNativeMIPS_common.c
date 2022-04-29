@@ -2530,18 +2530,18 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 }
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-#define JUMP_LENGTH	4
+#define BRANCH_LENGTH	4
 #else
-#define JUMP_LENGTH	8
+#define BRANCH_LENGTH	8
 #endif
 
 #define BR_Z(src) \
-	inst = BEQ | SA(src) | TA(0) | JUMP_LENGTH; \
+	inst = BEQ | SA(src) | TA(0) | BRANCH_LENGTH; \
 	flags = IS_BIT26_COND; \
 	delay_check = src;
 
 #define BR_NZ(src) \
-	inst = BNE | SA(src) | TA(0) | JUMP_LENGTH; \
+	inst = BNE | SA(src) | TA(0) | BRANCH_LENGTH; \
 	flags = IS_BIT26_COND; \
 	delay_check = src;
 
@@ -2559,11 +2559,11 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #else /* SLJIT_MIPS_REV < 6 */
 
 #define BR_T() \
-	inst = BC1T | JUMP_LENGTH; \
+	inst = BC1T | BRANCH_LENGTH; \
 	flags = IS_BIT16_COND; \
 	delay_check = FCSR_FCC;
 #define BR_F() \
-	inst = BC1F | JUMP_LENGTH; \
+	inst = BC1F | BRANCH_LENGTH; \
 	flags = IS_BIT16_COND; \
 	delay_check = FCSR_FCC;
 
@@ -2698,11 +2698,17 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 
 	compiler->cache_arg = 0;
 	compiler->cache_argw = 0;
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	flags = WORD_DATA | LOAD_DATA;
+#else /* !SLJIT_CONFIG_MIPS_32 */
 	flags = ((type & SLJIT_32) ? INT_DATA : WORD_DATA) | LOAD_DATA;
+#endif /* SLJIT_CONFIG_MIPS_32 */
+
 	if (src1 & SLJIT_MEM) {
 		PTR_FAIL_IF(emit_op_mem2(compiler, flags, DR(TMP_REG1), src1, src1w, src2, src2w));
 		src1 = TMP_REG1;
 	}
+
 	if (src2 & SLJIT_MEM) {
 		PTR_FAIL_IF(emit_op_mem2(compiler, flags, DR(TMP_REG2), src2, src2w, 0, 0));
 		src2 = TMP_REG2;
@@ -2719,7 +2725,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 		jump->flags |= IS_BIT26_COND;
 		if (compiler->delay_slot == MOVABLE_INS || (compiler->delay_slot != UNMOVABLE_INS && compiler->delay_slot != DR(src1) && compiler->delay_slot != DR(src2)))
 			jump->flags |= IS_MOVABLE;
-		PTR_FAIL_IF(push_inst(compiler, (type == SLJIT_EQUAL ? BNE : BEQ) | S(src1) | T(src2) | JUMP_LENGTH, UNMOVABLE_INS));
+		PTR_FAIL_IF(push_inst(compiler, (type == SLJIT_EQUAL ? BNE : BEQ) | S(src1) | T(src2) | BRANCH_LENGTH, UNMOVABLE_INS));
 	}
 	else if (type >= SLJIT_SIG_LESS && (((src1 & SLJIT_IMM) && (src1w == 0)) || ((src2 & SLJIT_IMM) && (src2w == 0)))) {
 		inst = NOP;
@@ -2766,7 +2772,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 				break;
 			}
 		}
-		PTR_FAIL_IF(push_inst(compiler, inst | S(src1) | JUMP_LENGTH, UNMOVABLE_INS));
+		PTR_FAIL_IF(push_inst(compiler, inst | S(src1) | BRANCH_LENGTH, UNMOVABLE_INS));
 	}
 	else {
 		if (type == SLJIT_LESS || type == SLJIT_GREATER_EQUAL || type == SLJIT_SIG_LESS || type == SLJIT_SIG_GREATER_EQUAL) {
@@ -2791,7 +2797,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 		}
 
 		jump->flags |= IS_BIT26_COND;
-		PTR_FAIL_IF(push_inst(compiler, (type == SLJIT_EQUAL ? BNE : BEQ) | S(TMP_REG1) | TA(0) | JUMP_LENGTH, UNMOVABLE_INS));
+		PTR_FAIL_IF(push_inst(compiler, (type == SLJIT_EQUAL ? BNE : BEQ) | S(TMP_REG1) | TA(0) | BRANCH_LENGTH, UNMOVABLE_INS));
 	}
 
 	PTR_FAIL_IF(push_inst(compiler, JR | S(TMP_REG2), UNMOVABLE_INS));
@@ -2810,7 +2816,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 #undef RESOLVE_IMM1
 #undef RESOLVE_IMM2
 
-#undef JUMP_LENGTH
+#undef BRANCH_LENGTH
 #undef BR_Z
 #undef BR_NZ
 #undef BR_T
@@ -2843,7 +2849,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 		src = TMP_REG2;
 	}
 
-	FAIL_IF(push_inst(compiler, JR | S(src), UNMOVABLE_INS));
+	if (type <= SLJIT_JUMP)
+		FAIL_IF(push_inst(compiler, JR | S(src), UNMOVABLE_INS));
+	else
+		FAIL_IF(push_inst(compiler, JALR | S(src) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
+
 	if (jump != NULL) {
 		jump->addr = compiler->size;
 
@@ -3057,7 +3067,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	PTR_FAIL_IF(emit_const(compiler, dst_r, init_value));
 
 	if (dst & SLJIT_MEM)
-		PTR_FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, dst, dstw, TMP_REG1, 0, TMP_REG2, 0));
+		PTR_FAIL_IF(emit_op_mem(compiler, WORD_DATA, DR(TMP_REG2), dst, dstw));
 
 	return const_;
 }
@@ -3084,7 +3094,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label* sljit_emit_put_label(struct slj
 #endif
 
 	if (dst & SLJIT_MEM)
-		PTR_FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, dst, dstw, TMP_REG1, 0, TMP_REG2, 0));
+		PTR_FAIL_IF(emit_op_mem(compiler, WORD_DATA, DR(TMP_REG2), dst, dstw));
 
 	return put_label;
 }
