@@ -368,7 +368,7 @@ static SLJIT_INLINE void put_label_set(struct sljit_put_label *put_label)
 		else {
 			inst[0] = ORIS | S(TMP_ZERO) | A(reg) | IMM(addr >> 48);
 			inst[1] = ORI | S(reg) | A(reg) | IMM((addr >> 32) & 0xffff);
-			inst ++;
+			inst++;
 		}
 
 		inst[1] = RLDI(reg, reg, 32, 31, 1);
@@ -497,8 +497,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				}
 				next_addr = compute_next_addr(label, jump, const_, put_label);
 			}
-			code_ptr ++;
-			word_count ++;
+			code_ptr++;
+			word_count++;
 		} while (buf_ptr < buf_end);
 
 		buf = buf->next;
@@ -2629,4 +2629,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label* sljit_emit_put_label(struct slj
 		PTR_FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, dst, dstw, TMP_REG1, 0, TMP_REG2, 0));
 
 	return put_label;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset)
+{
+	sljit_set_jump_addr(addr, (sljit_uw)new_constant, executable_offset);
 }

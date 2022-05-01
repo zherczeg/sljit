@@ -137,8 +137,6 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define UDIV 0x9ac00800
 #define UMULH 0x9bc03c00
 
-/* dest_reg is the absolute name of the register
-   Useful for reordering instructions in the delay slot. */
 static sljit_s32 push_inst(struct sljit_compiler *compiler, sljit_ins ins)
 {
 	sljit_ins *ptr = (sljit_ins*)ensure_buf(compiler, sizeof(sljit_ins));
@@ -296,8 +294,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				}
 				next_addr = compute_next_addr(label, jump, const_, put_label);
 			}
-			code_ptr ++;
-			word_count ++;
+			code_ptr++;
+			word_count++;
 		} while (buf_ptr < buf_end);
 
 		buf = buf->next;
@@ -1010,11 +1008,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		FAIL_IF(push_inst(compiler, SUBI | RD(SLJIT_SP) | RN(SLJIT_SP) | (1 << 10) | (1 << 22)));
 #endif /* _WIN32 */
 
-	tmp = 0;
+	tmp = SLJIT_R0;
 	while (arg_types > 0) {
 		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {
 			if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
-				FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0 - saved_arg_count) | RN(TMP_ZERO) | RM(SLJIT_R0 + tmp)));
+				FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0 - saved_arg_count) | RN(TMP_ZERO) | RM(tmp)));
 				saved_arg_count++;
 			}
 			tmp++;

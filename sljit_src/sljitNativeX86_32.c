@@ -109,7 +109,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 		else if (flags & EX86_SHIFT_INS) {
 			imma &= 0x1f;
 			if (imma != 1) {
-				inst_size ++;
+				inst_size++;
 				flags |= EX86_BYTE_ARG;
 			}
 		} else if (flags & EX86_BYTE_ARG)
