@@ -242,8 +242,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 
 	SLJIT_ASSERT(DR(PIC_ADDR_REG) == 25 && PIC_ADDR_REG == TMP_REG2);
 
-	PTR_FAIL_IF(emit_const(compiler, PIC_ADDR_REG, 0));
-
 	if (!(type & SLJIT_CALL_RETURN)) {
 		jump->flags |= IS_JAL | IS_CALL;
 		PTR_FAIL_IF(push_inst(compiler, JALR | S(PIC_ADDR_REG) | DA(RETURN_ADDR_REG), UNMOVABLE_INS));
@@ -253,6 +251,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	jump->addr = compiler->size;
 	PTR_FAIL_IF(push_inst(compiler, ins, UNMOVABLE_INS));
 
+	/* Maximum number of instructions required for generating a constant. */
+	compiler->size += 6;
 	return jump;
 }
 
