@@ -3880,9 +3880,16 @@ static void test41(void)
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 		/* add.d fd, fs, ft */
-		inst = (17 << 26) | (17 << 21) | ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 6)
+		inst = (17u << 26) | (17u << 21) | ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 6)
 			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 11)
 			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR1) << 16);
+		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
+#elif (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
+		/* fadd.d rd, rs1, rs2 */
+		inst = (0x1u << 25) | (0x7u << 12) | (0x53u)
+			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 7)
+			| ((sljit_u32)sljit_get_float_register_index(SLJIT_FR0) << 15)
+			| (sljit_u32)sljit_get_float_register_index(SLJIT_FR1) << 20;
 		sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 		/* faddd rd, rs1, rs2 */
@@ -3906,7 +3913,7 @@ static void test41(void)
 		sljit_free_compiler(compiler);
 
 		code.func1((sljit_sw)&buf);
-		FAILED(buf[2] != 11.25, "test41 case 3 failed\n");
+		FAILED(buf[2] != 11.25, "test41 case 4 failed\n");
 
 		sljit_free_code(code.code, NULL);
 	}

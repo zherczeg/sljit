@@ -2401,6 +2401,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 		FAIL_IF(push_inst(compiler, ABS_S | FMT(op) | FS(src) | FD(dst_r), MOVABLE_INS));
 		break;
 	case SLJIT_CONV_F64_FROM_F32:
+		/* The SLJIT_32 bit is inverted because sljit_f32 needs to be loaded from the memory. */
 		FAIL_IF(push_inst(compiler, CVT_S_S | (sljit_ins)((op & SLJIT_32) ? 1 : (1 << 21)) | FS(src) | FD(dst_r), MOVABLE_INS));
 		op ^= SLJIT_32;
 		break;
