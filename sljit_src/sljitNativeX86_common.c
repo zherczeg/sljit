@@ -394,26 +394,26 @@ static sljit_u8 get_jump_code(sljit_uw type)
 	case SLJIT_CARRY:
 	case SLJIT_F_LESS:
 	case SLJIT_UNORDERED_OR_LESS:
-	case SLJIT_ORDERED_LESS: /* Not supported. */
+	case SLJIT_UNORDERED_OR_GREATER:
 		return 0x82 /* jc */;
 
 	case SLJIT_GREATER_EQUAL:
 	case SLJIT_NOT_CARRY:
 	case SLJIT_F_GREATER_EQUAL:
 	case SLJIT_ORDERED_GREATER_EQUAL:
-	case SLJIT_UNORDERED_OR_GREATER_EQUAL: /* Not supported. */
+	case SLJIT_ORDERED_LESS_EQUAL:
 		return 0x83 /* jae */;
 
 	case SLJIT_GREATER:
 	case SLJIT_F_GREATER:
+	case SLJIT_ORDERED_LESS:
 	case SLJIT_ORDERED_GREATER:
-	case SLJIT_UNORDERED_OR_GREATER: /* Not supported. */
 		return 0x87 /* jnbe */;
 
 	case SLJIT_LESS_EQUAL:
 	case SLJIT_F_LESS_EQUAL:
+	case SLJIT_UNORDERED_OR_GREATER_EQUAL:
 	case SLJIT_UNORDERED_OR_LESS_EQUAL:
-	case SLJIT_ORDERED_LESS_EQUAL: /* Not supported. */
 		return 0x86 /* jbe */;
 
 	case SLJIT_SIG_LESS:
@@ -702,10 +702,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
 	switch (type) {
 	case SLJIT_ORDERED_EQUAL:
 	case SLJIT_UNORDERED_OR_NOT_EQUAL:
-	case SLJIT_ORDERED_LESS:
-	case SLJIT_UNORDERED_OR_GREATER_EQUAL:
-	case SLJIT_UNORDERED_OR_GREATER:
-	case SLJIT_ORDERED_LESS_EQUAL:
 		return 0;
 	}
 
@@ -2546,6 +2542,19 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
+	switch (GET_FLAG_TYPE(op)) {
+	case SLJIT_ORDERED_LESS:
+	case SLJIT_UNORDERED_OR_GREATER_EQUAL:
+	case SLJIT_UNORDERED_OR_GREATER:
+	case SLJIT_ORDERED_LESS_EQUAL:
+		if (!FAST_IS_REG(src2)) {
+			FAIL_IF(emit_sse2_load(compiler, op & SLJIT_32, TMP_FREG, src2, src2w));
+			src2 = TMP_FREG;
+		}
+
+		return emit_sse2_logic(compiler, UCOMISD_x_xm, !(op & SLJIT_32), src2, src1, src1w);
+	}
+
 	if (!FAST_IS_REG(src1)) {
 		FAIL_IF(emit_sse2_load(compiler, op & SLJIT_32, TMP_FREG, src1, src1w));
 		src1 = TMP_FREG;
