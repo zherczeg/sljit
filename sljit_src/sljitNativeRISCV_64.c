@@ -35,7 +35,7 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 		if (imm > S32_MAX) {
 			SLJIT_ASSERT((imm & 0x800) != 0);
 			FAIL_IF(push_inst(compiler, LUI | RD(dst_r) | (sljit_ins)0x80000000u));
-			return push_inst(compiler, XORI | RD(dst_r) | RS1(dst_r) | IMM_I(imm & 0xfff));
+			return push_inst(compiler, XORI | RD(dst_r) | RS1(dst_r) | IMM_I(imm));
 		}
 
 		if ((imm & 0x800) != 0)
@@ -51,24 +51,39 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 
 	/* Trailing zeroes could be used to produce shifted immediates. */
 
-	high = imm >> 32;
-	if ((imm & 0x80000000l) != 0) {
-		if (high == 0) {
-			if ((imm & 0x800) != 0)
-				imm += 0x1000;
+	if (imm <= 0x7ffffffffffl && imm >= -0x80000000000l) {
+		high = imm >> 12;
 
-			FAIL_IF(push_inst(compiler, LUI | RD(dst_r) | (sljit_ins)(imm & ~0xfff)));
+		if (imm & 0x800)
+			high = ~high;
 
-			if ((imm & 0xfff) != 0)
-				FAIL_IF(push_inst(compiler, ADDI | RD(dst_r) | RS1(dst_r) | IMM_I(imm)));
+		if (high > S32_MAX) {
+			SLJIT_ASSERT((high & 0x800) != 0);
+			FAIL_IF(push_inst(compiler, LUI | RD(dst_r) | (sljit_ins)0x80000000u));
+			FAIL_IF(push_inst(compiler, XORI | RD(dst_r) | RS1(dst_r) | IMM_I(high)));
+		} else {
+			if ((high & 0x800) != 0)
+				high += 0x1000;
 
-			FAIL_IF(push_inst(compiler, SLLI | RD(dst_r) | RS1(dst_r) | IMM_I(32)));
-			return push_inst(compiler, SRLI | RD(dst_r) | RS1(dst_r) | IMM_I(32));
+			FAIL_IF(push_inst(compiler, LUI | RD(dst_r) | (sljit_ins)(high & ~0xfff)));
+
+			if ((high & 0xfff) != 0)
+				FAIL_IF(push_inst(compiler, ADDI | RD(dst_r) | RS1(dst_r) | IMM_I(high)));
 		}
-		high = ~high;
+
+		FAIL_IF(push_inst(compiler, SLLI | RD(dst_r) | RS1(dst_r) | IMM_I(12)));
+
+		if ((imm & 0xfff) != 0)
+			return push_inst(compiler, XORI | RD(dst_r) | RS1(dst_r) | IMM_I(imm));
+
+		return SLJIT_SUCCESS;
 	}
 
+	high = imm >> 32;
 	imm = (sljit_s32)imm;
+
+	if ((imm & 0x80000000l) != 0)
+		high = ~high;
 
 	if (high <= 0x7ffff && high >= -0x80000) {
 		FAIL_IF(push_inst(compiler, LUI | RD(tmp_r) | (sljit_ins)(high << 12)));

@@ -145,6 +145,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 #define S32_MAX		(0x7ffff7ffl)
 #define S32_MIN		(-0x80000000l)
+#define S44_MAX		(0x7fffffff7ffl)
 #define S52_MAX		(0x7ffffffffffffl)
 #endif
 
@@ -229,6 +230,15 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 		return inst + 1;
 	}
 
+	if (target_addr <= S44_MAX) {
+		if (jump->flags & IS_COND)
+			inst[-1] -= (sljit_ins)(2 * sizeof(sljit_ins)) << 7;
+
+		jump->flags |= PATCH_ABS44;
+		inst[3] = inst[0];
+		return inst + 4;
+	}
+
 	if (target_addr <= S52_MAX) {
 		if (jump->flags & IS_COND)
 			inst[-1] -= (sljit_ins)(1 * sizeof(sljit_ins)) << 7;
@@ -256,6 +266,11 @@ static SLJIT_INLINE sljit_sw put_label_get_length(struct sljit_put_label *put_la
 	if (max_label <= (sljit_uw)S32_MAX) {
 		put_label->flags = PATCH_ABS32;
 		return 1;
+	}
+
+	if (max_label <= S44_MAX) {
+		put_label->flags = PATCH_ABS44;
+		return 3;
 	}
 
 	if (max_label <= S52_MAX) {
@@ -301,18 +316,37 @@ static SLJIT_INLINE void load_addr_to_reg(void *dst, sljit_u32 reg)
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 	inst[0] = LUI | RD(reg) | (sljit_ins)((sljit_sw)addr & ~0xfff);
 #else /* !SLJIT_CONFIG_RISCV_32 */
-	high = (sljit_sw)addr >> 32;
-
-	if ((addr & 0x80000000l) != 0)
-		high = ~high;
-
-	if ((high & 0x800) != 0)
-		high += 0x1000;
 
 	if (flags & PATCH_ABS32) {
 		SLJIT_ASSERT(addr <= S32_MAX);
 		inst[0] = LUI | RD(reg) | (sljit_ins)((sljit_sw)addr & ~0xfff);
+	} else if (flags & PATCH_ABS44) {
+		high = (sljit_sw)addr >> 12;
+		SLJIT_ASSERT((sljit_uw)high <= 0x7fffffff);
+
+		if (high > S32_MAX) {
+			SLJIT_ASSERT((high & 0x800) != 0);
+			inst[0] = LUI | RD(reg) | (sljit_ins)0x80000000u;
+			inst[1] = XORI | RD(reg) | RS1(reg) | IMM_I(high);
+		} else {
+			if ((high & 0x800) != 0)
+				high += 0x1000;
+
+			inst[0] = LUI | RD(reg) | (sljit_ins)(high & ~0xfff);
+			inst[1] = ADDI | RD(reg) | RS1(reg) | IMM_I(high);
+		}
+
+		inst[2] = SLLI | RD(reg) | RS1(reg) | IMM_I(12);
+		inst += 2;
 	} else {
+		high = (sljit_sw)addr >> 32;
+
+		if ((addr & 0x80000000l) != 0)
+			high = ~high;
+
+		if ((high & 0x800) != 0)
+			high += 0x1000;
+
 		if (flags & PATCH_ABS52) {
 			SLJIT_ASSERT(addr <= S52_MAX);
 			inst[0] = LUI | RD(TMP_REG3) | (sljit_ins)(high << 12);
@@ -1072,6 +1106,28 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 #endif /* SLJIT_CONFIG_RISCV_64 */
 
 	case SLJIT_CLZ:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
+		/* Nearly all instructions are unmovable in the following sequence. */
+#if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
+		FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG1) | RS1(src2) | IMM_I(0)));
+		FAIL_IF(push_inst(compiler, ADDI | RD(dst) | RS1(TMP_ZERO) | IMM_I(32)));
+#else /* !SLJIT_CONFIG_RISCV_32 */
+		if (op & SLJIT_32) {
+			FAIL_IF(push_inst(compiler, SLLI | RD(TMP_REG1) | RS1(src2) | IMM_I(32)));
+			FAIL_IF(push_inst(compiler, ADDI | RD(dst) | RS1(TMP_ZERO) | IMM_I(32)));
+		} else {
+			FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG1) | RS1(src2) | IMM_I(0)));
+			FAIL_IF(push_inst(compiler, ADDI | RD(dst) | RS1(TMP_ZERO) | IMM_I(64)));
+		}
+#endif /* SLJIT_CONFIG_RISCV_32 */
+		/* Check zero. */
+		FAIL_IF(push_inst(compiler, BEQ | RS1(TMP_REG1) | RS2(TMP_ZERO) | ((sljit_ins)(6 * SSIZE_OF(ins)) << 7)));
+		FAIL_IF(push_inst(compiler, ADDI | RD(dst) | RS1(TMP_ZERO) | IMM_I(0)));
+		FAIL_IF(push_inst(compiler, BLT | RS1(TMP_REG1) | RS2(TMP_ZERO) | ((sljit_ins)(4 * SSIZE_OF(ins)) << 7)));
+		/* Loop for searching the highest bit. */
+		FAIL_IF(push_inst(compiler, ADDI | RD(dst) | RS1(dst) | IMM_I(1)));
+		FAIL_IF(push_inst(compiler, SLLI | RD(TMP_REG1) | RS1(TMP_REG1) | IMM_I(1)));
+		FAIL_IF(push_inst(compiler, BGE | RS1(TMP_REG1) | RS2(TMP_ZERO) | ((sljit_ins)(0x1fc001d - 1 * SSIZE_OF(ins)) << 7)));
 		return SLJIT_SUCCESS;
 
 	case SLJIT_ADD:
