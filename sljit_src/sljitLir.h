@@ -1407,32 +1407,58 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 
 /* The following flags are used by sljit_emit_mem() and sljit_emit_fmem(). */
 
+/* Memory load operation. This is the default. */
+#define SLJIT_MEM_LOAD		0x000000
+/* Memory store operation. */
+#define SLJIT_MEM_STORE		0x000200
+
+/* Load or stora data from an unaligned address. */
+#define SLJIT_MEM_UNALIGNED	0x000400
+/* Load or store data and update the base address with a single operation. */
+/* Base register is updated before the memory access. */
+#define SLJIT_MEM_PRE		0x000800
+/* Base register is updated after the memory access. */
+#define SLJIT_MEM_POST		0x001000
+
+/* The following flags are supported when SLJIT_MEM_UNALIGNED is specified: */
+
+/* Defines 16 bit alignment for unaligned accesses. */
+#define SLJIT_MEM_ALIGNED_16	0x010000
+/* Defines 32 bit alignment for unaligned accesses. */
+#define SLJIT_MEM_ALIGNED_32	0x020000
+
+/* The following flags are supported when SLJIT_MEM_PRE or
+   SLJIT_MEM_POST is specified: */
+
 /* When SLJIT_MEM_SUPP is passed, no instructions are emitted.
    Instead the function returns with SLJIT_SUCCESS if the instruction
    form is supported and SLJIT_ERR_UNSUPPORTED otherwise. This flag
    allows runtime checking of available instruction forms. */
-#define SLJIT_MEM_SUPP		0x0200
-/* Memory load operation. This is the default. */
-#define SLJIT_MEM_LOAD		0x0000
-/* Memory store operation. */
-#define SLJIT_MEM_STORE		0x0400
-/* Base register is updated before the memory access. */
-#define SLJIT_MEM_PRE		0x0800
-/* Base register is updated after the memory access. */
-#define SLJIT_MEM_POST		0x1000
+#define SLJIT_MEM_SUPP		0x010000
 
-/* Emit a single memory load or store with update instruction. When the
-   requested instruction form is not supported by the CPU, it returns
-   with SLJIT_ERR_UNSUPPORTED instead of emulating the instruction. This
-   allows specializing tight loops based on the supported instruction
-   forms (see SLJIT_MEM_SUPP flag).
+/* The sljit_emit_mem emits instructions for various memory operations:
+
+   When SLJIT_MEM_UNALIGNED is set in type argument:
+     Emit instructions for unaligned memory loads or stores. When
+     SLJIT_UNALIGNED is not defined, the only way to access unaligned
+     memory data is using sljit_emit_mem. Otherwise all operations (e.g.
+     sljit_emit_op1/2, or sljit_emit_fop1/2) supports unaligned access.
+     In general, the performance of unaligned memory accesses are often
+     lower than aligned and should be avoided.
+
+   When SLJIT_MEM_PRE or SLJIT_MEM_POST is set in type argument:
+     Emit a single memory load or store with update instruction.
+     When the requested instruction form is not supported by the CPU,
+     it returns with SLJIT_ERR_UNSUPPORTED instead of emulating the
+     instruction. This allows specializing tight loops based on
+     the supported instruction forms (see SLJIT_MEM_SUPP flag).
 
    type must be between SLJIT_MOV and SLJIT_MOV_P and can be
-     combined with SLJIT_MEM_* flags. Either SLJIT_MEM_PRE
-     or SLJIT_MEM_POST must be specified.
+     combined with SLJIT_MEM_* flags.
    reg is the source or destination register, and must be
      different from the base register of the mem operand
-   mem must be a SLJIT_MEM1() or SLJIT_MEM2() operand
+     when SLJIT_MEM_PRE or SLJIT_MEM_POST is passed
+   mem must be a memory operand
 
    Flags: - (does not modify flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
@@ -1442,9 +1468,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 /* Same as sljit_emit_mem except the followings:
 
    type must be SLJIT_MOV_F64 or SLJIT_MOV_F32 and can be
-     combined with SLJIT_MEM_* flags. Either SLJIT_MEM_PRE
-     or SLJIT_MEM_POST must be specified.
-   freg is the source or destination floating point register */
+     combined with SLJIT_MEM_* flags.
+   freg is the source or destination floating point register
+   mem must be a memory operand
+
+   Flags: - (does not modify flags) */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
