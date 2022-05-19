@@ -4865,18 +4865,18 @@ static void test50(void)
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, P), 3, 3, 6, 0, 8 * sizeof(sljit_f32));
 
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), 0, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_SP), 0, SLJIT_MEM1(SLJIT_S0), 0);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), 0);
 	/* sbuf[3] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), sizeof(sljit_f32));
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_f32), SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f32));
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), sizeof(sljit_f32));
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_f32), SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f32));
 	sljit_emit_fop2(compiler, SLJIT_ADD_F32, SLJIT_MEM1(SLJIT_SP), 2 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), 0, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_f32));
 	/* sbuf[4] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), 2 * sizeof(sljit_f32));
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), 2 * sizeof(sljit_f32), SLJIT_IMM, 5934);
-	sljit_emit_fop1(compiler, SLJIT_CONV_F32_FROM_SW, SLJIT_MEM1(SLJIT_SP), 3 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), 2 * sizeof(sljit_f32));
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), 2 * sizeof(sljit_f32));
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_SP), 2 * sizeof(sljit_f32), SLJIT_IMM, 5934);
+	sljit_emit_fop1(compiler, SLJIT_CONV_F32_FROM_S32, SLJIT_MEM1(SLJIT_SP), 3 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), 2 * sizeof(sljit_f32));
 	/* sbuf[5] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), 3 * sizeof(sljit_f32));
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), 3 * sizeof(sljit_f32));
 
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	size1 = compiler->size;
