@@ -148,16 +148,16 @@
 #	define PATCH_MD		0x10
 #endif
 #	define TYPE_SHIFT	13
-#endif
+#endif /* SLJIT_CONFIG_X86 */
 
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 #	define IS_BL		0x4
 #	define PATCH_B		0x8
-#endif
+#endif /* SLJIT_CONFIG_ARM_V5 || SLJIT_CONFIG_ARM_V7 */
 
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 #	define CPOOL_SIZE	512
-#endif
+#endif /* SLJIT_CONFIG_ARM_V5 */
 
 #if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
 #	define IS_COND		0x04
@@ -175,7 +175,7 @@
 	/* BL + imm24 */
 #	define PATCH_BL		0x60
 	/* 0xf00 cc code for branches */
-#endif
+#endif /* SLJIT_CONFIG_ARM_THUMB2 */
 
 #if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
 #	define IS_COND		0x004
@@ -185,7 +185,7 @@
 #	define PATCH_COND	0x040
 #	define PATCH_ABS48	0x080
 #	define PATCH_ABS64	0x100
-#endif
+#endif /* SLJIT_CONFIG_ARM_64 */
 
 #if (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 #	define IS_COND		0x004
@@ -195,9 +195,9 @@
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #	define PATCH_ABS32	0x040
 #	define PATCH_ABS48	0x080
-#endif
+#endif /* SLJIT_CONFIG_PPC_64 */
 #	define REMOVE_COND	0x100
-#endif
+#endif /* SLJIT_CONFIG_PPC */
 
 #if (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 #	define IS_MOVABLE	0x004
@@ -215,7 +215,7 @@
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 #	define PATCH_ABS32	0x400
 #	define PATCH_ABS48	0x800
-#endif
+#endif /* SLJIT_CONFIG_MIPS_64 */
 
 	/* instruction types */
 #	define MOVABLE_INS	0
@@ -224,7 +224,7 @@
 #	define UNMOVABLE_INS	32
 	/* FPU status register */
 #	define FCSR_FCC		33
-#endif
+#endif /* SLJIT_CONFIG_MIPS */
 
 #if (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 #	define IS_COND		0x004
@@ -241,28 +241,7 @@
 #else /* !SLJIT_CONFIG_RISCV_64 */
 #	define PATCH_REL32	0x0
 #endif /* SLJIT_CONFIG_RISCV_64 */
-#endif
-
-#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-#	define IS_MOVABLE	0x04
-#	define IS_COND		0x08
-#	define IS_CALL		0x10
-
-#	define PATCH_B		0x20
-#	define PATCH_CALL	0x40
-
-	/* instruction types */
-#	define MOVABLE_INS	0
-	/* 1 - 31 last destination register */
-	/* no destination (i.e: store) */
-#	define UNMOVABLE_INS	32
-
-#	define DST_INS_MASK	0xff
-
-	/* ICC_SET is the same as SET_FLAGS. */
-#	define ICC_IS_SET	(1 << 23)
-#	define FCC_IS_SET	(1 << 24)
-#endif
+#endif /* SLJIT_CONFIG_RISCV */
 
 /* Stack management. */
 
@@ -454,10 +433,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allo
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
-	compiler->delay_slot = UNMOVABLE_INS;
-#endif
-
-#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 	compiler->delay_slot = UNMOVABLE_INS;
 #endif
 
@@ -2161,8 +2136,6 @@ static SLJIT_INLINE sljit_s32 emit_mov_before_return(struct sljit_compiler *comp
 	return sljit_emit_op1(compiler, op, SLJIT_RETURN_REG, 0, src, srcw);
 }
 
-#if !(defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC)
-
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
 {
 	CHECK_ERROR();
@@ -2177,11 +2150,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 	return sljit_emit_return_void(compiler);
 }
 
-#endif
-
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 		|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC) \
-		|| (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
 		|| ((defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) && !(defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1 && SLJIT_MIPS_REV < 6)) \
 		|| (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 
@@ -2292,8 +2262,6 @@ static sljit_s32 sljit_emit_fmem_unaligned(struct sljit_compiler *compiler, slji
 #	include "sljitNativeMIPS_common.c"
 #elif (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 #	include "sljitNativeRISCV_common.c"
-#elif (defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC)
-#	include "sljitNativeSPARC_common.c"
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 #	include "sljitNativeS390X.c"
 #endif

@@ -100,7 +100,6 @@ extern "C" {
 	+ (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64) \
 	+ (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32) \
 	+ (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64) \
-	+ (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
 	+ (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
 	+ (defined SLJIT_CONFIG_AUTO && SLJIT_CONFIG_AUTO) \
 	+ (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED) >= 2
@@ -119,7 +118,6 @@ extern "C" {
 	&& !(defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64) \
 	&& !(defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32) \
 	&& !(defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64) \
-	&& !(defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
 	&& !(defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
 	&& !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED) \
 	&& !(defined SLJIT_CONFIG_AUTO && SLJIT_CONFIG_AUTO)
@@ -164,8 +162,6 @@ extern "C" {
 #define SLJIT_CONFIG_RISCV_32 1
 #elif defined (__riscv_xlen) && (__riscv_xlen == 64)
 #define SLJIT_CONFIG_RISCV_64 1
-#elif (defined(__sparc__) || defined(__sparc)) && !defined(_LP64)
-#define SLJIT_CONFIG_SPARC_32 1
 #elif defined(__s390x__)
 #define SLJIT_CONFIG_S390X 1
 #else
@@ -215,8 +211,6 @@ extern "C" {
 #define SLJIT_CONFIG_MIPS 1
 #elif (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32) || (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 #define SLJIT_CONFIG_RISCV 1
-#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) || (defined SLJIT_CONFIG_SPARC_64 && SLJIT_CONFIG_SPARC_64)
-#define SLJIT_CONFIG_SPARC 1
 #endif
 
 /***********************************************************/
@@ -355,9 +349,9 @@ extern "C" {
 /*
  * https://gcc.gnu.org/bugzilla//show_bug.cgi?id=91248
  * https://gcc.gnu.org/bugzilla//show_bug.cgi?id=93811
- * gcc's clear_cache builtin for power and sparc are broken
+ * gcc's clear_cache builtin for power is broken
  */
-#if !defined(SLJIT_CONFIG_PPC) && !defined(SLJIT_CONFIG_SPARC_32)
+#if !defined(SLJIT_CONFIG_PPC)
 #define SLJIT_CACHE_FLUSH(from, to) \
 	__builtin___clear_cache((char*)(from), (char*)(to))
 #endif
@@ -387,13 +381,6 @@ extern "C" {
 /* The __clear_cache() implementation of GCC is a dummy function on PowerPC. */
 #define SLJIT_CACHE_FLUSH(from, to) \
 	ppc_cache_flush((from), (to))
-#define SLJIT_CACHE_FLUSH_OWN_IMPL 1
-
-#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-
-/* The __clear_cache() implementation of GCC is a dummy function on Sparc. */
-#define SLJIT_CACHE_FLUSH(from, to) \
-	sparc_cache_flush((from), (to))
 #define SLJIT_CACHE_FLUSH_OWN_IMPL 1
 
 #elif defined(_WIN32)
@@ -512,8 +499,7 @@ typedef double sljit_f64;
 #if !defined(SLJIT_BIG_ENDIAN) && !defined(SLJIT_LITTLE_ENDIAN)
 
 /* These macros are mostly useful for the applications. */
-#if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) \
-	|| (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 
 #ifdef __LITTLE_ENDIAN__
 #define SLJIT_LITTLE_ENDIAN 1
@@ -521,8 +507,7 @@ typedef double sljit_f64;
 #define SLJIT_BIG_ENDIAN 1
 #endif
 
-#elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) \
-	|| (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+#elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 
 #ifdef __MIPSEL__
 #define SLJIT_LITTLE_ENDIAN 1
@@ -549,8 +534,7 @@ typedef double sljit_f64;
 
 #endif /* !SLJIT_MIPS_REV */
 
-#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
-	|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+#elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 
 #define SLJIT_BIG_ENDIAN 1
 
@@ -640,11 +624,7 @@ typedef double sljit_f64;
 /* The offset which needs to be substracted from the return address to
 determine the next executed instruction after return. */
 #ifndef SLJIT_RETURN_ADDRESS_OFFSET
-#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-#define SLJIT_RETURN_ADDRESS_OFFSET 8
-#else
 #define SLJIT_RETURN_ADDRESS_OFFSET 0
-#endif
 #endif /* SLJIT_RETURN_ADDRESS_OFFSET */
 
 /***************************************************/
@@ -764,18 +744,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #define SLJIT_NUMBER_OF_FLOAT_REGISTERS 30
 #define SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS 12
 
-#elif (defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC)
-
-#define SLJIT_NUMBER_OF_REGISTERS 18
-#define SLJIT_NUMBER_OF_SAVED_REGISTERS 14
-#define SLJIT_NUMBER_OF_FLOAT_REGISTERS 14
-#define SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS 0
-#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-/* saved registers (16), return struct pointer (1), space for 6 argument words (1),
-   4th double arg (2), double alignment (1). */
-#define SLJIT_LOCALS_OFFSET_BASE ((16 + 1 + 6 + 2 + 1) * (sljit_s32)sizeof(sljit_sw))
-#endif
-
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 
 /*
@@ -831,7 +799,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 	|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC) \
 	|| (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
 	|| (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV) \
-	|| (defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC) \
 	|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 #define SLJIT_HAS_STATUS_FLAGS_STATE 1
 #endif

@@ -493,12 +493,6 @@ struct sljit_compiler {
 	sljit_sw cache_argw;
 #endif
 
-#if (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
-	sljit_s32 delay_slot;
-	sljit_s32 cache_arg;
-	sljit_sw cache_argw;
-#endif
-
 #if (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	/* Need to allocate register save area to make calls. */
 	sljit_s32 mode;
@@ -819,8 +813,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
            Write-back is supported except for one instruction: 32 bit signed
                 load with [reg+imm] addressing mode on 64 bit.
    mips:   [reg+imm], -65536 <= imm <= 65535
-   sparc:  [reg+imm], -4096 <= imm <= 4095
-           [reg+reg] is supported
+           Write-back is not supported
+   riscv:  [reg+imm], -2048 <= imm <= 2047
+           Write-back is not supported
    s390x:  [reg+imm], -2^19 <= imm < 2^19
            [reg+reg] is supported
            Write-back is not supported
@@ -1305,10 +1300,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
    the called function returns to the caller of the current function. The
    stack usage is reduced before the call, but it is not necessarily reduced
    to zero. In the latter case the compiler needs to allocate space for some
-   arguments and the return register must be kept as well.
-
-   This feature is highly experimental and not supported on SPARC platform
-   at the moment. */
+   arguments and the return address must be stored on the stack as well. */
 #define SLJIT_CALL_RETURN			0x2000
 
 /* Emit a jump instruction. The destination is not set, only the type of the jump.
@@ -1631,7 +1623,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 reg);
 /* The following function is a helper function for sljit_emit_op_custom.
    It returns with the real machine register index of any SLJIT_FLOAT register.
 
-   Note: the index is always an even number on ARM (except ARM-64), MIPS, and SPARC. */
+   Note: the index is always an even number on ARM-32, MIPS. */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg);
 
