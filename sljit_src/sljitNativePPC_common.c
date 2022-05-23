@@ -1631,7 +1631,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 				return emit_op(compiler, GET_OPCODE(op), flags | ALT_FORM2, dst, dstw, src2, src2w, TMP_REG2, 0);
 			}
 		}
-		if (GET_OPCODE(op) != SLJIT_AND) {
+		if (!HAS_FLAGS(op) && GET_OPCODE(op) != SLJIT_AND) {
 			/* Unlike or and xor, the and resets unwanted bits as well. */
 			if (TEST_UI_IMM(src2, src2w)) {
 				compiler->imm = (sljit_ins)src2w;
