@@ -59,7 +59,8 @@ extern "C" {
      SLJIT_64BIT_ARCHITECTURE : 64 bit architecture
      SLJIT_LITTLE_ENDIAN : little endian architecture
      SLJIT_BIG_ENDIAN : big endian architecture
-     SLJIT_UNALIGNED : allows unaligned memory accesses for non-fpu operations (only!)
+     SLJIT_UNALIGNED : unaligned memory accesses for non-fpu operations are supported
+     SLJIT_FPU_UNALIGNED : unaligned memory accesses for fpu operations are supported
      SLJIT_INDIRECT_CALL : see SLJIT_FUNC_ADDR() for more information
 
    Constants:
@@ -566,6 +567,18 @@ typedef double sljit_f64;
 #endif
 
 #endif /* !SLJIT_UNALIGNED */
+
+#ifndef SLJIT_FPU_UNALIGNED
+
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
+	|| (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
+	|| (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC) \
+	|| (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV) \
+	|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+#define SLJIT_FPU_UNALIGNED 1
+#endif
+
+#endif /* !SLJIT_FPU_UNALIGNED */
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 /* Auto detect SSE2 support using CPUID.

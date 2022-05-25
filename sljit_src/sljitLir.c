@@ -817,6 +817,9 @@ static sljit_s32 function_check_src_mem(struct sljit_compiler *compiler, sljit_s
 	if (!(p & SLJIT_MEM))
 		return 0;
 
+	if (p == SLJIT_MEM1(SLJIT_SP))
+		return (i >= 0 && i < compiler->logical_local_size);
+
 	if (!(!(p & REG_MASK) || FUNCTION_CHECK_IS_REG(p & REG_MASK)))
 		return 0;
 
@@ -854,9 +857,6 @@ static sljit_s32 function_check_src(struct sljit_compiler *compiler, sljit_s32 p
 	if (p == SLJIT_IMM)
 		return 1;
 
-	if (p == SLJIT_MEM1(SLJIT_SP))
-		return (i >= 0 && i < compiler->logical_local_size);
-
 	return function_check_src_mem(compiler, p, i);
 }
 
@@ -871,9 +871,6 @@ static sljit_s32 function_check_dst(struct sljit_compiler *compiler, sljit_s32 p
 	if (FUNCTION_CHECK_IS_REG(p))
 		return (i == 0);
 
-	if (p == SLJIT_MEM1(SLJIT_SP))
-		return (i >= 0 && i < compiler->logical_local_size);
-
 	return function_check_src_mem(compiler, p, i);
 }
 
@@ -887,9 +884,6 @@ static sljit_s32 function_fcheck(struct sljit_compiler *compiler, sljit_s32 p, s
 
 	if (FUNCTION_CHECK_IS_FREG(p))
 		return (i == 0);
-
-	if (p == SLJIT_MEM1(SLJIT_SP))
-		return (i >= 0 && i < compiler->logical_local_size);
 
 	return function_check_src_mem(compiler, p, i);
 }
@@ -2188,7 +2182,8 @@ static SLJIT_INLINE sljit_s32 sljit_emit_cmov_generic(struct sljit_compiler *com
 
 #endif
 
-#if (!(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) || (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6))
+#if (!(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) || (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)) \
+	&& !(defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 
 static sljit_s32 sljit_emit_mem_unaligned(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 reg,
@@ -2204,6 +2199,11 @@ static sljit_s32 sljit_emit_mem_unaligned(struct sljit_compiler *compiler, sljit
 	return sljit_emit_op1(compiler, type & (0xff | SLJIT_32), reg, 0, mem, memw);
 }
 
+#endif /* (!SLJIT_CONFIG_MIPS || SLJIT_MIPS_REV >= 6) && !SLJIT_CONFIG_ARM_V5 */
+
+#if (!(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) || (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)) \
+	&& !(defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
+
 static sljit_s32 sljit_emit_fmem_unaligned(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
 	sljit_s32 mem, sljit_sw memw)
@@ -2218,7 +2218,7 @@ static sljit_s32 sljit_emit_fmem_unaligned(struct sljit_compiler *compiler, slji
 	return sljit_emit_fop1(compiler, type & (0xff | SLJIT_32), freg, 0, mem, memw);
 }
 
-#endif
+#endif /* (!SLJIT_CONFIG_MIPS || SLJIT_MIPS_REV >= 6) && !SLJIT_CONFIG_ARM */
 
 /* CPU description section */
 
@@ -2409,7 +2409,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 
 #endif
 
-#if !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
+#if !(defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
 	&& !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
 	&& !(defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 

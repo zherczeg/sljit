@@ -8745,13 +8745,21 @@ static void test77(void)
 	sljit_emit_mem(compiler, SLJIT_MOV32 | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED, SLJIT_R0, SLJIT_MEM1(SLJIT_R1), 100000 + 5);
 
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S1, 0, SLJIT_IMM, 100000);
+#if (defined SLJIT_UNALIGNED && SLJIT_UNALIGNED)
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_R1), -100000 + 9);
+#else /* !SLJIT_UNALIGNED */
 	sljit_emit_mem(compiler, SLJIT_MOV | SLJIT_MEM_UNALIGNED, SLJIT_R0, SLJIT_MEM1(SLJIT_R1), -100000 + 9);
+#endif /* SLJIT_UNALIGNED */
 	/* wbuf[7] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 7 * sizeof(sljit_sw), SLJIT_R0, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), 0);
 	/* bbuf[9] */
+#if (defined SLJIT_UNALIGNED && SLJIT_UNALIGNED)
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_R1), -100000 + 9, SLJIT_R0, 0);
+#else /* !SLJIT_UNALIGNED */
 	sljit_emit_mem(compiler, SLJIT_MOV | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED, SLJIT_R0, SLJIT_MEM1(SLJIT_R1), -100000 + 9);
+#endif /* SLJIT_UNALIGNED */
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 18 >> 1);
 	sljit_emit_mem(compiler, SLJIT_MOV_S32 | SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16, SLJIT_R0, SLJIT_MEM2(SLJIT_S1, SLJIT_R1), 1);
@@ -8852,13 +8860,21 @@ static void test77(void)
 		sljit_emit_fmem(compiler, SLJIT_MOV_F32 | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED, SLJIT_FR0, SLJIT_MEM0(), (sljit_sw)bbuf + 1);
 
 		sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_R0, 0, SLJIT_S2, 0, SLJIT_IMM, 100000);
+#if (defined SLJIT_FPU_UNALIGNED && SLJIT_FPU_UNALIGNED)
+		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_R0), 100000 + 5);
+#else /* !SLJIT_FPU_UNALIGNED */
 		sljit_emit_fmem(compiler, SLJIT_MOV_F64 | SLJIT_MEM_UNALIGNED, SLJIT_FR0, SLJIT_MEM1(SLJIT_R0), 100000 + 5);
+#endif /* SLJIT_FPU_UNALIGNED */
 		/* dbuf[1] */
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f64), SLJIT_FR0, 0);
 
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_S0), 0);
 		/* bbuf[5] */
+#if (defined SLJIT_FPU_UNALIGNED && SLJIT_FPU_UNALIGNED)
+		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_R0), 100000 + 5, SLJIT_FR0, 0);
+#else /* !SLJIT_FPU_UNALIGNED */
 		sljit_emit_fmem(compiler, SLJIT_MOV_F64 | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED, SLJIT_FR0, SLJIT_MEM1(SLJIT_R0), 100000 + 5);
+#endif /* SLJIT_FPU_UNALIGNED */
 
 		sljit_emit_fmem(compiler, SLJIT_MOV_F32 | SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16, SLJIT_FR0, SLJIT_MEM1(SLJIT_S2), 14);
 		/* sbuf[2] */
