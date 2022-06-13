@@ -381,15 +381,14 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 			jump->addr -= 2 * sizeof(sljit_ins);
 			return inst;
 		}
-	}
-	else {
+	} else {
 		diff = ((sljit_sw)target_addr - (sljit_sw)(inst + 1) - executable_offset) >> 2;
 		if (diff <= SIMM_MAX && diff >= SIMM_MIN) {
 			jump->flags |= PATCH_B;
 
 			if (!(jump->flags & IS_COND)) {
 				inst[0] = (jump->flags & IS_JAL) ? BAL : B;
-				inst[1] = NOP;
+				/* Keep inst[1] */
 				return inst + 1;
 			}
 			inst[0] ^= invert_branch(jump->flags);
@@ -432,7 +431,7 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 		if ((target_addr & ~(sljit_uw)0xfffffff) == ((jump->addr + sizeof(sljit_ins)) & ~(sljit_uw)0xfffffff)) {
 			jump->flags |= PATCH_J;
 			inst[0] = (jump->flags & IS_JAL) ? JAL : J;
-			inst[1] = NOP;
+			/* Keep inst[1] */
 			return inst + 1;
 		}
 	}
@@ -812,27 +811,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 #endif
 	compiler->local_size = local_size;
 
-#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	tmp = arg_types >> SLJIT_ARG_SHIFT;
-	arg_count = 0;
 	offset = 0;
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	if (!(options & SLJIT_ENTER_REG_ARG)) {
+		tmp = arg_types >> SLJIT_ARG_SHIFT;
+		arg_count = 0;
 
-	while (tmp) {
-		offset = arg_count;
-		if ((tmp & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F64) {
-			if ((arg_count & 0x1) != 0)
+		while (tmp) {
+			offset = arg_count;
+			if ((tmp & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F64) {
+				if ((arg_count & 0x1) != 0)
+					arg_count++;
 				arg_count++;
+			}
+
 			arg_count++;
+			tmp >>= SLJIT_ARG_SHIFT;
 		}
 
-		arg_count++;
-		tmp >>= SLJIT_ARG_SHIFT;
+		compiler->args_size = (sljit_uw)arg_count << 2;
+		offset = (offset >= 4) ? (offset << 2) : 0;
 	}
-
-	compiler->args_size = (sljit_uw)arg_count << 2;
-	offset = (offset >= 4) ? (offset << 2) : 0;
-#else /* !SLJIT_CONFIG_MIPS_32 */
-	offset = 0;
 #endif /* SLJIT_CONFIG_MIPS_32 */
 
 	if (local_size + offset <= -SIMM_MIN) {
@@ -841,9 +840,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		base = S(SLJIT_SP);
 		offset = local_size - SSIZE_OF(sw);
 	} else {
-		FAIL_IF(load_immediate(compiler, DR(OTHER_FLAG), local_size));
+		FAIL_IF(load_immediate(compiler, OTHER_FLAG, local_size));
 		FAIL_IF(push_inst(compiler, ADDU_W | S(SLJIT_SP) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
-		FAIL_IF(push_inst(compiler, SUBU_W | S(SLJIT_SP) | T(OTHER_FLAG) | D(SLJIT_SP), DR(SLJIT_SP)));
+		FAIL_IF(push_inst(compiler, SUBU_W | S(SLJIT_SP) | TA(OTHER_FLAG) | D(SLJIT_SP), DR(SLJIT_SP)));
 		base = S(TMP_REG2);
 		offset = -SSIZE_OF(sw);
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
@@ -880,6 +879,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		offset -= SSIZE_OF(f64);
 		FAIL_IF(push_inst(compiler, SDC1 | base | FT(i) | IMM(offset), MOVABLE_INS));
 	}
+
+	if (options & SLJIT_ENTER_REG_ARG)
+		return SLJIT_SUCCESS;
 
 	arg_types >>= SLJIT_ARG_SHIFT;
 	arg_count = 0;

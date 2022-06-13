@@ -1729,7 +1729,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	FAIL_IF(push_inst(compiler, 0xe30000000071 /* lay */ | R36A(r15) | R28A(r15) | disp_s20(-local_size)));
 
+	if (options & SLJIT_ENTER_REG_ARG)
+		return SLJIT_SUCCESS;
+
 	arg_types >>= SLJIT_ARG_SHIFT;
+	saved_arg_count = 0;
 	tmp = 0;
 	while (arg_types > 0) {
 		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {

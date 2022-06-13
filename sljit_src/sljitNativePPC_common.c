@@ -735,8 +735,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
-	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds - saved_arg_count, 1)
+	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds - saved_arg_count, 0)
 		+ GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, sizeof(sljit_f64));
+
+	if (!(options & SLJIT_ENTER_REG_ARG))
+		local_size += SSIZE_OF(sw);
+
 	local_size = (local_size + SLJIT_LOCALS_OFFSET + 15) & ~0xf;
 	compiler->local_size = local_size;
 
@@ -775,8 +779,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		FAIL_IF(push_inst(compiler, STFD | FS(i) | A(base) | IMM(offset)));
 	}
 
-	offset -= SSIZE_OF(sw);
-	FAIL_IF(push_inst(compiler, STACK_STORE | S(TMP_ZERO) | A(base) | IMM(offset)));
+	if (!(options & SLJIT_ENTER_REG_ARG)) {
+		offset -= SSIZE_OF(sw);
+		FAIL_IF(push_inst(compiler, STACK_STORE | S(TMP_ZERO) | A(base) | IMM(offset)));
+	}
 
 	tmp = SLJIT_S0 - saveds;
 	for (i = SLJIT_S0 - saved_arg_count; i > tmp; i--) {
@@ -790,9 +796,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	}
 
 	FAIL_IF(push_inst(compiler, STACK_STORE | S(0) | A(base) | IMM(local_size + LR_SAVE_OFFSET)));
+
+	if (options & SLJIT_ENTER_REG_ARG)
+		return SLJIT_SUCCESS;
+
 	FAIL_IF(push_inst(compiler, ADDI | D(TMP_ZERO) | A(0) | 0));
 
 	arg_types >>= SLJIT_ARG_SHIFT;
+	saved_arg_count = 0;
 
 	while (arg_types > 0) {
 		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {
@@ -834,12 +845,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	CHECK(check_sljit_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_set_context(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
-	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds - SLJIT_KEPT_SAVEDS_COUNT(options), 1)
+	local_size += GET_SAVED_REGISTERS_SIZE(scratches, saveds - SLJIT_KEPT_SAVEDS_COUNT(options), 0)
 		+ GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, sizeof(sljit_f64));
+
+	if (!(options & SLJIT_ENTER_REG_ARG))
+		local_size += SSIZE_OF(sw);
+
 	compiler->local_size = (local_size + SLJIT_LOCALS_OFFSET + 15) & ~0xf;
 	return SLJIT_SUCCESS;
 }
-
 
 static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 {
@@ -872,8 +886,10 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 		FAIL_IF(push_inst(compiler, LFD | FS(i) | A(base) | IMM(offset)));
 	}
 
-	offset -= SSIZE_OF(sw);
-	FAIL_IF(push_inst(compiler, STACK_LOAD | S(TMP_ZERO) | A(base) | IMM(offset)));
+	if (!(compiler->options & SLJIT_ENTER_REG_ARG)) {
+		offset -= SSIZE_OF(sw);
+		FAIL_IF(push_inst(compiler, STACK_LOAD | S(TMP_ZERO) | A(base) | IMM(offset)));
+	}
 
 	tmp = SLJIT_S0 - compiler->saveds;
 	for (i = SLJIT_S0 - SLJIT_KEPT_SAVEDS_COUNT(compiler->options); i > tmp; i--) {
@@ -2139,7 +2155,7 @@ static sljit_ins get_bo_bi_flags(struct sljit_compiler *compiler, sljit_s32 type
 		return (4 << 21) | ((4 + 3) << 16);
 
 	default:
-		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL);
+		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL_REG_ARG);
 		return (20 << 21);
 	}
 }
@@ -2186,7 +2202,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	PTR_FAIL_IF(call_with_args(compiler, arg_types, NULL));
+	if ((type & 0xff) != SLJIT_CALL_REG_ARG)
+		PTR_FAIL_IF(call_with_args(compiler, arg_types, NULL));
 #endif
 
 	if (type & SLJIT_CALL_RETURN) {
@@ -2272,7 +2289,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	}
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	FAIL_IF(call_with_args(compiler, arg_types, &src));
+	if ((type & 0xff) != SLJIT_CALL_REG_ARG)
+		FAIL_IF(call_with_args(compiler, arg_types, &src));
 #endif
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \

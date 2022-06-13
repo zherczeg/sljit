@@ -1001,23 +1001,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	if (prev != -1)
 		FAIL_IF(push_inst(compiler, STRI | RT(prev) | RN(SLJIT_SP) | (offs >> 5) | ((fprev == -1) ? (1 << 10) : 0)));
 
-	arg_types >>= SLJIT_ARG_SHIFT;
 
 #ifdef _WIN32
 	if (local_size > 4096)
 		FAIL_IF(push_inst(compiler, SUBI | RD(SLJIT_SP) | RN(SLJIT_SP) | (1 << 10) | (1 << 22)));
 #endif /* _WIN32 */
 
-	tmp = SLJIT_R0;
-	while (arg_types > 0) {
-		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {
-			if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
-				FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0 - saved_arg_count) | RN(TMP_ZERO) | RM(tmp)));
-				saved_arg_count++;
-			}
-			tmp++;
-		}
+	if (!(options & SLJIT_ENTER_REG_ARG)) {
 		arg_types >>= SLJIT_ARG_SHIFT;
+		saved_arg_count = 0;
+		tmp = SLJIT_R0;
+
+		while (arg_types) {
+			if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {
+				if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
+					FAIL_IF(push_inst(compiler, ORR | RD(SLJIT_S0 - saved_arg_count) | RN(TMP_ZERO) | RM(tmp)));
+					saved_arg_count++;
+				}
+				tmp++;
+			}
+			arg_types >>= SLJIT_ARG_SHIFT;
+		}
 	}
 
 #ifdef _WIN32

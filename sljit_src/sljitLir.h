@@ -699,10 +699,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type);
 /* The SLJIT_S0/SLJIT_S1 registers are not saved / restored on function
    enter / return. Instead, these registers can be used to pass / return
    data (such as global / local context pointers) across function calls.
-   This is an sljit specific (non ABI compatible) function call extension
-   so both the caller and called function must be compiled by sljit. */
+   This option depends on SLJIT_ENTER_REG_ARG flag (see below). */
 #define SLJIT_ENTER_KEEP_S0	0x00000001
 #define SLJIT_ENTER_KEEP_S0_S1	0x00000002
+
+/* The compiled function uses an sljit specific register argument
+ * calling convention. This is a lightweight function call type where
+ * both the caller and called function must be compiled with sljit.
+ * The jump type of the function call must be SLJIT_CALL_REG_ARG
+ * and the called function must store all arguments in registers. */
+#define SLJIT_ENTER_REG_ARG	0x00000004
 
 /* The local_size must be >= 0 and <= SLJIT_MAX_LOCAL_SIZE. */
 #define SLJIT_MAX_LOCAL_SIZE	65536
@@ -1286,6 +1292,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_FAST_CALL			35
 	/* Default C calling convention. */
 #define SLJIT_CALL			36
+	/* Called function must be an sljit compiled function.
+	   See SLJIT_ENTER_REG_ARG option. */
+#define SLJIT_CALL_REG_ARG		37
 
 /* The target can be changed during runtime (see: sljit_set_jump_addr). */
 #define SLJIT_REWRITABLE_JUMP		0x1000

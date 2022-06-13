@@ -665,7 +665,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	else if (local_size > 0)
 		FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_SP) | RS1(SLJIT_SP) | IMM_I(-local_size)));
 
+	if (options & SLJIT_ENTER_REG_ARG)
+		return SLJIT_SUCCESS;
+
 	arg_types >>= SLJIT_ARG_SHIFT;
+	saved_arg_count = 0;
 	tmp = SLJIT_R0;
 
 	while (arg_types > 0) {

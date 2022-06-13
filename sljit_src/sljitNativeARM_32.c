@@ -1106,8 +1106,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	local_size = ((size + local_size + 0x7) & ~0x7) - size;
 	compiler->local_size = local_size;
 
+	if (options & SLJIT_ENTER_REG_ARG)
+		arg_types = 0;
+
 	arg_types >>= SLJIT_ARG_SHIFT;
 	word_arg_count = 0;
+	saved_arg_count = 0;
 #ifdef __SOFTFP__
 	SLJIT_COMPILE_ASSERT(SLJIT_FR0 == 1, float_register_index_start);
 
@@ -2456,7 +2460,7 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 		return 0x50000000;
 
 	default:
-		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL);
+		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL_REG_ARG);
 		return 0xe0000000;
 	}
 }
@@ -2712,43 +2716,49 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
 #ifdef __SOFTFP__
-	PTR_FAIL_IF(softfloat_call_with_args(compiler, arg_types, NULL, &extra_space));
-	SLJIT_ASSERT((extra_space & 0x7) == 0);
+	if ((type & 0xff) != SLJIT_CALL_REG_ARG) {
+		PTR_FAIL_IF(softfloat_call_with_args(compiler, arg_types, NULL, &extra_space));
+		SLJIT_ASSERT((extra_space & 0x7) == 0);
 
-	if ((type & SLJIT_CALL_RETURN) && extra_space == 0)
-		type = SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP);
+		if ((type & SLJIT_CALL_RETURN) && extra_space == 0)
+			type = SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP);
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	compiler->skip_checks = 1;
+			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+		compiler->skip_checks = 1;
 #endif
 
-	jump = sljit_emit_jump(compiler, type);
-	PTR_FAIL_IF(jump == NULL);
+		jump = sljit_emit_jump(compiler, type);
+		PTR_FAIL_IF(jump == NULL);
 
-	if (extra_space > 0) {
-		if (type & SLJIT_CALL_RETURN)
-			PTR_FAIL_IF(push_inst(compiler, EMIT_DATA_TRANSFER(WORD_SIZE | LOAD_DATA, 1,
-				TMP_REG2, SLJIT_SP, extra_space - sizeof(sljit_sw))));
+		if (extra_space > 0) {
+			if (type & SLJIT_CALL_RETURN)
+				PTR_FAIL_IF(push_inst(compiler, EMIT_DATA_TRANSFER(WORD_SIZE | LOAD_DATA, 1,
+					TMP_REG2, SLJIT_SP, extra_space - sizeof(sljit_sw))));
 
-		PTR_FAIL_IF(push_inst(compiler, ADD | RD(SLJIT_SP) | RN(SLJIT_SP) | SRC2_IMM | extra_space));
+			PTR_FAIL_IF(push_inst(compiler, ADD | RD(SLJIT_SP) | RN(SLJIT_SP) | SRC2_IMM | extra_space));
 
-		if (type & SLJIT_CALL_RETURN) {
-			PTR_FAIL_IF(push_inst(compiler, BX | RM(TMP_REG2)));
-			return jump;
+			if (type & SLJIT_CALL_RETURN) {
+				PTR_FAIL_IF(push_inst(compiler, BX | RM(TMP_REG2)));
+				return jump;
+			}
 		}
-	}
 
-	SLJIT_ASSERT(!(type & SLJIT_CALL_RETURN));
-	PTR_FAIL_IF(softfloat_post_call_with_args(compiler, arg_types));
-	return jump;
-#else /* !__SOFTFP__ */
+		SLJIT_ASSERT(!(type & SLJIT_CALL_RETURN));
+		PTR_FAIL_IF(softfloat_post_call_with_args(compiler, arg_types));
+		return jump;
+	}
+#endif /* __SOFTFP__ */
+
 	if (type & SLJIT_CALL_RETURN) {
 		PTR_FAIL_IF(emit_stack_frame_release(compiler, -1));
 		type = SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP);
 	}
 
-	PTR_FAIL_IF(hardfloat_call_with_args(compiler, arg_types));
+#ifndef __SOFTFP__
+	if ((type & 0xff) != SLJIT_CALL_REG_ARG)
+		PTR_FAIL_IF(hardfloat_call_with_args(compiler, arg_types));
+#endif /* !__SOFTFP__ */
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
 		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
@@ -2756,7 +2766,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 #endif
 
 	return sljit_emit_jump(compiler, type);
-#endif /* __SOFTFP__ */
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 src, sljit_sw srcw)
@@ -2822,39 +2831,45 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	}
 
 #ifdef __SOFTFP__
-	FAIL_IF(softfloat_call_with_args(compiler, arg_types, &src, &extra_space));
-	SLJIT_ASSERT((extra_space & 0x7) == 0);
+	if ((type & 0xff) != SLJIT_CALL_REG_ARG) {
+		FAIL_IF(softfloat_call_with_args(compiler, arg_types, &src, &extra_space));
+		SLJIT_ASSERT((extra_space & 0x7) == 0);
 
-	if ((type & SLJIT_CALL_RETURN) && extra_space == 0)
-		type = SLJIT_JUMP;
+		if ((type & SLJIT_CALL_RETURN) && extra_space == 0)
+			type = SLJIT_JUMP;
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	compiler->skip_checks = 1;
+			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+		compiler->skip_checks = 1;
 #endif
 
-	FAIL_IF(sljit_emit_ijump(compiler, type, src, srcw));
+		FAIL_IF(sljit_emit_ijump(compiler, type, src, srcw));
 
-	if (extra_space > 0) {
-		if (type & SLJIT_CALL_RETURN)
-			FAIL_IF(push_inst(compiler, EMIT_DATA_TRANSFER(WORD_SIZE | LOAD_DATA, 1,
-				TMP_REG2, SLJIT_SP, extra_space - sizeof(sljit_sw))));
+		if (extra_space > 0) {
+			if (type & SLJIT_CALL_RETURN)
+				FAIL_IF(push_inst(compiler, EMIT_DATA_TRANSFER(WORD_SIZE | LOAD_DATA, 1,
+					TMP_REG2, SLJIT_SP, extra_space - sizeof(sljit_sw))));
 
-		FAIL_IF(push_inst(compiler, ADD | RD(SLJIT_SP) | RN(SLJIT_SP) | SRC2_IMM | extra_space));
+			FAIL_IF(push_inst(compiler, ADD | RD(SLJIT_SP) | RN(SLJIT_SP) | SRC2_IMM | extra_space));
 
-		if (type & SLJIT_CALL_RETURN)
-			return push_inst(compiler, BX | RM(TMP_REG2));
+			if (type & SLJIT_CALL_RETURN)
+				return push_inst(compiler, BX | RM(TMP_REG2));
+		}
+
+		SLJIT_ASSERT(!(type & SLJIT_CALL_RETURN));
+		return softfloat_post_call_with_args(compiler, arg_types);
 	}
+#endif /* __SOFTFP__ */
 
-	SLJIT_ASSERT(!(type & SLJIT_CALL_RETURN));
-	return softfloat_post_call_with_args(compiler, arg_types);
-#else /* !__SOFTFP__ */
 	if (type & SLJIT_CALL_RETURN) {
 		FAIL_IF(emit_stack_frame_release(compiler, -1));
 		type = SLJIT_JUMP;
 	}
 
-	FAIL_IF(hardfloat_call_with_args(compiler, arg_types));
+#ifndef __SOFTFP__
+	if ((type & 0xff) != SLJIT_CALL_REG_ARG)
+		FAIL_IF(hardfloat_call_with_args(compiler, arg_types));
+#endif /* !__SOFTFP__ */
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
 		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
@@ -2862,7 +2877,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 #endif
 
 	return sljit_emit_ijump(compiler, type, src, srcw);
-#endif /* __SOFTFP__ */
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,

@@ -1032,7 +1032,7 @@ static const char* jump_names[] = {
 	"unordered_or_less", "ordered_greater_equal",
 	"unordered_or_greater", "ordered_less_equal",
 	"jump", "fast_call",
-	"call",
+	"call", "call_reg_arg"
 };
 
 static const char* call_arg_names[] = {
@@ -1075,7 +1075,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 	SLJIT_UNUSED_ARG(compiler);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(options & ~(SLJIT_ENTER_KEEP_S0 | SLJIT_ENTER_KEEP_S0_S1)));
+	if (options & SLJIT_ENTER_REG_ARG) {
+		CHECK_ARGUMENT(!(options & ~(SLJIT_ENTER_KEEP_S0 | SLJIT_ENTER_KEEP_S0_S1 | SLJIT_ENTER_REG_ARG)));
+	} else {
+		CHECK_ARGUMENT(options == 0);
+	}
 	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 2 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
 	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
@@ -1085,7 +1089,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	CHECK_ARGUMENT((arg_types & SLJIT_ARG_FULL_MASK) < SLJIT_ARG_TYPE_F64);
-	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, saveds - SLJIT_KEPT_SAVEDS_COUNT(options), fscratches));
+	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, (options & SLJIT_ENTER_REG_ARG) ? 0 : saveds, fscratches));
 
 	compiler->last_flags = 0;
 #endif
@@ -1107,8 +1111,12 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 
 		fprintf(compiler->verbose, "],");
 
-		if (SLJIT_KEPT_SAVEDS_COUNT(options) > 0)
-			fprintf(compiler->verbose, " keep:%d,", SLJIT_KEPT_SAVEDS_COUNT(options));
+		if (options & SLJIT_ENTER_REG_ARG) {
+			fprintf(compiler->verbose, " enter:reg_arg,");
+
+			if (SLJIT_KEPT_SAVEDS_COUNT(options) > 0)
+				fprintf(compiler->verbose, " keep:%d,", SLJIT_KEPT_SAVEDS_COUNT(options));
+		}
 
 		fprintf(compiler->verbose, "scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
 			scratches, saveds, fscratches, fsaveds, local_size);
@@ -1124,7 +1132,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 	SLJIT_UNUSED_ARG(compiler);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(!(options & ~(SLJIT_ENTER_KEEP_S0 | SLJIT_ENTER_KEEP_S0_S1)));
+	if (options & SLJIT_ENTER_REG_ARG) {
+		CHECK_ARGUMENT(!(options & ~(SLJIT_ENTER_KEEP_S0 | SLJIT_ENTER_KEEP_S0_S1 | SLJIT_ENTER_REG_ARG)));
+	} else {
+		CHECK_ARGUMENT(options == 0);
+	}
 	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 2 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
 	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
@@ -1134,7 +1146,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	CHECK_ARGUMENT((arg_types & SLJIT_ARG_FULL_MASK) < SLJIT_ARG_TYPE_F64);
-	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, saveds - SLJIT_KEPT_SAVEDS_COUNT(options), fscratches));
+	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, (options & SLJIT_ENTER_REG_ARG) ? 0 : saveds, fscratches));
 
 	compiler->last_flags = 0;
 #endif
@@ -1156,8 +1168,12 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 
 		fprintf(compiler->verbose, "],");
 
-		if (SLJIT_KEPT_SAVEDS_COUNT(options) > 0)
-			fprintf(compiler->verbose, " keep:%d,", SLJIT_KEPT_SAVEDS_COUNT(options));
+		if (options & SLJIT_ENTER_REG_ARG) {
+			fprintf(compiler->verbose, " enter:reg_arg,");
+
+			if (SLJIT_KEPT_SAVEDS_COUNT(options) > 0)
+				fprintf(compiler->verbose, " keep:%d,", SLJIT_KEPT_SAVEDS_COUNT(options));
+		}
 
 		fprintf(compiler->verbose, " scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
 			scratches, saveds, fscratches, fsaveds, local_size);
@@ -1702,11 +1718,17 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_call(struct sljit_compile
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_CALL_RETURN)));
-	CHECK_ARGUMENT((type & 0xff) == SLJIT_CALL);
+	CHECK_ARGUMENT((type & 0xff) >= SLJIT_CALL && (type & 0xff) <= SLJIT_CALL_REG_ARG);
 	CHECK_ARGUMENT(function_check_arguments(arg_types, compiler->scratches, -1, compiler->fscratches));
 
 	if (type & SLJIT_CALL_RETURN) {
 		CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) == compiler->last_return);
+
+		if (compiler->options & SLJIT_ENTER_REG_ARG) {
+			CHECK_ARGUMENT((type & 0xff) == SLJIT_CALL_REG_ARG);
+		} else {
+			CHECK_ARGUMENT((type & 0xff) != SLJIT_CALL_REG_ARG);
+		}
 	}
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -1810,12 +1832,18 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_icall(struct sljit_compil
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_CALL_RETURN)));
-	CHECK_ARGUMENT((type & 0xff) == SLJIT_CALL);
+	CHECK_ARGUMENT((type & 0xff) >= SLJIT_CALL && (type & 0xff) <= SLJIT_CALL_REG_ARG);
 	CHECK_ARGUMENT(function_check_arguments(arg_types, compiler->scratches, -1, compiler->fscratches));
 	FUNCTION_CHECK_SRC(src, srcw);
 
 	if (type & SLJIT_CALL_RETURN) {
 		CHECK_ARGUMENT((arg_types & SLJIT_ARG_MASK) == compiler->last_return);
+
+		if (compiler->options & SLJIT_ENTER_REG_ARG) {
+			CHECK_ARGUMENT((type & 0xff) == SLJIT_CALL_REG_ARG);
+		} else {
+			CHECK_ARGUMENT((type & 0xff) != SLJIT_CALL_REG_ARG);
+		}
 	}
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)

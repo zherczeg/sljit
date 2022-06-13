@@ -389,6 +389,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
 	set_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size);
 
+	if (options & SLJIT_ENTER_REG_ARG)
+		arg_types = 0;
+
 	/* Emit ENDBR64 at function entry if needed.  */
 	FAIL_IF(emit_endbranch(compiler));
 
@@ -796,7 +799,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 
 	compiler->mode32 = 0;
 
-	PTR_FAIL_IF(call_with_args(compiler, arg_types, NULL));
+	if ((type & 0xff) != SLJIT_CALL_REG_ARG)
+		PTR_FAIL_IF(call_with_args(compiler, arg_types, NULL));
 
 	if (type & SLJIT_CALL_RETURN) {
 		PTR_FAIL_IF(emit_stack_frame_release(compiler));
@@ -832,10 +836,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 		}
 
 		FAIL_IF(emit_stack_frame_release(compiler));
-		type = SLJIT_JUMP;
 	}
 
-	FAIL_IF(call_with_args(compiler, arg_types, &src));
+	if ((type & 0xff) != SLJIT_CALL_REG_ARG)
+		FAIL_IF(call_with_args(compiler, arg_types, &src));
+
+	if (type & SLJIT_CALL_RETURN)
+		type = SLJIT_JUMP;
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
 		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
