@@ -8660,7 +8660,7 @@ static int cmp_u8(const void *src1, sljit_sw offset, const void *src2, sljit_uw 
 
 static void test77(void)
 {
-	/* Test unaligned access */
+	/* Test unaligned accesses. */
 	executable_code code;
 	struct sljit_compiler* compiler;
 	sljit_sw i;
@@ -8932,6 +8932,72 @@ static void test77(void)
 	successful_tests++;
 }
 
+static void test78(void)
+{
+	/* Test addressing modes. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	sljit_u8 buf[3 + SLJIT_NUMBER_OF_REGISTERS * 3];
+	sljit_u8 *buf_start;
+	sljit_uw addr = (sljit_uw)&buf;
+	sljit_s32 i;
+
+	addr = addr + 3 - (addr % 3);
+	buf_start = (sljit_u8*)addr;
+
+	SLJIT_ASSERT((addr % 3) == 0);
+
+	for (i = 0; i < (sljit_s32)sizeof(buf); i++)
+		buf[i] = 0;
+
+	if (verbose)
+		printf("Run test78\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS0(W), SLJIT_NUMBER_OF_REGISTERS, 0, 0, 0, 0);
+
+	addr /= 3;
+	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++, addr++) {
+		if (sljit_get_register_index(SLJIT_R(i)) == -1)
+			continue;
+
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, (sljit_sw)addr);
+		sljit_emit_op1(compiler, SLJIT_MOV_U8, SLJIT_MEM2(SLJIT_R(i), SLJIT_R(i)), 1, SLJIT_IMM, 88 + i);
+
+		if (i != 0) {
+			sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)(addr * 2 + 1));
+			sljit_emit_op1(compiler, SLJIT_MOV_U8, SLJIT_MEM2(SLJIT_R(i), SLJIT_R0), 0, SLJIT_IMM, 147 + i);
+		}
+
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, (sljit_sw)(addr * 3 + 2));
+		sljit_emit_op1(compiler, SLJIT_MOV_U8, SLJIT_MEM1(SLJIT_R(i)), 0, SLJIT_IMM, 191 + i);
+	}
+
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R2, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func0();
+
+	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++) {
+		if (sljit_get_register_index(SLJIT_R(i)) == -1)
+			continue;
+
+		FAILED(buf_start[i * 3] != 88 + i, "test78 case 1 failed\n");
+		if (i != 0) {
+			FAILED(buf_start[i * 3 + 1] != 147 + i, "test78 case 2 failed\n");
+		}
+		FAILED(buf_start[i * 3 + 2] != 191 + i, "test78 case 3 failed\n");
+	}
+
+	sljit_free_code(code.code, NULL);
+
+	successful_tests++;
+}
+
 int sljit_test(int argc, char* argv[])
 {
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -9021,12 +9087,13 @@ int sljit_test(int argc, char* argv[])
 	test75();
 	test76();
 	test77();
+	test78();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 77
+#	define TEST_COUNT 78
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
