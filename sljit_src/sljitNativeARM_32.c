@@ -2456,7 +2456,7 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 		return 0x50000000;
 
 	default:
-		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL_CDECL);
+		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL);
 		return 0xe0000000;
 	}
 }

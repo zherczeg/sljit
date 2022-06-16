@@ -26,11 +26,7 @@
 
 SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
-#if (defined SLJIT_X86_32_FASTCALL && SLJIT_X86_32_FASTCALL)
-	return "x86" SLJIT_CPUINFO " ABI:fastcall";
-#else
 	return "x86" SLJIT_CPUINFO;
-#endif
 }
 
 /*

@@ -704,10 +704,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type);
 #define SLJIT_ENTER_KEEP_S0	0x00000001
 #define SLJIT_ENTER_KEEP_S0_S1	0x00000002
 
-/* The compiled function uses cdecl calling
- * convention instead of SLJIT_FUNC. */
-#define SLJIT_ENTER_CDECL	0x00000004
-
 /* The local_size must be >= 0 and <= SLJIT_MAX_LOCAL_SIZE. */
 #define SLJIT_MAX_LOCAL_SIZE	65536
 
@@ -1288,11 +1284,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_JUMP			34
 	/* Fast calling method. See sljit_emit_fast_enter / SLJIT_FAST_RETURN. */
 #define SLJIT_FAST_CALL			35
-	/* Called function must be declared with the SLJIT_FUNC attribute. */
+	/* Default C calling convention. */
 #define SLJIT_CALL			36
-	/* Called function must be declared with cdecl attribute.
-	   This is the default attribute for C functions. */
-#define SLJIT_CALL_CDECL		37
 
 /* The target can be changed during runtime (see: sljit_set_jump_addr). */
 #define SLJIT_REWRITABLE_JUMP		0x1000

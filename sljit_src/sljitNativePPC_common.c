@@ -2139,7 +2139,7 @@ static sljit_ins get_bo_bi_flags(struct sljit_compiler *compiler, sljit_s32 type
 		return (4 << 21) | ((4 + 3) << 16);
 
 	default:
-		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL_CDECL);
+		SLJIT_ASSERT(type >= SLJIT_JUMP && type <= SLJIT_CALL);
 		return (20 << 21);
 	}
 }
