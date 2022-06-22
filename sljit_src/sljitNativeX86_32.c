@@ -998,26 +998,17 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 			PTR_FAIL_IF(call_reg_arg_with_args(compiler, arg_types, 1));
 			PTR_FAIL_IF(emit_stack_frame_release(compiler));
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-			compiler->skip_checks = 1;
-#endif
-			type = SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP);
-			return sljit_emit_jump(compiler, type);
+			SLJIT_SKIP_CHECKS(compiler);
+			return sljit_emit_jump(compiler, SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP));
 		}
 
 		stack_size = type;
 		PTR_FAIL_IF(tail_call_with_args(compiler, &stack_size, arg_types, SLJIT_IMM, 0));
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-		compiler->skip_checks = 1;
-#endif
+		SLJIT_SKIP_CHECKS(compiler);
 
-		if (stack_size == 0) {
-			type = SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP);
-			return sljit_emit_jump(compiler, type);
-		}
+		if (stack_size == 0)
+			return sljit_emit_jump(compiler, SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP));
 
 		jump = sljit_emit_jump(compiler, type);
 		PTR_FAIL_IF(jump == NULL);
@@ -1029,21 +1020,14 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	if ((type & 0xff) == SLJIT_CALL_REG_ARG) {
 		PTR_FAIL_IF(call_reg_arg_with_args(compiler, arg_types, 0));
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-		compiler->skip_checks = 1;
-#endif
+		SLJIT_SKIP_CHECKS(compiler);
 		return sljit_emit_jump(compiler, type);
 	}
 
 	stack_size = call_get_stack_size(compiler, arg_types, &word_arg_count);
 	PTR_FAIL_IF(call_with_args(compiler, arg_types, stack_size, word_arg_count));
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	compiler->skip_checks = 1;
-#endif
-
+	SLJIT_SKIP_CHECKS(compiler);
 	jump = sljit_emit_jump(compiler, type);
 	PTR_FAIL_IF(jump == NULL);
 
@@ -1076,10 +1060,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 
 			FAIL_IF(emit_stack_frame_release(compiler));
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-			compiler->skip_checks = 1;
-#endif
+			SLJIT_SKIP_CHECKS(compiler);
 			return sljit_emit_ijump(compiler, SLJIT_JUMP, src, srcw);
 		}
 
@@ -1091,10 +1072,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 			srcw = 0;
 		}
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-		compiler->skip_checks = 1;
-#endif
+		SLJIT_SKIP_CHECKS(compiler);
 
 		if (stack_size == 0)
 			return sljit_emit_ijump(compiler, SLJIT_JUMP, src, srcw);
@@ -1106,10 +1084,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	if ((type & 0xff) == SLJIT_CALL_REG_ARG) {
 		FAIL_IF(call_reg_arg_with_args(compiler, arg_types, 0));
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-		compiler->skip_checks = 1;
-#endif
+		SLJIT_SKIP_CHECKS(compiler);
 		return sljit_emit_ijump(compiler, type, src, srcw);
 	}
 
@@ -1119,10 +1094,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	compiler->scratches_offset += stack_size;
 	compiler->locals_offset += stack_size;
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	compiler->skip_checks = 1;
-#endif
+	SLJIT_SKIP_CHECKS(compiler);
 	FAIL_IF(sljit_emit_ijump(compiler, type, src, srcw));
 
 	compiler->scratches_offset -= stack_size;

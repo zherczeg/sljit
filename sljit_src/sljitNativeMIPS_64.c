@@ -294,11 +294,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 				FAIL_IF(push_inst(compiler, ins, MOVABLE_INS));
 		}
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-			|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-		compiler->skip_checks = 1;
-#endif
-
+		SLJIT_SKIP_CHECKS(compiler);
 		return sljit_emit_ijump(compiler, type, src, srcw);
 	}
 
