@@ -696,12 +696,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type);
          overwrites the previous context.
 */
 
-/* The SLJIT_S0/SLJIT_S1 registers are not saved / restored on function
-   enter / return. Instead, these registers can be used to pass / return
-   data (such as global / local context pointers) across function calls.
-   This option depends on SLJIT_ENTER_REG_ARG flag (see below). */
-#define SLJIT_ENTER_KEEP_S0	0x00000001
-#define SLJIT_ENTER_KEEP_S0_S1	0x00000002
+/* Saved registers between SLJIT_S0 and SLJIT_S(n - 1) (inclusive)
+   are not saved / restored on function enter / return. Instead,
+   these registers can be used to pass / return data (such as
+   global / local context pointers) across function calls. The
+   value of n must be between 1 and 3. Furthermore, this option
+   is only supported by register argument calling convention, so
+   SLJIT_ENTER_REG_ARG (see below) must be specified as well. */
+#define SLJIT_ENTER_KEEP(n)	(n)
 
 /* The compiled function uses an sljit specific register argument
  * calling convention. This is a lightweight function call type where

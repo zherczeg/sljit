@@ -1078,11 +1078,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	if (options & SLJIT_ENTER_REG_ARG) {
-		CHECK_ARGUMENT(!(options & ~(SLJIT_ENTER_KEEP_S0 | SLJIT_ENTER_KEEP_S0_S1 | SLJIT_ENTER_REG_ARG)));
+		CHECK_ARGUMENT(!(options & ~(0x3 | SLJIT_ENTER_REG_ARG)));
 	} else {
 		CHECK_ARGUMENT(options == 0);
 	}
-	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 2 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
+	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 3 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
 	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	CHECK_ARGUMENT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
@@ -1135,11 +1135,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	if (options & SLJIT_ENTER_REG_ARG) {
-		CHECK_ARGUMENT(!(options & ~(SLJIT_ENTER_KEEP_S0 | SLJIT_ENTER_KEEP_S0_S1 | SLJIT_ENTER_REG_ARG)));
+		CHECK_ARGUMENT(!(options & ~(0x3 | SLJIT_ENTER_REG_ARG)));
 	} else {
 		CHECK_ARGUMENT(options == 0);
 	}
-	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 2 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
+	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 3 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
 	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	CHECK_ARGUMENT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);

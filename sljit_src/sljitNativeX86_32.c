@@ -258,9 +258,6 @@ static sljit_u8* generate_far_jump_code(struct sljit_jump *jump, sljit_u8 *code_
 
 #define ENTER_TMP_TO_R4		0x00001
 #define ENTER_TMP_TO_S		0x00002
-#ifdef _WIN32
-#define ENTER_SAVE_R2		0x00004
-#endif
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compiler,
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
@@ -297,10 +294,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 					status |= ENTER_TMP_TO_R4;
 					args_size = SSIZE_OF(sw);
 				}
-#ifdef _WIN32
-				else if (word_arg_count == 3)
-					status |= ENTER_SAVE_R2;
-#endif
 			}
 
 			arg_types >>= SLJIT_ARG_SHIFT;
@@ -378,7 +371,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		if (!(options & SLJIT_ENTER_REG_ARG))
 			PUSH_REG(reg_map[TMP_REG1]);
 
-		if (saveds > 2 || scratches > 9)
+		if ((saveds > 2 && kept_saveds_count <= 2) || scratches > 9)
 			PUSH_REG(reg_map[SLJIT_S2]);
 		if ((saveds > 1 && kept_saveds_count <= 1) || scratches > 10)
 			PUSH_REG(reg_map[SLJIT_S1]);
@@ -445,8 +438,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 				BINARY_IMM32(OR, 0, SLJIT_MEM1(SLJIT_SP), -4096 * 3);
 		}
 		else {
-			if (status & ENTER_SAVE_R2) {
-				SLJIT_ASSERT((options & SLJIT_ENTER_REG_ARG) && r2_offset == -1);
+			if (options & SLJIT_ENTER_REG_ARG) {
+				SLJIT_ASSERT(r2_offset == -1);
 
 				inst = (sljit_u8*)ensure_buf(compiler, (sljit_uw)(1 + 1));
 				FAIL_IF(!inst);
@@ -566,6 +559,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 {
 	sljit_s32 kept_saveds_count = SLJIT_KEPT_SAVEDS_COUNT(compiler->options);
+	sljit_s32 saveds;
 	sljit_uw size;
 	sljit_u8 *inst;
 
@@ -585,11 +579,13 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 
 	INC_SIZE(size);
 
-	if ((compiler->saveds > 0 && kept_saveds_count == 0) || compiler->scratches > 11)
+	saveds = compiler->saveds;
+
+	if ((saveds > 0 && kept_saveds_count == 0) || compiler->scratches > 11)
 		POP_REG(reg_map[SLJIT_S0]);
-	if ((compiler->saveds > 1 && kept_saveds_count <= 1) || compiler->scratches > 10)
+	if ((saveds > 1 && kept_saveds_count <= 1) || compiler->scratches > 10)
 		POP_REG(reg_map[SLJIT_S1]);
-	if (compiler->saveds > 2 || compiler->scratches > 9)
+	if ((saveds > 2 && kept_saveds_count <= 2) || compiler->scratches > 9)
 		POP_REG(reg_map[SLJIT_S2]);
 
 	if (!(compiler->options & SLJIT_ENTER_REG_ARG))
@@ -977,7 +973,7 @@ static sljit_s32 call_reg_arg_with_args(struct sljit_compiler *compiler, sljit_s
 		offset += SSIZE_OF(sw);
 	if ((compiler->saveds > 1 && kept_saveds_count <= 1) || compiler->scratches > 10)
 		offset += SSIZE_OF(sw);
-	if (compiler->saveds > 2 || compiler->scratches > 9)
+	if ((compiler->saveds > 2 && kept_saveds_count <= 2) || compiler->scratches > 9)
 		offset += SSIZE_OF(sw);
 
 	return emit_mov(compiler, SLJIT_MEM1(SLJIT_SP), offset, TMP_REG1, 0);
