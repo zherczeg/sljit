@@ -999,7 +999,8 @@ static const char* op1_names[] = {
 static const char* op2_names[] = {
 	"add", "addc", "sub", "subc",
 	"mul", "and", "or", "xor",
-	"shl", "lshr", "ashr",
+	"shl", "mshl", "lshr", "mlshr",
+	"ashr", "mashr"
 };
 
 static const char* op_src_names[] = {
@@ -1352,15 +1353,18 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2(struct sljit_compiler
 	}
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_ADD && GET_OPCODE(op) <= SLJIT_ASHR);
+	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_ADD && GET_OPCODE(op) <= SLJIT_MASHR);
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_AND:
 	case SLJIT_OR:
 	case SLJIT_XOR:
 	case SLJIT_SHL:
+	case SLJIT_MSHL:
 	case SLJIT_LSHR:
+	case SLJIT_MLSHR:
 	case SLJIT_ASHR:
+	case SLJIT_MASHR:
 		CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK));
 		break;
 	case SLJIT_MUL:

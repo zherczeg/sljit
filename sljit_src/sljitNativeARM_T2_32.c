@@ -593,7 +593,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 	   arg1 must be register, imm
 	   arg2 must be register, imm */
 	sljit_s32 reg;
-	sljit_uw imm, nimm;
+	sljit_uw imm, imm2;
 
 	if (SLJIT_UNLIKELY((flags & (ARG1_IMM | ARG2_IMM)) == (ARG1_IMM | ARG2_IMM))) {
 		/* Both are immediates, no temporaries are used. */
@@ -622,31 +622,31 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			break;
 		case SLJIT_ADD:
 			compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
-			nimm = NEGATE(imm);
+			imm2 = NEGATE(imm);
 			if (IS_2_LO_REGS(reg, dst)) {
 				if (imm <= 0x7)
 					return push_inst16(compiler, ADDSI3 | IMM3(imm) | RD3(dst) | RN3(reg));
-				if (nimm <= 0x7)
-					return push_inst16(compiler, SUBSI3 | IMM3(nimm) | RD3(dst) | RN3(reg));
+				if (imm2 <= 0x7)
+					return push_inst16(compiler, SUBSI3 | IMM3(imm2) | RD3(dst) | RN3(reg));
 				if (reg == dst) {
 					if (imm <= 0xff)
 						return push_inst16(compiler, ADDSI8 | IMM8(imm) | RDN3(dst));
-					if (nimm <= 0xff)
-						return push_inst16(compiler, SUBSI8 | IMM8(nimm) | RDN3(dst));
+					if (imm2 <= 0xff)
+						return push_inst16(compiler, SUBSI8 | IMM8(imm2) | RDN3(dst));
 				}
 			}
 			if (!(flags & SET_FLAGS)) {
 				if (imm <= 0xfff)
 					return push_inst32(compiler, ADDWI | RD4(dst) | RN4(reg) | IMM12(imm));
-				if (nimm <= 0xfff)
-					return push_inst32(compiler, SUBWI | RD4(dst) | RN4(reg) | IMM12(nimm));
+				if (imm2 <= 0xfff)
+					return push_inst32(compiler, SUBWI | RD4(dst) | RN4(reg) | IMM12(imm2));
 			}
-			nimm = get_imm(imm);
-			if (nimm != INVALID_IMM)
-				return push_inst32(compiler, ADD_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
-			nimm = get_imm(NEGATE(imm));
-			if (nimm != INVALID_IMM)
-				return push_inst32(compiler, SUB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
+			imm2 = get_imm(imm);
+			if (imm2 != INVALID_IMM)
+				return push_inst32(compiler, ADD_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm2);
+			imm = get_imm(NEGATE(imm));
+			if (imm != INVALID_IMM)
+				return push_inst32(compiler, SUB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_ADDC:
 			compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
@@ -667,39 +667,39 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			if (flags & UNUSED_RETURN) {
 				if (imm <= 0xff && reg_map[reg] <= 7)
 					return push_inst16(compiler, CMPI | IMM8(imm) | RDN3(reg));
-				nimm = get_imm(imm);
-				if (nimm != INVALID_IMM)
-					return push_inst32(compiler, CMPI_W | RN4(reg) | nimm);
-				nimm = get_imm(NEGATE(imm));
-				if (nimm != INVALID_IMM)
-					return push_inst32(compiler, CMNI_W | RN4(reg) | nimm);
+				imm2 = get_imm(imm);
+				if (imm2 != INVALID_IMM)
+					return push_inst32(compiler, CMPI_W | RN4(reg) | imm2);
+				imm = get_imm(NEGATE(imm));
+				if (imm != INVALID_IMM)
+					return push_inst32(compiler, CMNI_W | RN4(reg) | imm);
 				break;
 			}
-			nimm = NEGATE(imm);
+			imm2 = NEGATE(imm);
 			if (IS_2_LO_REGS(reg, dst)) {
 				if (imm <= 0x7)
 					return push_inst16(compiler, SUBSI3 | IMM3(imm) | RD3(dst) | RN3(reg));
-				if (nimm <= 0x7)
-					return push_inst16(compiler, ADDSI3 | IMM3(nimm) | RD3(dst) | RN3(reg));
+				if (imm2 <= 0x7)
+					return push_inst16(compiler, ADDSI3 | IMM3(imm2) | RD3(dst) | RN3(reg));
 				if (reg == dst) {
 					if (imm <= 0xff)
 						return push_inst16(compiler, SUBSI8 | IMM8(imm) | RDN3(dst));
-					if (nimm <= 0xff)
-						return push_inst16(compiler, ADDSI8 | IMM8(nimm) | RDN3(dst));
+					if (imm2 <= 0xff)
+						return push_inst16(compiler, ADDSI8 | IMM8(imm2) | RDN3(dst));
 				}
 			}
 			if (!(flags & SET_FLAGS)) {
 				if (imm <= 0xfff)
 					return push_inst32(compiler, SUBWI | RD4(dst) | RN4(reg) | IMM12(imm));
-				if (nimm <= 0xfff)
-					return push_inst32(compiler, ADDWI | RD4(dst) | RN4(reg) | IMM12(nimm));
+				if (imm2 <= 0xfff)
+					return push_inst32(compiler, ADDWI | RD4(dst) | RN4(reg) | IMM12(imm2));
 			}
-			nimm = get_imm(imm);
-			if (nimm != INVALID_IMM)
-				return push_inst32(compiler, SUB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
-			nimm = get_imm(NEGATE(imm));
-			if (nimm != INVALID_IMM)
-				return push_inst32(compiler, ADD_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
+			imm2 = get_imm(imm);
+			if (imm2 != INVALID_IMM)
+				return push_inst32(compiler, SUB_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm2);
+			imm = get_imm(NEGATE(imm));
+			if (imm != INVALID_IMM)
+				return push_inst32(compiler, ADD_WI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_SUBC:
 			compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
@@ -710,17 +710,17 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				return push_inst32(compiler, SBCI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_AND:
-			nimm = get_imm(imm);
-			if (nimm != INVALID_IMM)
-				return push_inst32(compiler, ((flags & UNUSED_RETURN) ? TSTI : ANDI) | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
+			imm2 = get_imm(imm);
+			if (imm2 != INVALID_IMM)
+				return push_inst32(compiler, ((flags & UNUSED_RETURN) ? TSTI : ANDI) | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm2);
 			imm = get_imm(~imm);
 			if (imm != INVALID_IMM)
 				return push_inst32(compiler, BICI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_OR:
-			nimm = get_imm(imm);
-			if (nimm != INVALID_IMM)
-				return push_inst32(compiler, ORRI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | nimm);
+			imm2 = get_imm(imm);
+			if (imm2 != INVALID_IMM)
+				return push_inst32(compiler, ORRI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm2);
 			imm = get_imm(~imm);
 			if (imm != INVALID_IMM)
 				return push_inst32(compiler, ORNI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
@@ -731,11 +731,15 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				return push_inst32(compiler, EORI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_SHL:
+		case SLJIT_MSHL:
 		case SLJIT_LSHR:
+		case SLJIT_MLSHR:
 		case SLJIT_ASHR:
+		case SLJIT_MASHR:
 			if (flags & ARG1_IMM)
 				break;
 			imm &= 0x1f;
+
 			if (imm == 0) {
 				if (!(flags & SET_FLAGS))
 					return push_inst16(compiler, MOV | SET_REGS44(dst, reg));
@@ -745,14 +749,16 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			}
 			switch (flags & 0xffff) {
 			case SLJIT_SHL:
+			case SLJIT_MSHL:
 				if (IS_2_LO_REGS(dst, reg))
 					return push_inst16(compiler, LSLSI | RD3(dst) | RN3(reg) | (imm << 6));
 				return push_inst32(compiler, LSL_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
 			case SLJIT_LSHR:
+			case SLJIT_MLSHR:
 				if (IS_2_LO_REGS(dst, reg))
 					return push_inst16(compiler, LSRSI | RD3(dst) | RN3(reg) | (imm << 6));
 				return push_inst32(compiler, LSR_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
-			default: /* SLJIT_ASHR */
+			default: /* SLJIT_ASHR, SLJIT_MASHR */
 				if (IS_2_LO_REGS(dst, reg))
 					return push_inst16(compiler, ASRSI | RD3(dst) | RN3(reg) | (imm << 6));
 				return push_inst32(compiler, ASR_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
@@ -865,14 +871,26 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		if (dst == (sljit_s32)arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, EORS | RD3(dst) | RN3(arg2));
 		return push_inst32(compiler, EOR_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
+	case SLJIT_MSHL:
+		FAIL_IF(push_inst32(compiler, ANDI | RD4(TMP_REG2) | RN4(arg2) | 0x1f));
+		arg2 = TMP_REG2;
+		/* fallthrough */
 	case SLJIT_SHL:
 		if (dst == (sljit_s32)arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, LSLS | RD3(dst) | RN3(arg2));
 		return push_inst32(compiler, LSL_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
+	case SLJIT_MLSHR:
+		FAIL_IF(push_inst32(compiler, ANDI | RD4(TMP_REG2) | RN4(arg2) | 0x1f));
+		arg2 = TMP_REG2;
+		/* fallthrough */
 	case SLJIT_LSHR:
 		if (dst == (sljit_s32)arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, LSRS | RD3(dst) | RN3(arg2));
 		return push_inst32(compiler, LSR_W | (flags & SET_FLAGS) | RD4(dst) | RN4(arg1) | RM4(arg2));
+	case SLJIT_MASHR:
+		FAIL_IF(push_inst32(compiler, ANDI | RD4(TMP_REG2) | RN4(arg2) | 0x1f));
+		arg2 = TMP_REG2;
+		/* fallthrough */
 	case SLJIT_ASHR:
 		if (dst == (sljit_s32)arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, ASRS | RD3(dst) | RN3(arg2));

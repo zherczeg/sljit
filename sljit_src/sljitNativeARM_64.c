@@ -699,31 +699,34 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			FAIL_IF(push_inst(compiler, (inst_bits ^ inv_bits) | RD(dst) | RN(reg)));
 			goto set_flags;
 		case SLJIT_SHL:
+		case SLJIT_MSHL:
 			if (flags & ARG1_IMM)
 				break;
 			if (flags & INT_OP) {
 				imm &= 0x1f;
 				FAIL_IF(push_inst(compiler, (UBFM ^ inv_bits) | RD(dst) | RN(arg1)
 					| (((sljit_ins)-imm & 0x1f) << 16) | ((31 - (sljit_ins)imm) << 10)));
-			}
-			else {
+			} else {
 				imm &= 0x3f;
 				FAIL_IF(push_inst(compiler, (UBFM ^ inv_bits) | RD(dst) | RN(arg1) | (1 << 22)
 					| (((sljit_ins)-imm & 0x3f) << 16) | ((63 - (sljit_ins)imm) << 10)));
 			}
 			goto set_flags;
 		case SLJIT_LSHR:
+		case SLJIT_MLSHR:
 		case SLJIT_ASHR:
+		case SLJIT_MASHR:
 			if (flags & ARG1_IMM)
 				break;
-			if (op == SLJIT_ASHR)
+
+			if (op >= SLJIT_ASHR)
 				inv_bits |= 1 << 30;
+
 			if (flags & INT_OP) {
 				imm &= 0x1f;
 				FAIL_IF(push_inst(compiler, (UBFM ^ inv_bits) | RD(dst) | RN(arg1)
 					| ((sljit_ins)imm << 16) | (31 << 10)));
-			}
-			else {
+			} else {
 				imm &= 0x3f;
 				FAIL_IF(push_inst(compiler, (UBFM ^ inv_bits) | RD(dst) | RN(arg1)
 					| (1 << 22) | ((sljit_ins)imm << 16) | (63 << 10)));
@@ -832,12 +835,15 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		FAIL_IF(push_inst(compiler, (EOR ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2)));
 		break; /* Set flags. */
 	case SLJIT_SHL:
+	case SLJIT_MSHL:
 		FAIL_IF(push_inst(compiler, (LSLV ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2)));
 		break; /* Set flags. */
 	case SLJIT_LSHR:
+	case SLJIT_MLSHR:
 		FAIL_IF(push_inst(compiler, (LSRV ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2)));
 		break; /* Set flags. */
 	case SLJIT_ASHR:
+	case SLJIT_MASHR:
 		FAIL_IF(push_inst(compiler, (ASRV ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2)));
 		break; /* Set flags. */
 	default:

@@ -1405,14 +1405,17 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return SLJIT_SUCCESS;
 
 	case SLJIT_SHL:
+	case SLJIT_MSHL:
 		EMIT_SHIFT(SLLI, SLL);
 		return SLJIT_SUCCESS;
 
 	case SLJIT_LSHR:
+	case SLJIT_MLSHR:
 		EMIT_SHIFT(SRLI, SRL);
 		return SLJIT_SUCCESS;
 
 	case SLJIT_ASHR:
+	case SLJIT_MASHR:
 		EMIT_SHIFT(SRAI, SRA);
 		return SLJIT_SUCCESS;
 	}
@@ -1703,8 +1706,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		return emit_op(compiler, op, flags | CUMULATIVE_OP | IMM_OP, dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_SHL:
+	case SLJIT_MSHL:
 	case SLJIT_LSHR:
+	case SLJIT_MLSHR:
 	case SLJIT_ASHR:
+	case SLJIT_MASHR:
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 		if (src2 & SLJIT_IMM)
 			src2w &= 0x1f;

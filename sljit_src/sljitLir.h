@@ -1071,19 +1071,34 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 #define SLJIT_SHL			(SLJIT_OP2_BASE + 8)
 #define SLJIT_SHL32			(SLJIT_SHL | SLJIT_32)
 /* Flags: Z
-   Let bit_length be the length of the shift operation: 32 or 64.
-   If src2 is immediate, src2w is masked by (bit_length - 1).
-   Otherwise, if the content of src2 is outside the range from 0
-   to bit_length - 1, the result is undefined. */
-#define SLJIT_LSHR			(SLJIT_OP2_BASE + 9)
-#define SLJIT_LSHR32			(SLJIT_LSHR | SLJIT_32)
+   Same as SLJIT_SHL, except the the second operand is
+   always masked by the length of the shift operation. */
+#define SLJIT_MSHL			(SLJIT_OP2_BASE + 9)
+#define SLJIT_MSHL32			(SLJIT_MSHL | SLJIT_32)
 /* Flags: Z
    Let bit_length be the length of the shift operation: 32 or 64.
    If src2 is immediate, src2w is masked by (bit_length - 1).
    Otherwise, if the content of src2 is outside the range from 0
    to bit_length - 1, the result is undefined. */
-#define SLJIT_ASHR			(SLJIT_OP2_BASE + 10)
+#define SLJIT_LSHR			(SLJIT_OP2_BASE + 10)
+#define SLJIT_LSHR32			(SLJIT_LSHR | SLJIT_32)
+/* Flags: Z
+   Same as SLJIT_LSHR, except the the second operand is
+   always masked by the length of the shift operation. */
+#define SLJIT_MLSHR			(SLJIT_OP2_BASE + 11)
+#define SLJIT_MLSHR32			(SLJIT_MLSHR | SLJIT_32)
+/* Flags: Z
+   Let bit_length be the length of the shift operation: 32 or 64.
+   If src2 is immediate, src2w is masked by (bit_length - 1).
+   Otherwise, if the content of src2 is outside the range from 0
+   to bit_length - 1, the result is undefined. */
+#define SLJIT_ASHR			(SLJIT_OP2_BASE + 12)
 #define SLJIT_ASHR32			(SLJIT_ASHR | SLJIT_32)
+/* Flags: Z
+   Same as SLJIT_ASHR, except the the second operand is
+   always masked by the length of the shift operation. */
+#define SLJIT_MASHR			(SLJIT_OP2_BASE + 13)
+#define SLJIT_MASHR32			(SLJIT_MASHR | SLJIT_32)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,

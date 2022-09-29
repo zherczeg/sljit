@@ -1349,24 +1349,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 /*  Operators                                                            */
 /* --------------------------------------------------------------------- */
 
-#define EMIT_SHIFT_INS_AND_RETURN(opcode) \
-	SLJIT_ASSERT(!(flags & INV_IMM) && !(src2 & SRC2_IMM)); \
-	if (compiler->shift_imm != 0x20) { \
-		SLJIT_ASSERT(src1 == TMP_REG1); \
-		SLJIT_ASSERT(!(flags & ARGS_SWAPPED)); \
-		\
-		if (compiler->shift_imm != 0) \
-			return push_inst(compiler, MOV | (flags & SET_FLAGS) | \
-				RD(dst) | (compiler->shift_imm << 7) | (opcode << 5) | RM(src2)); \
-		return push_inst(compiler, MOV | (flags & SET_FLAGS) | RD(dst) | RM(src2)); \
-	} \
-	return push_inst(compiler, MOV | (flags & SET_FLAGS) | RD(dst) \
-		| RM8((flags & ARGS_SWAPPED) ? src1 : src2) | (sljit_uw)(opcode << 5) \
-		| 0x10 | RM((flags & ARGS_SWAPPED) ? src2 : src1));
-
 static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 flags,
 	sljit_uw dst, sljit_uw src1, sljit_uw src2)
 {
+	sljit_s32 is_masked;
+	sljit_uw shift_type;
+
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
@@ -1479,17 +1467,48 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return push_inst(compiler, EOR | (flags & SET_FLAGS) | RD(dst) | RN(src1) | ((src2 & SRC2_IMM) ? src2 : RM(src2)));
 
 	case SLJIT_SHL:
-		EMIT_SHIFT_INS_AND_RETURN(0);
+	case SLJIT_MSHL:
+		shift_type = 0;
+		is_masked = GET_OPCODE(op) == SLJIT_MSHL;
+		break;
 
 	case SLJIT_LSHR:
-		EMIT_SHIFT_INS_AND_RETURN(1);
+	case SLJIT_MLSHR:
+		shift_type = 1;
+		is_masked = GET_OPCODE(op) == SLJIT_MLSHR;
+		break;
 
 	case SLJIT_ASHR:
-		EMIT_SHIFT_INS_AND_RETURN(2);
+	case SLJIT_MASHR:
+		shift_type = 2;
+		is_masked = GET_OPCODE(op) == SLJIT_MASHR;
+		break;
+
+	default:
+		SLJIT_UNREACHABLE();
+		return SLJIT_SUCCESS;
 	}
 
-	SLJIT_UNREACHABLE();
-	return SLJIT_SUCCESS;
+	SLJIT_ASSERT(!(flags & ARGS_SWAPPED) && !(flags & INV_IMM) && !(src2 & SRC2_IMM));
+
+	if (compiler->shift_imm != 0x20) {
+		SLJIT_ASSERT(src1 == TMP_REG1);
+
+		if (compiler->shift_imm != 0)
+			return push_inst(compiler, MOV | (flags & SET_FLAGS) |
+				RD(dst) | (compiler->shift_imm << 7) | (shift_type << 5) | RM(src2));
+		return push_inst(compiler, MOV | (flags & SET_FLAGS) | RD(dst) | RM(src2));
+	}
+
+	SLJIT_ASSERT(src1 != TMP_REG2);
+
+	if (is_masked) {
+		FAIL_IF(push_inst(compiler, AND | RD(TMP_REG2) | RN(src2) | SRC2_IMM | 0x1f));
+		src2 = TMP_REG2;
+	}
+
+	return push_inst(compiler, MOV | (flags & SET_FLAGS) | RD(dst)
+		| RM8(src2) | (sljit_uw)(shift_type << 5) | 0x10 | RM(src1));
 }
 
 #undef EMIT_SHIFT_INS_AND_RETURN
@@ -2072,13 +2091,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		return emit_op(compiler, op, ALLOW_ANY_IMM, dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_SHL:
+	case SLJIT_MSHL:
 	case SLJIT_LSHR:
+	case SLJIT_MLSHR:
 	case SLJIT_ASHR:
+	case SLJIT_MASHR:
 		if (src2 & SLJIT_IMM) {
 			compiler->shift_imm = src2w & 0x1f;
 			return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src1, src1w);
-		}
-		else {
+		} else {
 			compiler->shift_imm = 0x20;
 			return emit_op(compiler, op, 0, dst, dstw, src1, src1w, src2, src2w);
 		}
