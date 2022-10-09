@@ -1080,6 +1080,33 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	return post_call_with_args(compiler, arg_types, stack_size);
 }
 
+static SLJIT_INLINE sljit_s32 emit_fmov_before_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
+{
+	sljit_u8* inst;
+
+	if (compiler->options & SLJIT_ENTER_REG_ARG) {
+		if (src == SLJIT_FR0)
+			return SLJIT_SUCCESS;
+
+		SLJIT_SKIP_CHECKS(compiler);
+		return sljit_emit_fop1(compiler, op, SLJIT_RETURN_FREG, 0, src, srcw);
+	}
+
+	if (FAST_IS_REG(src)) {
+		FAIL_IF(emit_sse2_store(compiler, op & SLJIT_32, SLJIT_MEM1(SLJIT_SP), 0, src));
+
+		src = SLJIT_MEM1(SLJIT_SP);
+		srcw = 0;
+	} else {
+		ADJUST_LOCAL_OFFSET(src, srcw);
+	}
+
+	inst = emit_x86_instruction(compiler, 1 | EX86_SSE2_OP1, 0, 0, src, srcw);
+	*inst = (op & SLJIT_32) ? FLDS : FLDL;
+
+	return SLJIT_SUCCESS;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
 {
 	sljit_u8 *inst;

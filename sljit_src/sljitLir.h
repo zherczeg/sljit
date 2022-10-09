@@ -249,6 +249,10 @@ extern "C" {
 /* Float registers >= SLJIT_FIRST_SAVED_FLOAT_REG are saved registers. */
 #define SLJIT_FIRST_SAVED_FLOAT_REG (SLJIT_FS0 - SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS + 1)
 
+/* Return with floating point arg. */
+
+#define SLJIT_RETURN_FREG	SLJIT_FR0
+
 /* --------------------------------------------------------------------- */
 /*  Argument type definitions                                            */
 /* --------------------------------------------------------------------- */

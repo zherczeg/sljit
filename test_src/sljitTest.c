@@ -74,6 +74,9 @@ union executable_code {
 	void (SLJIT_FUNC *test73_f2)(sljit_sw a, sljit_sw b, sljit_s32 c, sljit_s32 d);
 	void (SLJIT_FUNC *test73_f3)(sljit_f64 a, sljit_f64 b, sljit_f64 c, sljit_sw d);
 	void (SLJIT_FUNC *test73_f4)(sljit_f64 a, sljit_f64 b, sljit_sw c, sljit_sw d);
+
+	sljit_f32 (SLJIT_FUNC *test81_f1)(sljit_sw a);
+	sljit_f64 (SLJIT_FUNC *test81_f2)(sljit_sw a);
 };
 typedef union executable_code executable_code;
 
@@ -1077,7 +1080,7 @@ static void test13(void)
 {
 	/* Test fpu monadic functions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 	sljit_f64 buf[7];
 	sljit_sw buf2[6];
 
@@ -1088,12 +1091,12 @@ static void test13(void)
 		if (verbose)
 			printf("no fpu available, test13 skipped\n");
 		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
 		return;
 	}
 
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
+
 	buf[0] = 7.75;
 	buf[1] = -4.5;
 	buf[2] = 0.0;
@@ -1165,7 +1168,7 @@ static void test14(void)
 {
 	/* Test fpu diadic functions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 	sljit_f64 buf[15];
 
 	if (verbose)
@@ -1175,10 +1178,12 @@ static void test14(void)
 		if (verbose)
 			printf("no fpu available, test14 skipped\n");
 		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
 		return;
 	}
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
 	buf[0] = 7.25;
 	buf[1] = 3.5;
 	buf[2] = 1.75;
@@ -1195,7 +1200,6 @@ static void test14(void)
 	buf[13] = 4.0;
 	buf[14] = 0.0;
 
-	FAILED(!compiler, "cannot create compiler\n");
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, P), 3, 1, 6, 0, 0);
 
 	/* ADD */
@@ -2827,7 +2831,7 @@ static void test32(void)
 {
 	/* Floating point set flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 	sljit_s32 i;
 
 	sljit_sw buf[16];
@@ -2842,6 +2846,16 @@ static void test32(void)
 	if (verbose)
 		printf("Run test32\n");
 
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+		if (verbose)
+			printf("no fpu available, test32 skipped\n");
+		successful_tests++;
+		return;
+	}
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
 	for (i = 0; i < 16; i++)
 		buf[i] = 5;
 
@@ -2853,16 +2867,6 @@ static void test32(void)
 	dbuf[2].value = -13.0;
 	dbuf[3].value = 27.0;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
-		if (verbose)
-			printf("no fpu available, test32 skipped\n");
-		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
-		return;
-	}
-
-	FAILED(!compiler, "cannot create compiler\n");
 	SLJIT_ASSERT(sizeof(sljit_f64) == 8 && sizeof(sljit_s32) == 4 && sizeof(dbuf[0]) == 8);
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS2(VOID, P, P), 1, 2, 4, 0, 0);
@@ -4199,7 +4203,7 @@ static void test43(void)
 {
 	/* Test floating point compare. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump;
 
 	union {
@@ -4217,11 +4221,10 @@ static void test43(void)
 		if (verbose)
 			printf("no fpu available, test43 skipped\n");
 		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
 		return;
 	}
 
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	dbuf[0].value = 12.125;
@@ -4323,7 +4326,7 @@ static void test45(void)
 	/* Test single precision floating point. */
 
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 	sljit_f32 buf[12];
 	sljit_sw buf2[6];
 	struct sljit_jump* jump;
@@ -4335,11 +4338,10 @@ static void test45(void)
 		if (verbose)
 			printf("no fpu available, test45 skipped\n");
 		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
 		return;
 	}
 
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 5.5;
@@ -4591,7 +4593,7 @@ static void test48(void)
 {
 	/* Test floating point conversions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 	int i;
 	sljit_f64 dbuf[10];
 	sljit_f32 sbuf[10];
@@ -4605,12 +4607,12 @@ static void test48(void)
 		if (verbose)
 			printf("no fpu available, test48 skipped\n");
 		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
 		return;
 	}
 
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
+
 	for (i = 0; i < 10; i++) {
 		dbuf[i] = 0.0;
 		sbuf[i] = 0.0;
@@ -4744,7 +4746,7 @@ static void test49(void)
 {
 	/* Test floating point conversions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 	int i;
 	sljit_f64 dbuf[10];
 	sljit_f32 sbuf[9];
@@ -4760,11 +4762,10 @@ static void test49(void)
 		if (verbose)
 			printf("no fpu available, test49 skipped\n");
 		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
 		return;
 	}
 
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 9; i++) {
@@ -4882,7 +4883,7 @@ static void test50(void)
 {
 	/* Test stack and floating point operations. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	sljit_uw size1, size2, size3;
 	int result;
@@ -4896,11 +4897,10 @@ static void test50(void)
 		if (verbose)
 			printf("no fpu available, test50 skipped\n");
 		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
 		return;
 	}
 
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sbuf[0] = 245.5;
@@ -5673,7 +5673,7 @@ static void test58(void)
 {
 	/* Check function calls with floating point arguments. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump = NULL;
 	sljit_f64 dbuf[7];
 	sljit_f32 sbuf[7];
@@ -5686,10 +5686,11 @@ static void test58(void)
 		if (verbose)
 			printf("no fpu available, test58 skipped\n");
 		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
 		return;
 	}
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
 
 	dbuf[0] = 5.25;
 	dbuf[1] = 0.0;
@@ -5707,8 +5708,6 @@ static void test58(void)
 
 	wbuf[0] = 0;
 	wbuf[1] = 0;
-
-	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS3(VOID, P, P, P), 3, 3, 4, 0, sizeof(sljit_sw));
 
@@ -6111,7 +6110,7 @@ static void test61(void)
 {
 	/* Test float memory accesses with pre/post updates. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 	sljit_u32 i;
 	sljit_s32 supported[6];
 	sljit_sw wbuf[6];
@@ -6125,17 +6124,18 @@ static void test61(void)
 	static sljit_u8 expected[6] = { 0, 0, 0, 0, 0, 0 };
 #endif
 
+	if (verbose)
+		printf("Run test61\n");
+
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
 			printf("no fpu available, test61 skipped\n");
 		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
 		return;
 	}
 
-	if (verbose)
-		printf("Run test61\n");
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 6; i++)
 		wbuf[i] = 0;
@@ -6149,8 +6149,6 @@ static void test61(void)
 	sbuf[1] = -22.125;
 	sbuf[2] = 0.0;
 	sbuf[3] = 0.0;
-
-	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS3(VOID, P, P, P), 4, 3, 4, 0, sizeof(sljit_sw));
 
@@ -7373,7 +7371,7 @@ static void test72(void)
 {
 	/* Test using all fpu registers. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler;
 	sljit_f64 buf[SLJIT_NUMBER_OF_FLOAT_REGISTERS];
 	sljit_f64 buf2[2];
 	struct sljit_jump *jump;
@@ -7386,12 +7384,12 @@ static void test72(void)
 		if (verbose)
 			printf("no fpu available, test72 skipped\n");
 		successful_tests++;
-		if (compiler)
-			sljit_free_compiler(compiler);
 		return;
 	}
 
 	/* Next test. */
+
+	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	buf2[0] = 7.75;
@@ -7887,15 +7885,6 @@ static void test75(void)
 		sljit_s32 value1;
 	} sbuf[3];
 
-	dbuf[0].u.value1 = 0x7fffffff;
-	dbuf[0].u.value2 = 0x7fffffff;
-	dbuf[1].value = -13.0;
-	dbuf[2].value = 27.0;
-
-	sbuf[0].value1 = 0x7fffffff;
-	sbuf[1].value = -13.0;
-	sbuf[2].value = 27.0;
-
 	if (verbose)
 		printf("Run test75\n");
 
@@ -7906,11 +7895,20 @@ static void test75(void)
 		return;
 	}
 
-	for (i = 0; i < 96; i++)
-		bbuf[i] = -3;
-
 	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
+
+	dbuf[0].u.value1 = 0x7fffffff;
+	dbuf[0].u.value2 = 0x7fffffff;
+	dbuf[1].value = -13.0;
+	dbuf[2].value = 27.0;
+
+	sbuf[0].value1 = 0x7fffffff;
+	sbuf[1].value = -13.0;
+	sbuf[2].value = 27.0;
+
+	for (i = 0; i < 96; i++)
+		bbuf[i] = -3;
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS3(VOID, P, P, P), 3, 3, 6, 0, 0);
 
@@ -9212,7 +9210,7 @@ static void test80(void)
 	sljit_s32 i;
 
 	if (verbose)
-		printf("Run test79\n");
+		printf("Run test80\n");
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -9310,6 +9308,154 @@ static void test80(void)
 	successful_tests++;
 }
 
+static void test81(void)
+{
+	/* Test return with floating point value. */
+	executable_code code;
+	struct sljit_compiler* compiler;
+	struct sljit_jump* jump;
+	sljit_f64 dbuf[2];
+	sljit_f32 sbuf[2];
+
+	if (verbose)
+		printf("Run test81\n");
+
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+		if (verbose)
+			printf("no fpu available, test81 skipped\n");
+		successful_tests++;
+		return;
+	}
+
+	/* Next test. */
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(F64, W), 0, 1, 3, 0, 0);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR2, 0, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_return(compiler, SLJIT_MOV_F64, SLJIT_FR2, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	dbuf[0] = 35.125;
+	FAILED(code.test81_f2((sljit_sw)dbuf) != 35.125, "test81 case 1 failed\n");
+
+	sljit_free_code(code.code, NULL);
+
+	/* Next test. */
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(F32, W), 0, 1, 1, 0, 0);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_RETURN_FREG, 0, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_return(compiler, SLJIT_MOV_F32, SLJIT_RETURN_FREG, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	sbuf[0] = -9027.5;
+	FAILED(code.test81_f1((sljit_sw)sbuf) != -9027.5, "test81 case 2 failed\n");
+
+	sljit_free_code(code.code, NULL);
+
+	/* Next test. */
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(F32, W), 0, 1, 1, 0, sizeof(sljit_f32));
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_SP), 0, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_return(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_SP), 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	sbuf[0] = -6.75;
+	FAILED(code.test81_f1((sljit_sw)sbuf) != -6.75, "test81 case 3 failed\n");
+
+	sljit_free_code(code.code, NULL);
+
+	/* Next test. */
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(F64, W), 0, 1, 1, 0, 2 * sizeof(sljit_f64));
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_f64), SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_return(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_f64));
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	dbuf[0] = 45.125;
+	FAILED(code.test81_f2((sljit_sw)dbuf) != 45.125, "test81 case 4 failed\n");
+
+	sljit_free_code(code.code, NULL);
+
+	/* Next test. */
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS0(VOID), 1, 0, 1, 0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)dbuf - 33);
+	jump = sljit_emit_call(compiler, SLJIT_CALL_REG_ARG, SLJIT_ARGS1(F64, W));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)dbuf);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_f64), SLJIT_RETURN_FREG, 0);
+	sljit_emit_return_void(compiler);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_enter(compiler, SLJIT_ENTER_REG_ARG, SLJIT_ARGS1(F64, W_R), 1, 0, 1, 0, 0);
+	sljit_emit_return(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_R0), 33);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	dbuf[0] = 2571.75;
+	dbuf[1] = 0;
+	code.func0();
+	FAILED(dbuf[1] != 2571.75, "test81 case 5 failed\n");
+
+	sljit_free_code(code.code, NULL);
+
+	/* Next test. */
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS0(VOID), 1, 0, 1, 0, 0);
+	jump = sljit_emit_call(compiler, SLJIT_CALL_REG_ARG, SLJIT_ARGS0(F32));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)sbuf);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_f32), SLJIT_RETURN_FREG, 0);
+	sljit_emit_return_void(compiler);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_enter(compiler, SLJIT_ENTER_REG_ARG, SLJIT_ARGS0(F32), 0, 0, 1, 0, 0);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_RETURN_FREG, 0, SLJIT_MEM0(), (sljit_sw)sbuf);
+	sljit_emit_return(compiler, SLJIT_MOV_F32, SLJIT_RETURN_FREG, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	sbuf[0] = 6310.25;
+	sbuf[1] = 0;
+	code.func0();
+	FAILED(sbuf[1] != 6310.25, "test81 case 6 failed\n");
+
+	sljit_free_code(code.code, NULL);
+
+	successful_tests++;
+}
+
 int sljit_test(int argc, char* argv[])
 {
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -9402,12 +9548,13 @@ int sljit_test(int argc, char* argv[])
 	test78();
 	test79();
 	test80();
+	test81();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 80
+#	define TEST_COUNT 81
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

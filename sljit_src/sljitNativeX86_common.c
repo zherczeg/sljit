@@ -187,6 +187,8 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define CVTTSD2SI_r_xm	0x2c
 #define DIV		(/* GROUP_F7 */ 6 << 3)
 #define DIVSD_x_xm	0x5e
+#define FLDS		0xd9
+#define FLDL		0xdd
 #define FSTPS		0xd9
 #define FSTPD		0xdd
 #define INT3		0xcc

@@ -2478,6 +2478,33 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	return sljit_emit_ijump(compiler, type, src, srcw);
 }
 
+#ifdef __SOFTFP__
+
+static SLJIT_INLINE sljit_s32 emit_fmov_before_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
+{
+	if (compiler->options & SLJIT_ENTER_REG_ARG) {
+		if (src == SLJIT_FR0)
+			return SLJIT_SUCCESS;
+
+		SLJIT_SKIP_CHECKS(compiler);
+		return sljit_emit_fop1(compiler, op, SLJIT_RETURN_FREG, 0, src, srcw);
+	}
+
+	if (FAST_IS_REG(src)) {
+		if (op & SLJIT_32)
+			return push_inst32(compiler, VMOV | (1 << 20) | DN4(src) | RT4(SLJIT_R0));
+		return push_inst32(compiler, VMOV2 | (1 << 20) | DM4(src) | RT4(SLJIT_R0) | RN4(SLJIT_R1));
+	}
+
+	SLJIT_SKIP_CHECKS(compiler);
+
+	if (op & SLJIT_32)
+		return sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, src, srcw);
+	return sljit_emit_mem(compiler, SLJIT_MOV, SLJIT_REG_PAIR(SLJIT_R0, SLJIT_R1), src, srcw);
+}
+
+#endif /* __SOFTFP__ */
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 type)
