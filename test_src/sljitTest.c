@@ -5504,7 +5504,7 @@ static void test55(void)
 
 static void test56(void)
 {
-	/* Check integer substraction with negative immediate. */
+	/* Check integer subtraction with negative immediate. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[13];
