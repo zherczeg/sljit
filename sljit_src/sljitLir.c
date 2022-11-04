@@ -1940,29 +1940,31 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_cmov(struct sljit_compile
 	sljit_s32 src, sljit_sw srcw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(type >= SLJIT_EQUAL && type <= SLJIT_ORDERED_LESS_EQUAL);
+	sljit_s32 cond = type & ~SLJIT_32;
+
+	CHECK_ARGUMENT(cond >= SLJIT_EQUAL && cond <= SLJIT_ORDERED_LESS_EQUAL);
 
 	CHECK_ARGUMENT(compiler->scratches != -1 && compiler->saveds != -1);
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(dst_reg & ~SLJIT_32));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(dst_reg));
 	if (src != SLJIT_IMM) {
 		CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(src));
 		CHECK_ARGUMENT(srcw == 0);
 	}
 
-	if (type <= SLJIT_NOT_ZERO)
+	if (cond <= SLJIT_NOT_ZERO)
 		CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
 	else
-		CHECK_ARGUMENT(type == (compiler->last_flags & 0xff)
-			|| (type == SLJIT_NOT_CARRY && (compiler->last_flags & 0xff) == SLJIT_CARRY)
-			|| (type == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW)
-			|| CHECK_UNORDERED(type, compiler->last_flags));
+		CHECK_ARGUMENT(cond == (compiler->last_flags & 0xff)
+			|| (cond == SLJIT_NOT_CARRY && (compiler->last_flags & 0xff) == SLJIT_CARRY)
+			|| (cond == SLJIT_NOT_OVERFLOW && (compiler->last_flags & 0xff) == SLJIT_OVERFLOW)
+			|| CHECK_UNORDERED(cond, compiler->last_flags));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  cmov%s %s, ",
-			!(dst_reg & SLJIT_32) ? "" : "32",
-			jump_names[type]);
-		sljit_verbose_reg(compiler, dst_reg & ~SLJIT_32);
+			!(type & SLJIT_32) ? "" : "32",
+			jump_names[type & ~SLJIT_32]);
+		sljit_verbose_reg(compiler, dst_reg);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, src, srcw);
 		fprintf(compiler->verbose, "\n");
@@ -2207,14 +2209,14 @@ static SLJIT_INLINE sljit_s32 sljit_emit_cmov_generic(struct sljit_compiler *com
 {
 	struct sljit_label *label;
 	struct sljit_jump *jump;
-	sljit_s32 op = (dst_reg & SLJIT_32) ? SLJIT_MOV32 : SLJIT_MOV;
+	sljit_s32 op = (type & SLJIT_32) ? SLJIT_MOV32 : SLJIT_MOV;
 
 	SLJIT_SKIP_CHECKS(compiler);
-	jump = sljit_emit_jump(compiler, type ^ 0x1);
+	jump = sljit_emit_jump(compiler, (type & ~SLJIT_32) ^ 0x1);
 	FAIL_IF(!jump);
 
 	SLJIT_SKIP_CHECKS(compiler);
-	FAIL_IF(sljit_emit_op1(compiler, op, dst_reg & ~SLJIT_32, 0, src, srcw));
+	FAIL_IF(sljit_emit_op1(compiler, op, dst_reg, 0, src, srcw));
 
 	SLJIT_SKIP_CHECKS(compiler);
 	label = sljit_emit_label(compiler);

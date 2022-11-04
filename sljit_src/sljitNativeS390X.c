@@ -3331,8 +3331,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	sljit_s32 dst_reg,
 	sljit_s32 src, sljit_sw srcw)
 {
-	sljit_u8 mask = get_cc(compiler, type);
-	sljit_gpr dst_r = gpr(dst_reg & ~SLJIT_32);
+	sljit_u8 mask = get_cc(compiler, type & ~SLJIT_32);
+	sljit_gpr dst_r = gpr(dst_reg);
 	sljit_gpr src_r = FAST_IS_REG(src) ? gpr(src) : tmp0;
 
 	CHECK_ERROR();
@@ -3346,8 +3346,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	#define LEVAL(i) i(dst_r, src_r, mask)
 	if (have_lscond1())
 		return push_inst(compiler,
-			WHEN2(dst_reg & SLJIT_32, locr, locgr));
-
+			WHEN2(type & SLJIT_32, locr, locgr));
 	#undef LEVAL
 
 	/* TODO(mundaym): implement */

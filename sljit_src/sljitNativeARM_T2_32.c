@@ -2567,9 +2567,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_cmov(compiler, type, dst_reg, src, srcw));
 
-	dst_reg &= ~SLJIT_32;
-
-	cc = get_cc(compiler, type);
+	cc = get_cc(compiler, type & ~SLJIT_32);
 
 	if (!(src & SLJIT_IMM)) {
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));

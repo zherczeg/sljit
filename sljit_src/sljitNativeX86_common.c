@@ -2972,7 +2972,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	CHECK(check_sljit_emit_cmov(compiler, type, dst_reg, src, srcw));
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	dst_reg &= ~SLJIT_32;
+	type &= ~SLJIT_32;
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_CMOV) || (dst_reg >= SLJIT_R3 && dst_reg <= SLJIT_S3))
 		return sljit_emit_cmov_generic(compiler, type, dst_reg, src, srcw);
@@ -2985,8 +2985,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	CHECK_EXTRA_REGS(src, srcw, (void)0);
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	compiler->mode32 = dst_reg & SLJIT_32;
-	dst_reg &= ~SLJIT_32;
+	compiler->mode32 = type & SLJIT_32;
+	type &= ~SLJIT_32;
 #endif
 
 	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {

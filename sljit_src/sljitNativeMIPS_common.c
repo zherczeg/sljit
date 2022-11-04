@@ -2999,7 +2999,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 
 	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
-		if (dst_reg & SLJIT_32)
+		if (type & SLJIT_32)
 			srcw = (sljit_s32)srcw;
 #endif
 		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), srcw));
@@ -3007,9 +3007,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 		srcw = 0;
 	}
 
-	dst_reg &= ~SLJIT_32;
-
-	switch (type) {
+	switch (type & ~SLJIT_32) {
 	case SLJIT_EQUAL:
 		ins = MOVZ | TA(EQUAL_FLAG);
 		break;

@@ -1428,9 +1428,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
    instruction does not support memory access.
 
    type must be between SLJIT_EQUAL and SLJIT_ORDERED_LESS_EQUAL
-   dst_reg must be a valid register and it can be combined
-      with SLJIT_32 to perform a 32 bit arithmetic operation
-   src must be register or immediate (SLJIT_IMM)
+   type can be combined (or'ed) with SLJIT_32
+   dst_reg must be a valid register
+   src must be a valid register or immediate (SLJIT_IMM)
 
    Flags: - (does not modify flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,

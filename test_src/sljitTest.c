@@ -5381,23 +5381,23 @@ static void test54(void)
 
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 177);
 	sljit_emit_op2u(compiler, SLJIT_SUB32 | SLJIT_SET_LESS, SLJIT_R0, 0, SLJIT_IMM, 178);
-	sljit_emit_cmov(compiler, SLJIT_LESS, SLJIT_R0 | SLJIT_32, SLJIT_IMM, 200);
+	sljit_emit_cmov(compiler, SLJIT_LESS | SLJIT_32, SLJIT_R0, SLJIT_IMM, 200);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), 0, SLJIT_R0, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 95);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R3, 0, SLJIT_IMM, 177);
 	sljit_emit_op2u(compiler, SLJIT_SUB32 | SLJIT_SET_LESS_EQUAL, SLJIT_R0, 0, SLJIT_IMM, 95);
-	sljit_emit_cmov(compiler, SLJIT_LESS_EQUAL, SLJIT_R3 | SLJIT_32, SLJIT_R0, 0);
+	sljit_emit_cmov(compiler, SLJIT_LESS_EQUAL | SLJIT_32, SLJIT_R3, SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_s32), SLJIT_R3, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R3, 0, SLJIT_IMM, 56);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R4, 0, SLJIT_IMM, -63);
 	sljit_emit_op2u(compiler, SLJIT_SUB32 | SLJIT_SET_SIG_LESS, SLJIT_R3, 0, SLJIT_R4, 0);
-	sljit_emit_cmov(compiler, SLJIT_SIG_LESS, SLJIT_R3 | SLJIT_32, SLJIT_R4, 0);
+	sljit_emit_cmov(compiler, SLJIT_SIG_LESS | SLJIT_32, SLJIT_R3, SLJIT_R4, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), 2 * sizeof(sljit_s32), SLJIT_R3, 0);
 	sljit_emit_op2u(compiler, SLJIT_SUB32 | SLJIT_SET_SIG_GREATER, SLJIT_R3, 0, SLJIT_R4, 0);
-	sljit_emit_cmov(compiler, SLJIT_SIG_GREATER, SLJIT_R3 | SLJIT_32, SLJIT_R4, 0);
+	sljit_emit_cmov(compiler, SLJIT_SIG_GREATER | SLJIT_32, SLJIT_R3, SLJIT_R4, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), 3 * sizeof(sljit_s32), SLJIT_R3, 0);
 
 	sljit_emit_return_void(compiler);

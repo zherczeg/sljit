@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+04.11.2022 - Non-backward compatible
+    The SLJIT_32 flag is combined with the type
+    argument of cmov, not the dst_reg.
+
 16.06.2022 - Non-backward compatible
     Remove SLJIT_ENTER_CDECL and SLJIT_CALL_CDECL.
     The default calling mode is cdecl now.

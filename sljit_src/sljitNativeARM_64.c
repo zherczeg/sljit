@@ -2002,22 +2002,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 	sljit_s32 dst_reg,
 	sljit_s32 src, sljit_sw srcw)
 {
-	sljit_ins inv_bits = (dst_reg & SLJIT_32) ? W_OP : 0;
+	sljit_ins inv_bits = (type & SLJIT_32) ? W_OP : 0;
 	sljit_ins cc;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_cmov(compiler, type, dst_reg, src, srcw));
 
 	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {
-		if (dst_reg & SLJIT_32)
+		if (type & SLJIT_32)
 			srcw = (sljit_s32)srcw;
 		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
 		src = TMP_REG1;
 		srcw = 0;
 	}
 
-	cc = get_cc(compiler, type);
-	dst_reg &= ~SLJIT_32;
+	cc = get_cc(compiler, type & ~SLJIT_32);
 
 	return push_inst(compiler, (CSEL ^ inv_bits) | (cc << 12) | RD(dst_reg) | RN(dst_reg) | RM(src));
 }
