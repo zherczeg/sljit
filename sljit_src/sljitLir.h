@@ -751,6 +751,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 src, sljit_sw srcw);
 
+/* Restores the saved registers and free the stack area, then the execution
+   continues from the address specified by the source operand. This
+   operation is similar to sljit_emit_return, but it ignores the return
+   address. The code where the exection continues should use the same context
+   as the caller function (see sljit_set_context). A word (pointer) value
+   can be passed in the SLJIT_RETURN_REG register. This function can be used
+   to jump to exception handlers. */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *compiler,
+	sljit_s32 src, sljit_sw srcw);
+
 /* Generating entry and exit points for fast call functions (see SLJIT_FAST_CALL).
    Both sljit_emit_fast_enter and SLJIT_FAST_RETURN operations preserve the
    values of all registers and stack frame. The return address is stored in the

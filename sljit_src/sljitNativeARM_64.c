@@ -98,6 +98,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define FSUB 0x1e603800
 #define LDRI 0xf9400000
 #define LDRI_F64 0xfd400000
+#define LDRI_POST 0xf8400400
 #define LDP 0xa9400000
 #define LDP_F64 0x6d400000
 #define LDP_POST 0xa8c00000
@@ -1131,19 +1132,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	return SLJIT_SUCCESS;
 }
 
-static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
+static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit_s32 is_return_to)
 {
 	sljit_s32 local_size, prev, fprev, i, tmp;
 	sljit_ins offs;
 
 	local_size = compiler->local_size;
 
-	if (local_size > 512 && local_size <= 512 + 496) {
-		FAIL_IF(push_inst(compiler, LDP_POST | RT(TMP_FP) | RT2(TMP_LR)
-			| RN(SLJIT_SP) | ((sljit_ins)(local_size - 512) << (15 - 3))));
-		local_size = 512;
-	} else
-		FAIL_IF(push_inst(compiler, LDP | RT(TMP_FP) | RT2(TMP_LR) | RN(SLJIT_SP)));
+	if (!is_return_to) {
+		if (local_size > 512 && local_size <= 512 + 496) {
+			FAIL_IF(push_inst(compiler, LDP_POST | RT(TMP_FP) | RT2(TMP_LR)
+				| RN(SLJIT_SP) | ((sljit_ins)(local_size - 512) << (15 - 3))));
+			local_size = 512;
+		} else
+			FAIL_IF(push_inst(compiler, LDP | RT(TMP_FP) | RT2(TMP_LR) | RN(SLJIT_SP)));
+	} else {
+		if (local_size > 512 && local_size <= 512 + 248) {
+			FAIL_IF(push_inst(compiler, LDRI_POST | RT(TMP_FP) | RN(SLJIT_SP) | ((sljit_ins)(local_size - 512) << 12)));
+			local_size = 512;
+		} else
+			FAIL_IF(push_inst(compiler, LDRI | RT(TMP_FP) | RN(SLJIT_SP) | 0));
+	}
 
 	if (local_size > 512) {
 		local_size -= 512;
@@ -1219,9 +1228,32 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_return_void(compiler));
 
-	FAIL_IF(emit_stack_frame_release(compiler));
+	FAIL_IF(emit_stack_frame_release(compiler, 0));
 
 	return push_inst(compiler, RET | RN(TMP_LR));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *compiler,
+	sljit_s32 src, sljit_sw srcw)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_return_to(compiler, src, srcw));
+
+	if (src & SLJIT_MEM) {
+		ADJUST_LOCAL_OFFSET(src, srcw);
+		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, src, srcw, TMP_REG1));
+		src = TMP_REG1;
+		srcw = 0;
+	} else if (src >= SLJIT_FIRST_SAVED_REG && src <= SLJIT_S0) {
+		FAIL_IF(push_inst(compiler, ORR | RD(TMP_REG1) | RN(TMP_ZERO) | RM(src)));
+		src = TMP_REG1;
+		srcw = 0;
+	}
+
+	FAIL_IF(emit_stack_frame_release(compiler, 1));
+
+	SLJIT_SKIP_CHECKS(compiler);
+	return sljit_emit_ijump(compiler, SLJIT_JUMP, src, srcw);
 }
 
 /* --------------------------------------------------------------------- */
@@ -1852,7 +1884,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
 	if (type & SLJIT_CALL_RETURN) {
-		PTR_FAIL_IF(emit_stack_frame_release(compiler));
+		PTR_FAIL_IF(emit_stack_frame_release(compiler, 0));
 		type = SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP);
 	}
 
@@ -1901,10 +1933,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_ijump(compiler, type, src, srcw));
-	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	if (!(src & SLJIT_IMM)) {
 		if (src & SLJIT_MEM) {
+			ADJUST_LOCAL_OFFSET(src, srcw);
 			FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, src, srcw, TMP_REG1));
 			src = TMP_REG1;
 		}
@@ -1929,9 +1961,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	SLJIT_UNUSED_ARG(arg_types);
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
-	ADJUST_LOCAL_OFFSET(src, srcw);
 
 	if (src & SLJIT_MEM) {
+		ADJUST_LOCAL_OFFSET(src, srcw);
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, src, srcw, TMP_REG1));
 		src = TMP_REG1;
 	}
@@ -1942,7 +1974,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 			src = TMP_REG1;
 		}
 
-		FAIL_IF(emit_stack_frame_release(compiler));
+		FAIL_IF(emit_stack_frame_release(compiler, 0));
 		type = SLJIT_JUMP;
 	}
 
