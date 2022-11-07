@@ -103,11 +103,8 @@ static const sljit_gpr r15 = 15;	/* reg_map[SLJIT_NUMBER_OF_REGISTERS + 1]: stac
 /* When reg cannot be unused. */
 #define IS_GPR_REG(reg)		((reg > 0) && (reg) <= SLJIT_SP)
 
-/* Link registers. The normal link register is r14, but since
-   we use that for flags we need to use r0 instead to do fast
-   calls so that flags are preserved. */
+/* Link register. */
 static const sljit_gpr link_r = 14;     /* r14 */
-static const sljit_gpr fast_link_r = 0; /* r0 */
 
 #define TMP_FREG1	(0)
 
@@ -1762,7 +1759,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 	return SLJIT_SUCCESS;
 }
 
-static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
+static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit_gpr last_reg)
 {
 	sljit_s32 offset, i, tmp;
 	sljit_s32 local_size = compiler->local_size;
@@ -1778,7 +1775,7 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 	offset = 2 * SSIZE_OF(sw);
 	if (saveds + scratches >= SLJIT_NUMBER_OF_REGISTERS) {
 		if (kept_saveds_count == 0) {
-			FAIL_IF(push_inst(compiler, lmg(r6, r14, offset, r15)));
+			FAIL_IF(push_inst(compiler, lmg(r6, last_reg, offset, r15)));
 			offset += 9 * SSIZE_OF(sw);
 		} else {
 			FAIL_IF(push_inst(compiler, lmg(r6, r13 - (sljit_gpr)kept_saveds_count, offset, r15)));
@@ -1795,10 +1792,14 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 
 		if (kept_saveds_count == 0) {
 			if (saveds == 0) {
-				FAIL_IF(push_inst(compiler, lg(r14, offset, 0, r15)));
+				if (last_reg == r14)
+					FAIL_IF(push_inst(compiler, lg(r14, offset, 0, r15)));
 				offset += SSIZE_OF(sw);
+			} else if (saveds == 1 && last_reg == r13) {
+				FAIL_IF(push_inst(compiler, lg(r13, offset, 0, r15)));
+				offset += 2 * SSIZE_OF(sw);
 			} else {
-				FAIL_IF(push_inst(compiler, lmg(r14 - (sljit_gpr)saveds, r14, offset, r15)));
+				FAIL_IF(push_inst(compiler, lmg(r14 - (sljit_gpr)saveds, last_reg, offset, r15)));
 				offset += (saveds + 1) * SSIZE_OF(sw);
 			}
 		} else if (saveds > kept_saveds_count) {
@@ -1813,7 +1814,8 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler)
 	}
 
 	if (kept_saveds_count > 0) {
-		FAIL_IF(push_inst(compiler, lg(r14, offset, 0, r15)));
+		if (last_reg == r14)
+			FAIL_IF(push_inst(compiler, lg(r14, offset, 0, r15)));
 		offset += SSIZE_OF(sw);
 	}
 
@@ -1836,8 +1838,31 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_return_void(compiler));
 
-	FAIL_IF(emit_stack_frame_release(compiler));
+	FAIL_IF(emit_stack_frame_release(compiler, r14));
 	return push_inst(compiler, br(r14)); /* return */
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *compiler,
+	sljit_s32 src, sljit_sw srcw)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_return_to(compiler, src, srcw));
+
+	if (src & SLJIT_MEM) {
+		ADJUST_LOCAL_OFFSET(src, srcw);
+		FAIL_IF(load_word(compiler, tmp1, src, srcw, 0 /* 64-bit */));
+		src = TMP_REG2;
+		srcw = 0;
+	} else if (src >= SLJIT_FIRST_SAVED_REG && src <= SLJIT_S0) {
+		FAIL_IF(push_inst(compiler, lgr(tmp1, gpr(src))));
+		src = TMP_REG2;
+		srcw = 0;
+	}
+
+	FAIL_IF(emit_stack_frame_release(compiler, r13));
+
+	SLJIT_SKIP_CHECKS(compiler);
+	return sljit_emit_ijump(compiler, SLJIT_JUMP, src, srcw);
 }
 
 /* --------------------------------------------------------------------- */
@@ -3139,10 +3164,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	if (FAST_IS_REG(dst))
-		return push_inst(compiler, lgr(gpr(dst), fast_link_r));
+		return push_inst(compiler, lgr(gpr(dst), link_r));
 
 	/* memory */
-	return store_word(compiler, fast_link_r, dst, dstw, 0);
+	return store_word(compiler, link_r, dst, dstw, 0);
 }
 
 /* --------------------------------------------------------------------- */
@@ -3182,7 +3207,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	/* emit jump instruction */
 	type &= 0xff;
 	if (type >= SLJIT_FAST_CALL)
-		PTR_FAIL_IF(push_inst(compiler, brasl(type == SLJIT_FAST_CALL ? fast_link_r : link_r, 0)));
+		PTR_FAIL_IF(push_inst(compiler, brasl(link_r, 0)));
 	else
 		PTR_FAIL_IF(push_inst(compiler, brcl(mask, 0)));
 
@@ -3197,7 +3222,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
 	if (type & SLJIT_CALL_RETURN) {
-		PTR_FAIL_IF(emit_stack_frame_release(compiler));
+		PTR_FAIL_IF(emit_stack_frame_release(compiler, r14));
 		type = SLJIT_JUMP | (type & SLJIT_REWRITABLE_JUMP);
 	}
 
@@ -3223,7 +3248,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 
 	/* emit jump instruction */
 	if (type >= SLJIT_FAST_CALL)
-		return push_inst(compiler, basr(type == SLJIT_FAST_CALL ? fast_link_r : link_r, src_r));
+		return push_inst(compiler, basr(link_r, src_r));
 
 	return push_inst(compiler, br(src_r));
 }
@@ -3241,15 +3266,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 		ADJUST_LOCAL_OFFSET(src, srcw);
 		FAIL_IF(load_word(compiler, tmp1, src, srcw, 0 /* 64-bit */));
 		src = TMP_REG2;
+		srcw = 0;
 	}
 
 	if (type & SLJIT_CALL_RETURN) {
 		if (src >= SLJIT_FIRST_SAVED_REG && src <= SLJIT_S0) {
 			FAIL_IF(push_inst(compiler, lgr(tmp1, gpr(src))));
 			src = TMP_REG2;
+			srcw = 0;
 		}
 
-		FAIL_IF(emit_stack_frame_release(compiler));
+		FAIL_IF(emit_stack_frame_release(compiler, r14));
 		type = SLJIT_JUMP;
 	}
 
