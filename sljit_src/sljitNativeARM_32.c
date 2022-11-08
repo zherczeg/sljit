@@ -1402,7 +1402,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE | LOAD_DATA, TMP_REG1, src, srcw, TMP_REG1));
 		src = TMP_REG1;
 		srcw = 0;
-	} else if (src >= SLJIT_FIRST_SAVED_REG && src <= SLJIT_S0) {
+	} else if (src >= SLJIT_FIRST_SAVED_REG && src <= (SLJIT_S0 - SLJIT_KEPT_SAVEDS_COUNT(compiler->options))) {
 		FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG1) | RM(src)));
 		src = TMP_REG1;
 		srcw = 0;
@@ -2924,7 +2924,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 		src = TMP_REG1;
 	}
 
-	if ((type & SLJIT_CALL_RETURN) && (src >= SLJIT_FIRST_SAVED_REG && src <= SLJIT_S0)) {
+	if ((type & SLJIT_CALL_RETURN) && (src >= SLJIT_FIRST_SAVED_REG && src <= (SLJIT_S0 - SLJIT_KEPT_SAVEDS_COUNT(compiler->options)))) {
 		FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG1) | RM(src)));
 		src = TMP_REG1;
 	}

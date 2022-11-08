@@ -678,7 +678,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
 
 	compiler->mode32 = 0;
 
-	if ((src & SLJIT_MEM) || (src >= SLJIT_FIRST_SAVED_REG && src <= SLJIT_S0)) {
+	if ((src & SLJIT_MEM) || (src >= SLJIT_FIRST_SAVED_REG && src <= (SLJIT_S0 - SLJIT_KEPT_SAVEDS_COUNT(compiler->options)))) {
 		ADJUST_LOCAL_OFFSET(src, srcw);
 
 		EMIT_MOV(compiler, TMP_REG2, 0, src, srcw);
@@ -843,7 +843,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	}
 
 	if (type & SLJIT_CALL_RETURN) {
-		if (src >= SLJIT_FIRST_SAVED_REG && src <= SLJIT_S0) {
+		if (src >= SLJIT_FIRST_SAVED_REG && src <= (SLJIT_S0 - SLJIT_KEPT_SAVEDS_COUNT(compiler->options))) {
 			EMIT_MOV(compiler, TMP_REG2, 0, src, srcw);
 			src = TMP_REG2;
 		}
