@@ -51,8 +51,6 @@
    not possible.
 */
 
-#define SLJIT_UPDATE_WX_FLAGS(from, to, enable_exec) \
-	sljit_update_wx_flags((from), (to), (enable_exec))
 
 #ifndef _WIN32
 #include <sys/types.h>
@@ -60,7 +58,7 @@
 
 #ifdef __NetBSD__
 #define SLJIT_PROT_WX PROT_MPROTECT(PROT_EXEC)
-#define check_se_protected(ptr, size) (0)
+#define wx_allocator_check_se_protected(ptr, size) (0)
 #else /* POSIX */
 #if !(defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED)
 #include <pthread.h>
@@ -68,9 +66,7 @@
 #define SLJIT_SE_UNLOCK()	pthread_mutex_unlock(&se_lock)
 #endif /* !SLJIT_SINGLE_THREADED */
 
-#define check_se_protected(ptr, size) generic_se_protected(ptr, size)
-
-static SLJIT_INLINE int generic_se_protected(void *ptr, sljit_uw size)
+static SLJIT_INLINE int wx_allocator_check_se_protected(void *ptr, sljit_uw size)
 {
 	if (SLJIT_LIKELY(!mprotect(ptr, size, PROT_EXEC)))
 		return mprotect(ptr, size, PROT_READ | PROT_WRITE);
@@ -89,7 +85,11 @@ static SLJIT_INLINE int generic_se_protected(void *ptr, sljit_uw size)
 #define SLJIT_PROT_WX 0
 #endif
 
+#if (defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
+#else /* !SLJIT_WX_EXECUTABLE_ALLOCATOR */
+static void* sljit_wx_allocator_malloc_exec(sljit_uw size)
+#endif /* SLJIT_WX_EXECUTABLE_ALLOCATOR */
 {
 #if !(defined SLJIT_SINGLE_THREADED && SLJIT_SINGLE_THREADED) \
 	&& !defined(__NetBSD__)
@@ -114,7 +114,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 
 	if (SLJIT_UNLIKELY(se_protected > 0)) {
 		SLJIT_SE_LOCK();
-		se_protected = check_se_protected(ptr, size);
+		se_protected = wx_allocator_check_se_protected(ptr, size);
 		SLJIT_SE_UNLOCK();
 		if (SLJIT_UNLIKELY(se_protected < 0)) {
 			munmap((void *)ptr, size);
@@ -130,13 +130,17 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 #undef SLJIT_SE_UNLOCK
 #undef SLJIT_SE_LOCK
 
+#if (defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
+#else /* !SLJIT_WX_EXECUTABLE_ALLOCATOR */
+static void sljit_wx_allocator_free_exec(void* ptr)
+#endif /* SLJIT_WX_EXECUTABLE_ALLOCATOR */
 {
 	sljit_uw *start_ptr = ((sljit_uw*)ptr) - 1;
 	munmap((void*)start_ptr, *start_ptr);
 }
 
-static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
+static void sljit_wx_allocator_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
 {
 	sljit_uw page_mask = (sljit_uw)get_page_alignment();
 	sljit_uw start = (sljit_uw)from;
@@ -151,9 +155,13 @@ static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
 	mprotect((void*)start, end - start, prot);
 }
 
-#else /* windows */
+#else /* _WIN32 */
 
+#if (defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
+#else /* !SLJIT_WX_EXECUTABLE_ALLOCATOR */
+static void* sljit_wx_allocator_malloc_exec(sljit_uw size)
+#endif /* SLJIT_WX_EXECUTABLE_ALLOCATOR */
 {
 	sljit_uw *ptr;
 
@@ -169,7 +177,11 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size)
 	return ptr;
 }
 
+#if (defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
+#else /* !SLJIT_WX_EXECUTABLE_ALLOCATOR */
+static void sljit_wx_allocator_free_exec(void* ptr)
+#endif /* SLJIT_WX_EXECUTABLE_ALLOCATOR */
 {
 	sljit_uw start = (sljit_uw)ptr - sizeof(sljit_uw);
 #if defined(SLJIT_DEBUG) && SLJIT_DEBUG
@@ -180,7 +192,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr)
 	VirtualFree((void*)start, 0, MEM_RELEASE);
 }
 
-static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
+static void sljit_wx_allocator_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
 {
 	DWORD oldprot;
 	sljit_uw page_mask = (sljit_uw)get_page_alignment();
@@ -196,9 +208,14 @@ static void sljit_update_wx_flags(void *from, void *to, sljit_s32 enable_exec)
 	VirtualProtect((void*)start, end - start, prot, &oldprot);
 }
 
-#endif /* !windows */
+#endif /* !_WIN32 */
+
+#if (defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
+#define SLJIT_UPDATE_WX_FLAGS(from, to, enable_exec) \
+	sljit_wx_allocator_update_wx_flags((from), (to), (enable_exec))
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void)
 {
 	/* This allocator does not keep unused memory for future allocations. */
 }
+#endif /* SLJIT_WX_EXECUTABLE_ALLOCATOR */

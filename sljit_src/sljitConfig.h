@@ -101,6 +101,15 @@ extern "C" {
 /* Enabled by default. */
 #define SLJIT_EXECUTABLE_ALLOCATOR 1
 
+/* When SLJIT_GENERIC_EXECUTABLE_ALLOCATOR is enabled SLJIT uses
+   an allocator which sets writable and executable
+   permission flags at the same time. It is relatively
+   simple, but considered less secure at the same time. */
+#ifndef SLJIT_GENERIC_EXECUTABLE_ALLOCATOR
+/* Disabled by default. */
+#define SLJIT_GENERIC_EXECUTABLE_ALLOCATOR 0
+#endif
+
 /* When SLJIT_PROT_EXECUTABLE_ALLOCATOR is enabled SLJIT uses
    an allocator which does not set writable and executable
    permission flags at the same time.

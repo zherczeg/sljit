@@ -271,7 +271,9 @@
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 
-#if (defined SLJIT_PROT_EXECUTABLE_ALLOCATOR && SLJIT_PROT_EXECUTABLE_ALLOCATOR)
+#if (defined SLJIT_GENERIC_EXECUTABLE_ALLOCATOR && SLJIT_GENERIC_EXECUTABLE_ALLOCATOR)
+#include "sljitGenericExecAllocator.c"
+#elif (defined SLJIT_PROT_EXECUTABLE_ALLOCATOR && SLJIT_PROT_EXECUTABLE_ALLOCATOR)
 #include "sljitProtExecAllocator.c"
 #elif (defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
 #include "sljitWXExecAllocator.c"
@@ -281,9 +283,7 @@
 
 #endif
 
-#if (defined SLJIT_PROT_EXECUTABLE_ALLOCATOR && SLJIT_PROT_EXECUTABLE_ALLOCATOR)
-#define SLJIT_ADD_EXEC_OFFSET(ptr, exec_offset) ((sljit_u8 *)(ptr) + (exec_offset))
-#else
+#ifndef SLJIT_ADD_EXEC_OFFSET
 #define SLJIT_ADD_EXEC_OFFSET(ptr, exec_offset) ((sljit_u8 *)(ptr))
 #endif
 
