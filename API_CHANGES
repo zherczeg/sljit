@@ -1,5 +1,10 @@
 This file is the short summary of the API changes:
 
+10.11.2022 - Non-backward compatible
+    Extract the pre/post update operations from
+    sljit_emit_mem to sljit_emit_mem_update
+    and sljit_emit_fmem to sljit_emit_fmem_update.
+
 04.11.2022 - Non-backward compatible
     The SLJIT_32 flag is combined with the type
     argument of cmov, not the dst_reg.

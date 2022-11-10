@@ -2001,13 +2001,31 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	sljit_s32 allowed_flags;
 
+	if (type & SLJIT_MEM_UNALIGNED) {
+		CHECK_ARGUMENT(!(type & (SLJIT_MEM_UNALIGNED_16 | SLJIT_MEM_UNALIGNED_32)));
+	} else if (type & SLJIT_MEM_UNALIGNED_16) {
+		CHECK_ARGUMENT(!(type & SLJIT_MEM_UNALIGNED_32));
+	} else {
+		CHECK_ARGUMENT((reg & REG_PAIR_MASK) || (type & SLJIT_MEM_UNALIGNED_32));
+	}
+
+	allowed_flags = SLJIT_MEM_UNALIGNED;
+
+	switch (type & 0xff) {
+	case SLJIT_MOV_U32:
+	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
+		allowed_flags = SLJIT_MEM_UNALIGNED | SLJIT_MEM_UNALIGNED_16;
+		break;
+	case SLJIT_MOV:
+	case SLJIT_MOV_P:
+		allowed_flags = SLJIT_MEM_UNALIGNED | SLJIT_MEM_UNALIGNED_16 | SLJIT_MEM_UNALIGNED_32;
+		break;
+	}
+
+	CHECK_ARGUMENT((type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | allowed_flags)) == 0);
+
 	if (reg & REG_PAIR_MASK) {
-		if (type & SLJIT_MEM_UNALIGNED) {
-			CHECK_ARGUMENT((type & ~(0xff | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)) == 0);
-			CHECK_ARGUMENT((type & (SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)) != (SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32));
-		} else {
-			CHECK_ARGUMENT((type & ~(0xff | SLJIT_MEM_STORE)) == 0);
-		}
 		CHECK_ARGUMENT((type & 0xff) == SLJIT_MOV);
 		CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(REG_PAIR_FIRST(reg)));
 		CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(REG_PAIR_SECOND(reg)));
@@ -2016,70 +2034,84 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 		CHECK_ARGUMENT((type & 0xff) >= SLJIT_MOV && (type & 0xff) <= SLJIT_MOV_P);
 		CHECK_ARGUMENT(!(type & SLJIT_32) || ((type & 0xff) >= SLJIT_MOV_U8 && (type & 0xff) <= SLJIT_MOV_S16));
 		CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(reg));
-
-		if (type & SLJIT_MEM_UNALIGNED) {
-			allowed_flags = SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32;
-
-			switch (type & 0xff) {
-			case SLJIT_MOV_U8:
-			case SLJIT_MOV_S8:
-			case SLJIT_MOV_U16:
-			case SLJIT_MOV_S16:
-				allowed_flags = 0;
-				break;
-			case SLJIT_MOV_U32:
-			case SLJIT_MOV_S32:
-			case SLJIT_MOV32:
-				allowed_flags = SLJIT_MEM_ALIGNED_16;
-				break;
-			}
-			CHECK_ARGUMENT((type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED | allowed_flags)) == 0);
-			CHECK_ARGUMENT((type & (SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)) != (SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32));
-		} else {
-			CHECK_ARGUMENT((type & SLJIT_MEM_PRE) || (type & SLJIT_MEM_POST));
-			CHECK_ARGUMENT((type & (SLJIT_MEM_PRE | SLJIT_MEM_POST)) != (SLJIT_MEM_PRE | SLJIT_MEM_POST));
-			CHECK_ARGUMENT((type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_SUPP | SLJIT_MEM_PRE | SLJIT_MEM_POST)) == 0);
-			CHECK_ARGUMENT((mem & REG_MASK) != 0 && (mem & REG_MASK) != reg);
-		}
 	}
 
 	FUNCTION_CHECK_SRC_MEM(mem, memw);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		if (type & (SLJIT_MEM_PRE | SLJIT_MEM_POST)) {
-			if (type & SLJIT_MEM_SUPP)
-				CHECK_RETURN_OK;
-			if (sljit_emit_mem(compiler, type | SLJIT_MEM_SUPP, reg, mem, memw) == SLJIT_ERR_UNSUPPORTED) {
-				fprintf(compiler->verbose, "  // mem: unsupported form, no instructions are emitted");
-				CHECK_RETURN_OK;
-			}
-		}
-
 		if ((type & 0xff) == SLJIT_MOV32)
-			fprintf(compiler->verbose, "  mem32.%s",
-				(type & SLJIT_MEM_STORE) ? "st" : "ld");
+			fprintf(compiler->verbose, "  %s32",
+				(type & SLJIT_MEM_STORE) ? "store" : "load");
 		else
-			fprintf(compiler->verbose, "  mem%s.%s%s",
+			fprintf(compiler->verbose, "  %s%s%s",
+				(type & SLJIT_MEM_STORE) ? "store" : "load",
 				!(type & SLJIT_32) ? "" : "32",
-				(type & SLJIT_MEM_STORE) ? "st" : "ld",
 				op1_names[(type & 0xff) - SLJIT_OP1_BASE]);
 
-		if (type & SLJIT_MEM_UNALIGNED) {
-			printf(".un%s%s ", (type & SLJIT_MEM_ALIGNED_16) ? ".16" : "", (type & SLJIT_MEM_ALIGNED_32) ? ".32" : "");
-		} else
-			printf((type & SLJIT_MEM_PRE) ? ".pre " : ".post ");
+		if (type & SLJIT_MEM_UNALIGNED)
+			printf(".un");
+		else if (type & SLJIT_MEM_UNALIGNED_16)
+			printf(".un16");
+		else if (type & SLJIT_MEM_UNALIGNED_32)
+			printf(".un32");
 
 		if (reg & REG_PAIR_MASK) {
-			fprintf(compiler->verbose, "{");
+			fprintf(compiler->verbose, " {");
 			sljit_verbose_reg(compiler, REG_PAIR_FIRST(reg));
 			fprintf(compiler->verbose, ", ");
 			sljit_verbose_reg(compiler, REG_PAIR_SECOND(reg));
 			fprintf(compiler->verbose, "}, ");
 		} else {
+			fprintf(compiler->verbose, " ");
 			sljit_verbose_reg(compiler, reg);
 			fprintf(compiler->verbose, ", ");
 		}
+		sljit_verbose_param(compiler, mem, memw);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+	CHECK_RETURN_OK;
+}
+
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem_update(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 reg,
+	sljit_s32 mem, sljit_sw memw)
+{
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		CHECK_RETURN_OK;
+	}
+
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT((type & 0xff) >= SLJIT_MOV && (type & 0xff) <= SLJIT_MOV_P);
+	CHECK_ARGUMENT((type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_SUPP | SLJIT_MEM_POST)) == 0);
+	CHECK_ARGUMENT((mem & REG_MASK) != 0 && (mem & REG_MASK) != reg);
+
+	FUNCTION_CHECK_SRC_MEM(mem, memw);
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		if (type & SLJIT_MEM_SUPP)
+			CHECK_RETURN_OK;
+		if (sljit_emit_mem_update(compiler, type | SLJIT_MEM_SUPP, reg, mem, memw) == SLJIT_ERR_UNSUPPORTED) {
+			fprintf(compiler->verbose, "    # mem: unsupported form, no instructions are emitted\n");
+			CHECK_RETURN_OK;
+		}
+
+		if ((type & 0xff) == SLJIT_MOV32)
+			fprintf(compiler->verbose, "  %s32.%s ",
+				(type & SLJIT_MEM_STORE) ? "store" : "load",
+				(type & SLJIT_MEM_POST) ? "post" : "pre");
+		else
+			fprintf(compiler->verbose, "  %s%s%s.%s ",
+				(type & SLJIT_MEM_STORE) ? "store" : "load",
+				!(type & SLJIT_32) ? "" : "32",
+				op1_names[(type & 0xff) - SLJIT_OP1_BASE],
+				(type & SLJIT_MEM_POST) ? "post" : "pre");
+
+		sljit_verbose_reg(compiler, reg);
+		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, mem, memw);
 		fprintf(compiler->verbose, "\n");
 	}
@@ -2093,37 +2125,34 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fmem(struct sljit_compile
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT((type & 0xff) == SLJIT_MOV_F64);
+
 	if (type & SLJIT_MEM_UNALIGNED) {
-		CHECK_ARGUMENT((type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16 | (type & SLJIT_32 ? 0 : SLJIT_MEM_ALIGNED_32))) == 0);
-		CHECK_ARGUMENT((type & (SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)) != (SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32));
+		CHECK_ARGUMENT(!(type & (SLJIT_MEM_UNALIGNED_16 | SLJIT_MEM_UNALIGNED_32)));
+	} else if (type & SLJIT_MEM_UNALIGNED_16) {
+		CHECK_ARGUMENT(!(type & SLJIT_MEM_UNALIGNED_32));
 	} else {
-		CHECK_ARGUMENT((type & SLJIT_MEM_PRE) || (type & SLJIT_MEM_POST));
-		CHECK_ARGUMENT((type & (SLJIT_MEM_PRE | SLJIT_MEM_POST)) != (SLJIT_MEM_PRE | SLJIT_MEM_POST));
-		CHECK_ARGUMENT((type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_SUPP | SLJIT_MEM_PRE | SLJIT_MEM_POST)) == 0);
+		CHECK_ARGUMENT(type & SLJIT_MEM_UNALIGNED_32);
+		CHECK_ARGUMENT(!(type & SLJIT_32));
 	}
 
-	FUNCTION_CHECK_SRC_MEM(mem, memw);
+	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED | SLJIT_MEM_UNALIGNED_16 | SLJIT_MEM_UNALIGNED_32)));
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	FUNCTION_CHECK_SRC_MEM(mem, memw);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		if (type & (SLJIT_MEM_PRE | SLJIT_MEM_POST)) {
-			if (type & SLJIT_MEM_SUPP)
-				CHECK_RETURN_OK;
-			if (sljit_emit_fmem(compiler, type | SLJIT_MEM_SUPP, freg, mem, memw) == SLJIT_ERR_UNSUPPORTED) {
-				fprintf(compiler->verbose, "  // fmem: unsupported form, no instructions are emitted");
-				CHECK_RETURN_OK;
-			}
-		}
+		fprintf(compiler->verbose, "  %s.%s",
+			(type & SLJIT_MEM_STORE) ? "store" : "load",
+			!(type & SLJIT_32) ? "f64" : "f32");
 
-		fprintf(compiler->verbose, "  fmem.%s%s",
-			(type & SLJIT_MEM_STORE) ? "st" : "ld",
-			!(type & SLJIT_32) ? ".f64" : ".f32");
+		if (type & SLJIT_MEM_UNALIGNED)
+			printf(".un");
+		else if (type & SLJIT_MEM_UNALIGNED_16)
+			printf(".un16");
+		else if (type & SLJIT_MEM_UNALIGNED_32)
+			printf(".un32");
 
-		if (type & SLJIT_MEM_UNALIGNED) {
-			printf(".un%s%s ", (type & SLJIT_MEM_ALIGNED_16) ? ".16" : "", (type & SLJIT_MEM_ALIGNED_32) ? ".32" : "");
-		} else
-			printf((type & SLJIT_MEM_PRE) ? ".pre " : ".post ");
+		fprintf(compiler->verbose, " ");
 		sljit_verbose_freg(compiler, freg);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, mem, memw);
@@ -2131,6 +2160,40 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fmem(struct sljit_compile
 	}
 #endif
 	CHECK_RETURN_OK;
+}
+
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fmem_update(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 mem, sljit_sw memw)
+{
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT((type & 0xff) == SLJIT_MOV_F64);
+	CHECK_ARGUMENT((type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_SUPP | SLJIT_MEM_POST)) == 0);
+	FUNCTION_CHECK_SRC_MEM(mem, memw);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		if (type & SLJIT_MEM_SUPP)
+			CHECK_RETURN_OK;
+		if (sljit_emit_fmem_update(compiler, type | SLJIT_MEM_SUPP, freg, mem, memw) == SLJIT_ERR_UNSUPPORTED) {
+			fprintf(compiler->verbose, "    # fmem: unsupported form, no instructions are emitted\n");
+			CHECK_RETURN_OK;
+		}
+
+		fprintf(compiler->verbose, "  %s.%s.%s ",
+			(type & SLJIT_MEM_STORE) ? "store" : "load",
+			!(type & SLJIT_32) ? "f64" : "f32",
+			(type & SLJIT_MEM_POST) ? "post" : "pre");
+
+		sljit_verbose_freg(compiler, freg);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_param(compiler, mem, memw);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+	CHECK_RETURN_OK;
+
 }
 
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_local_base(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw offset)
@@ -2481,8 +2544,26 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 }
 
 #if !(defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
-	&& !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
 	&& !(defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem_update(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 reg,
+	sljit_s32 mem, sljit_sw memw)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_mem_update(compiler, type, reg, mem, memw));
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(reg);
+	SLJIT_UNUSED_ARG(mem);
+	SLJIT_UNUSED_ARG(memw);
+
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+#endif /* !SLJIT_CONFIG_ARM && !SLJIT_CONFIG_PPC */
+
+#if !(defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) \
+	&& !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
@@ -2491,13 +2572,29 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_fmem(compiler, type, freg, mem, memw));
 
-	if (type & (SLJIT_MEM_PRE | SLJIT_MEM_POST))
-		return SLJIT_ERR_UNSUPPORTED;
-
 	return sljit_emit_fmem_unaligned(compiler, type, freg, mem, memw);
 }
 
-#endif
+#endif /* !SLJIT_CONFIG_ARM_32 && !SLJIT_CONFIG_MIPS */
+
+#if !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
+	&& !(defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 mem, sljit_sw memw)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fmem_update(compiler, type, freg, mem, memw));
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(freg);
+	SLJIT_UNUSED_ARG(mem);
+	SLJIT_UNUSED_ARG(memw);
+
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+#endif /* !SLJIT_CONFIG_ARM_64 && !SLJIT_CONFIG_PPC */
 
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 	&& !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
@@ -2910,7 +3007,29 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem_update(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 reg, sljit_s32 mem, sljit_sw memw)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(reg);
+	SLJIT_UNUSED_ARG(mem);
+	SLJIT_UNUSED_ARG(memw);
+	SLJIT_UNREACHABLE();
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 freg, sljit_s32 mem, sljit_sw memw)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(freg);
+	SLJIT_UNUSED_ARG(mem);
+	SLJIT_UNUSED_ARG(memw);
+	SLJIT_UNREACHABLE();
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 freg, sljit_s32 mem, sljit_sw memw)
 {
 	SLJIT_UNUSED_ARG(compiler);
 	SLJIT_UNUSED_ARG(type);

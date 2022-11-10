@@ -3156,9 +3156,9 @@ static sljit_s32 update_mem_addr(struct sljit_compiler *compiler, sljit_s32 *mem
 #endif /* SLJIT_LITTLE_ENDIAN */
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-#define MEM_CHECK_UNALIGNED(type) (((type) & (SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_32)) == SLJIT_MEM_UNALIGNED)
+#define MEM_CHECK_UNALIGNED(type) ((type) & (SLJIT_MEM_UNALIGNED | SLJIT_MEM_UNALIGNED_16))
 #else /* !SLJIT_CONFIG_MIPS_32 */
-#define MEM_CHECK_UNALIGNED(type) ((type) & SLJIT_MEM_UNALIGNED)
+#define MEM_CHECK_UNALIGNED(type) ((type) & (SLJIT_MEM_UNALIGNED | SLJIT_MEM_UNALIGNED_16 | SLJIT_MEM_UNALIGNED_32))
 #endif /* SLJIT_CONFIG_MIPS_32 */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
@@ -3215,9 +3215,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 		return push_inst(compiler, ins | T(REG_PAIR_SECOND(reg)) | IMM(memw + SSIZE_OF(sw)), DR(REG_PAIR_SECOND(reg)));
 	}
 
-	if (type & (SLJIT_MEM_PRE | SLJIT_MEM_POST))
-		return SLJIT_ERR_UNSUPPORTED;
-
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)
 	return sljit_emit_mem_unaligned(compiler, type, reg, mem, memw);
 #else /* !(SLJIT_MIPS_REV >= 6) */
@@ -3259,7 +3256,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 	case SLJIT_MOV:
 	case SLJIT_MOV_P:
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-		if (type & SLJIT_MEM_ALIGNED_32) {
+		if (type & SLJIT_MEM_UNALIGNED_32) {
 			flags = WORD_DATA;
 			if (!(type & SLJIT_MEM_STORE))
 				flags |= LOAD_DATA;
@@ -3325,9 +3322,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 {
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_fmem(compiler, type, freg, mem, memw));
-
-	if (type & (SLJIT_MEM_PRE | SLJIT_MEM_POST))
-		return SLJIT_ERR_UNSUPPORTED;
 
 	FAIL_IF(update_mem_addr(compiler, &mem, &memw, SIMM_MAX - (type & SLJIT_32) ? 3 : 7));
 	SLJIT_ASSERT(FAST_IS_REG(mem) && mem != TMP_REG2);
