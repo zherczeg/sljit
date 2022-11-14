@@ -157,7 +157,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 				inst_size += 4;
 		}
 		else if (flags & EX86_SHIFT_INS) {
-			imma &= compiler->mode32 ? 0x1f : 0x3f;
+			SLJIT_ASSERT(imma <= (compiler->mode32 ? 0x1f : 0x3f));
 			if (imma != 1) {
 				inst_size++;
 				flags |= EX86_BYTE_ARG;
@@ -933,7 +933,7 @@ static sljit_s32 emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src
 }
 
 /* --------------------------------------------------------------------- */
-/*  Memory operations                                                    */
+/*  Other operations                                                     */
 /* --------------------------------------------------------------------- */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
@@ -1015,10 +1015,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 
 	return SLJIT_SUCCESS;
 }
-
-/* --------------------------------------------------------------------- */
-/*  Extend input                                                         */
-/* --------------------------------------------------------------------- */
 
 static sljit_s32 emit_mov_int(struct sljit_compiler *compiler, sljit_s32 sign,
 	sljit_s32 dst, sljit_sw dstw,
