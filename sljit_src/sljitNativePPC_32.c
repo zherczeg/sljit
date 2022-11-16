@@ -38,8 +38,9 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 reg, 
 	return (imm & 0xffff) ? push_inst(compiler, ORI | S(reg) | A(reg) | IMM(imm)) : SLJIT_SUCCESS;
 }
 
+/* Simplified mnemonics: clrlwi. */
 #define INS_CLEAR_LEFT(dst, src, from) \
-	(RLWINM | S(src) | A(dst) | ((from) << 6) | (31 << 1))
+	(RLWINM | S(src) | A(dst) | RLWI_MBE(from, 31))
 
 static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 flags,
 	sljit_s32 dst, sljit_s32 src1, sljit_s32 src2)
@@ -234,7 +235,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			compiler->imm &= 0x1f;
-			return push_inst(compiler, RLWINM | RC(flags) | S(src1) | A(dst) | (compiler->imm << 11) | ((31 - compiler->imm) << 1));
+			return push_inst(compiler, SLWI(compiler->imm) | RC(flags) | S(src1) | A(dst));
 		}
 
 		if (op == SLJIT_MSHL) {
@@ -249,7 +250,8 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		if (flags & ALT_FORM1) {
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			compiler->imm &= 0x1f;
-			return push_inst(compiler, RLWINM | RC(flags) | S(src1) | A(dst) | (((32 - compiler->imm) & 0x1f) << 11) | (compiler->imm << 6) | (31 << 1));
+			/* Since compiler->imm can be 0, SRWI() cannot be used. */
+			return push_inst(compiler, RLWINM | RC(flags) | S(src1) | A(dst) | RLWI_SH((32 - compiler->imm) & 0x1f) | RLWI_MBE(compiler->imm, 31));
 		}
 
 		if (op == SLJIT_MLSHR) {

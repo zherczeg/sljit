@@ -1468,7 +1468,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
 
-	mask = (op & SLJIT_32) ? 0x1f : 0x3f;
+	inv_bits = (op & SLJIT_32) ? W_OP : 0;
+	mask = inv_bits ? 0x1f : 0x3f;
 
 	if (src2 & SLJIT_IMM) {
 		src2w &= mask;
@@ -1476,11 +1477,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 		if (src2w == 0)
 			return SLJIT_SUCCESS;
 	} else if (src2 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, src2, src2w, TMP_REG2));
+		FAIL_IF(emit_op_mem(compiler, inv_bits ? INT_SIZE : WORD_SIZE, TMP_REG2, src2, src2w, TMP_REG2));
 		src2 = TMP_REG2;
 	}
 
-	inv_bits = (op & SLJIT_32) ? W_OP : 0;
 	is_left = (GET_OPCODE(op) == SLJIT_SHL || GET_OPCODE(op) == SLJIT_MSHL);
 
 	if (src_dst == src1 && !(src2 & SLJIT_IMM)) {
@@ -1493,7 +1493,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 	}
 
 	if (src1 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, src1, src1w, TMP_REG1));
+		FAIL_IF(emit_op_mem(compiler, inv_bits ? INT_SIZE : WORD_SIZE, TMP_REG1, src1, src1w, TMP_REG1));
 		src1 = TMP_REG1;
 	} if (src1 & SLJIT_IMM) {
 		FAIL_IF(load_immediate(compiler, TMP_REG1, src1w));
@@ -1511,7 +1511,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 	FAIL_IF(push_inst(compiler, ((is_left ? LSLV : LSRV) ^ inv_bits) | RD(src_dst) | RN(src_dst) | RM(src2)));
 
 	if (!(op & SLJIT_SHIFT_INTO_NON_ZERO)) {
-		/* Shift by 1. */
+		/* Shift left/right by 1. */
 		if (is_left)
 			imm = (sljit_ins)(inv_bits ? ((1 << 16) | (31 << 10)) : ((1 << 16) | (63 << 10) | (1 << 22)));
 		else
@@ -1520,7 +1520,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 		FAIL_IF(push_inst(compiler, (UBFM ^ inv_bits) | RD(TMP_REG1) | RN(src1) | imm));
 
 		/* Set imm to mask. */
-		imm = (sljit_ins)(inv_bits ? ((4 << 10)) : ((5 << 10) | (1 << 22)));
+		imm = (sljit_ins)(inv_bits ? (4 << 10) : ((5 << 10) | (1 << 22)));
 		FAIL_IF(push_inst(compiler, (EORI ^ inv_bits) | RD(TMP_REG2) | RN(src2) | imm));
 
 		src1 = TMP_REG1;

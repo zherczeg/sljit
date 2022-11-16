@@ -10198,7 +10198,7 @@ static void test83(void)
 	/* Test "shift into". */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
-	sljit_sw buf[10];
+	sljit_sw buf[12];
 	sljit_s32 ibuf[7];
 	sljit_s32 i;
 #ifdef SLJIT_PREF_SHIFT_REG
@@ -10212,7 +10212,7 @@ static void test83(void)
 
 	FAILED(!compiler, "cannot create compiler\n");
 
-	for (i = 0; i < 9; i++)
+	for (i = 0; i < 12; i++)
 		buf[i] = -1;
 	for (i = 0; i < 7; i++)
 		ibuf[i] = -1;
@@ -10271,13 +10271,13 @@ static void test83(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, -5);
 	sljit_emit_shift_into(compiler, SLJIT_MLSHR32 | SLJIT_SHIFT_INTO_NON_ZERO, shift_reg, SLJIT_R1, 0, SLJIT_R0, 0);
 	/* ibuf[2] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), 2 * sizeof(sljit_s32), shift_reg, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), 2 * sizeof(sljit_s32), shift_reg, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV32, shift_reg, 0, SLJIT_IMM, (sljit_sw)0xabcd6543);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 0xffe8);
 	sljit_emit_shift_into(compiler, SLJIT_MSHL32, shift_reg, SLJIT_IMM, (sljit_s32)0xc9000000, SLJIT_R0, 0);
 	/* ibuf[3] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), 3 * sizeof(sljit_s32), shift_reg, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), 3 * sizeof(sljit_s32), shift_reg, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, shift_reg, 0, SLJIT_IMM, -6032);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R4, 0, SLJIT_IMM, 0x7cadcad7);
@@ -10287,7 +10287,7 @@ static void test83(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 3);
 	sljit_emit_shift_into(compiler, SLJIT_LSHR32, SLJIT_R4, SLJIT_MEM2(SLJIT_R1, SLJIT_S2), 1, SLJIT_R0, 0);
 	/* ibuf[4] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), 4 * sizeof(sljit_s32), SLJIT_R4, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), 4 * sizeof(sljit_s32), SLJIT_R4, 0);
 	/* buf[6] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_sw), shift_reg, 0);
 
@@ -10314,6 +10314,17 @@ static void test83(void)
 	/* buf[9] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 9 * sizeof(sljit_sw), SLJIT_R0, 0);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S3, 0, SLJIT_IMM, WCONST(0x1234567890abcdef, 0x12345678));
+	sljit_emit_shift_into(compiler, SLJIT_LSHR, SLJIT_S3, SLJIT_S3, 0, SLJIT_IMM, 0xfff8 /* 24/56 */);
+	/* buf[10] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 10 * sizeof(sljit_sw), SLJIT_S3, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S3, 0, SLJIT_IMM, WCONST(0x1234567890abcdef, 0x12345678));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S4, 0, SLJIT_IMM, WCONST(0xba9876fedcba9800, 0xfedcba00));
+	sljit_emit_shift_into(compiler, SLJIT_SHL, SLJIT_S3, SLJIT_S4, 0, SLJIT_IMM, 0xfff8 /* 24/56 */);
+	/* buf[11] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 11 * sizeof(sljit_sw), SLJIT_S3, 0);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler);
@@ -10339,6 +10350,8 @@ static void test83(void)
 	FAILED(ibuf[5] != -4072, "test83 case 15 failed\n");
 	FAILED(ibuf[6] != -2813, "test83 case 16 failed\n");
 	FAILED(buf[9] != -3278, "test83 case 17 failed\n");
+	FAILED(buf[10] != WCONST(0x34567890abcdef12, 0x34567812), "test83 case 18 failed\n");
+	FAILED(buf[11] != WCONST(0xefba9876fedcba98, 0x78fedcba), "test83 case 19 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;

@@ -35,8 +35,9 @@
 #error "Must implement count leading zeroes"
 #endif
 
-#define PUSH_RLDICR(reg, shift) \
-	push_inst(compiler, RLDI(reg, reg, 63 - shift, shift, 1))
+/* Computes SLDI(63 - shift). */
+#define PUSH_SLDI_NEG(reg, shift) \
+	push_inst(compiler, RLDICR | S(reg) | A(reg) | RLDI_SH(63 - shift) | RLDI_ME(shift))
 
 static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 reg, sljit_sw imm)
 {
@@ -66,14 +67,14 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 reg, 
 	if ((tmp & ~0xffff000000000000ul) == 0) {
 		FAIL_IF(push_inst(compiler, ADDI | D(reg) | A(0) | (sljit_ins)(tmp >> 48)));
 		shift += 15;
-		return PUSH_RLDICR(reg, shift);
+		return PUSH_SLDI_NEG(reg, shift);
 	}
 
 	if ((tmp & ~0xffffffff00000000ul) == 0) {
 		FAIL_IF(push_inst(compiler, ADDIS | D(reg) | A(0) | (sljit_ins)(tmp >> 48)));
 		FAIL_IF(push_inst(compiler, ORI | S(reg) | A(reg) | IMM(tmp >> 32)));
 		shift += 31;
-		return PUSH_RLDICR(reg, shift);
+		return PUSH_SLDI_NEG(reg, shift);
 	}
 
 	/* Cut out the 16 bit from immediate. */
@@ -82,13 +83,13 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 reg, 
 
 	if (tmp2 <= 0xffff) {
 		FAIL_IF(push_inst(compiler, ADDI | D(reg) | A(0) | (sljit_ins)(tmp >> 48)));
-		FAIL_IF(PUSH_RLDICR(reg, shift));
+		FAIL_IF(PUSH_SLDI_NEG(reg, shift));
 		return push_inst(compiler, ORI | S(reg) | A(reg) | (sljit_ins)tmp2);
 	}
 
 	if (tmp2 <= 0xffffffff) {
 		FAIL_IF(push_inst(compiler, ADDI | D(reg) | A(0) | IMM(tmp >> 48)));
-		FAIL_IF(PUSH_RLDICR(reg, shift));
+		FAIL_IF(PUSH_SLDI_NEG(reg, shift));
 		FAIL_IF(push_inst(compiler, ORIS | S(reg) | A(reg) | (sljit_ins)(tmp2 >> 16)));
 		return (imm & 0xffff) ? push_inst(compiler, ORI | S(reg) | A(reg) | IMM(tmp2)) : SLJIT_SUCCESS;
 	}
@@ -100,22 +101,23 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 reg, 
 		FAIL_IF(push_inst(compiler, ADDI | D(reg) | A(0) | (sljit_ins)(tmp >> 48)));
 		shift2 += 15;
 		shift += (63 - shift2);
-		FAIL_IF(PUSH_RLDICR(reg, shift));
+		FAIL_IF(PUSH_SLDI_NEG(reg, shift));
 		FAIL_IF(push_inst(compiler, ORI | S(reg) | A(reg) | (sljit_ins)(tmp2 >> 48)));
-		return PUSH_RLDICR(reg, shift2);
+		return PUSH_SLDI_NEG(reg, shift2);
 	}
 
 	/* The general version. */
 	FAIL_IF(push_inst(compiler, ADDIS | D(reg) | A(0) | (sljit_ins)((sljit_uw)imm >> 48)));
 	FAIL_IF(push_inst(compiler, ORI | S(reg) | A(reg) | IMM(imm >> 32)));
-	FAIL_IF(PUSH_RLDICR(reg, 31));
+	FAIL_IF(PUSH_SLDI_NEG(reg, 31));
 	FAIL_IF(push_inst(compiler, ORIS | S(reg) | A(reg) | IMM(imm >> 16)));
 	return push_inst(compiler, ORI | S(reg) | A(reg) | IMM(imm));
 }
 
-/* Simplified mnemonics: clrldi. */
-#define INS_CLEAR_LEFT(dst, src, from) \
-	(RLDICL | S(src) | A(dst) | ((from) << 6) | (1 << 5))
+#undef PUSH_SLDI_NEG
+
+#define CLRLDI(dst, src, n) \
+	(RLDICL | S(src) | A(dst) | RLDI_SH(0) | RLDI_MB(n))
 
 /* Sign extension for integer operations. */
 #define UN_EXTS() \
@@ -159,7 +161,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 			if (op == SLJIT_MOV_S32)
 				return push_inst(compiler, EXTSW | S(src2) | A(dst));
-			return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 0));
+			return push_inst(compiler, CLRLDI(dst, src2, 32));
 		}
 		else {
 			SLJIT_ASSERT(dst == src2);
@@ -172,7 +174,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 			if (op == SLJIT_MOV_S8)
 				return push_inst(compiler, EXTSB | S(src2) | A(dst));
-			return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 24));
+			return push_inst(compiler, CLRLDI(dst, src2, 56));
 		}
 		else if ((flags & REG_DEST) && op == SLJIT_MOV_S8)
 			return push_inst(compiler, EXTSB | S(src2) | A(dst));
@@ -187,7 +189,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 			if (op == SLJIT_MOV_S16)
 				return push_inst(compiler, EXTSH | S(src2) | A(dst));
-			return push_inst(compiler, INS_CLEAR_LEFT(dst, src2, 16));
+			return push_inst(compiler, CLRLDI(dst, src2, 48));
 		}
 		else {
 			SLJIT_ASSERT(dst == src2);
@@ -208,15 +210,15 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_ADD:
 		if (flags & ALT_FORM1) {
 			if (flags & ALT_SIGN_EXT) {
-				FAIL_IF(push_inst(compiler, RLDI(TMP_REG1, src1, 32, 31, 1)));
+				FAIL_IF(push_inst(compiler, SLDI(32) | S(src1) | A(TMP_REG1)));
 				src1 = TMP_REG1;
-				FAIL_IF(push_inst(compiler, RLDI(TMP_REG2, src2, 32, 31, 1)));
+				FAIL_IF(push_inst(compiler, SLDI(32) | S(src2) | A(TMP_REG2)));
 				src2 = TMP_REG2;
 			}
 			/* Setting XER SO is not enough, CR SO is also needed. */
 			FAIL_IF(push_inst(compiler, ADD | OE(ALT_SET_FLAGS) | RC(ALT_SET_FLAGS) | D(dst) | A(src1) | B(src2)));
 			if (flags & ALT_SIGN_EXT)
-				return push_inst(compiler, RLDI(dst, dst, 32, 32, 0));
+				return push_inst(compiler, SRDI(32) | S(dst) | A(dst));
 			return SLJIT_SUCCESS;
 		}
 
@@ -287,11 +289,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		if (flags & ALT_FORM3) {
 			if (flags & ALT_SIGN_EXT) {
 				if (src1 != TMP_ZERO) {
-					FAIL_IF(push_inst(compiler, RLDI(TMP_REG1, src1, 32, 31, 1)));
+					FAIL_IF(push_inst(compiler, SLDI(32) | S(src1) | A(TMP_REG1)));
 					src1 = TMP_REG1;
 				}
 				if (src2 != TMP_ZERO) {
-					FAIL_IF(push_inst(compiler, RLDI(TMP_REG2, src2, 32, 31, 1)));
+					FAIL_IF(push_inst(compiler, SLDI(32) | S(src2) | A(TMP_REG2)));
 					src2 = TMP_REG2;
 				}
 			}
@@ -303,7 +305,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 				FAIL_IF(push_inst(compiler, NEG | OE(ALT_SET_FLAGS) | RC(ALT_SET_FLAGS) | D(dst) | A(src2)));
 
 			if (flags & ALT_SIGN_EXT)
-				return push_inst(compiler, RLDI(dst, dst, 32, 32, 0));
+				return push_inst(compiler, SRDI(32) | S(dst) | A(dst));
 			return SLJIT_SUCCESS;
 		}
 
@@ -389,10 +391,10 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			if (flags & ALT_FORM2) {
 				compiler->imm &= 0x1f;
-				return push_inst(compiler, RLWINM | RC(flags) | S(src1) | A(dst) | (compiler->imm << 11) | ((31 - compiler->imm) << 1));
+				return push_inst(compiler, SLWI(compiler->imm) | RC(flags) | S(src1) | A(dst));
 			}
 			compiler->imm &= 0x3f;
-			return push_inst(compiler, RLDI(dst, src1, compiler->imm, 63 - compiler->imm, 1) | RC(flags));
+			return push_inst(compiler, SLDI(compiler->imm) | RC(flags) | S(src1) | A(dst));
 		}
 
 		if (op == SLJIT_MSHL) {
@@ -408,10 +410,12 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			SLJIT_ASSERT(src2 == TMP_REG2);
 			if (flags & ALT_FORM2) {
 				compiler->imm &= 0x1f;
-				return push_inst(compiler, RLWINM | RC(flags) | S(src1) | A(dst) | (((32 - compiler->imm) & 0x1f) << 11) | (compiler->imm << 6) | (31 << 1));
+				/* Since compiler->imm can be 0, SRWI() cannot be used. */
+				return push_inst(compiler, RLWINM | RC(flags) | S(src1) | A(dst) | RLWI_SH((32 - compiler->imm) & 0x1f) | RLWI_MBE(compiler->imm, 31));
 			}
 			compiler->imm &= 0x3f;
-			return push_inst(compiler, RLDI(dst, src1, 64 - compiler->imm, compiler->imm, 0) | RC(flags));
+			/* Since compiler->imm can be 0, SRDI() cannot be used. */
+			return push_inst(compiler, RLDICL | RC(flags) | S(src1) | A(dst) | RLDI_SH((64 - compiler->imm) & 0x3f) | RLDI_MB(compiler->imm));
 		}
 
 		if (op == SLJIT_MLSHR) {
@@ -430,7 +434,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 				return push_inst(compiler, SRAWI | RC(flags) | S(src1) | A(dst) | (compiler->imm << 11));
 			}
 			compiler->imm &= 0x3f;
-			return push_inst(compiler, SRADI | RC(flags) | S(src1) | A(dst) | ((compiler->imm & 0x1f) << 11) | ((compiler->imm & 0x20) >> 4));
+			return push_inst(compiler, SRADI | RC(flags) | S(src1) | A(dst) | RLDI_SH(compiler->imm));
 		}
 
 		if (op == SLJIT_MASHR) {
@@ -504,7 +508,7 @@ static SLJIT_INLINE sljit_s32 emit_const(struct sljit_compiler *compiler, sljit_
 {
 	FAIL_IF(push_inst(compiler, ADDIS | D(reg) | A(0) | IMM(init_value >> 48)));
 	FAIL_IF(push_inst(compiler, ORI | S(reg) | A(reg) | IMM(init_value >> 32)));
-	FAIL_IF(PUSH_RLDICR(reg, 31));
+	FAIL_IF(push_inst(compiler, SLDI(32) | S(reg) | A(reg)));
 	FAIL_IF(push_inst(compiler, ORIS | S(reg) | A(reg) | IMM(init_value >> 16)));
 	return push_inst(compiler, ORI | S(reg) | A(reg) | IMM(init_value));
 }
