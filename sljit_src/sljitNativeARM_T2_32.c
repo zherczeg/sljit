@@ -1836,7 +1836,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 	if (src1 & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, src1, src1w, TMP_REG1));
 		src1 = TMP_REG1;
-	} if (src1 & SLJIT_IMM) {
+	} else if (src1 & SLJIT_IMM) {
 		FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)src1w));
 		src1 = TMP_REG1;
 	}
