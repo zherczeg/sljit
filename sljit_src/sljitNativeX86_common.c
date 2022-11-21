@@ -669,7 +669,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	case SLJIT_HAS_VIRTUAL_REGISTERS:
 		return 1;
-#endif
+#endif /* SLJIT_CONFIG_X86_32 */
 
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_CMOV:
@@ -677,6 +677,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 			get_cpu_features();
 		return cpu_has_cmov;
 
+	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_PREFETCH:
 		return 1;
 
@@ -685,9 +686,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		if (cpu_has_sse2 == -1)
 			get_cpu_features();
 		return cpu_has_sse2;
-#else
+#else /* !SLJIT_DETECT_SSE2 */
 		return 1;
-#endif
+#endif /* SLJIT_DETECT_SSE2 */
 
 	default:
 		return 0;
@@ -2350,6 +2351,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	case SLJIT_ASHR:
 	case SLJIT_MASHR:
 		return emit_shift_with_flags(compiler, SAR, HAS_FLAGS(op),
+			dst, dstw, src1, src1w, src2, src2w);
+	case SLJIT_ROTL:
+		return emit_shift_with_flags(compiler, ROL, 0,
+			dst, dstw, src1, src1w, src2, src2w);
+	case SLJIT_ROTR:
+		return emit_shift_with_flags(compiler, ROR, 0,
 			dst, dstw, src1, src1w, src2, src2w);
 	}
 

@@ -661,6 +661,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	/* A saved register is set to a zero value. */
 	case SLJIT_HAS_ZERO_REGISTER:
 	case SLJIT_HAS_CLZ:
+	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_PREFETCH:
 		return 1;
 
@@ -1693,6 +1694,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	case SLJIT_MLSHR:
 	case SLJIT_ASHR:
 	case SLJIT_MASHR:
+	case SLJIT_ROTL:
+	case SLJIT_ROTR:
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		if (op & SLJIT_32)
 			flags |= ALT_FORM2;
@@ -1738,45 +1741,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_shift_into(compiler, op, src_dst, src1, src1w, src2, src2w));
-	ADJUST_LOCAL_OFFSET(src1, src1w);
-	ADJUST_LOCAL_OFFSET(src2, src2w);
 
 	is_right = (GET_OPCODE(op) == SLJIT_LSHR || GET_OPCODE(op) == SLJIT_MLSHR);
+
+	if (src_dst == src1) {
+		SLJIT_SKIP_CHECKS(compiler);
+		return sljit_emit_op2(compiler, (is_right ? SLJIT_ROTR : SLJIT_ROTL) | (op & SLJIT_32), src_dst, 0, src_dst, 0, src2, src2w);
+	}
+
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+	ADJUST_LOCAL_OFFSET(src2, src2w);
 
 	if (src2 & SLJIT_IMM) {
 		src2w &= bit_length - 1;
 
 		if (src2w == 0)
 			return SLJIT_SUCCESS;
-
-		if (src_dst == src1) {
-			if (is_right)
-				src2w = bit_length - src2w;
-
-			/* Simplified mnemonics: rotldi, rotlwi. */
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-			if (!(op & SLJIT_32))
-				return push_inst(compiler, RLDICL | S(src_dst) | A(src_dst) | RLDI_SH(src2w));
-#endif /* SLJIT_CONFIG_PPC_64 */
-			return push_inst(compiler, RLWINM | S(src_dst) | A(src_dst) | RLWI_SH(src2w) | RLWI_MBE(0, 31));
-		}
 	} else if (src2 & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, inp_flags, TMP_REG2, src2, src2w, TMP_REG2));
 		src2 = TMP_REG2;
-	}
-
-	if (src_dst == src1) {
-		if (is_right) {
-			FAIL_IF(push_inst(compiler, SUBFIC | D(TMP_REG2) | A(src2) | 0));
-			src2 = TMP_REG2;
-		}
-
-		/* Simplified mnemonics: rotld, rotlw. */
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-		if (!(op & SLJIT_32))
-			return push_inst(compiler, RLDCL | S(src_dst) | A(src_dst) | B(src2) | (0 << 5));
-#endif /* SLJIT_CONFIG_PPC_64 */
-		return push_inst(compiler, RLWNM | S(src_dst) | A(src_dst) | B(src2) | RLWI_MBE(0, 31));
 	}
 
 	if (src1 & SLJIT_MEM) {

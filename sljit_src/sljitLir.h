@@ -625,10 +625,12 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_HAS_ZERO_REGISTER		2
 /* [Emulated] Count leading zero is supported. */
 #define SLJIT_HAS_CLZ			3
+/* [Emulated] Rotate left/right is supported. */
+#define SLJIT_HAS_ROT			4
 /* [Emulated] Conditional move is supported. */
-#define SLJIT_HAS_CMOV			4
+#define SLJIT_HAS_CMOV			5
 /* [Emulated] Prefetch instruction is available (emulated as a nop). */
-#define SLJIT_HAS_PREFETCH		5
+#define SLJIT_HAS_PREFETCH		6
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] SSE2 support is available on x86. */
@@ -1132,6 +1134,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
    always masked by the length of the shift operation. */
 #define SLJIT_MASHR			(SLJIT_OP2_BASE + 13)
 #define SLJIT_MASHR32			(SLJIT_MASHR | SLJIT_32)
+/* Flags: - (may destroy flags)
+   Let bit_length be the length of the rotate operation: 32 or 64.
+   The second operand is always masked by (bit_length - 1). */
+#define SLJIT_ROTL			(SLJIT_OP2_BASE + 14)
+#define SLJIT_ROTL32			(SLJIT_ROTL | SLJIT_32)
+/* Flags: - (may destroy flags)
+   Let bit_length be the length of the rotate operation: 32 or 64.
+   The second operand is always masked by (bit_length - 1). */
+#define SLJIT_ROTR			(SLJIT_OP2_BASE + 15)
+#define SLJIT_ROTR32			(SLJIT_ROTR | SLJIT_32)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,

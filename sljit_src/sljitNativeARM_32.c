@@ -959,6 +959,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #endif
 
 	case SLJIT_HAS_CLZ:
+	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_CMOV:
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 	case SLJIT_HAS_PREFETCH:
@@ -1551,6 +1552,19 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_MASHR:
 		shift_type = 2;
 		is_masked = GET_OPCODE(op) == SLJIT_MASHR;
+		break;
+
+	case SLJIT_ROTL:
+		if (compiler->shift_imm == 0x20) {
+			FAIL_IF(push_inst(compiler, RSB | SRC2_IMM | RD(TMP_REG2) | RN(src2) | 0));
+			src2 = TMP_REG2;
+		} else
+			compiler->shift_imm = (sljit_uw)(-(sljit_sw)compiler->shift_imm) & 0x1f;
+		/* fallthrough */
+
+	case SLJIT_ROTR:
+		shift_type = 3;
+		is_masked = 0;
 		break;
 
 	default:
@@ -2165,6 +2179,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	case SLJIT_MLSHR:
 	case SLJIT_ASHR:
 	case SLJIT_MASHR:
+	case SLJIT_ROTL:
+	case SLJIT_ROTR:
 		if (src2 & SLJIT_IMM) {
 			compiler->shift_imm = src2w & 0x1f;
 			return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src1, src1w);
@@ -2197,11 +2213,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_shift_into(compiler, op, src_dst, src1, src1w, src2, src2w));
-	ADJUST_LOCAL_OFFSET(src1, src1w);
-	ADJUST_LOCAL_OFFSET(src2, src2w);
 
 	op = GET_OPCODE(op);
 	is_left = (op == SLJIT_SHL || op == SLJIT_MSHL);
+
+	if (src_dst == src1) {
+		SLJIT_SKIP_CHECKS(compiler);
+		return sljit_emit_op2(compiler, is_left ? SLJIT_ROTL : SLJIT_ROTR, src_dst, 0, src_dst, 0, src2, src2w);
+	}
+
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+	ADJUST_LOCAL_OFFSET(src2, src2w);
 
 	/* Shift type of ROR is 3. */
 	if (src2 & SLJIT_IMM) {
@@ -2209,24 +2231,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 
 		if (src2w == 0)
 			return SLJIT_SUCCESS;
-
-		if (src_dst == src1) {
-			if (is_left)
-				src2w = (src2w ^ 0x1f) + 1;
-			return push_inst(compiler, MOV | RD(src_dst) | RM(src_dst) | (3 << 5) | ((sljit_uw)src2w << 7));
-		}
 	} else if (src2 & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE | LOAD_DATA, TMP_REG2, src2, src2w, TMP_REG2));
 		src2 = TMP_REG2;
-	}
-
-	if (src_dst == src1) {
-		if (is_left) {
-			FAIL_IF(push_inst(compiler, RSB | SRC2_IMM | RD(TMP_REG2) | RN(src2) | 0));
-			src2 = TMP_REG2;
-		}
-
-		return push_inst(compiler, MOV | RD(src_dst) | RM8(src2) | (3 << 5) | 0x10 | RM(src_dst));
 	}
 
 	if (src1 & SLJIT_MEM) {
