@@ -1438,11 +1438,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_ROTL:
 	case SLJIT_ROTR:
 		if (flags & SRC2_IMM) {
-			if (src2 == 0) {
-				if (dst != src1)
-					return push_inst(compiler, ADDI | RD(dst) | RS1(src1) | IMM_I(0));
-				return SLJIT_SUCCESS;
-			}
+			SLJIT_ASSERT(src2 != 0);
 
 			op_imm = (GET_OPCODE(op) == SLJIT_ROTL) ? SLLI : SRLI;
 			FAIL_IF(push_inst(compiler, op_imm | WORD | RD(OTHER_FLAG) | RS1(src1) | IMM_I(src2)));
@@ -1457,19 +1453,17 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			return push_inst(compiler, OR | RD(dst) | RS1(dst) | RS2(OTHER_FLAG));
 		}
 
-		op_imm = (GET_OPCODE(op) == SLJIT_ROTL) ? SRLI : SLLI;
-		FAIL_IF(push_inst(compiler, op_imm | WORD | RD(OTHER_FLAG) | RS1(src1) | IMM_I(1)));
-#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
-		op_imm = (op & SLJIT_32) ? IMM_I(0x1f) : IMM_I(0x3f);
-#else /* !SLJIT_CONFIG_RISCV_64 */
-		op_imm = IMM_I(0x1f);
-#endif /* SLJIT_CONFIG_RISCV_64 */
-		FAIL_IF(push_inst(compiler, XORI | RD(EQUAL_FLAG) | RS1(src2) | op_imm));
+		if (src2 == TMP_ZERO) {
+			if (dst != src1)
+				return push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(0));
+			return SLJIT_SUCCESS;
+		}
 
+		FAIL_IF(push_inst(compiler, SUB | WORD | RD(EQUAL_FLAG) | RS1(TMP_ZERO) | RS2(src2)));
 		op_reg = (GET_OPCODE(op) == SLJIT_ROTL) ? SLL : SRL;
-		FAIL_IF(push_inst(compiler, op_reg | WORD | RD(dst) | RS1(src1) | RS2(src2)));
+		FAIL_IF(push_inst(compiler, op_reg | WORD | RD(OTHER_FLAG) | RS1(src1) | RS2(src2)));
 		op_reg = (GET_OPCODE(op) == SLJIT_ROTL) ? SRL : SLL;
-		FAIL_IF(push_inst(compiler, op_reg | WORD | RD(OTHER_FLAG) | RS1(OTHER_FLAG) | RS2(EQUAL_FLAG)));
+		FAIL_IF(push_inst(compiler, op_reg | WORD | RD(dst) | RS1(src1) | RS2(EQUAL_FLAG)));
 		return push_inst(compiler, OR | RD(dst) | RS1(dst) | RS2(OTHER_FLAG));
 
 	default:
@@ -1781,17 +1775,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	case SLJIT_MASHR:
 	case SLJIT_ROTL:
 	case SLJIT_ROTR:
-#if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
-		if (src2 & SLJIT_IMM)
-			src2w &= 0x1f;
-#else
 		if (src2 & SLJIT_IMM) {
+#if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
+			src2w &= 0x1f;
+#else /* !SLJIT_CONFIG_RISCV_32 */
 			if (op & SLJIT_32)
 				src2w &= 0x1f;
 			else
 				src2w &= 0x3f;
+#endif /* SLJIT_CONFIG_RISCV_32 */
 		}
-#endif
+
 		return emit_op(compiler, op, flags | IMM_OP, dst, dstw, src1, src1w, src2, src2w);
 	}
 
