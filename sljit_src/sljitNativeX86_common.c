@@ -174,6 +174,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define AND_rm_r	0x21
 #define ANDPD_x_xm	0x54
 #define BSR_r_rm	(/* GROUP_0F */ 0xbd)
+#define BSF_r_rm	(/* GROUP_0F */ 0xbc)
 #define CALL_i32	0xe8
 #define CALL_rm		(/* GROUP_FF */ 2 << 3)
 #define CDQ		0x99
@@ -204,6 +205,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define JMP_rm		(/* GROUP_FF */ 4 << 3)
 #define LEA_r_m		0x8d
 #define LOOP_i8		0xe2
+#define LZCNT_r_rm	(/* GROUP_F3 */ /* GROUP_0F */ 0xbd)
 #define MOV_r_rm	0x8b
 #define MOV_r_i32	0xb8
 #define MOV_rm_r	0x89
@@ -257,6 +259,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define SUBSD_x_xm	0x5c
 #define TEST_EAX_i32	0xa9
 #define TEST_rm_r	0x85
+#define TZCNT_r_rm	(/* GROUP_F3 */ /* GROUP_0F */ 0xbc)
 #define UCOMISD_x_xm	0x2e
 #define UNPCKLPD_x_xm	0x14
 #define XCHG_EAX_r	0x90
@@ -268,6 +271,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define XORPD_x_xm	0x57
 
 #define GROUP_0F	0x0f
+#define GROUP_F3	0xf3
 #define GROUP_F7	0xf7
 #define GROUP_FF	0xff
 #define GROUP_BINARY_81	0x81
@@ -289,10 +293,15 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 /* Multithreading does not affect these static variables, since they store
    built-in CPU features. Therefore they can be overwritten by different threads
    if they detect the CPU features in the same time. */
+#define CPU_FEATURE_DETECTED		0x001
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
-static sljit_s32 cpu_has_sse2 = -1;
+#define CPU_FEATURE_SSE2		0x002
 #endif
-static sljit_s32 cpu_has_cmov = -1;
+#define CPU_FEATURE_LZCNT		0x004
+#define CPU_FEATURE_TZCNT		0x008
+#define CPU_FEATURE_CMOV		0x010
+
+static sljit_u32 cpu_feature_list = 0;
 
 #ifdef _WIN32_WCE
 #include <cmnintrin.h>
@@ -325,17 +334,64 @@ static SLJIT_INLINE void sljit_unaligned_store_sw(void *addr, sljit_sw value)
 
 static void get_cpu_features(void)
 {
-	sljit_u32 features;
+	sljit_u32 feature_list = CPU_FEATURE_DETECTED;
+	sljit_u32 value;
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 
 	int CPUInfo[4];
+
+	__cpuid(CPUInfo, 0);
+	if (CPUInfo[0] >= 7) {
+		__cpuidex(CPUInfo, 7, 0);
+		if (CPUInfo[1] & 0x8)
+			feature_list |= CPU_FEATURE_TZCNT;
+	}
+
+	__cpuid(CPUInfo, (int)0x80000001);
+	if (CPUInfo[2] & 0x20)
+		feature_list |= CPU_FEATURE_LZCNT;
+
 	__cpuid(CPUInfo, 1);
-	features = (sljit_u32)CPUInfo[3];
+	value = (sljit_u32)CPUInfo[3];
 
 #elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C)
 
 	/* AT&T syntax. */
+	__asm__ (
+		"movl $0x0, %%eax\n"
+		"lzcnt %%eax, %%eax\n"
+		"setnz %%al\n"
+		"movl %%eax, %0\n"
+		: "=g" (value)
+		:
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		: "eax"
+#else
+		: "rax"
+#endif
+	);
+
+	if (value & 0x1)
+		feature_list |= CPU_FEATURE_LZCNT;
+
+	__asm__ (
+		"movl $0x0, %%eax\n"
+		"tzcnt %%eax, %%eax\n"
+		"setnz %%al\n"
+		"movl %%eax, %0\n"
+		: "=g" (value)
+		:
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		: "eax"
+#else
+		: "rax"
+#endif
+	);
+
+	if (value & 0x1)
+		feature_list |= CPU_FEATURE_TZCNT;
+
 	__asm__ (
 		"movl $0x1, %%eax\n"
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
@@ -348,7 +404,7 @@ static void get_cpu_features(void)
 		"pop %%ebx\n"
 #endif
 		"movl %%edx, %0\n"
-		: "=g" (features)
+		: "=g" (value)
 		:
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		: "%eax", "%ecx", "%edx"
@@ -361,17 +417,41 @@ static void get_cpu_features(void)
 
 	/* Intel syntax. */
 	__asm {
+		mov eax, 0
+		lzcnt eax, eax
+		setnz al
+		mov value, eax
+	}
+
+	if (value & 0x1)
+		feature_list |= CPU_FEATURE_LZCNT;
+
+	__asm {
+		mov eax, 0
+		tzcnt eax, eax
+		setnz al
+		mov value, eax
+	}
+
+	if (value & 0x1)
+		feature_list |= CPU_FEATURE_TZCNT;
+
+	__asm {
 		mov eax, 1
 		cpuid
-		mov features, edx
+		mov value, edx
 	}
 
 #endif /* _MSC_VER && _MSC_VER >= 1400 */
 
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
-	cpu_has_sse2 = (features >> 26) & 0x1;
+	if (value & 0x4000000)
+		feature_list |= CPU_FEATURE_SSE2;
 #endif
-	cpu_has_cmov = (features >> 15) & 0x1;
+	if (value & 0x8000)
+		feature_list |= CPU_FEATURE_CMOV;
+
+	cpu_feature_list = feature_list;
 }
 
 static sljit_u8 get_jump_code(sljit_uw type)
@@ -659,9 +739,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #ifdef SLJIT_IS_FPU_AVAILABLE
 		return SLJIT_IS_FPU_AVAILABLE;
 #elif (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
-		if (cpu_has_sse2 == -1)
+		if (cpu_feature_list == 0)
 			get_cpu_features();
-		return cpu_has_sse2;
+		return (cpu_feature_list & CPU_FEATURE_SSE2) != 0;
 #else /* SLJIT_DETECT_SSE2 */
 		return 1;
 #endif /* SLJIT_DETECT_SSE2 */
@@ -672,10 +752,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #endif /* SLJIT_CONFIG_X86_32 */
 
 	case SLJIT_HAS_CLZ:
-	case SLJIT_HAS_CMOV:
-		if (cpu_has_cmov == -1)
+		if (cpu_feature_list == 0)
 			get_cpu_features();
-		return cpu_has_cmov;
+
+		return (cpu_feature_list & CPU_FEATURE_LZCNT) ? 1 : 2;
+
+	case SLJIT_HAS_CTZ:
+		if (cpu_feature_list == 0)
+			get_cpu_features();
+
+		return (cpu_feature_list & CPU_FEATURE_TZCNT) ? 1 : 2;
+
+	case SLJIT_HAS_CMOV:
+		if (cpu_feature_list == 0)
+			get_cpu_features();
+		return (cpu_feature_list & CPU_FEATURE_CMOV) != 0;
 
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_PREFETCH:
@@ -683,9 +774,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 
 	case SLJIT_HAS_SSE2:
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
-		if (cpu_has_sse2 == -1)
+		if (cpu_feature_list == 0)
 			get_cpu_features();
-		return cpu_has_sse2;
+		return (cpu_feature_list & CPU_FEATURE_SSE2) != 0;
 #else /* !SLJIT_DETECT_SSE2 */
 		return 1;
 #endif /* SLJIT_DETECT_SSE2 */
@@ -1412,47 +1503,75 @@ static sljit_s32 emit_not_with_flags(struct sljit_compiler *compiler,
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 static const sljit_sw emit_clz_arg = 32 + 31;
+static const sljit_sw emit_ctz_arg = 32;
 #endif
 
-static sljit_s32 emit_clz(struct sljit_compiler *compiler, sljit_s32 op_flags,
+static sljit_s32 emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 is_clz,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_u8* inst;
 	sljit_s32 dst_r;
+	sljit_sw max;
 
-	SLJIT_UNUSED_ARG(op_flags);
-
-	if (cpu_has_cmov == -1)
+	if (cpu_feature_list == 0)
 		get_cpu_features();
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 
+	if (is_clz ? (cpu_feature_list & CPU_FEATURE_LZCNT) : (cpu_feature_list & CPU_FEATURE_TZCNT)) {
+		/* Group prefix added separately. */
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
+		FAIL_IF(!inst);
+		INC_SIZE(1);
+		*inst++ = GROUP_F3;
+
+		inst = emit_x86_instruction(compiler, 2, dst_r, 0, src, srcw);
+		FAIL_IF(!inst);
+		*inst++ = GROUP_0F;
+		*inst = is_clz ? LZCNT_r_rm : TZCNT_r_rm;
+
+		if (dst & SLJIT_MEM)
+			EMIT_MOV(compiler, dst, dstw, TMP_REG1, 0);
+		return SLJIT_SUCCESS;
+	}
+
 	inst = emit_x86_instruction(compiler, 2, dst_r, 0, src, srcw);
 	FAIL_IF(!inst);
 	*inst++ = GROUP_0F;
-	*inst = BSR_r_rm;
+	*inst = is_clz ? BSR_r_rm : BSF_r_rm;
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	if (cpu_has_cmov) {
+	max = is_clz ? (32 + 31) : 32;
+
+	if (cpu_feature_list & CPU_FEATURE_CMOV) {
 		if (dst_r != TMP_REG1) {
-			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, 32 + 31);
+			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, max);
 			inst = emit_x86_instruction(compiler, 2, dst_r, 0, TMP_REG1, 0);
 		}
 		else
-			inst = emit_x86_instruction(compiler, 2, dst_r, 0, SLJIT_MEM0(), (sljit_sw)&emit_clz_arg);
+			inst = emit_x86_instruction(compiler, 2, dst_r, 0, SLJIT_MEM0(), is_clz ? (sljit_sw)&emit_clz_arg : (sljit_sw)&emit_ctz_arg);
 
 		FAIL_IF(!inst);
 		*inst++ = GROUP_0F;
 		*inst = CMOVE_r_rm;
 	}
 	else
-		FAIL_IF(sljit_emit_cmov_generic(compiler, SLJIT_EQUAL, dst_r, SLJIT_IMM, 32 + 31));
+		FAIL_IF(sljit_emit_cmov_generic(compiler, SLJIT_EQUAL, dst_r, SLJIT_IMM, max));
 
-	inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, 31, dst_r, 0);
+	if (is_clz) {
+		inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, 31, dst_r, 0);
+		FAIL_IF(!inst);
+		*(inst + 1) |= XOR;
+	}
 #else
-	if (cpu_has_cmov) {
-		EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_IMM, !(op_flags & SLJIT_32) ? (64 + 63) : (32 + 31));
+	if (is_clz)
+		max = compiler->mode32 ? (32 + 31) : (64 + 63);
+	else
+		max = compiler->mode32 ? 32 : 64;
+
+	if (cpu_feature_list & CPU_FEATURE_CMOV) {
+		EMIT_MOV(compiler, TMP_REG2, 0, SLJIT_IMM, max);
 
 		inst = emit_x86_instruction(compiler, 2, dst_r, 0, TMP_REG2, 0);
 		FAIL_IF(!inst);
@@ -1460,13 +1579,14 @@ static sljit_s32 emit_clz(struct sljit_compiler *compiler, sljit_s32 op_flags,
 		*inst = CMOVE_r_rm;
 	}
 	else
-		FAIL_IF(sljit_emit_cmov_generic(compiler, SLJIT_EQUAL, dst_r, SLJIT_IMM, !(op_flags & SLJIT_32) ? (64 + 63) : (32 + 31)));
+		FAIL_IF(sljit_emit_cmov_generic(compiler, SLJIT_EQUAL, dst_r, SLJIT_IMM, max));
 
-	inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, !(op_flags & SLJIT_32) ? 63 : 31, dst_r, 0);
+	if (is_clz) {
+		inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, max >> 1, dst_r, 0);
+		FAIL_IF(!inst);
+		*(inst + 1) |= XOR;
+	}
 #endif
-
-	FAIL_IF(!inst);
-	*(inst + 1) |= XOR;
 
 	if (dst & SLJIT_MEM)
 		EMIT_MOV(compiler, dst, dstw, TMP_REG1, 0);
@@ -1605,7 +1725,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		return emit_unary(compiler, NOT_rm, dst, dstw, src, srcw);
 
 	case SLJIT_CLZ:
-		return emit_clz(compiler, op_flags, dst, dstw, src, srcw);
+	case SLJIT_CTZ:
+		return emit_clz_ctz(compiler, (op == SLJIT_CLZ), dst, dstw, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;
@@ -3022,10 +3143,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		}
 
 		/* Low byte is not accessible. */
-		if (cpu_has_cmov == -1)
+		if (cpu_feature_list == 0)
 			get_cpu_features();
 
-		if (cpu_has_cmov) {
+		if (cpu_feature_list & CPU_FEATURE_CMOV) {
 			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, 1);
 			/* a xor reg, reg operation would overwrite the flags. */
 			EMIT_MOV(compiler, dst, 0, SLJIT_IMM, 0);

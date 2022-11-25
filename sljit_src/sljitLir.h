@@ -609,7 +609,8 @@ static SLJIT_INLINE sljit_sw sljit_get_executable_offset(struct sljit_compiler *
 static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler *compiler) { return compiler->executable_size; }
 
 /* Returns with non-zero if the feature or limitation type passed as its
-   argument is present on the current CPU.
+   argument is present on the current CPU. The return value is one, if a
+   feature is fully supported, and it is two, if partially supported.
 
    Some features (e.g. floating point operations) require hardware (CPU)
    support while others (e.g. move with update) are emulated if not available.
@@ -625,12 +626,14 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_HAS_ZERO_REGISTER		2
 /* [Emulated] Count leading zero is supported. */
 #define SLJIT_HAS_CLZ			3
+/* [Emulated] Count trailing zero is supported. */
+#define SLJIT_HAS_CTZ			4
 /* [Emulated] Rotate left/right is supported. */
-#define SLJIT_HAS_ROT			4
+#define SLJIT_HAS_ROT			5
 /* [Emulated] Conditional move is supported. */
-#define SLJIT_HAS_CMOV			5
+#define SLJIT_HAS_CMOV			6
 /* [Emulated] Prefetch instruction is available (emulated as a nop). */
-#define SLJIT_HAS_PREFETCH		6
+#define SLJIT_HAS_PREFETCH		7
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] SSE2 support is available on x86. */
@@ -1063,6 +1066,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
    Note: immediate source argument is not supported */
 #define SLJIT_CLZ			(SLJIT_OP1_BASE + 10)
 #define SLJIT_CLZ32			(SLJIT_CLZ | SLJIT_32)
+/* Count trailing zeroes
+   Flags: - (may destroy flags)
+   Note: immediate source argument is not supported */
+#define SLJIT_CTZ			(SLJIT_OP1_BASE + 11)
+#define SLJIT_CTZ32			(SLJIT_CTZ | SLJIT_32)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,

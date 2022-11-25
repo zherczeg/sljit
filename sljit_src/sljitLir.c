@@ -993,7 +993,7 @@ static const char* op0_names[] = {
 static const char* op1_names[] = {
 	"", ".u8", ".s8", ".u16",
 	".s16", ".u32", ".s32", "32",
-	".p", "not", "clz",
+	".p", "not", "clz", "ctz"
 };
 
 static const char* op2_names[] = {
@@ -1326,7 +1326,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	}
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_CLZ);
+	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_CTZ);
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_NOT:

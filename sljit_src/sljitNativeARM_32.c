@@ -109,6 +109,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define ORR		0xe1800000
 #define PUSH		0xe92d0000
 #define POP		0xe8bd0000
+#define RBIT		0xe6ff0f30
 #define RSB		0xe0600000
 #define RSC		0xe0e00000
 #define SBC		0xe0c00000
@@ -962,9 +963,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_CMOV:
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+	case SLJIT_HAS_CTZ:
 	case SLJIT_HAS_PREFETCH:
 #endif
 		return 1;
+
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
+	case SLJIT_HAS_CTZ:
+		return 2;
+#endif
 
 	default:
 		return 0;
@@ -1479,10 +1486,23 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return push_inst(compiler, MVN | (flags & SET_FLAGS) | RD(dst) | RM(src2));
 
 	case SLJIT_CLZ:
-		SLJIT_ASSERT(!(flags & INV_IMM));
-		SLJIT_ASSERT(!(src2 & SRC2_IMM));
+		SLJIT_ASSERT(!(flags & INV_IMM) && !(src2 & SRC2_IMM));
 		FAIL_IF(push_inst(compiler, CLZ | RD(dst) | RM(src2)));
 		return SLJIT_SUCCESS;
+
+	case SLJIT_CTZ:
+		SLJIT_ASSERT(!(flags & INV_IMM) && !(src2 & SRC2_IMM));
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
+		FAIL_IF(push_inst(compiler, RSB | SRC2_IMM | RD(TMP_REG1) | RN(src2) | 0));
+		FAIL_IF(push_inst(compiler, AND | RD(TMP_REG2) | RN(src2) | RM(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, CLZ | RD(dst) | RM(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, CMP | SET_FLAGS | SRC2_IMM | RN(dst) | 32));
+		return push_inst(compiler, (EOR ^ 0xf0000000) | SRC2_IMM | RD(dst) | RN(dst) | 0x1f);
+#else /* !SLJIT_CONFIG_ARM_V5 */
+		FAIL_IF(push_inst(compiler, RBIT | RD(dst) | RM(src2)));
+		return push_inst(compiler, CLZ | RD(dst) | RM(dst));
+#endif /* SLJIT_CONFIG_ARM_V5 */
 
 	case SLJIT_ADD:
 		SLJIT_ASSERT(!(flags & INV_IMM));
@@ -2139,6 +2159,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		return emit_op(compiler, op, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_CLZ:
+	case SLJIT_CTZ:
 		return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src, srcw);
 	}
 

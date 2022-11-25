@@ -205,9 +205,17 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(src1 == TMP_REG1);
-		if (flags & ALT_FORM1)
-			return push_inst(compiler, CNTLZW | S(src2) | A(dst));
-		return push_inst(compiler, CNTLZD | S(src2) | A(dst));
+		return push_inst(compiler, ((flags & ALT_FORM1) ? CNTLZW : CNTLZD) | S(src2) | A(dst));
+
+	case SLJIT_CTZ:
+		SLJIT_ASSERT(src1 == TMP_REG1);
+		FAIL_IF(push_inst(compiler, NEG | D(TMP_REG1) | A(src2)));
+		FAIL_IF(push_inst(compiler, AND | S(src2) | A(dst) | B(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, ((flags & ALT_FORM1) ? CNTLZW : CNTLZD) | S(dst) | A(dst)));
+		FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG1) | A(dst) | IMM((flags & ALT_FORM1) ? -32 : -64)));
+		/* The highest bits are set, if dst < bit width, zero otherwise. */
+		FAIL_IF(push_inst(compiler, ((flags & ALT_FORM1) ? SRWI(27) : SRDI(58)) | S(TMP_REG1) | A(TMP_REG1)));
+		return push_inst(compiler, XOR | S(dst) | A(dst) | B(TMP_REG1));
 
 	case SLJIT_ADD:
 		if (flags & ALT_FORM1) {
@@ -460,6 +468,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		}
 
 		return push_inst(compiler, ((flags & ALT_FORM2) ? SRAW : SRAD) | RC(flags) | S(src1) | A(dst) | B(src2));
+
 	case SLJIT_ROTL:
 	case SLJIT_ROTR:
 		if (flags & ALT_FORM1) {

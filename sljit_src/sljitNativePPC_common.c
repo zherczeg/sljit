@@ -665,6 +665,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_PREFETCH:
 		return 1;
 
+	case SLJIT_HAS_CTZ:
+		return 2;
+
 	default:
 		return 0;
 	}
@@ -1411,10 +1414,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		return emit_op(compiler, SLJIT_NOT, flags, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_CLZ:
+	case SLJIT_CTZ:
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-		return emit_op(compiler, SLJIT_CLZ, flags | (!(op_flags & SLJIT_32) ? 0 : ALT_FORM1), dst, dstw, TMP_REG1, 0, src, srcw);
+		return emit_op(compiler, op, flags | (!(op_flags & SLJIT_32) ? 0 : ALT_FORM1), dst, dstw, TMP_REG1, 0, src, srcw);
 #else
-		return emit_op(compiler, SLJIT_CLZ, flags, dst, dstw, TMP_REG1, 0, src, srcw);
+		return emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, src, srcw);
 #endif
 	}
 

@@ -93,6 +93,16 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		return push_inst(compiler, CNTLZW | S(src2) | A(dst));
 
+	case SLJIT_CTZ:
+		SLJIT_ASSERT(src1 == TMP_REG1);
+		FAIL_IF(push_inst(compiler, NEG | D(TMP_REG1) | A(src2)));
+		FAIL_IF(push_inst(compiler, AND | S(src2) | A(dst) | B(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, CNTLZW | S(dst) | A(dst)));
+		FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG1) | A(dst) | IMM(-32)));
+		/* The highest bits are set, if dst < 32, zero otherwise. */
+		FAIL_IF(push_inst(compiler, SRWI(27) | S(TMP_REG1) | A(TMP_REG1)));
+		return push_inst(compiler, XOR | S(dst) | A(dst) | B(TMP_REG1));
+
 	case SLJIT_ADD:
 		if (flags & ALT_FORM1) {
 			/* Setting XER SO is not enough, CR SO is also needed. */
@@ -283,6 +293,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		}
 
 		return push_inst(compiler, SRAW | RC(flags) | S(src1) | A(dst) | B(src2));
+
 	case SLJIT_ROTL:
 	case SLJIT_ROTR:
 		if (flags & ALT_FORM1) {

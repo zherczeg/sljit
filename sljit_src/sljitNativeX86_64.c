@@ -611,6 +611,8 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 			*inst = MOVAPS_x_xm;
 			saved_float_regs_offset += 16;
 		}
+
+		compiler->mode32 = 0;
 	}
 #endif /* _WIN64 */
 
