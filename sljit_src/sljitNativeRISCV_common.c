@@ -1037,6 +1037,43 @@ static SLJIT_INLINE sljit_s32 emit_op_mem2(struct sljit_compiler *compiler, slji
 #define IMM_EXTEND(v) (IMM_I((op & SLJIT_32) ? (v) : (32 + (v))))
 #endif /* SLJIT_CONFIG_RISCV_32 */
 
+static sljit_s32 emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 dst, sljit_sw src)
+{
+	sljit_s32 is_clz = (GET_OPCODE(op) == SLJIT_CLZ);
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+	sljit_ins word = (op & SLJIT_32) >> 5;
+	sljit_ins max = (op & SLJIT_32) ? 32 : 64;
+#else /* !SLJIT_CONFIG_RISCV_64 */
+	sljit_ins max = 32;
+#endif /* SLJIT_CONFIG_RISCV_64 */
+
+	SLJIT_ASSERT(WORD == 0 || WORD == 0x8);
+
+	/* The OTHER_FLAG is the counter. */
+	FAIL_IF(push_inst(compiler, ADDI | WORD | RD(OTHER_FLAG) | RS1(TMP_ZERO) | IMM_I(max)));
+
+	/* The TMP_REG2 is the next value. */
+	if (src != TMP_REG2)
+		FAIL_IF(push_inst(compiler, ADDI | WORD | RD(TMP_REG2) | RS1(src) | IMM_I(0)));
+
+	FAIL_IF(push_inst(compiler, BEQ | RS1(TMP_REG2) | RS2(TMP_ZERO) | ((sljit_ins)(2 * SSIZE_OF(ins)) << 7) | ((sljit_ins)(8 * SSIZE_OF(ins)) << 20)));
+
+	/* The TMP_REG1 is the next shift. */
+	FAIL_IF(push_inst(compiler, ADDI | WORD | RD(TMP_REG1) | RS1(TMP_ZERO) | IMM_I(max)));
+	FAIL_IF(push_inst(compiler, ADDI | WORD | RD(OTHER_FLAG) | RS1(TMP_ZERO) | IMM_I(0)));
+
+	FAIL_IF(push_inst(compiler, ADDI | WORD | RD(EQUAL_FLAG) | RS1(TMP_REG2) | IMM_I(0)));
+	FAIL_IF(push_inst(compiler, SRLI | WORD | RD(TMP_REG1) | RS1(TMP_REG1) | IMM_I(1)));
+	FAIL_IF(push_inst(compiler, BEQ | RS1(TMP_REG1) | RS2(TMP_ZERO) | ((sljit_ins)(5 * SSIZE_OF(ins)) << 7)));
+
+	FAIL_IF(push_inst(compiler, (is_clz ? SRL : SLL) | WORD | RD(TMP_REG2) | RS1(EQUAL_FLAG) | RS2(TMP_REG1)));
+	FAIL_IF(push_inst(compiler, BNE | RS1(TMP_REG2) | RS2(TMP_ZERO) | ((sljit_ins)0xfe000e80 - ((3 * SSIZE_OF(ins)) << 7))));
+	FAIL_IF(push_inst(compiler, OR | RD(OTHER_FLAG) | RS1(OTHER_FLAG) | RS2(TMP_REG1)));
+	FAIL_IF(push_inst(compiler, JAL | RD(TMP_ZERO) | ((sljit_ins)0xffdff000 - ((4 * SSIZE_OF(ins)) << 20))));
+
+	return push_inst(compiler, ADDI | WORD | RD(dst) | RS1(OTHER_FLAG) | IMM_I(0));
+}
+
 #define EMIT_LOGICAL(op_imm, op_reg) \
 	if (flags & SRC2_IMM) { \
 		if (op & SLJIT_SET_Z) \
@@ -1126,28 +1163,9 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 #endif /* SLJIT_CONFIG_RISCV_64 */
 
 	case SLJIT_CLZ:
+	case SLJIT_CTZ:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
-#if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
-		FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG1) | RS1(src2) | IMM_I(0)));
-		FAIL_IF(push_inst(compiler, ADDI | RD(dst) | RS1(TMP_ZERO) | IMM_I(32)));
-#else /* !SLJIT_CONFIG_RISCV_32 */
-		if (op & SLJIT_32) {
-			FAIL_IF(push_inst(compiler, SLLI | RD(TMP_REG1) | RS1(src2) | IMM_I(32)));
-			FAIL_IF(push_inst(compiler, ADDI | RD(dst) | RS1(TMP_ZERO) | IMM_I(32)));
-		} else {
-			FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG1) | RS1(src2) | IMM_I(0)));
-			FAIL_IF(push_inst(compiler, ADDI | RD(dst) | RS1(TMP_ZERO) | IMM_I(64)));
-		}
-#endif /* SLJIT_CONFIG_RISCV_32 */
-		/* Check zero. */
-		FAIL_IF(push_inst(compiler, BEQ | RS1(TMP_REG1) | RS2(TMP_ZERO) | ((sljit_ins)(6 * SSIZE_OF(ins)) << 7)));
-		FAIL_IF(push_inst(compiler, ADDI | RD(dst) | RS1(TMP_ZERO) | IMM_I(0)));
-		FAIL_IF(push_inst(compiler, BLT | RS1(TMP_REG1) | RS2(TMP_ZERO) | ((sljit_ins)(4 * SSIZE_OF(ins)) << 7)));
-		/* Loop for searching the highest bit. */
-		FAIL_IF(push_inst(compiler, ADDI | RD(dst) | RS1(dst) | IMM_I(1)));
-		FAIL_IF(push_inst(compiler, SLLI | RD(TMP_REG1) | RS1(TMP_REG1) | IMM_I(1)));
-		FAIL_IF(push_inst(compiler, BGE | RS1(TMP_REG1) | RS2(TMP_ZERO) | ((sljit_ins)(0x1fc001d - 1 * SSIZE_OF(ins)) << 7)));
-		return SLJIT_SUCCESS;
+		return emit_clz_ctz(compiler, op, dst, src2);
 
 	case SLJIT_ADD:
 		/* Overflow computation (both add and sub): overflow = src1_sign ^ src2_sign ^ result_sign ^ carry_flag */
@@ -1717,6 +1735,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		return emit_op(compiler, SLJIT_XOR | (op & (SLJIT_32 | SLJIT_SET_Z)), flags, dst, dstw, src, srcw, SLJIT_IMM, -1);
 
 	case SLJIT_CLZ:
+	case SLJIT_CTZ:
 		return emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, src, srcw);
 	}
 
