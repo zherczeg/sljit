@@ -407,9 +407,9 @@ static void get_cpu_features(void)
 		: "=g" (value)
 		:
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		: "%eax", "%ecx", "%edx"
+		: "eax", "ecx", "edx"
 #else
-		: "%rax", "%rbx", "%rcx", "%rdx"
+		: "rax", "rbx", "rcx", "rdx"
 #endif
 	);
 
