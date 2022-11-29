@@ -355,7 +355,7 @@ static void get_cpu_features(void)
 	__cpuid(CPUInfo, 1);
 	value = (sljit_u32)CPUInfo[3];
 
-#elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C)
+#elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C) || defined(__TINYC__)
 
 	/* AT&T syntax. */
 	__asm__ (
