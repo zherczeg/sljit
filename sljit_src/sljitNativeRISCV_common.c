@@ -236,7 +236,7 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 
 		jump->flags |= PATCH_ABS44;
 		inst[3] = inst[0];
-		return inst + 4;
+		return inst + 3;
 	}
 
 	if (target_addr <= S52_MAX) {
