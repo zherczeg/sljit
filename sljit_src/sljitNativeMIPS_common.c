@@ -1419,30 +1419,39 @@ static sljit_s32 emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 op, slj
 	sljit_ins max = 32;
 #endif /* SLJIT_CONFIG_RISCV_64 */
 
-	/* Nearly all instructions are unmovable in the following sequence. */
-
-	/* The OTHER_FLAG is the counter. */
-	FAIL_IF(push_inst(compiler, SELECT_OP(DADDIU, ADDIU) | SA(0) | TA(OTHER_FLAG) | IMM(max), OTHER_FLAG));
-
 	/* The TMP_REG2 is the next value. */
 	if (src != TMP_REG2)
 		FAIL_IF(push_inst(compiler, SELECT_OP(DADDU, ADDU) | S(src) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
 
-	FAIL_IF(push_inst(compiler, BEQ | S(TMP_REG2) | TA(0) | IMM(10), UNMOVABLE_INS));
+	FAIL_IF(push_inst(compiler, BEQ | S(TMP_REG2) | TA(0) | IMM(is_clz ? 13 : 14), UNMOVABLE_INS));
+	/* The OTHER_FLAG is the counter. Delay slot. */
+	FAIL_IF(push_inst(compiler, SELECT_OP(DADDIU, ADDIU) | SA(0) | TA(OTHER_FLAG) | IMM(max), OTHER_FLAG));
+
+	if (!is_clz) {
+		FAIL_IF(push_inst(compiler, ANDI | S(TMP_REG2) | T(TMP_REG1) | IMM(1), DR(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, BNE | S(TMP_REG1) | TA(0) | IMM(11), UNMOVABLE_INS));
+	} else
+		FAIL_IF(push_inst(compiler, BLTZ | S(TMP_REG2) | TA(0) | IMM(11), UNMOVABLE_INS));
+
+	/* Delay slot. */
+	FAIL_IF(push_inst(compiler, SELECT_OP(DADDIU, ADDIU) | SA(0) | TA(OTHER_FLAG) | IMM(0), OTHER_FLAG));
 
 	/* The TMP_REG1 is the next shift. */
 	FAIL_IF(push_inst(compiler, SELECT_OP(DADDIU, ADDIU) | SA(0) | T(TMP_REG1) | IMM(max), DR(TMP_REG1)));
-	FAIL_IF(push_inst(compiler, SELECT_OP(DADDIU, ADDIU) | SA(0) | TA(OTHER_FLAG) | IMM(0), OTHER_FLAG));
 
 	FAIL_IF(push_inst(compiler, SELECT_OP(DADDU, ADDU) | S(TMP_REG2) | TA(0) | DA(EQUAL_FLAG), EQUAL_FLAG));
 	FAIL_IF(push_inst(compiler, SELECT_OP(DSRL, SRL) | T(TMP_REG1) | D(TMP_REG1) | SH_IMM(1), DR(TMP_REG1)));
-	FAIL_IF(push_inst(compiler, BEQ | S(TMP_REG1) | TA(0) | IMM(5), UNMOVABLE_INS));
 
 	FAIL_IF(push_inst(compiler, (is_clz ? SELECT_OP(DSRLV, SRLV) : SELECT_OP(DSLLV, SLLV)) | S(TMP_REG1) | TA(EQUAL_FLAG) | D(TMP_REG2), DR(TMP_REG2)));
-	FAIL_IF(push_inst(compiler, BNE | S(TMP_REG2) | TA(0) | IMM(-5), UNMOVABLE_INS));
+	FAIL_IF(push_inst(compiler, BNE | S(TMP_REG2) | TA(0) | IMM(-4), UNMOVABLE_INS));
+	/* Delay slot. */
 	FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
 
-	FAIL_IF(push_inst(compiler, B | IMM(-6), UNMOVABLE_INS));
+	FAIL_IF(push_inst(compiler, SELECT_OP(DADDIU, ADDIU) | S(TMP_REG1) | T(TMP_REG2) | IMM(-1), DR(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, (is_clz ? SELECT_OP(DSRLV, SRLV) : SELECT_OP(DSLLV, SLLV)) | S(TMP_REG2) | TA(EQUAL_FLAG) | D(TMP_REG2), DR(TMP_REG2)));
+
+	FAIL_IF(push_inst(compiler, BEQ | S(TMP_REG2) | TA(0) | IMM(-7), UNMOVABLE_INS));
+	/* Delay slot. */
 	FAIL_IF(push_inst(compiler, OR | SA(OTHER_FLAG) | T(TMP_REG1) | DA(OTHER_FLAG), OTHER_FLAG));
 
 	return push_inst(compiler, SELECT_OP(DADDU, ADDU) | SA(OTHER_FLAG) | TA(0) | D(dst), DR(dst));
