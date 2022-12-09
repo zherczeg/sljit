@@ -41,6 +41,69 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 #endif
 }
 
+#define CPU_FEATURE_NEON	(1UL << 12)
+static unsigned long cpu_feature_list;
+
+#if (defined SLJIT_DETECT_SIMD && SLJIT_DETECT_SIMD)
+#if defined(HAVE_GETAUXVAL) || defined(HAVE_ELF_AUX_INFO)
+#include <sys/auxv.h>
+#endif
+
+#ifdef __NetBSD__
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#endif
+
+static void get_cpu_features(void)
+{
+	if (cpu_feature_list)
+		return;
+
+#if defined(__ARM_ARCH) && __ARM_ARCH == 8
+	/* TODO: confirm if optional with armv9 */
+	/* mandatory for armv8 */
+	cpu_feature_list = CPU_FEATURE_NEON;
+#elif defined(HAVE_GETAUXVAL)
+	cpu_feature_list = getauxval(AT_HWCAP);
+	if (errno == ENOENT)
+		cpu_feature_list = 1;
+#elif defined(__OpenBSD__)
+	/* required feature */
+	cpu_feature_list = CPU_FEATURE_NEON;
+#elif defined(__APPLE__) && defined (__ARM_NEON__)
+	cpu_feature_list = CPU_FEATURE_NEON;
+#elif defined(_WIN32)
+#ifndef FP_ARM_NEON_INSTRUCTIONS_AVAILABLE
+#define FP_ARM_NEON_INSTRUCTIONS_AVAILABLE 19
+#endif
+	if (IsProcessorFeaturePresent(FP_ARM_NEON_INSTRUCTIONS_AVAILABLE))
+		cpu_feature_list = CPU_FEATURE_NEON;
+#elif defined(__FreeBSD__) && defined(HAVE_ELF_AUX_INFO)
+	unsigned long buf;
+
+	if (elf_aux_info(AT_HWCAP, (void *)&buf, (int)sizeof(buf)))
+		cpu_feature_list = 1;
+		return;
+	}
+
+	if (buf & CPU_FEATURE_NEON)
+		cpu_feature_list = buf;
+#elif defined(__NetBSD__) || defined(__FreeBSD__)
+	int neon;
+	size_t len = sizeof(int);
+
+	if (sysctlbyname("machdep.neon_present", &neon, &len, NULL, 0) < 0) {
+		cpu_feature_list = 1;
+		return;
+	}
+
+	if (neon)
+		cpu_feature_list = CPU_FEATURE_NEON;
+#endif
+}
+
+#endif /* SLJIT_DETECT_SIMD */
+
 /* Last register + 1. */
 #define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
 #define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
@@ -973,6 +1036,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 2;
 #endif
 
+	case SLJIT_HAS_SIMD:
+#if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7) && \
+      (defined SLJIT_DETECT_SIMD && SLJIT_DETECT_SIMD)
+		if (!cpu_feature_list)
+			get_cpu_features();
+#endif /* SLJIT_CONFIG_ARM_V7 && SLJIT_DETECT_SIMD */
+		return (cpu_feature_list & CPU_FEATURE_NEON) != 0;
 	default:
 		return 0;
 	}

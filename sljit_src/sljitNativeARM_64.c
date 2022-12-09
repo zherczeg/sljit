@@ -392,6 +392,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 1;
 #endif
 
+	case SLJIT_HAS_SIMD:
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_CTZ:
 	case SLJIT_HAS_ROT:

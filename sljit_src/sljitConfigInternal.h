@@ -580,10 +580,12 @@ typedef double sljit_f64;
 
 #endif /* !SLJIT_FPU_UNALIGNED */
 
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-/* Auto detect SSE2 support using CPUID.
-   On 64 bit x86 cpus, sse2 must be present. */
-#define SLJIT_DETECT_SSE2 1
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) || \
+	(defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+/* Auto detect availability of SSE2 (using CPUID) or NEON.
+   Mandatory on 64 bit x86 or ARM (aarch64) cpus.
+   Optionally available for 32 bit since pentium or armv7. */
+#define SLJIT_DETECT_SIMD 1
 #endif
 
 /*****************************************************************************************/
