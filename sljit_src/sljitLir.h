@@ -558,8 +558,7 @@ static SLJIT_INLINE sljit_s32 sljit_get_compiler_error(struct sljit_compiler *co
    after the code is compiled. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_compiler_memory_error(struct sljit_compiler *compiler);
 
-/*
-   Allocate a small amount of memory. The size must be <= 64 bytes on 32 bit,
+/* Allocate a small amount of memory. The size must be <= 64 bytes on 32 bit,
    and <= 128 bytes on 64 bit architectures. The memory area is owned by the
    compiler, and freed by sljit_free_compiler. The returned pointer is
    sizeof(sljit_sw) aligned. Excellent for allocating small blocks during
@@ -567,19 +566,21 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_compiler_memory_error(struct sljit_compi
    to contain at most 16 pointers. If the size is outside of the range,
    the function will return with NULL. However, this return value does not
    indicate that there is no more memory (does not set the current error code
-   of the compiler to out-of-memory status).
-*/
+   of the compiler to out-of-memory status). */
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_alloc_memory(struct sljit_compiler *compiler, sljit_s32 size);
+
+/* Returns the allocator data passed to sljit_create_compiler. These pointers
+   may contain context data even if the normal/exec allocator ignores it. */
+static SLJIT_INLINE void* sljit_get_allocator_data(struct sljit_compiler *compiler) { return compiler->allocator_data; }
+static SLJIT_INLINE void* sljit_get_exec_allocator_data(struct sljit_compiler *compiler) { return compiler->exec_allocator_data; }
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 /* Passing NULL disables verbose. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose);
 #endif
 
-/*
-   Create executable code from the instruction stream. This is the final step
-   of the code generation so no more instructions can be emitted after this call.
-*/
+/* Create executable code from the instruction stream. This is the final step
+   of the code generation so no more instructions can be emitted after this call. */
 
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compiler);
 
@@ -587,8 +588,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_data);
 
-/*
-   When the protected executable allocator is used the JIT code is mapped
+/* When the protected executable allocator is used the JIT code is mapped
    twice. The first mapping has read/write and the second mapping has read/exec
    permissions. This function returns with the relative offset of the executable
    mapping using the writable mapping as the base after the machine code is
@@ -596,16 +596,13 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_d
    allocator, since it uses only one mapping with read/write/exec permissions.
    Dynamic code modifications requires this value.
 
-   Before a successful code generation, this function returns with 0.
-*/
+   Before a successful code generation, this function returns with 0. */
 static SLJIT_INLINE sljit_sw sljit_get_executable_offset(struct sljit_compiler *compiler) { return compiler->executable_offset; }
 
-/*
-   The executable memory consumption of the generated code can be retrieved by
+/* The executable memory consumption of the generated code can be retrieved by
    this function. The returned value can be used for statistical purposes.
 
-   Before a successful code generation, this function returns with 0.
-*/
+   Before a successful code generation, this function returns with 0. */
 static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler *compiler) { return compiler->executable_size; }
 
 /* Returns with non-zero if the feature or limitation type passed as its
@@ -1725,7 +1722,8 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *com
    to know the type of the code generator. */
 SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void);
 
-/* Portable helper function to get an offset of a member. */
+/* Portable helper function to get an offset of a member.
+   Same as offsetof() macro defined in stddef.h */
 #define SLJIT_OFFSETOF(base, member) ((sljit_sw)(&((base*)0x10)->member) - 0x10)
 
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
