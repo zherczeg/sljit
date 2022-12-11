@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+10.12.2022 - Non-backward compatible
+    SLJIT_HAS_SSE2 renamed to SLJIT_HAS_SIMD
+
 10.11.2022 - Non-backward compatible
     Extract the pre/post update operations from
     sljit_emit_mem to sljit_emit_mem_update

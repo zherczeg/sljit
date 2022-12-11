@@ -632,9 +632,11 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 /* [Emulated] Prefetch instruction is available (emulated as a nop). */
 #define SLJIT_HAS_PREFETCH		7
 
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
+	|| (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
 /* [Not emulated] SSE2 support is available on x86. */
-#define SLJIT_HAS_SSE2			100
+/* [Not emulated] NEON support is available on ARM. */
+#define SLJIT_HAS_SIMD			100
 #endif
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type);

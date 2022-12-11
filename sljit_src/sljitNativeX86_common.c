@@ -294,7 +294,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
    built-in CPU features. Therefore they can be overwritten by different threads
    if they detect the CPU features in the same time. */
 #define CPU_FEATURE_DETECTED		0x001
-#if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
+#if (defined SLJIT_DETECT_SIMD && SLJIT_DETECT_SIMD)
 #define CPU_FEATURE_SSE2		0x002
 #endif
 #define CPU_FEATURE_LZCNT		0x004
@@ -444,7 +444,7 @@ static void get_cpu_features(void)
 
 #endif /* _MSC_VER && _MSC_VER >= 1400 */
 
-#if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
+#if (defined SLJIT_DETECT_SIMD && SLJIT_DETECT_SIMD)
 	if (value & 0x4000000)
 		feature_list |= CPU_FEATURE_SSE2;
 #endif
@@ -738,13 +738,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_FPU:
 #ifdef SLJIT_IS_FPU_AVAILABLE
 		return SLJIT_IS_FPU_AVAILABLE;
-#elif (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
+#elif (defined SLJIT_DETECT_SIMD && SLJIT_DETECT_SIMD)
 		if (cpu_feature_list == 0)
 			get_cpu_features();
 		return (cpu_feature_list & CPU_FEATURE_SSE2) != 0;
-#else /* SLJIT_DETECT_SSE2 */
+#else /* !SLJIT_DETECT_SIMD */
 		return 1;
-#endif /* SLJIT_DETECT_SSE2 */
+#endif /* SLJIT_IS_FPU_AVAILABLE */
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	case SLJIT_HAS_VIRTUAL_REGISTERS:
@@ -772,14 +772,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_PREFETCH:
 		return 1;
 
-	case SLJIT_HAS_SSE2:
-#if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
+	case SLJIT_HAS_SIMD:
+#if (defined SLJIT_DETECT_SIMD && SLJIT_DETECT_SIMD)
 		if (cpu_feature_list == 0)
 			get_cpu_features();
 		return (cpu_feature_list & CPU_FEATURE_SSE2) != 0;
-#else /* !SLJIT_DETECT_SSE2 */
+#else /* !SLJIT_DETECT_SIMD */
 		return 1;
-#endif /* SLJIT_DETECT_SSE2 */
+#endif /* SLJIT_DETECT_SIMD */
 
 	default:
 		return 0;

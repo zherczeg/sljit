@@ -10636,9 +10636,17 @@ static void test85(void)
 
 int sljit_test(int argc, char* argv[])
 {
-	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
+	int fpu;
+	int simd = 0;
+	char features[24];
+	int has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
 	verbose = has_arg && argv[1][1] == 'v';
 	silent = has_arg && argv[1][1] == 's';
+
+#if (defined(SLJIT_CONFIG_ARM) && SLJIT_CONFIG_ARM) \
+	|| (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+	simd = sljit_has_cpu_feature(SLJIT_HAS_SIMD);
+#endif
 
 	if (!verbose && !silent)
 		printf("Pass -v to enable verbose, -s to disable this hint.\n\n");
@@ -10743,7 +10751,16 @@ int sljit_test(int argc, char* argv[])
 		printf("all tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT " ");
 	else
 		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests are " COLOR_RED "FAILED" COLOR_DEFAULT " ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / TEST_COUNT);
-	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), sljit_has_cpu_feature(SLJIT_HAS_FPU) ? " (with fpu)" : " (without fpu)");
+
+	fpu = sljit_has_cpu_feature(SLJIT_HAS_FPU);
+	if (simd && fpu)
+		strcpy(features, " (with: fpu, simd)");
+	else if (fpu)
+		strcpy(features, " (with fpu)");
+	else
+		strcpy(features, " (without fpu)");
+
+	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), features);
 
 	return TEST_COUNT - successful_tests;
 
