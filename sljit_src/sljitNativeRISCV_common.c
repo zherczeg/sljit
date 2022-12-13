@@ -1738,9 +1738,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_MOV_S16:
 		return emit_op(compiler, op, HALF_DATA | SIGNED_DATA | MOVE_OP, dst, dstw, TMP_REG1, 0, src, (src & SLJIT_IMM) ? (sljit_s16)srcw : srcw);
 
-	case SLJIT_NOT:
-		return emit_op(compiler, SLJIT_XOR | (op & (SLJIT_32 | SLJIT_SET_Z)), flags, dst, dstw, src, srcw, SLJIT_IMM, -1);
-
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
 		return emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, src, srcw);

@@ -1479,12 +1479,6 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		}
 		return SLJIT_SUCCESS;
 
-	case SLJIT_NOT:
-		if (src2 & SRC2_IMM)
-			return push_inst(compiler, ((flags & INV_IMM) ? MOV : MVN) | (flags & SET_FLAGS) | RD(dst) | src2);
-
-		return push_inst(compiler, MVN | (flags & SET_FLAGS) | RD(dst) | RM(src2));
-
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(!(flags & INV_IMM) && !(src2 & SRC2_IMM));
 		FAIL_IF(push_inst(compiler, CLZ | RD(dst) | RM(src2)));
@@ -1553,7 +1547,10 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return push_inst(compiler, ORR | (flags & SET_FLAGS) | RD(dst) | RN(src1) | ((src2 & SRC2_IMM) ? src2 : RM(src2)));
 
 	case SLJIT_XOR:
-		SLJIT_ASSERT(!(flags & INV_IMM));
+		if (flags & INV_IMM) {
+			SLJIT_ASSERT(src2 == SRC2_IMM);
+			return push_inst(compiler, MVN | (flags & SET_FLAGS) | RD(dst) | RM(src1));
+		}
 		return push_inst(compiler, EOR | (flags & SET_FLAGS) | RD(dst) | RN(src1) | ((src2 & SRC2_IMM) ? src2 : RM(src2)));
 
 	case SLJIT_SHL:
@@ -2155,9 +2152,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_MOV_S16:
 		return emit_op(compiler, SLJIT_MOV_S16, ALLOW_ANY_IMM | SIGNED | HALF_SIZE, dst, dstw, TMP_REG1, 0, src, (src & SLJIT_IMM) ? (sljit_s16)srcw : srcw);
 
-	case SLJIT_NOT:
-		return emit_op(compiler, op, ALLOW_ANY_IMM, dst, dstw, TMP_REG1, 0, src, srcw);
-
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
 		return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src, srcw);
@@ -2171,6 +2165,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
+	sljit_s32 inp_flags;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op2(compiler, op, 0, dst, dstw, src1, src1w, src2, src2w));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
@@ -2185,8 +2181,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		return emit_op(compiler, op, ALLOW_IMM | ALLOW_NEG_IMM, dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_OR:
-	case SLJIT_XOR:
 		return emit_op(compiler, op, ALLOW_IMM, dst, dstw, src1, src1w, src2, src2w);
+
+	case SLJIT_XOR:
+		inp_flags = ALLOW_IMM;
+		if (((src1 & SLJIT_IMM) && src1w == -1) || ((src2 & SLJIT_IMM) && src2w == -1)) {
+			inp_flags |= ALLOW_INV_IMM;
+		}
+		return emit_op(compiler, op, inp_flags, dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_MUL:
 		return emit_op(compiler, op, 0, dst, dstw, src1, src1w, src2, src2w);

@@ -198,11 +198,6 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		}
 		return SLJIT_SUCCESS;
 
-	case SLJIT_NOT:
-		SLJIT_ASSERT(src1 == TMP_REG1);
-		UN_EXTS();
-		return push_inst(compiler, NOR | RC(flags) | S(src2) | A(dst) | B(src2));
-
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(src1 == TMP_REG1);
 		return push_inst(compiler, ((flags & ALT_FORM1) ? CNTLZW : CNTLZD) | S(src2) | A(dst));
@@ -398,6 +393,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 			FAIL_IF(push_inst(compiler, XORI | S(src1) | A(dst) | IMM(imm)));
 			return push_inst(compiler, XORIS | S(dst) | A(dst) | IMM(imm >> 16));
+		}
+		if (flags & ALT_FORM4) {
+			SLJIT_ASSERT(src1 == TMP_REG1);
+			UN_EXTS();
+			return push_inst(compiler, NOR | RC(flags) | S(src2) | A(dst) | B(src2));
 		}
 		return push_inst(compiler, XOR | RC(flags) | S(src1) | A(dst) | B(src2));
 

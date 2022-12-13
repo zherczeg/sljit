@@ -1556,14 +1556,6 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return SLJIT_SUCCESS;
 #endif /* SLJIT_CONFIG_MIPS_64 */
 
-	case SLJIT_NOT:
-		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
-		if (op & SLJIT_SET_Z)
-			FAIL_IF(push_inst(compiler, NOR | S(src2) | T(src2) | DA(EQUAL_FLAG), EQUAL_FLAG));
-		if (!(flags & UNUSED_DEST))
-			FAIL_IF(push_inst(compiler, NOR | S(src2) | T(src2) | D(dst), DR(dst)));
-		return SLJIT_SUCCESS;
-
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1)
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
@@ -1868,6 +1860,14 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return SLJIT_SUCCESS;
 
 	case SLJIT_XOR:
+		if (!(flags & LOGICAL_OP)) {
+			SLJIT_ASSERT((flags & SRC2_IMM) && src2 == -1);
+			if (op & SLJIT_SET_Z)
+				FAIL_IF(push_inst(compiler, NOR | S(src1) | T(src1) | DA(EQUAL_FLAG), EQUAL_FLAG));
+			if (!(flags & UNUSED_DEST))
+				FAIL_IF(push_inst(compiler, NOR | S(src1) | T(src1) | D(dst), DR(dst)));
+			return SLJIT_SUCCESS;
+		}
 		EMIT_LOGICAL(XORI, XOR);
 		return SLJIT_SUCCESS;
 
@@ -2298,9 +2298,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_MOV_S16:
 		return emit_op(compiler, op, HALF_DATA | SIGNED_DATA | MOVE_OP, dst, dstw, TMP_REG1, 0, src, (src & SLJIT_IMM) ? (sljit_s16)srcw : srcw);
 
-	case SLJIT_NOT:
-		return emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, src, srcw);
-
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
 		return emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, src, srcw);
@@ -2348,9 +2345,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		compiler->status_flags_state = 0;
 		return emit_op(compiler, op, flags | CUMULATIVE_OP, dst, dstw, src1, src1w, src2, src2w);
 
+	case SLJIT_XOR:
+		if (((src1 & SLJIT_IMM) && src1w == -1) || ((src2 & SLJIT_IMM) && src2w == -1)) {
+			return emit_op(compiler, op, flags | CUMULATIVE_OP | IMM_OP, dst, dstw, src1, src1w, src2, src2w);
+		}
+		/* fallthrough */
 	case SLJIT_AND:
 	case SLJIT_OR:
-	case SLJIT_XOR:
 		return emit_op(compiler, op, flags | CUMULATIVE_OP | LOGICAL_OP | IMM_OP, dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_SHL:

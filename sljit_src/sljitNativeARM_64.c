@@ -644,10 +644,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		case SLJIT_MOV:
 			SLJIT_ASSERT(!(flags & SET_FLAGS) && (flags & ARG2_IMM) && arg1 == TMP_REG1);
 			return load_immediate(compiler, dst, imm);
-		case SLJIT_NOT:
-			SLJIT_ASSERT(flags & ARG2_IMM);
-			FAIL_IF(load_immediate(compiler, dst, (flags & INT_OP) ? (~imm & 0xffffffff) : ~imm));
-			goto set_flags;
 		case SLJIT_SUB:
 			compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
 			if (flags & ARG1_IMM)
@@ -694,8 +690,13 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				break;
 			CHECK_FLAGS(3 << 29);
 			return push_inst(compiler, (ANDI ^ inv_bits) | RD(dst) | RN(reg) | inst_bits);
-		case SLJIT_OR:
 		case SLJIT_XOR:
+			if (imm == -1) {
+				FAIL_IF(push_inst(compiler, (ORN ^ inv_bits) | RD(dst) | RN(TMP_ZERO) | RM(reg)));
+				goto set_flags;
+			}
+			/* fallthrough */
+		case SLJIT_OR:
 			inst_bits = logical_imm(imm, LOGICAL_IMM_CHECK | ((flags & INT_OP) ? 16 : 32));
 			if (!inst_bits)
 				break;
@@ -808,10 +809,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 	case SLJIT_MOV_S32:
 		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
 		return push_inst(compiler, SBFM | (1 << 22) | RD(dst) | RN(arg2) | (31 << 10));
-	case SLJIT_NOT:
-		SLJIT_ASSERT(arg1 == TMP_REG1);
-		FAIL_IF(push_inst(compiler, (ORN ^ inv_bits) | RD(dst) | RN(TMP_ZERO) | RM(arg2)));
-		break; /* Set flags. */
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(arg1 == TMP_REG1);
 		return push_inst(compiler, (CLZ ^ inv_bits) | RD(dst) | RN(arg2));

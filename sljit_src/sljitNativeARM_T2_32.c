@@ -621,12 +621,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		case SLJIT_MOV:
 			SLJIT_ASSERT(!(flags & SET_FLAGS) && (flags & ARG2_IMM) && arg1 == TMP_REG2);
 			return load_immediate(compiler, dst, imm);
-		case SLJIT_NOT:
-			if (!(flags & SET_FLAGS))
-				return load_immediate(compiler, dst, ~imm);
-			/* Since the flags should be set, we just fallback to the register mode.
-			   Although some clever things could be done here, "NOT IMM" does not worth the efforts. */
-			break;
 		case SLJIT_ADD:
 			compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
 			imm2 = NEGATE(imm);
@@ -733,6 +727,11 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				return push_inst32(compiler, ORNI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
 			break;
 		case SLJIT_XOR:
+			if (imm == (sljit_uw)-1) {
+				if (IS_2_LO_REGS(dst, reg))
+					return push_inst16(compiler, MVNS | RD3(dst) | RN3(reg));
+				return push_inst32(compiler, MVN_W | (flags & SET_FLAGS) | RD4(dst) | RM4(reg));
+			}
 			imm = get_imm(imm);
 			if (imm != INVALID_IMM)
 				return push_inst32(compiler, EORI | (flags & SET_FLAGS) | RD4(dst) | RN4(reg) | imm);
@@ -829,11 +828,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		if (IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, SXTH | RD3(dst) | RN3(arg2));
 		return push_inst32(compiler, SXTH_W | RD4(dst) | RM4(arg2));
-	case SLJIT_NOT:
-		SLJIT_ASSERT(arg1 == TMP_REG2);
-		if (IS_2_LO_REGS(dst, arg2))
-			return push_inst16(compiler, MVNS | RD3(dst) | RN3(arg2));
-		return push_inst32(compiler, MVN_W | (flags & SET_FLAGS) | RD4(dst) | RM4(arg2));
 	case SLJIT_CLZ:
 		SLJIT_ASSERT(arg1 == TMP_REG2);
 		return push_inst32(compiler, CLZ | RN4(arg2) | RD4(dst) | RM4(arg2));

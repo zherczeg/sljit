@@ -1353,14 +1353,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	if (GET_FLAG_TYPE(op_flags) == SLJIT_OVERFLOW)
 		FAIL_IF(push_inst(compiler, MTXER | S(TMP_ZERO)));
 
-	if (op < SLJIT_NOT && FAST_IS_REG(src) && src == dst) {
+	if (op <= SLJIT_MOV_P && FAST_IS_REG(src) && src == dst) {
 		if (!TYPE_CAST_NEEDED(op))
 			return SLJIT_SUCCESS;
 	}
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (op_flags & SLJIT_32) {
-		if (op < SLJIT_NOT) {
+		if (op <= SLJIT_MOV_P) {
 			if (src & SLJIT_MEM) {
 				if (op == SLJIT_MOV_S32)
 					op = SLJIT_MOV_U32;
@@ -1409,9 +1409,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 	case SLJIT_MOV_S16:
 		return EMIT_MOV(SLJIT_MOV_S16, HALF_DATA | SIGNED_DATA, (sljit_s16));
-
-	case SLJIT_NOT:
-		return emit_op(compiler, SLJIT_NOT, flags, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
@@ -1657,9 +1654,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 			FAIL_IF(push_inst(compiler, MTXER | S(TMP_ZERO)));
 		return emit_op(compiler, SLJIT_MUL, flags, dst, dstw, src1, src1w, src2, src2w);
 
+	case SLJIT_XOR:
+		if ((src2 & SLJIT_IMM) && src2w == -1) {
+			return emit_op(compiler, GET_OPCODE(op), flags | ALT_FORM4, dst, dstw, TMP_REG1, 0, src1, src1w);
+		}
+		if ((src1 & SLJIT_IMM) && src1w == -1) {
+			return emit_op(compiler, GET_OPCODE(op), flags | ALT_FORM4, dst, dstw, TMP_REG1, 0, src2, src2w);
+		}
+		/* fallthrough */
 	case SLJIT_AND:
 	case SLJIT_OR:
-	case SLJIT_XOR:
 		/* Commutative unsigned operations. */
 		if (!HAS_FLAGS(op) || GET_OPCODE(op) == SLJIT_AND) {
 			if (TEST_UL_IMM(src2, src2w)) {

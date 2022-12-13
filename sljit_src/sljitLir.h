@@ -1054,10 +1054,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
    Note: loads a pointer sized data, useful on x32 mode (a 64 bit mode
          on x86-64 which uses 32 bit pointers) or similar compiling modes */
 #define SLJIT_MOV_P			(SLJIT_OP1_BASE + 8)
-/* Flags: Z
-   Note: immediate source argument is not supported */
-#define SLJIT_NOT			(SLJIT_OP1_BASE + 9)
-#define SLJIT_NOT32			(SLJIT_NOT | SLJIT_32)
 /* Count leading zeroes
    Flags: - (may destroy flags)
    Note: immediate source argument is not supported */
@@ -1068,6 +1064,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
    Note: immediate source argument is not supported */
 #define SLJIT_CTZ			(SLJIT_OP1_BASE + 11)
 #define SLJIT_CTZ32			(SLJIT_CTZ | SLJIT_32)
+
+/* The following unary operations are supported by using sljit_emit_op2:
+     - binary not: SLJIT_XOR with immedate -1 as src1 or src2
+     - negate: SLJIT_SUB with immedate 0 as src1
+   Note: these operations are optimized by the compiler if the
+     target CPU has specialized instruction forms for them. */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
