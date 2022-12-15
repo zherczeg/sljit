@@ -934,6 +934,19 @@ static sljit_s32 emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src
 	return SLJIT_SUCCESS;
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_return_address(struct sljit_compiler *compiler,
+	sljit_s32 dst, sljit_sw dstw)
+{
+	sljit_s32 saved_regs_size;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_get_return_address(compiler, dst, dstw));
+	ADJUST_LOCAL_OFFSET(dst, dstw);
+
+	saved_regs_size = GET_SAVED_REGISTERS_SIZE(compiler->scratches, compiler->saveds - SLJIT_KEPT_SAVEDS_COUNT(compiler->options), 0);
+	return emit_mov(compiler, dst, dstw, SLJIT_MEM1(SLJIT_SP), compiler->local_size + saved_regs_size);
+}
+
 /* --------------------------------------------------------------------- */
 /*  Other operations                                                     */
 /* --------------------------------------------------------------------- */

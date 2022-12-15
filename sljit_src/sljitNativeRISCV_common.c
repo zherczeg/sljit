@@ -2704,6 +2704,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 
 #undef TO_ARGW_HI
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_return_address(struct sljit_compiler *compiler,
+	sljit_s32 dst, sljit_sw dstw)
+{
+	sljit_s32 dst_r;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_get_return_address(compiler, dst, dstw));
+	ADJUST_LOCAL_OFFSET(dst, dstw);
+
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG2;
+	FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, dst_r, SLJIT_MEM1(SLJIT_SP), compiler->local_size - SSIZE_OF(sw)));
+
+	if (dst & SLJIT_MEM)
+		return emit_op_mem(compiler, WORD_DATA, dst_r, dst, dstw);
+
+	return SLJIT_SUCCESS;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
 {
 	struct sljit_const *const_;

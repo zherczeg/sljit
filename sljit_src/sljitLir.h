@@ -1637,6 +1637,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
    Flags: - (may destroy flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_local_base(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw offset);
 
+/* Copies the return address into dst. The return address is the
+   address where the execution continues after the called function
+   returns (see: sljit_emit_return / sljit_emit_return_void). */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_return_address(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw);
+
 /* Store a value that can be changed runtime (see: sljit_get_const_addr / sljit_set_const)
    Flags: - (does not modify flags) */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value);

@@ -737,7 +737,7 @@ ALT_FORM5		0x010000 */
 #endif
 
 #if (defined SLJIT_PPC_STACK_FRAME_V2 && SLJIT_PPC_STACK_FRAME_V2)
-#define LR_SAVE_OFFSET		2 * SSIZE_OF(sw)
+#define LR_SAVE_OFFSET		(2 * SSIZE_OF(sw))
 #else
 #define LR_SAVE_OFFSET		SSIZE_OF(sw)
 #endif
@@ -2800,6 +2800,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 	return push_inst(compiler, INST_CODE_AND_DST(inst, DOUBLE_DATA, freg) | A(mem & REG_MASK) | IMM(memw));
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_return_address(struct sljit_compiler *compiler,
+	sljit_s32 dst, sljit_sw dstw)
+{
+	sljit_s32 dst_r;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_get_return_address(compiler, dst, dstw));
+	ADJUST_LOCAL_OFFSET(dst, dstw);
+
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
+	FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, dst_r, SLJIT_MEM1(SLJIT_SP), compiler->local_size + LR_SAVE_OFFSET, TMP_REG2));
+
+	if (dst & SLJIT_MEM)
+		return emit_op_mem(compiler, WORD_DATA, dst_r, dst, dstw, TMP_REG2);
+
+	return SLJIT_SUCCESS;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
 {
 	struct sljit_const *const_;
@@ -2817,7 +2835,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	PTR_FAIL_IF(emit_const(compiler, dst_r, init_value));
 
 	if (dst & SLJIT_MEM)
-		PTR_FAIL_IF(emit_op(compiler, SLJIT_MOV, WORD_DATA, dst, dstw, TMP_REG1, 0, TMP_REG2, 0));
+		PTR_FAIL_IF(emit_op_mem(compiler, WORD_DATA, dst_r, dst, dstw, TMP_REG1));
 
 	return const_;
 }

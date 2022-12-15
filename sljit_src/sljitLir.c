@@ -2243,6 +2243,21 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_local_base(struct sljit_co
 	CHECK_RETURN_OK;
 }
 
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_return_address(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
+{
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	FUNCTION_CHECK_DST(dst, dstw);
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  return_address ");
+		sljit_verbose_param(compiler, dst, dstw);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+	CHECK_RETURN_OK;
+}
+
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
 {
 	SLJIT_UNUSED_ARG(init_value);

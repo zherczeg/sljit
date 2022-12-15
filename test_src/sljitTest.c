@@ -10634,6 +10634,166 @@ static void test85(void)
 
 #undef WCONST
 
+static void test86(void)
+{
+	/* Test count trailing zeroes. */
+	executable_code code;
+	struct sljit_compiler* compiler;
+	struct sljit_jump *jump;
+	struct sljit_label *label;
+	sljit_uw return_addr = 0;
+	sljit_uw buf[1];
+
+	if (verbose)
+		printf("Run test86\n");
+
+	/* Next test. */
+
+	buf[0] = 0;
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, W), 1, 1, 0, 0, 0);
+	jump = sljit_emit_call(compiler, SLJIT_CALL, SLJIT_ARGS0(W));
+	label = sljit_emit_label(compiler);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_RETURN_REG, 0);
+	sljit_emit_return_void(compiler);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS0(W), 1, 0, 0, 0, 0);
+	sljit_get_return_address(compiler, SLJIT_RETURN_REG, 0);
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	return_addr = sljit_get_label_addr(label);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)buf);
+
+	FAILED(buf[0] != return_addr, "test86 case 1 failed\n");
+	sljit_free_code(code.code, NULL);
+
+	/* Next test. */
+
+	buf[0] = 0;
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS0(VOID), 2, 0, 0, 0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, -1);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, -1);
+	jump = sljit_emit_call(compiler, SLJIT_CALL, SLJIT_ARGS2(VOID, W, W));
+	label = sljit_emit_label(compiler);
+	sljit_emit_return_void(compiler);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS2(VOID, W, W), 1, SLJIT_NUMBER_OF_SAVED_REGISTERS - 2, 0, 0, SLJIT_MAX_LOCAL_SIZE);
+	sljit_get_return_address(compiler, SLJIT_MEM0(), (sljit_sw)buf);
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	return_addr = sljit_get_label_addr(label);
+	sljit_free_compiler(compiler);
+
+	code.func0();
+
+	FAILED(buf[0] != return_addr, "test86 case 2 failed\n");
+	sljit_free_code(code.code, NULL);
+
+	/* Next test. */
+
+	buf[0] = 0;
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, W), 1, 3, 0, 0, 0);
+	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_S2, 0, SLJIT_S0, 0, SLJIT_IMM, 16);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 8);
+	jump = sljit_emit_call(compiler, SLJIT_CALL_REG_ARG, SLJIT_ARGS1(VOID, W));
+	label = sljit_emit_label(compiler);
+	sljit_emit_return_void(compiler);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_enter(compiler, SLJIT_ENTER_REG_ARG | SLJIT_ENTER_KEEP(3), SLJIT_ARGS1(VOID, W_R), 1, SLJIT_NUMBER_OF_SAVED_REGISTERS, 0, 0, SLJIT_MAX_LOCAL_SIZE >> 1);
+	sljit_get_return_address(compiler, SLJIT_MEM2(SLJIT_S2, SLJIT_R0), 1);
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	return_addr = sljit_get_label_addr(label);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)buf);
+
+	FAILED(buf[0] != return_addr, "test86 case 3 failed\n");
+	sljit_free_code(code.code, NULL);
+
+	/* Next test. */
+
+	buf[0] = 0;
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, W_R), 1, 0, 0, 0, 0);
+	jump = sljit_emit_call(compiler, SLJIT_CALL_REG_ARG, SLJIT_ARGS1(VOID, W));
+	label = sljit_emit_label(compiler);
+	sljit_emit_return_void(compiler);
+
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_emit_enter(compiler, SLJIT_ENTER_REG_ARG, SLJIT_ARGS1(VOID, W_R), 1, SLJIT_NUMBER_OF_SAVED_REGISTERS >> 1, 0, 0, 64);
+	sljit_get_return_address(compiler, SLJIT_MEM1(SLJIT_SP), 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_R0), 0, SLJIT_MEM1(SLJIT_SP), 0);
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	return_addr = sljit_get_label_addr(label);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)buf);
+
+	FAILED(buf[0] != return_addr, "test86 case 4 failed\n");
+	sljit_free_code(code.code, NULL);
+
+	if (sljit_has_cpu_feature(SLJIT_HAS_FPU) && SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0) {
+		/* Next test. */
+
+		buf[0] = 0;
+
+		compiler = sljit_create_compiler(NULL, NULL);
+		FAILED(!compiler, "cannot create compiler\n");
+
+		sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, W), 1, 1, 0, 0, 0);
+		jump = sljit_emit_call(compiler, SLJIT_CALL, SLJIT_ARGS0(W));
+		label = sljit_emit_label(compiler);
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_RETURN_REG, 0);
+		sljit_emit_return_void(compiler);
+
+		sljit_set_label(jump, sljit_emit_label(compiler));
+		sljit_emit_enter(compiler, 0, SLJIT_ARGS0(W), 1, 3, 0, SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS, 64);
+		sljit_get_return_address(compiler, SLJIT_RETURN_REG, 0);
+		sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
+
+		code.code = sljit_generate_code(compiler);
+		CHECK(compiler);
+		return_addr = sljit_get_label_addr(label);
+		sljit_free_compiler(compiler);
+
+		code.func1((sljit_sw)buf);
+
+		FAILED(buf[0] != return_addr, "test86 case 5 failed\n");
+		sljit_free_code(code.code, NULL);
+	}
+
+	successful_tests++;
+}
+
 int sljit_test(int argc, char* argv[])
 {
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -10731,12 +10891,13 @@ int sljit_test(int argc, char* argv[])
 	test83();
 	test84();
 	test85();
+	test86();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 85
+#	define TEST_COUNT 86
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
