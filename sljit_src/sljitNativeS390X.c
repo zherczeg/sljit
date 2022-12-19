@@ -2249,30 +2249,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 	/* TODO(mundaym): optimize loads and stores */
 	switch (opcode) {
-	case SLJIT_NOT:
-		if (src & SLJIT_MEM)
-			FAIL_IF(load_word(compiler, src_r, src, srcw, op & SLJIT_32));
-
-		/* emulate ~x with x^-1 */
-		if (!(op & SLJIT_32)) {
-			FAIL_IF(push_load_imm_inst(compiler, tmp1, -1));
-			if (src_r != dst_r)
-				FAIL_IF(push_inst(compiler, lgr(dst_r, src_r)));
-
-			FAIL_IF(push_inst(compiler, xgr(dst_r, tmp1)));
-			break;
-		}
-
-		if (have_eimm())
-			FAIL_IF(push_inst(compiler, xilf(dst_r, 0xffffffff)));
-		else {
-			FAIL_IF(push_load_imm_inst(compiler, tmp1, -1));
-			if (src_r != dst_r)
-				FAIL_IF(push_inst(compiler, lr(dst_r, src_r)));
-
-			FAIL_IF(push_inst(compiler, xr(dst_r, tmp1)));
-		}
-		break;
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
 		if (src & SLJIT_MEM)
@@ -2283,9 +2259,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	default:
 		SLJIT_UNREACHABLE();
 	}
-
-	if ((op & (SLJIT_SET_Z | VARIABLE_FLAG_MASK)) == (SLJIT_SET_Z | SLJIT_SET_OVERFLOW))
-		FAIL_IF(update_zero_overflow(compiler, op, dst_r));
 
 	if (dst & SLJIT_MEM)
 		return store_word(compiler, dst_r, dst, dstw, op & SLJIT_32);
@@ -2705,12 +2678,12 @@ static sljit_s32 sljit_emit_bitwise(struct sljit_compiler *compiler, sljit_s32 o
 				FAIL_IF(emit_move(compiler, tmp0, src1, src1w));
 
 			if ((imm & 0x000000000000ffffull) != 0 || imm == 0)
-				return push_inst(compiler, 0xa7010000 | R20A(src_r) | imm);
+				return push_inst(compiler, 0xa7010000 /* tmll */ | R20A(src_r) | imm);
 			if ((imm & 0x00000000ffff0000ull) != 0)
-				return push_inst(compiler, 0xa7000000 | R20A(src_r) | (imm >> 16));
+				return push_inst(compiler, 0xa7000000 /* tmlh */ | R20A(src_r) | (imm >> 16));
 			if ((imm & 0x0000ffff00000000ull) != 0)
-				return push_inst(compiler, 0xa7030000 | R20A(src_r) | (imm >> 32));
-			return push_inst(compiler, 0xa7020000 | R20A(src_r) | (imm >> 48));
+				return push_inst(compiler, 0xa7030000 /* tmhl */ | R20A(src_r) | (imm >> 32));
+			return push_inst(compiler, 0xa7020000 /* tmhh */ | R20A(src_r) | (imm >> 48));
 		}
 
 		if (!(op & SLJIT_SET_Z))
@@ -3044,9 +3017,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 	return push_inst(compiler, 0xb9810000 /* ogr */ | R4A(src_dst_r) | R0A(tmp0));
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(
-	struct sljit_compiler *compiler,
-	sljit_s32 op, sljit_s32 src, sljit_sw srcw)
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_gpr src_r;
 	struct addr addr;
@@ -3073,6 +3045,35 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(
 	default:
 		return SLJIT_SUCCESS;
 	}
+
+	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_dst(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw)
+{
+	sljit_gpr dst_r = link_r;
+	sljit_s32 size;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op_dst(compiler, op, dst, dstw));
+	ADJUST_LOCAL_OFFSET(dst, dstw);
+
+	switch (op) {
+	case SLJIT_FAST_ENTER:
+		if (FAST_IS_REG(dst))
+			return push_inst(compiler, lgr(gpr(dst), link_r));
+		break;
+	case SLJIT_GET_RETURN_ADDRESS:
+		dst_r = FAST_IS_REG(dst) ? gpr(dst) : tmp0;
+
+		size = GET_SAVED_REGISTERS_SIZE(compiler->scratches, compiler->saveds - SLJIT_KEPT_SAVEDS_COUNT(compiler->options), 2);
+		FAIL_IF(load_word(compiler, dst_r, SLJIT_MEM1(SLJIT_SP), compiler->local_size + size, 0));
+		break;
+	}
+
+	if (dst & SLJIT_MEM)
+		return store_word(compiler, dst_r, dst, dstw, 0);
 
 	return SLJIT_SUCCESS;
 }
@@ -3353,23 +3354,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 
 	SLJIT_ASSERT(dst_r != TMP_FREG1);
 	return SLJIT_SUCCESS;
-}
-
-/* --------------------------------------------------------------------- */
-/*  Other instructions                                                   */
-/* --------------------------------------------------------------------- */
-
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
-{
-	CHECK_ERROR();
-	CHECK(check_sljit_emit_fast_enter(compiler, dst, dstw));
-	ADJUST_LOCAL_OFFSET(dst, dstw);
-
-	if (FAST_IS_REG(dst))
-		return push_inst(compiler, lgr(gpr(dst), link_r));
-
-	/* memory */
-	return store_word(compiler, link_r, dst, dstw, 0);
 }
 
 /* --------------------------------------------------------------------- */
