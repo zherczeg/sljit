@@ -168,6 +168,25 @@ static SLJIT_INLINE void apple_update_wx_flags(sljit_s32 enable_exec)
 #define SLJIT_MAP_JIT	(0)
 #endif /* !SLJIT_MAP_JIT */
 
+#ifdef __FreeBSD__
+#include <sys/procctl.h>
+#include <limits.h>
+
+static SLJIT_INLINE int allow_wx_map(void)
+{
+#ifdef PROC_WXMAP_CTL
+	static int r = INT_MIN;
+	if (r == INT_MIN) {
+		int sljit_wx_enable = PROC_WX_MAPPINGS_PERMIT;
+		r = procctl(P_PID, 0, PROC_WXMAP_CTL, &sljit_wx_enable);
+	}
+	return r == 0 ? 0: -1;
+#else
+	return -1;
+#endif
+}
+#endif /* __FreeBSD__ */
+
 static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 {
 	void *retval;
@@ -189,8 +208,19 @@ static SLJIT_INLINE void* alloc_chunk(sljit_uw size)
 #endif /* MAP_ANON */
 
 	retval = mmap(NULL, size, prot, flags, fd, 0);
-	if (retval == MAP_FAILED)
+	if (retval == MAP_FAILED) {
+#ifdef __FreeBSD__
+		if (allow_wx_map() == 0) {
+			retval = mmap(NULL, size, prot, flags, fd, 0);
+			if (retval == MAP_FAILED)
+				return NULL;
+		} else {
+			return NULL;
+		}
+#else
 		return NULL;
+#endif
+	}
 
 #ifdef __FreeBSD__
         /* HardenedBSD's mmap lies, so check permissions again */
