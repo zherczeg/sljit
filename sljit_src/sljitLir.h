@@ -288,7 +288,7 @@ extern "C" {
         | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_32, 3) | SLJIT_ARG_VALUE(SLJIT_ARG_TYPE_F32, 4)
 
    Short form of argument type definition:
-     SLJIT_ARGS4(32, P, F64, 32, F32)
+     SLJIT_ARGS4(F32, P, F64, 32, F32)
 
    Argument passing:
      arg_a must be placed in SLJIT_R0
