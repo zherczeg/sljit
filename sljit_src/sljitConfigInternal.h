@@ -134,7 +134,6 @@ extern "C" {
 /********************************************************/
 
 #if (defined SLJIT_CONFIG_AUTO && SLJIT_CONFIG_AUTO)
-
 #ifndef _WIN32
 
 #if defined(__i386__) || defined(__i386)
@@ -145,7 +144,10 @@ extern "C" {
 #define SLJIT_CONFIG_ARM_64 1
 #elif defined(__thumb2__)
 #define SLJIT_CONFIG_ARM_THUMB2 1
-#elif (defined(__ARM_ARCH) && __ARM_ARCH >= 7) || ((defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7S__)) || (defined(__ARM_ARCH_8A__) || defined_(__ARM_ARCH_8R__))
+#elif (defined(__ARM_ARCH) && __ARM_ARCH >= 7) || \
+	((defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7S__)) \
+	 || (defined(__ARM_ARCH_8A__) || defined(__ARM_ARCH_8R__)) \
+	 || (defined(__ARM_ARCH_9A__)))
 #define SLJIT_CONFIG_ARM_V7 1
 #elif defined(__arm__) || defined (__ARM__)
 #define SLJIT_CONFIG_ARM_V5 1
