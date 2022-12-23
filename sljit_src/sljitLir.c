@@ -272,23 +272,47 @@
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 
 #if (defined SLJIT_PROT_EXECUTABLE_ALLOCATOR && SLJIT_PROT_EXECUTABLE_ALLOCATOR)
-#include "sljitProtExecAllocator.c"
-#elif (defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
-#include "sljitWXExecAllocator.c"
+
+#if defined(__NetBSD__)
+#include "allocator_src/sljitProtExecAllocatorNetBSD.c"
 #else
-#include "sljitExecAllocator.c"
+#include "allocator_src/sljitProtExecAllocatorPosix.c"
+#endif
+
+#elif (defined SLJIT_WX_EXECUTABLE_ALLOCATOR && SLJIT_WX_EXECUTABLE_ALLOCATOR)
+
+#if defined(_WIN32)
+#include "allocator_src/sljitWXExecAllocatorWindows.c"
+#elif defined(__NetBSD__)
+#include "allocator_src/sljitWXExecAllocatorNetBSD.c"
+#else
+#include "allocator_src/sljitWXExecAllocatorLinux.c"
+#endif
+
+#else
+
+#if defined(_WIN32)
+#include "allocator_src/sljitExecAllocatorWindows.c"
+#elif defined(__APPLE__) && defined(MAP_JIT)
+#include "allocator_src/sljitExecAllocatorApple.c"
+#else
+#include "allocator_src/sljitExecAllocatorPosix.c"
 #endif
 
 #endif
+
+#else /* !SLJIT_EXECUTABLE_ALLOCATOR */
+
+#ifndef SLJIT_UPDATE_WX_FLAGS
+#define SLJIT_UPDATE_WX_FLAGS(from, to, enable_exec)
+#endif
+
+#endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
 #if (defined SLJIT_PROT_EXECUTABLE_ALLOCATOR && SLJIT_PROT_EXECUTABLE_ALLOCATOR)
 #define SLJIT_ADD_EXEC_OFFSET(ptr, exec_offset) ((sljit_u8 *)(ptr) + (exec_offset))
 #else
 #define SLJIT_ADD_EXEC_OFFSET(ptr, exec_offset) ((sljit_u8 *)(ptr))
-#endif
-
-#ifndef SLJIT_UPDATE_WX_FLAGS
-#define SLJIT_UPDATE_WX_FLAGS(from, to, enable_exec)
 #endif
 
 /* Argument checking features. */
