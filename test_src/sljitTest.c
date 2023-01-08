@@ -1367,13 +1367,18 @@ static sljit_sw func(sljit_sw a, sljit_sw b, sljit_sw c)
 	return a + b + c + 5;
 }
 
+static sljit_sw func4(sljit_sw a, sljit_sw b, sljit_sw c, sljit_sw d)
+{
+	return func(a, b, c) + d;
+}
+
 static void test15(void)
 {
 	/* Test function call. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_jump* jump = NULL;
-	sljit_sw buf[7];
+	sljit_sw buf[9];
 
 	if (verbose)
 		printf("Run test15\n");
@@ -1385,9 +1390,11 @@ static void test15(void)
 	buf[3] = 0;
 	buf[4] = 0;
 	buf[5] = 0;
-	buf[6] = SLJIT_FUNC_ADDR(func);
+	buf[6] = 0;
+	buf[7] = 0;
+	buf[8] = SLJIT_FUNC_ADDR(func);
 
-	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(W, P), 4, 1, 0, 0, 0);
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(W, P), 4, 2, 0, 0, 0);
 
 	/* buf[0] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 5);
@@ -1434,11 +1441,28 @@ static void test15(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_sw), SLJIT_RETURN_REG, 0);
 
 	/* buf[6] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 2);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 3);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_IMM, SLJIT_FUNC_ADDR(func));
+	sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS3(W, W, W, W), SLJIT_S1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_sw), SLJIT_RETURN_REG, 0);
+
+	/* buf[7] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 2);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 3);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R3, 0, SLJIT_IMM, -6);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_IMM, SLJIT_FUNC_ADDR(func4));
+	sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS4(W, W, W, W, W), SLJIT_S1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 7 * sizeof(sljit_sw), SLJIT_RETURN_REG, 0);
+
+	/* buf[8] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, -10);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, -16);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 6);
-	sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS3(W, W, W, W), SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_sw));
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_sw), SLJIT_RETURN_REG, 0);
+	sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS3(W, W, W, W), SLJIT_MEM1(SLJIT_S0), 8 * sizeof(sljit_sw));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 8 * sizeof(sljit_sw), SLJIT_RETURN_REG, 0);
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
@@ -1454,7 +1478,9 @@ static void test15(void)
 	FAILED(buf[3] != SLJIT_FUNC_ADDR(func) - 85, "test15 case 5 failed\n");
 	FAILED(buf[4] != SLJIT_FUNC_ADDR(func) + 31, "test15 case 6 failed\n");
 	FAILED(buf[5] != 335, "test15 case 7 failed\n");
-	FAILED(buf[6] != -15, "test15 case 8 failed\n");
+	FAILED(buf[6] != 11, "test15 case 8 failed\n");
+	FAILED(buf[7] != 5, "test15 case 9 failed\n");
+	FAILED(buf[8] != -15, "test15 case 10 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
