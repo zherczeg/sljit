@@ -77,7 +77,9 @@
 */
 
 #include <sys/types.h>
+#ifndef _WIN32
 #include <sys/mman.h>
+#endif
 
 #ifdef SLJIT_HAS_CHUNK_HEADER
 #define CHUNK_HEADER_SIZE (sizeof(struct sljit_chunk_header))
