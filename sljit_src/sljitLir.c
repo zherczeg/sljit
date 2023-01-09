@@ -293,6 +293,8 @@
 #include "allocator_src/sljitExecAllocatorWindows.c"
 #elif defined(__APPLE__)
 #include "allocator_src/sljitExecAllocatorApple.c"
+#elif defined(__FreeBSD__)
+#include "allocator_src/sljitExecAllocatorFreeBSD.c"
 #else
 #include "allocator_src/sljitExecAllocatorPosix.c"
 #endif
