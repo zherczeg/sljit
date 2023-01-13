@@ -110,6 +110,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define PUSH		0xe92d0000
 #define POP		0xe8bd0000
 #define RBIT		0xe6ff0f30
+#define REV		0xe6bf0f30
 #define RSB		0xe0600000
 #define RSC		0xe0e00000
 #define SBC		0xe0c00000
@@ -964,6 +965,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_CMOV:
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 	case SLJIT_HAS_CTZ:
+	case SLJIT_HAS_REV:
 	case SLJIT_HAS_PREFETCH:
 #endif
 		return 1;
@@ -1497,6 +1499,19 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 #else /* !SLJIT_CONFIG_ARM_V5 */
 		FAIL_IF(push_inst(compiler, RBIT | RD(dst) | RM(src2)));
 		return push_inst(compiler, CLZ | RD(dst) | RM(dst));
+#endif /* SLJIT_CONFIG_ARM_V5 */
+
+	case SLJIT_REV:
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
+		FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG1) | (8 << 7) | (0 << 5) | RM(src2)));
+		FAIL_IF(push_inst(compiler, MOV | RD(dst) | (24 << 7) | (1 << 5) | RM(src2)));
+		FAIL_IF(push_inst(compiler, ORR | RD(dst) | RN(dst) | (16 << 7) | (0 << 5) | RM(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG1) | (16 << 7) | (1 << 5) | RM(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG1) | (8 << 7) | (3 << 5) | RM(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, ORR | RD(dst) | RN(dst) | (8 << 7) | (0 << 5) | RM(TMP_REG1)));
+		return push_inst(compiler, ORR | RD(dst) | RN(dst) | (8 << 7) | (1 << 5) | RM(TMP_REG1));
+#else /* !SLJIT_CONFIG_ARM_V5 */
+		return push_inst(compiler, REV | RD(dst) | RM(src2));
 #endif /* SLJIT_CONFIG_ARM_V5 */
 
 	case SLJIT_ADD:
@@ -2155,6 +2170,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
+	case SLJIT_REV:
 		return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src, srcw);
 	}
 

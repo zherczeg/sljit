@@ -625,12 +625,14 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_HAS_CLZ			3
 /* [Emulated] Count trailing zero is supported. */
 #define SLJIT_HAS_CTZ			4
+/* [Emulated] Reverse the order of bytes is supported. */
+#define SLJIT_HAS_REV			5
 /* [Emulated] Rotate left/right is supported. */
-#define SLJIT_HAS_ROT			5
+#define SLJIT_HAS_ROT			6
 /* [Emulated] Conditional move is supported. */
-#define SLJIT_HAS_CMOV			6
+#define SLJIT_HAS_CMOV			7
 /* [Emulated] Prefetch instruction is available (emulated as a nop). */
-#define SLJIT_HAS_PREFETCH		7
+#define SLJIT_HAS_PREFETCH		8
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] SSE2 support is available on x86. */
@@ -1042,6 +1044,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
    Note: immediate source argument is not supported */
 #define SLJIT_CTZ			(SLJIT_OP1_BASE + 11)
 #define SLJIT_CTZ32			(SLJIT_CTZ | SLJIT_32)
+/* Reverse the order of bytes
+   Flags: - (may destroy flags)
+   Note: converts between little and big endian formats
+   Note: immediate source argument is not supported */
+#define SLJIT_REV			(SLJIT_OP1_BASE + 12)
+#define SLJIT_REV32			(SLJIT_REV | SLJIT_32)
 
 /* The following unary operations are supported by using sljit_emit_op2:
      - binary not: SLJIT_XOR with immedate -1 as src1 or src2

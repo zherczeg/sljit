@@ -116,6 +116,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define ORRI 0xb2000000
 #define RBIT 0xdac00000
 #define RET 0xd65f0000
+#define REV 0xdac00c00
 #define RORV 0x9ac02c00
 #define SBC 0xda000000
 #define SBFM 0x93000000
@@ -394,6 +395,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_CTZ:
+	case SLJIT_HAS_REV:
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_CMOV:
 	case SLJIT_HAS_PREFETCH:
@@ -636,6 +638,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		case SLJIT_MUL:
 		case SLJIT_CLZ:
 		case SLJIT_CTZ:
+		case SLJIT_REV:
 		case SLJIT_ADDC:
 		case SLJIT_SUBC:
 			/* No form with immediate operand (except imm 0, which
@@ -816,6 +819,10 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		SLJIT_ASSERT(arg1 == TMP_REG1);
 		FAIL_IF(push_inst(compiler, (RBIT ^ inv_bits) | RD(dst) | RN(arg2)));
 		return push_inst(compiler, (CLZ ^ inv_bits) | RD(dst) | RN(dst));
+	case SLJIT_REV:
+		SLJIT_ASSERT(arg1 == TMP_REG1);
+		inv_bits |= inv_bits >> 21;
+		return push_inst(compiler, (REV ^ inv_bits) | RD(dst) | RN(arg2));
 	case SLJIT_ADD:
 		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
 		CHECK_FLAGS(1 << 29);

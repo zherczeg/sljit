@@ -175,6 +175,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define ANDPD_x_xm	0x54
 #define BSR_r_rm	(/* GROUP_0F */ 0xbd)
 #define BSF_r_rm	(/* GROUP_0F */ 0xbc)
+#define BSWAP_r		(/* GROUP_0F */ 0xc8)
 #define CALL_i32	0xe8
 #define CALL_rm		(/* GROUP_FF */ 2 << 3)
 #define CDQ		0x99
@@ -768,6 +769,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 			get_cpu_features();
 		return (cpu_feature_list & CPU_FEATURE_CMOV) != 0;
 
+	case SLJIT_HAS_REV:
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_PREFETCH:
 		return 1;
@@ -1563,6 +1565,52 @@ static sljit_s32 emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 is_clz,
 	return SLJIT_SUCCESS;
 }
 
+static sljit_s32 emit_bswap(struct sljit_compiler *compiler,
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 src, sljit_sw srcw)
+{
+	sljit_u8 *inst;
+	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
+	sljit_uw size;
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	sljit_u8 rex = 0;
+#endif /* SLJIT_CONFIG_X86_64 */
+
+	if (src != dst_r)
+		EMIT_MOV(compiler, dst_r, 0, src, srcw);
+
+	size = 2;
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	if (!compiler->mode32)
+		rex = REX_W;
+
+	if (reg_map[dst_r] >= 8)
+		rex |= REX_B;
+
+	if (rex != 0)
+		size++;
+#endif /* SLJIT_CONFIG_X86_64 */
+
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
+	FAIL_IF(!inst);
+	INC_SIZE(size);
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	if (rex != 0)
+		*inst++ = rex;
+
+	inst[0] = GROUP_0F;
+	inst[1] = BSWAP_r | reg_lmap[dst_r];
+#else /* !SLJIT_CONFIG_X86_64 */
+	inst[0] = GROUP_0F;
+	inst[1] = BSWAP_r | reg_map[dst_r];
+#endif /* SLJIT_CONFIG_X86_64 */
+
+	if (dst & SLJIT_MEM)
+		EMIT_MOV(compiler, dst, dstw, TMP_REG1, 0);
+	return SLJIT_SUCCESS;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
@@ -1693,6 +1741,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
 		return emit_clz_ctz(compiler, (op == SLJIT_CLZ), dst, dstw, src, srcw);
+	case SLJIT_REV:
+		return emit_bswap(compiler, dst, dstw, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;

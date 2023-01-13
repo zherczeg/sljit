@@ -1017,7 +1017,7 @@ static const char* op0_names[] = {
 static const char* op1_names[] = {
 	"", ".u8", ".s8", ".u16",
 	".s16", ".u32", ".s32", "32",
-	".p", "clz", "ctz"
+	".p", "clz", "ctz", "rev"
 };
 
 static const char* op2_names[] = {
@@ -1335,11 +1335,13 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	}
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_CTZ);
+	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_REV);
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
 	case SLJIT_MOV_U32:
+	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
 	case SLJIT_MOV_P:
 		/* Nothing allowed */
 		CHECK_ARGUMENT(!(op & (SLJIT_32 | SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
@@ -1352,11 +1354,6 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 
 	FUNCTION_CHECK_DST(dst, dstw);
 	FUNCTION_CHECK_SRC(src, srcw);
-
-	if (GET_OPCODE(op) >= SLJIT_CLZ) {
-		CHECK_ARGUMENT(src != SLJIT_IMM);
-		compiler->last_flags = GET_FLAG_TYPE(op) | (op & (SLJIT_32 | SLJIT_SET_Z));
-	}
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
