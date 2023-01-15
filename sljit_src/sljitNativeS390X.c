@@ -1651,6 +1651,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	switch (feature_type) {
 	case SLJIT_HAS_FPU:
 	case SLJIT_HAS_CLZ:
+	case SLJIT_HAS_REV:
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_PREFETCH:
 		return 1;
@@ -2011,12 +2012,44 @@ static sljit_s32 sljit_emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 o
 	return push_inst(compiler, ((op & SLJIT_32) ? 0x1800 /* lr */ : 0xb9040000 /* lgr */) | R4A(dst_r) | R0A(tmp0));
 }
 
+static sljit_s32 sljit_emit_rev(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 src, sljit_sw srcw)
+{
+	struct addr addr;
+	sljit_gpr reg;
+	sljit_ins ins;
+
+	if (dst & SLJIT_MEM) {
+		if (src & SLJIT_MEM) {
+			FAIL_IF(load_word(compiler, tmp0, src, srcw, op & SLJIT_32));
+			reg = tmp0;
+		} else
+			reg = gpr(src);
+
+		FAIL_IF(make_addr_bxy(compiler, &addr, dst, dstw, tmp1));
+		ins = (op & SLJIT_32) ? 0xe3000000003e /* strv */ : 0xe3000000002f /* strvg */;
+		return push_inst(compiler, ins | R36A(reg) | R32A(addr.index) | R28A(addr.base) | disp_s20(addr.offset));
+	}
+
+	reg = gpr(dst);
+
+	if (src & SLJIT_MEM) {
+		FAIL_IF(make_addr_bxy(compiler, &addr, src, srcw, tmp1));
+		ins = (op & SLJIT_32) ? 0xe3000000001e /* lrv */ : 0xe3000000000f /* lrvg */;
+		return push_inst(compiler, ins | R36A(reg) | R32A(addr.index) | R28A(addr.base) | disp_s20(addr.offset));
+	}
+
+	ins = (op & SLJIT_32) ? 0xb91f0000 /* lrvr */ : 0xb90f0000 /* lrvgr */;
+	return push_inst(compiler, ins | R4A(reg) | R0A(gpr(src)));
+}
+
 /* LEVAL will be defined later with different parameters as needed */
 #define WHEN2(cond, i1, i2) (cond) ? LEVAL(i1) : LEVAL(i2)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
-        sljit_s32 dst, sljit_sw dstw,
-        sljit_s32 src, sljit_sw srcw)
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_ins ins;
 	struct addr mem;
@@ -2242,8 +2275,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 	SLJIT_ASSERT((src & SLJIT_IMM) == 0); /* no immediates */
 
-	dst_r = FAST_IS_REG(dst) ? gpr(REG_MASK & dst) : tmp0;
-	src_r = FAST_IS_REG(src) ? gpr(REG_MASK & src) : tmp0;
+	dst_r = FAST_IS_REG(dst) ? gpr(dst) : tmp0;
+	src_r = FAST_IS_REG(src) ? gpr(src) : tmp0;
 
 	compiler->status_flags_state = op & (VARIABLE_FLAG_MASK | SLJIT_SET_Z);
 
@@ -2256,6 +2289,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 		FAIL_IF(sljit_emit_clz_ctz(compiler, op, dst_r, src_r));
 		break;
+	case SLJIT_REV:
+		return sljit_emit_rev(compiler, op, dst, dstw, src, srcw);
 	default:
 		SLJIT_UNREACHABLE();
 	}
