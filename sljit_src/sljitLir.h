@@ -1037,18 +1037,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 /* Count leading zeroes
    Flags: - (may destroy flags)
    Note: immediate source argument is not supported */
-#define SLJIT_CLZ			(SLJIT_OP1_BASE + 10)
+#define SLJIT_CLZ			(SLJIT_OP1_BASE + 9)
 #define SLJIT_CLZ32			(SLJIT_CLZ | SLJIT_32)
 /* Count trailing zeroes
    Flags: - (may destroy flags)
    Note: immediate source argument is not supported */
-#define SLJIT_CTZ			(SLJIT_OP1_BASE + 11)
+#define SLJIT_CTZ			(SLJIT_OP1_BASE + 10)
 #define SLJIT_CTZ32			(SLJIT_CTZ | SLJIT_32)
 /* Reverse the order of bytes
    Flags: - (may destroy flags)
    Note: converts between little and big endian formats
    Note: immediate source argument is not supported */
-#define SLJIT_REV			(SLJIT_OP1_BASE + 12)
+#define SLJIT_REV			(SLJIT_OP1_BASE + 11)
 #define SLJIT_REV32			(SLJIT_REV | SLJIT_32)
 
 /* The following unary operations are supported by using sljit_emit_op2:
