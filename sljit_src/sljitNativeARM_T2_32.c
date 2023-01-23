@@ -503,6 +503,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_CMOV:
 	case SLJIT_HAS_PREFETCH:
+	case SLJIT_HAS_COPY_F32:
+	case SLJIT_HAS_COPY_F64:
 		return 1;
 
 	default:
@@ -2184,6 +2186,33 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	if (!(dst & SLJIT_MEM))
 		return SLJIT_SUCCESS;
 	return emit_fop_mem(compiler, (op & SLJIT_32), TMP_FREG1, dst, dstw);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 freg, sljit_s32 reg)
+{
+	sljit_s32 reg2 = 0;
+	sljit_ins inst;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
+
+	if (reg & REG_PAIR_MASK) {
+		reg2 = REG_PAIR_SECOND(reg);
+		reg = REG_PAIR_FIRST(reg);
+
+		inst = VMOV2 | RN4(reg) | RT4(reg2) | DM4(freg);
+	} else {
+		inst = VMOV | DN4(freg) | RT4(reg);
+
+		if (!(op & SLJIT_32))
+			inst |= 1 << 7;
+	}
+
+	if (GET_OPCODE(op) == SLJIT_COPY_FROM_F64)
+		inst |= 1 << 20;
+
+	return push_inst32(compiler, inst);
 }
 
 /* --------------------------------------------------------------------- */

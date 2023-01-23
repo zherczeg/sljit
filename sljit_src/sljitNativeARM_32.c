@@ -968,6 +968,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_REV:
 	case SLJIT_HAS_PREFETCH:
 #endif
+	case SLJIT_HAS_COPY_F32:
+	case SLJIT_HAS_COPY_F64:
 		return 1;
 
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
@@ -2614,6 +2616,33 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 }
 
 #undef EMIT_FPU_DATA_TRANSFER
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 freg, sljit_s32 reg)
+{
+	sljit_s32 reg2 = 0;
+	sljit_uw inst;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
+
+	if (reg & REG_PAIR_MASK) {
+		reg2 = REG_PAIR_SECOND(reg);
+		reg = REG_PAIR_FIRST(reg);
+
+		inst = VMOV2 | RN(reg) | RD(reg2) | VM(freg);
+	} else {
+		inst = VMOV | VN(freg) | RD(reg);
+
+		if (!(op & SLJIT_32))
+			inst |= 1 << 7;
+	}
+
+	if (GET_OPCODE(op) == SLJIT_COPY_FROM_F64)
+		inst |= 1 << 20;
+
+	return push_inst(compiler, inst);
+}
 
 /* --------------------------------------------------------------------- */
 /*  Conditional instructions                                             */

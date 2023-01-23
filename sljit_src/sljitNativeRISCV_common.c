@@ -97,16 +97,19 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define FLD		(F3(0x3) | OPC(0x7))
 #define FLE_S		(F7(0x50) | F3(0x0) | OPC(0x53))
 #define FLT_S		(F7(0x50) | F3(0x1) | OPC(0x53))
-#define FSD		(F3(0x3) | OPC(0x27))
 /* These conversion opcodes are partly defined. */
 #define FCVT_S_D	(F7(0x20) | OPC(0x53))
 #define FCVT_S_W	(F7(0x68) | OPC(0x53))
 #define FCVT_W_S	(F7(0x60) | F3(0x1) | OPC(0x53))
 #define FMUL_S		(F7(0x8) | F3(0x7) | OPC(0x53))
+#define FMV_X_W		(F7(0x70) | F3(0x0) | OPC(0x53))
+#define FMV_W_X		(F7(0x78) | F3(0x0) | OPC(0x53))
+#define FSD		(F3(0x3) | OPC(0x27))
 #define FSGNJ_S		(F7(0x10) | F3(0x0) | OPC(0x53))
 #define FSGNJN_S	(F7(0x10) | F3(0x1) | OPC(0x53))
 #define FSGNJX_S	(F7(0x10) | F3(0x2) | OPC(0x53))
 #define FSUB_S		(F7(0x4) | F3(0x7) | OPC(0x53))
+#define FSW		(F3(0x2) | OPC(0x27))
 #define JAL		(OPC(0x6f))
 #define JALR		(F3(0x0) | OPC(0x67))
 #define LD		(F3(0x3) | OPC(0x3))
@@ -537,8 +540,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 0;
 #else
 		return 1;
-#endif
+#endif /* SLJIT_IS_FPU_AVAILABLE */
 	case SLJIT_HAS_ZERO_REGISTER:
+	case SLJIT_HAS_COPY_F32:
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+	case SLJIT_HAS_COPY_F64:
+#endif /* !SLJIT_CONFIG_RISCV_64 */
 		return 1;
 	default:
 		return 0;

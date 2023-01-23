@@ -94,6 +94,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define FCVTZS 0x9e780000
 #define FDIV 0x1e601800
 #define FMOV 0x1e604000
+#define FMOV_R 0x9e660000
 #define FMUL 0x1e600800
 #define FNEG 0x1e614000
 #define FSUB 0x1e603800
@@ -399,6 +400,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_CMOV:
 	case SLJIT_HAS_PREFETCH:
+	case SLJIT_HAS_COPY_F32:
+	case SLJIT_HAS_COPY_F64:
 		return 1;
 
 	default:
@@ -1855,6 +1858,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	if (!(dst & SLJIT_MEM))
 		return SLJIT_SUCCESS;
 	return emit_fop_mem(compiler, mem_flags | STORE, TMP_FREG1, dst, dstw);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 freg, sljit_s32 reg)
+{
+	sljit_ins inst;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
+
+	if (GET_OPCODE(op) == SLJIT_COPY_TO_F64)
+		inst = FMOV_R | RN(reg) | VD(freg) | (sljit_ins)1 << 16;
+	else
+		inst = FMOV_R | VN(freg) | RD(reg);
+
+	if (op & SLJIT_32)
+		inst ^= ((sljit_ins)1 << 31) | ((sljit_ins)1 << 22);
+
+	return push_inst(compiler, inst);
 }
 
 /* --------------------------------------------------------------------- */

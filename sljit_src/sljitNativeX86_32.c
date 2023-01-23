@@ -1291,6 +1291,76 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 	return SLJIT_SUCCESS;
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 freg, sljit_s32 reg)
+{
+	sljit_u8 *inst;
+	sljit_s32 reg2;
+	sljit_sw regw, reg2w;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
+
+	regw = 0;
+	reg2 = 0;
+	reg2w = 0;
+
+	if (reg & REG_PAIR_MASK) {
+		reg2 = REG_PAIR_SECOND(reg);
+		reg = REG_PAIR_FIRST(reg);
+
+		CHECK_EXTRA_REGS(reg2, reg2w, (void)0);
+	}
+
+	CHECK_EXTRA_REGS(reg, regw, (void)0);
+
+	if (op & SLJIT_32) {
+		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, reg, regw);
+		inst[0] = GROUP_0F;
+		inst[1] = GET_OPCODE(op) == SLJIT_COPY_TO_F64 ? MOVD_x_rm : MOVD_rm_x;
+		return SLJIT_SUCCESS;
+	}
+
+	if (op == SLJIT_COPY_FROM_F64) {
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 5);
+		FAIL_IF(!inst);
+		INC_SIZE(5);
+
+		inst[0] = GROUP_66;
+		inst[1] = GROUP_0F;
+		inst[2] = PSHUFD_x_xm;
+		inst[3] = U8(MOD_REG | (TMP_FREG << 3) | freg);
+		inst[4] = 1;
+	} else {
+		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, TMP_FREG, 0, reg, regw);
+		inst[0] = GROUP_0F;
+		inst[1] = MOVD_x_rm;
+	}
+
+	if (reg2 != 0) {
+		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, reg2, reg2w);
+		inst[0] = GROUP_0F;
+		inst[1] = GET_OPCODE(op) == SLJIT_COPY_TO_F64 ? MOVD_x_rm : MOVD_rm_x;
+	}
+
+	if (GET_OPCODE(op) == SLJIT_COPY_TO_F64) {
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 4);
+		FAIL_IF(!inst);
+		INC_SIZE(4);
+
+		inst[0] = GROUP_66;
+		inst[1] = GROUP_0F;
+		inst[2] = PUNPCKLWQ_x_xm;
+		inst[3] = U8(MOD_REG | (freg << 3) | TMP_FREG);
+	} else {
+		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, TMP_FREG, 0, reg, regw);
+		inst[0] = GROUP_0F;
+		inst[1] = MOVD_rm_x;
+	}
+
+	return SLJIT_SUCCESS;
+}
+
 static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
 {
 	sljit_sw size;

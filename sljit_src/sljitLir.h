@@ -633,6 +633,10 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_HAS_CMOV			7
 /* [Emulated] Prefetch instruction is available (emulated as a nop). */
 #define SLJIT_HAS_PREFETCH		8
+/* [Emulated] Copy from/to f32 operation is available (see sljit_emit_fcopy). */
+#define SLJIT_HAS_COPY_F32		9
+/* [Emulated] Copy from/to f64 operation is available (see sljit_emit_fcopy). */
+#define SLJIT_HAS_COPY_F64		10
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] SSE2 support is available on x86. */
@@ -1305,6 +1309,44 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w);
+
+/* The following opcodes are used by sljit_emit_fcopy(). */
+
+/* 64 bit: copy a 64 bit value from an integer register into a
+           64 bit floating point register without any modifications.
+   32 bit: copy a 32 bit register or register pair into a 64 bit
+           floating point register without any modifications. The
+           register, or the first register of the register pair
+           replaces the high order 32 bit of the floating point
+           register. If a register pair is passed, the low
+           order 32 bit is replaced by the second register.
+           Otherwise, the low order 32 bit is unchanged. */
+#define SLJIT_COPY_TO_F64		1
+/* Copy a 32 bit value from an integer register into a 32 bit
+   floating point register without any modifications. */
+#define SLJIT_COPY32_TO_F32		(SLJIT_COPY_TO_F64 | SLJIT_32)
+/* 64 bit: copy the value of a 64 bit floating point register into
+           an integer register without any modifications.
+   32 bit: copy a 64 bit floating point register into a 32 bit register
+           or a 32 bit register pair without any modifications. The
+           high order 32 bit of the floating point register is copied
+           into the register, or the first register of the register
+           pair. If a register pair is passed, the low order 32 bit
+           is copied into the second register. */
+#define SLJIT_COPY_FROM_F64		2
+/* Copy the value of a 32 bit floating point register into an integer
+   register without any modifications. The register should be processed
+   with 32 bit operations later. */
+#define SLJIT_COPY32_FROM_F32		(SLJIT_COPY_FROM_F64 | SLJIT_32)
+
+/* Special data copy which involves floating point registers.
+
+  type must be between SLJIT_COPY_TO_F64 and SLJIT_COPY32_FROM_F32
+  freg must be a floating point register
+  reg must be a register or register pair */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 freg, sljit_s32 reg);
 
 /* Label and jump instructions. */
 

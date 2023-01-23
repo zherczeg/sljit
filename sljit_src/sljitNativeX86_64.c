@@ -1084,6 +1084,41 @@ static sljit_s32 emit_mov_int(struct sljit_compiler *compiler, sljit_s32 sign,
 	return SLJIT_SUCCESS;
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 freg, sljit_s32 reg)
+{
+	sljit_u8 *inst;
+	sljit_u32 size;
+	sljit_u8 rex = 0;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
+
+	if (!(op & SLJIT_32))
+		rex = REX_W;
+
+	if (freg_map[freg] >= 8)
+		rex |= REX_R;
+
+	if (reg_map[reg] >= 8)
+		rex |= REX_B;
+
+	size = (rex != 0) ? 5 : 4;
+
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
+	FAIL_IF(!inst);
+	INC_SIZE(size);
+
+	*inst++ = GROUP_66;
+	if (rex != 0)
+		*inst++ = rex;
+	inst[0] = GROUP_0F;
+	inst[1] = GET_OPCODE(op) == SLJIT_COPY_TO_F64 ? MOVD_x_rm : MOVD_rm_x;
+	inst[2] = U8(reg_lmap[reg] | (freg_lmap[freg] << 3) | MOD_REG);
+
+	return SLJIT_SUCCESS;
+}
+
 static sljit_s32 skip_frames_before_return(struct sljit_compiler *compiler)
 {
 	sljit_s32 tmp, size;

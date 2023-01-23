@@ -215,6 +215,8 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define MOV_rm8_r8	0x88
 #define MOVAPS_x_xm	0x28
 #define MOVAPS_xm_x	0x29
+#define MOVD_x_rm	0x6e
+#define MOVD_rm_x	0x7e
 #define MOVSD_x_xm	0x10
 #define MOVSD_xm_x	0x11
 #define MOVSXD_r_rm	0x63
@@ -236,6 +238,8 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define POP_rm		0x8f
 #define POPF		0x9d
 #define PREFETCH	0x18
+#define PSHUFD_x_xm	0x70
+#define PUNPCKLWQ_x_xm	0x62
 #define PUSH_i32	0x68
 #define PUSH_r		0x50
 #define PUSH_rm		(/* GROUP_FF */ 6 << 3)
@@ -272,6 +276,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define XORPD_x_xm	0x57
 
 #define GROUP_0F	0x0f
+#define GROUP_66	0x66
 #define GROUP_F3	0xf3
 #define GROUP_F7	0xf7
 #define GROUP_FF	0xff
@@ -772,6 +777,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_REV:
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_PREFETCH:
+	case SLJIT_HAS_COPY_F32:
+	case SLJIT_HAS_COPY_F64:
 		return 1;
 
 	case SLJIT_HAS_SSE2:
