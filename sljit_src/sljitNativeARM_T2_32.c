@@ -2191,7 +2191,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 freg, sljit_s32 reg)
 {
-	sljit_s32 reg2 = 0;
+	sljit_s32 reg2;
 	sljit_ins inst;
 
 	CHECK_ERROR();

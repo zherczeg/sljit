@@ -325,6 +325,48 @@ static SLJIT_INLINE sljit_s32 emit_const(struct sljit_compiler *compiler, sljit_
 	return push_inst(compiler, ORI | S(reg) | A(reg) | IMM(init_value));
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 freg, sljit_s32 reg)
+{
+	sljit_s32 reg2 = 0;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
+
+	if (op & SLJIT_32) {
+		if (op == SLJIT_COPY32_TO_F32) {
+			FAIL_IF(push_inst(compiler, STW | S(reg) | A(SLJIT_SP) | TMP_MEM_OFFSET));
+			return push_inst(compiler, LFS | FS(freg) | A(SLJIT_SP) | TMP_MEM_OFFSET);
+		}
+
+		FAIL_IF(push_inst(compiler, STFS | FS(freg) | A(SLJIT_SP) | TMP_MEM_OFFSET));
+		return push_inst(compiler, LWZ | S(reg) | A(SLJIT_SP) | TMP_MEM_OFFSET);
+	}
+
+	if (reg & REG_PAIR_MASK) {
+		reg2 = REG_PAIR_SECOND(reg);
+		reg = REG_PAIR_FIRST(reg);
+	}
+
+	if (op == SLJIT_COPY_TO_F64) {
+		FAIL_IF(push_inst(compiler, STW | S(reg) | A(SLJIT_SP) | TMP_MEM_OFFSET_HI));
+
+		if (reg2 != 0)
+			FAIL_IF(push_inst(compiler, STW | S(reg2) | A(SLJIT_SP) | TMP_MEM_OFFSET_LOW));
+		else
+			FAIL_IF(push_inst(compiler, STFD | FS(freg) | A(SLJIT_SP) | TMP_MEM_OFFSET_LOW));
+
+		return push_inst(compiler, LFD | FS(freg) | A(SLJIT_SP) | TMP_MEM_OFFSET);
+	}
+
+	FAIL_IF(push_inst(compiler, STFD | FS(freg) | A(SLJIT_SP) | TMP_MEM_OFFSET));
+
+	if (reg2 != 0)
+		FAIL_IF(push_inst(compiler, LWZ | S(reg2) | A(SLJIT_SP) | TMP_MEM_OFFSET_LOW));
+
+	return push_inst(compiler, LWZ | S(reg) | A(SLJIT_SP) | TMP_MEM_OFFSET_HI);
+}
+
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset)
 {
 	sljit_ins *inst = (sljit_ins *)addr;

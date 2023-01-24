@@ -201,6 +201,8 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #endif /* SLJIT_MIPS_REV >= 6 */
 #define DIV_S		(HI(17) | FMT_S | LO(3))
 #define DINSU		(HI(31) | LO(6))
+#define DMFC1		(HI(17) | (1 << 21) | LO(0))
+#define DMTC1		(HI(17) | (5 << 21) | LO(0))
 #define DROTR		(HI(0) | (1 << 21) | LO(58))
 #define DROTR32		(HI(0) | (1 << 21) | LO(62))
 #define DROTRV		(HI(0) | (1 << 6) | LO(22))
@@ -231,7 +233,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define LWL		(HI(34))
 #define LWR		(HI(38))
 #define LWC1		(HI(49))
-#define MFC1		(HI(17))
+#define MFC1		(HI(17) | (0 << 21))
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)
 #define MOD		(HI(0) | (3 << 6) | LO(26))
 #define MODU		(HI(0) | (3 << 6) | LO(27))
@@ -730,6 +732,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #error "FIR check is not implemented for this architecture"
 #endif
 	case SLJIT_HAS_ZERO_REGISTER:
+	case SLJIT_HAS_COPY_F32:
+	case SLJIT_HAS_COPY_F64:
 		return 1;
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1)
 	case SLJIT_HAS_CLZ:
