@@ -141,12 +141,6 @@ static SLJIT_INLINE sljit_gpr gpr(sljit_s32 r)
 	return reg_map[r];
 }
 
-static SLJIT_INLINE sljit_gpr fgpr(sljit_s32 r)
-{
-	SLJIT_ASSERT(r >= 0 && r < (sljit_s32)(sizeof(freg_map) / sizeof(freg_map[0])));
-	return freg_map[r];
-}
-
 /* Size of instruction in bytes. Tags must already be cleared. */
 static SLJIT_INLINE sljit_uw sizeof_ins(sljit_ins ins)
 {
@@ -1654,6 +1648,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_REV:
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_PREFETCH:
+	case SLJIT_HAS_COPY_F32:
+	case SLJIT_HAS_COPY_F64:
 		return 1;
 	case SLJIT_HAS_CTZ:
 		return 2;
@@ -3122,7 +3118,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 reg)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
 {
 	CHECK_REG_INDEX(check_sljit_get_float_register_index(reg));
-	return (sljit_s32)fgpr(reg);
+	return (sljit_s32)freg_map[reg];
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
@@ -3389,6 +3385,33 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 
 	SLJIT_ASSERT(dst_r != TMP_FREG1);
 	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 freg, sljit_s32 reg)
+{
+	sljit_gpr gen_r;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
+
+	gen_r = gpr(reg);
+
+	if (GET_OPCODE(op) == SLJIT_COPY_TO_F64) {
+		if (op & SLJIT_32) {
+			FAIL_IF(push_inst(compiler, 0xeb000000000d /* sllg */ | R36A(tmp0) | R32A(gen_r) | (32 << 16)));
+			gen_r = tmp0;
+		}
+
+		return push_inst(compiler, 0xb3c10000 /* ldgr */ | F4(freg) | R0A(gen_r));
+	}
+
+	FAIL_IF(push_inst(compiler, 0xb3cd0000 /* lgdr */ | R4A(gen_r) | F0(freg)));
+
+	if (!(op & SLJIT_32))
+		return SLJIT_SUCCESS;
+
+	return push_inst(compiler, 0xeb000000000c /* srlg */ | R36A(gen_r) | R32A(gen_r) | (32 << 16));
 }
 
 /* --------------------------------------------------------------------- */
