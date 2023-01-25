@@ -9781,6 +9781,19 @@ static void test80(void)
 	/* buf[6] */
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_sw), SLJIT_NOT_ZERO);
 
+#if (defined SLJIT_MASKED_SHIFT && SLJIT_MASKED_SHIFT)
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 12344321);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, (8 * sizeof(sljit_sw)) + 1);
+	/* buf[7] */
+	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_MEM1(SLJIT_S0), 7 * sizeof(sljit_sw), SLJIT_R1, 0, SLJIT_R2, 0);
+#endif /* SLJIT_MASKED_SHIFT */
+#if (defined SLJIT_MASKED_SHIFT32 && SLJIT_MASKED_SHIFT32)
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 24688643);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R2, 0, SLJIT_IMM, (8 * sizeof(sljit_s32)) + 1);
+	/* ibuf[6] */
+	sljit_emit_op2(compiler, SLJIT_LSHR32, SLJIT_MEM1(SLJIT_S1), 6 * sizeof(sljit_s32), SLJIT_R1, 0, SLJIT_R2, 0);
+#endif /* SLJIT_MASKED_SHIFT32 */
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler);
@@ -9802,6 +9815,12 @@ static void test80(void)
 	FAILED(ibuf[4] != -0x80, "test80 case 11 failed\n");
 	FAILED(ibuf[5] != 0, "test80 case 12 failed\n");
 	FAILED(buf[6] != 0, "test80 case 13 failed\n");
+#if (defined SLJIT_MASKED_SHIFT && SLJIT_MASKED_SHIFT)
+	FAILED(buf[7] != 24688642, "test80 case 14 failed\n");
+#endif /* SLJIT_MASKED_SHIFT */
+#if (defined SLJIT_MASKED_SHIFT32 && SLJIT_MASKED_SHIFT32)
+	FAILED(ibuf[6] != 12344321, "test80 case 15 failed\n");
+#endif /* SLJIT_MASKED_SHIFT32 */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -10375,8 +10394,8 @@ static void test84(void)
 	/* Test "shift into". */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
-	sljit_sw buf[17];
-	sljit_s32 ibuf[7];
+	sljit_sw buf[18];
+	sljit_s32 ibuf[8];
 	sljit_s32 i;
 #ifdef SLJIT_PREF_SHIFT_REG
 	sljit_s32 shift_reg = SLJIT_PREF_SHIFT_REG;
@@ -10389,9 +10408,9 @@ static void test84(void)
 
 	FAILED(!compiler, "cannot create compiler\n");
 
-	for (i = 0; i < 17; i++)
+	for (i = 0; i < 18; i++)
 		buf[i] = -1;
-	for (i = 0; i < 7; i++)
+	for (i = 0; i < 8; i++)
 		ibuf[i] = -1;
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS2(VOID, W, W), 5, 5, 0, 0, 2 * sizeof(sljit_sw));
@@ -10525,6 +10544,22 @@ static void test84(void)
 	sljit_emit_shift_into(compiler, SLJIT_MSHL, SLJIT_R0, SLJIT_MEM0(), (sljit_sw)(buf + 16), SLJIT_MEM0(), (sljit_sw)(buf + 16));
 	/* buf[16] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 16 * sizeof(sljit_sw), SLJIT_R0, 0);
+#if (defined SLJIT_MASKED_SHIFT && SLJIT_MASKED_SHIFT)
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 12344321);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, -1);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, (8 * sizeof(sljit_sw)) + 1);
+	sljit_emit_shift_into(compiler, SLJIT_SHL, SLJIT_R0, SLJIT_R1, 0, SLJIT_R2, 0);
+	/* buf[17] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 17 * sizeof(sljit_sw), SLJIT_R0, 0);
+#endif /* SLJIT_MASKED_SHIFT */
+#if (defined SLJIT_MASKED_SHIFT32 && SLJIT_MASKED_SHIFT32)
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 24688642);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 1);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R2, 0, SLJIT_IMM, (8 * sizeof(sljit_s32)) + 1);
+	sljit_emit_shift_into(compiler, SLJIT_LSHR32, SLJIT_R0, SLJIT_R1, 0, SLJIT_R2, 0);
+	/* ibuf[7] */
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), 7 * sizeof(sljit_s32), SLJIT_R0, 0);
+#endif /* SLJIT_MASKED_SHIFT32 */
 
 	sljit_emit_return_void(compiler);
 
@@ -10558,6 +10593,12 @@ static void test84(void)
 	FAILED(buf[14] != WCONST(0x2468acf1fdb97413, 0x24690ecb), "test84 case 22 failed\n");
 	FAILED(buf[15] != WCONST(0x12345678fedcba09, 0x12348765), "test84 case 23 failed\n");
 	FAILED(buf[16] != 0x30, "test84 case 24 failed\n");
+#if (defined SLJIT_MASKED_SHIFT && SLJIT_MASKED_SHIFT)
+	FAILED(buf[17] != 24688643, "test84 case 25 failed\n");
+#endif /* SLJIT_MASKED_SHIFT */
+#if (defined SLJIT_MASKED_SHIFT32 && SLJIT_MASKED_SHIFT32)
+	FAILED(ibuf[7] != (sljit_s32)-2135139327, "test84 case 26 failed\n");
+#endif /* SLJIT_MASKED_SHIFT32 */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
