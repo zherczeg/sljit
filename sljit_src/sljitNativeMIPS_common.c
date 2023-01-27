@@ -2451,9 +2451,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 #endif /* SLJIT_CONFIG_MIPS_64 */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 src_dst,
-	sljit_s32 src1, sljit_sw src1w,
-	sljit_s32 src2, sljit_sw src2w)
+	sljit_s32 dst_reg,
+	sljit_s32 src1_reg,
+	sljit_s32 src2_reg,
+	sljit_s32 src3, sljit_sw src3w)
 {
 	sljit_s32 is_left;
 	sljit_ins ins1, ins2, ins3;
@@ -2466,50 +2467,44 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 #endif /* SLJIT_CONFIG_MIPS_64 */
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_shift_into(compiler, op, src_dst, src1, src1w, src2, src2w));
+	CHECK(check_sljit_emit_shift_into(compiler, op, dst_reg, src1_reg, src2_reg, src3, src3w));
 
 	is_left = (GET_OPCODE(op) == SLJIT_SHL || GET_OPCODE(op) == SLJIT_MSHL);
 
-	if (src_dst == src1) {
+	if (src1_reg == src2_reg) {
 		SLJIT_SKIP_CHECKS(compiler);
-		return sljit_emit_op2(compiler, (is_left ? SLJIT_ROTL : SLJIT_ROTR) | (op & SLJIT_32), src_dst, 0, src_dst, 0, src2, src2w);
+		return sljit_emit_op2(compiler, (is_left ? SLJIT_ROTL : SLJIT_ROTR) | (op & SLJIT_32), dst_reg, 0, src1_reg, 0, src3, src3w);
 	}
 
-	ADJUST_LOCAL_OFFSET(src1, src1w);
-	ADJUST_LOCAL_OFFSET(src2, src2w);
+	ADJUST_LOCAL_OFFSET(src3, src3w);
 
-	if (src2 & SLJIT_IMM) {
-		src2w &= bit_length - 1;
+	if (src3 & SLJIT_IMM) {
+		src3w &= bit_length - 1;
 
-		if (src2w == 0)
+		if (src3w == 0)
 			return SLJIT_SUCCESS;
-	} else if (src2 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, inp_flags, DR(TMP_REG2), src2, src2w));
-		src2 = TMP_REG2;
-	}
 
-	if (src1 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, inp_flags, DR(TMP_REG1), src1, src1w));
-		src1 = TMP_REG1;
-	} else if (src1 & SLJIT_IMM) {
-		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), src1w));
-		src1 = TMP_REG1;
-	}
-
-	if (src2 & SLJIT_IMM) {
 		if (is_left) {
-			ins1 = SELECT_OP3(op, src2w, DSLL, DSLL32, SLL);
-			src2w = bit_length - src2w;
-			ins2 = SELECT_OP3(op, src2w, DSRL, DSRL32, SRL);
+			ins1 = SELECT_OP3(op, src3w, DSLL, DSLL32, SLL);
+			src3w = bit_length - src3w;
+			ins2 = SELECT_OP3(op, src3w, DSRL, DSRL32, SRL);
 		} else {
-			ins1 = SELECT_OP3(op, src2w, DSRL, DSRL32, SRL);
-			src2w = bit_length - src2w;
-			ins2 = SELECT_OP3(op, src2w, DSLL, DSLL32, SLL);
+			ins1 = SELECT_OP3(op, src3w, DSRL, DSRL32, SRL);
+			src3w = bit_length - src3w;
+			ins2 = SELECT_OP3(op, src3w, DSLL, DSLL32, SLL);
 		}
 
-		FAIL_IF(push_inst(compiler, ins1 | T(src_dst) | D(src_dst), DR(src_dst)));
-		FAIL_IF(push_inst(compiler, ins2 | T(src1) | D(TMP_REG1), DR(TMP_REG1)));
-		return push_inst(compiler, OR | S(src_dst) | T(TMP_REG1) | D(src_dst), DR(src_dst));
+		FAIL_IF(push_inst(compiler, ins1 | T(src1_reg) | D(dst_reg), DR(dst_reg)));
+		FAIL_IF(push_inst(compiler, ins2 | T(src2_reg) | D(TMP_REG1), DR(TMP_REG1)));
+		return push_inst(compiler, OR | S(dst_reg) | T(TMP_REG1) | D(dst_reg), DR(dst_reg));
+	}
+
+	if (src3 & SLJIT_MEM) {
+		FAIL_IF(emit_op_mem(compiler, inp_flags, DR(TMP_REG2), src3, src3w));
+		src3 = TMP_REG2;
+	} else if (dst_reg == src3) {
+		FAIL_IF(push_inst(compiler, SELECT_OP2(op, DADDU, ADDU) | S(src3) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
+		src3 = TMP_REG2;
 	}
 
 	if (is_left) {
@@ -2522,17 +2517,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 		ins3 = SELECT_OP2(op, DSLLV, SLLV);
 	}
 
-	FAIL_IF(push_inst(compiler, ins2 | S(src2) | T(src_dst) | D(src_dst), DR(src_dst)));
+	FAIL_IF(push_inst(compiler, ins2 | S(src3) | T(src1_reg) | D(dst_reg), DR(dst_reg)));
 
 	if (!(op & SLJIT_SHIFT_INTO_NON_ZERO)) {
-		FAIL_IF(push_inst(compiler, ins1 | T(src1) | D(TMP_REG1) | (1 << 6), DR(TMP_REG1)));
-		FAIL_IF(push_inst(compiler, XORI | S(src2) | T(TMP_REG2) | ((sljit_ins)bit_length - 1), DR(TMP_REG2)));
-		src1 = TMP_REG1;
+		FAIL_IF(push_inst(compiler, ins1 | T(src2_reg) | D(TMP_REG1) | (1 << 6), DR(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, XORI | S(src3) | T(TMP_REG2) | ((sljit_ins)bit_length - 1), DR(TMP_REG2)));
+		src2_reg = TMP_REG1;
 	} else
-		FAIL_IF(push_inst(compiler, SELECT_OP2(op, DSUBU, SUBU) | SA(0) | T(src2) | D(TMP_REG2), DR(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, SELECT_OP2(op, DSUBU, SUBU) | SA(0) | T(src3) | D(TMP_REG2), DR(TMP_REG2)));
 
-	FAIL_IF(push_inst(compiler, ins3 | S(TMP_REG2) | T(src1) | D(TMP_REG1), DR(TMP_REG1)));
-	return push_inst(compiler, OR | S(src_dst) | T(TMP_REG1) | D(src_dst), DR(src_dst));
+	FAIL_IF(push_inst(compiler, ins3 | S(TMP_REG2) | T(src2_reg) | D(TMP_REG1), DR(TMP_REG1)));
+	return push_inst(compiler, OR | S(dst_reg) | T(TMP_REG1) | D(dst_reg), DR(dst_reg));
 }
 
 #undef SELECT_OP3

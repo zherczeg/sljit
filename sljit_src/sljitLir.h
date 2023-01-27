@@ -1163,39 +1163,41 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 
    op must be one of the following operations:
      SLJIT_SHL or SLJIT_SHL32:
-       src_dst <<= src2
-       src_dst |= ((src1 >> 1) >> (src2 ^ value_mask))
+       dst_reg = src1_reg << src3_reg
+       dst_reg |= ((src2_reg >> 1) >> (src3 ^ value_mask))
      SLJIT_MSHL or SLJIT_MSHL32:
-       src2 &= value_mask
+       src3 &= value_mask
        perform the SLJIT_SHL or SLJIT_SHL32 operation
      SLJIT_LSHR or SLJIT_LSHR32:
-       src_dst >>= src2
-       src_dst |= ((src1 << 1) << (src2 ^ value_mask))
+       dst_reg = src1_reg >> src3_reg
+       dst_reg |= ((src2_reg << 1) << (src3 ^ value_mask))
      SLJIT_MLSHR or SLJIT_MLSHR32:
-       src2 &= value_mask
+       src3 &= value_mask
        perform the SLJIT_LSHR or SLJIT_LSHR32 operation
 
    op can be combined (or'ed) with SLJIT_SHIFT_INTO_NON_ZERO
 
-   src_dst must be a register which content is updated after
-     the operation is completed
-   src1 / src1w contains the bits which shifted into src_dst
-   src2 / src2w contains the shift amount
+   dst_reg specifies the destination register, where dst_reg
+     and src2_reg cannot be the same registers
+   src1_reg specifies the source register
+   src2_reg specifies the register which is shifted into src1_reg
+   src3 / src3w contains the shift amount
 
-   Note: a rotate operation can be performed if src_dst and
-         src1 are set to the same register
+   Note: a rotate operation is performed if src1_reg and
+         src2_reg are the same registers
 
    Flags: - (may destroy flags) */
 
-/* The src2 contains a non-zero value. Improves the generated
-   code on certain architectures, which provides a small
-   performance improvement. */
+/* The src3 operand contains a non-zero value. Improves
+   the generated code on certain architectures, which
+   provides a small performance improvement. */
 #define SLJIT_SHIFT_INTO_NON_ZERO	0x200
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 src_dst,
-	sljit_s32 src1, sljit_sw src1w,
-	sljit_s32 src2, sljit_sw src2w);
+	sljit_s32 dst_reg,
+	sljit_s32 src1_reg,
+	sljit_s32 src2_reg,
+	sljit_s32 src3, sljit_sw src3w);
 
 /* Starting index of opcodes for sljit_emit_op_src
    and sljit_emit_op_dst. */

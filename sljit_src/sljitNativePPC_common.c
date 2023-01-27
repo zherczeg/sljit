@@ -1820,9 +1820,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 #undef TEST_SUB_FORM3
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 src_dst,
-	sljit_s32 src1, sljit_sw src1w,
-	sljit_s32 src2, sljit_sw src2w)
+	sljit_s32 dst_reg,
+	sljit_s32 src1_reg,
+	sljit_s32 src2_reg,
+	sljit_s32 src3, sljit_sw src3w)
 {
 	sljit_s32 is_right;
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
@@ -1834,85 +1835,76 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 #endif /* SLJIT_CONFIG_PPC_64 */
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_shift_into(compiler, op, src_dst, src1, src1w, src2, src2w));
+	CHECK(check_sljit_emit_shift_into(compiler, op, dst_reg, src1_reg, src2_reg, src3, src3w));
 
 	is_right = (GET_OPCODE(op) == SLJIT_LSHR || GET_OPCODE(op) == SLJIT_MLSHR);
 
-	if (src_dst == src1) {
+	if (src1_reg == src2_reg) {
 		SLJIT_SKIP_CHECKS(compiler);
-		return sljit_emit_op2(compiler, (is_right ? SLJIT_ROTR : SLJIT_ROTL) | (op & SLJIT_32), src_dst, 0, src_dst, 0, src2, src2w);
+		return sljit_emit_op2(compiler, (is_right ? SLJIT_ROTR : SLJIT_ROTL) | (op & SLJIT_32), dst_reg, 0, src1_reg, 0, src3, src3w);
 	}
 
-	ADJUST_LOCAL_OFFSET(src1, src1w);
-	ADJUST_LOCAL_OFFSET(src2, src2w);
+	ADJUST_LOCAL_OFFSET(src3, src3w);
 
-	if (src2 & SLJIT_IMM) {
-		src2w &= bit_length - 1;
+	if (src3 & SLJIT_IMM) {
+		src3w &= bit_length - 1;
 
-		if (src2w == 0)
+		if (src3w == 0)
 			return SLJIT_SUCCESS;
-	} else if (src2 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, inp_flags, TMP_REG2, src2, src2w, TMP_REG2));
-		src2 = TMP_REG2;
-	}
 
-	if (src1 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, inp_flags, TMP_REG1, src1, src1w, TMP_REG1));
-		src1 = TMP_REG1;
-	} else if (src1 & SLJIT_IMM) {
-		FAIL_IF(load_immediate(compiler, TMP_REG1, src1w));
-		src1 = TMP_REG1;
-	}
-
-	if (src2 & SLJIT_IMM) {
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		if (!(op & SLJIT_32)) {
 			if (is_right) {
-				FAIL_IF(push_inst(compiler, SRDI(src2w) | S(src_dst) | A(src_dst)));
-				return push_inst(compiler, RLDIMI | S(src1) | A(src_dst) | RLDI_SH(64 - src2w) | RLDI_MB(0));
+				FAIL_IF(push_inst(compiler, SRDI(src3w) | S(src1_reg) | A(dst_reg)));
+				return push_inst(compiler, RLDIMI | S(src2_reg) | A(dst_reg) | RLDI_SH(64 - src3w) | RLDI_MB(0));
 			}
 
-			FAIL_IF(push_inst(compiler, SLDI(src2w) | S(src_dst) | A(src_dst)));
+			FAIL_IF(push_inst(compiler, SLDI(src3w) | S(src1_reg) | A(dst_reg)));
 			/* Computes SRDI(64 - src2w). */
-			FAIL_IF(push_inst(compiler, RLDICL | S(src1) | A(TMP_REG1) | RLDI_SH(src2w) | RLDI_MB(64 - src2w)));
-			return push_inst(compiler, OR | S(src_dst) | A(src_dst) | B(TMP_REG1));
+			FAIL_IF(push_inst(compiler, RLDICL | S(src2_reg) | A(TMP_REG1) | RLDI_SH(src3w) | RLDI_MB(64 - src3w)));
+			return push_inst(compiler, OR | S(dst_reg) | A(dst_reg) | B(TMP_REG1));
 		}
 #endif /* SLJIT_CONFIG_PPC_64 */
 
 		if (is_right) {
-			FAIL_IF(push_inst(compiler, SRWI(src2w) | S(src_dst) | A(src_dst)));
-			return push_inst(compiler, RLWIMI | S(src1) | A(src_dst) | RLWI_SH(32 - src2w) | RLWI_MBE(0, src2w - 1));
+			FAIL_IF(push_inst(compiler, SRWI(src3w) | S(src1_reg) | A(dst_reg)));
+			return push_inst(compiler, RLWIMI | S(src2_reg) | A(dst_reg) | RLWI_SH(32 - src3w) | RLWI_MBE(0, src3w - 1));
 		}
 
-		FAIL_IF(push_inst(compiler, SLWI(src2w) | S(src_dst) | A(src_dst)));
-		return push_inst(compiler, RLWIMI | S(src1) | A(src_dst) | RLWI_SH(src2w) | RLWI_MBE(32 - src2w, 31));
+		FAIL_IF(push_inst(compiler, SLWI(src3w) | S(src1_reg) | A(dst_reg)));
+		return push_inst(compiler, RLWIMI | S(src2_reg) | A(dst_reg) | RLWI_SH(src3w) | RLWI_MBE(32 - src3w, 31));
+	}
+
+	if (src3 & SLJIT_MEM) {
+		FAIL_IF(emit_op_mem(compiler, inp_flags, TMP_REG2, src3, src3w, TMP_REG2));
+		src3 = TMP_REG2;
 	}
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (!(op & SLJIT_32)) {
-		if (GET_OPCODE(op) == SLJIT_MSHL || GET_OPCODE(op) == SLJIT_MLSHR) {
-			FAIL_IF(push_inst(compiler, ANDI | S(src2) | A(TMP_REG2) | 0x3f));
-			src2 = TMP_REG2;
+		if (GET_OPCODE(op) == SLJIT_MSHL || GET_OPCODE(op) == SLJIT_MLSHR || dst_reg == src3) {
+			FAIL_IF(push_inst(compiler, ANDI | S(src3) | A(TMP_REG2) | 0x3f));
+			src3 = TMP_REG2;
 		}
 
-		FAIL_IF(push_inst(compiler, (is_right ? SRD : SLD) | S(src_dst) | A(src_dst) | B(src2)));
-		FAIL_IF(push_inst(compiler, (is_right ? SLDI(1) : SRDI(1)) | S(src1) | A(TMP_REG1)));
-		FAIL_IF(push_inst(compiler, XORI | S(src2) | A(TMP_REG2) | 0x3f));
+		FAIL_IF(push_inst(compiler, (is_right ? SRD : SLD) | S(src1_reg) | A(dst_reg) | B(src3)));
+		FAIL_IF(push_inst(compiler, (is_right ? SLDI(1) : SRDI(1)) | S(src2_reg) | A(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, XORI | S(src3) | A(TMP_REG2) | 0x3f));
 		FAIL_IF(push_inst(compiler, (is_right ? SLD : SRD) | S(TMP_REG1) | A(TMP_REG1) | B(TMP_REG2)));
-		return push_inst(compiler, OR | S(src_dst) | A(src_dst) | B(TMP_REG1));
+		return push_inst(compiler, OR | S(dst_reg) | A(dst_reg) | B(TMP_REG1));
 	}
 #endif /* SLJIT_CONFIG_PPC_64 */
 
-	if (GET_OPCODE(op) == SLJIT_MSHL || GET_OPCODE(op) == SLJIT_MLSHR) {
-		FAIL_IF(push_inst(compiler, ANDI | S(src2) | A(TMP_REG2) | 0x1f));
-		src2 = TMP_REG2;
+	if (GET_OPCODE(op) == SLJIT_MSHL || GET_OPCODE(op) == SLJIT_MLSHR || dst_reg == src3) {
+		FAIL_IF(push_inst(compiler, ANDI | S(src3) | A(TMP_REG2) | 0x1f));
+		src3 = TMP_REG2;
 	}
 
-	FAIL_IF(push_inst(compiler, (is_right ? SRW : SLW) | S(src_dst) | A(src_dst) | B(src2)));
-	FAIL_IF(push_inst(compiler, (is_right ? SLWI(1) : SRWI(1)) | S(src1) | A(TMP_REG1)));
-	FAIL_IF(push_inst(compiler, XORI | S(src2) | A(TMP_REG2) | 0x1f));
+	FAIL_IF(push_inst(compiler, (is_right ? SRW : SLW) | S(src1_reg) | A(dst_reg) | B(src3)));
+	FAIL_IF(push_inst(compiler, (is_right ? SLWI(1) : SRWI(1)) | S(src2_reg) | A(TMP_REG1)));
+	FAIL_IF(push_inst(compiler, XORI | S(src3) | A(TMP_REG2) | 0x1f));
 	FAIL_IF(push_inst(compiler, (is_right ? SLW : SRW) | S(TMP_REG1) | A(TMP_REG1) | B(TMP_REG2)));
-	return push_inst(compiler, OR | S(src_dst) | A(src_dst) | B(TMP_REG1));
+	return push_inst(compiler, OR | S(dst_reg) | A(dst_reg) | B(TMP_REG1));
 }
 
 static sljit_s32 emit_prefetch(struct sljit_compiler *compiler,
