@@ -2935,117 +2935,121 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 src_dst,
-	sljit_s32 src1, sljit_sw src1w,
-	sljit_s32 src2, sljit_sw src2w)
+	sljit_s32 dst_reg,
+	sljit_s32 src1_reg,
+	sljit_s32 src2_reg,
+	sljit_s32 src3, sljit_sw src3w)
 {
 	sljit_s32 is_right;
 	sljit_sw bit_length = (op & SLJIT_32) ? 32 : 64;
-	sljit_gpr src_dst_r = gpr(src_dst);
-	sljit_gpr src1_r = tmp0;
-	sljit_gpr src2_r = tmp1;
+	sljit_gpr dst_r = gpr(dst_reg);
+	sljit_gpr src1_r = gpr(src1_reg);
+	sljit_gpr src2_r = gpr(src2_reg);
+	sljit_gpr src3_r = tmp1;
 	sljit_ins ins;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_shift_into(compiler, op, src_dst, src1, src1w, src2, src2w));
+	CHECK(check_sljit_emit_shift_into(compiler, op, dst_reg, src1_reg, src2_reg, src3, src3w));
 
 	is_right = (GET_OPCODE(op) == SLJIT_LSHR || GET_OPCODE(op) == SLJIT_MLSHR);
 
-	if (src_dst == src1) {
+	if (src1_reg == src2_reg) {
 		SLJIT_SKIP_CHECKS(compiler);
-		return sljit_emit_op2(compiler, (is_right ? SLJIT_ROTR : SLJIT_ROTL) | (op & SLJIT_32), src_dst, 0, src_dst, 0, src2, src2w);
+		return sljit_emit_op2(compiler, (is_right ? SLJIT_ROTR : SLJIT_ROTL) | (op & SLJIT_32), dst_reg, 0, src1_reg, 0, src3, src3w);
 	}
 
-	ADJUST_LOCAL_OFFSET(src1, src1w);
-	ADJUST_LOCAL_OFFSET(src2, src2w);
+	ADJUST_LOCAL_OFFSET(src3, src3w);
 
-	if (src1 & SLJIT_MEM)
-		FAIL_IF(load_word(compiler, tmp0, src1, src1w, op & SLJIT_32));
-	else if (src1 & SLJIT_IMM)
-		FAIL_IF(push_load_imm_inst(compiler, tmp0, src1w));
-	else
-		src1_r = gpr(src1);
+	if (src3 & SLJIT_IMM) {
+		src3w &= bit_length - 1;
 
-	if (src2 & SLJIT_IMM) {
-		src2w &= bit_length - 1;
-
-		if (src2w == 0)
+		if (src3w == 0)
 			return SLJIT_SUCCESS;
-	} else if (!(src2 & SLJIT_MEM))
-		src2_r = gpr(src2);
-	else
-		FAIL_IF(load_word(compiler, tmp1, src2, src2w, op & SLJIT_32));
 
-	if (src2 & SLJIT_IMM) {
 		if (op & SLJIT_32) {
-			ins = is_right ? 0x88000000 /* srl */ : 0x89000000 /* sll */;
-			FAIL_IF(push_inst(compiler, ins | R20A(src_dst_r) | (sljit_ins)src2w));
+			if (dst_r == src1_r) {
+				ins = is_right ? 0x88000000 /* srl */ : 0x89000000 /* sll */;
+				FAIL_IF(push_inst(compiler, ins | R20A(dst_r) | (sljit_ins)src3w));
+			} else {
+				ins = is_right ? 0xeb00000000de /* srlk */ : 0xeb00000000df /* sllk */;
+				FAIL_IF(push_inst(compiler, ins | R36A(dst_r) | R32A(src1_r) | ((sljit_ins)src3w << 16)));
+			}
 		} else {
 			ins = is_right ? 0xeb000000000c /* srlg */ : 0xeb000000000d /* sllg */;
-			FAIL_IF(push_inst(compiler, ins | R36A(src_dst_r) | R32A(src_dst_r) | ((sljit_ins)src2w << 16)));
+			FAIL_IF(push_inst(compiler, ins | R36A(dst_r) | R32A(src1_r) | ((sljit_ins)src3w << 16)));
 		}
 
 		ins = 0xec0000000055 /* risbg */;
 
 		if (is_right) {
-			src2w = bit_length - src2w;
-			ins |= ((sljit_ins)(64 - bit_length) << 24) | ((sljit_ins)(63 - src2w) << 16) | ((sljit_ins)src2w << 8);
+			src3w = bit_length - src3w;
+			ins |= ((sljit_ins)(64 - bit_length) << 24) | ((sljit_ins)(63 - src3w) << 16) | ((sljit_ins)src3w << 8);
 		} else
-			ins |= ((sljit_ins)(64 - src2w) << 24) | ((sljit_ins)63 << 16) | ((sljit_ins)src2w << 8);
+			ins |= ((sljit_ins)(64 - src3w) << 24) | ((sljit_ins)63 << 16) | ((sljit_ins)(src3w + 64 - bit_length) << 8);
 
-		return push_inst(compiler, ins | R36A(src_dst_r) | R32A(src1_r));
+		return push_inst(compiler, ins | R36A(dst_r) | R32A(src2_r));
 	}
+
+	if (!(src3 & SLJIT_MEM)) {
+		src3_r = gpr(src3);
+
+		if (dst_r == src3_r) {
+			FAIL_IF(push_inst(compiler, 0x1800 /* lr */ | R4A(tmp1) | R0A(src3_r)));
+			src3_r = tmp1;
+		}
+	} else
+		FAIL_IF(load_word(compiler, tmp1, src3, src3w, op & SLJIT_32));
 
 	if (op & SLJIT_32) {
 		if (GET_OPCODE(op) == SLJIT_MSHL || GET_OPCODE(op) == SLJIT_MLSHR) {
-			if (src2_r != tmp1) {
-				FAIL_IF(push_inst(compiler, 0xec0000000055 /* risbg */ | R36A(tmp1) | R32A(src2_r) | (59 << 24) | (1 << 23) | (63 << 16)));
-				src2_r = tmp1;
+			if (src3_r != tmp1) {
+				FAIL_IF(push_inst(compiler, 0xec0000000055 /* risbg */ | R36A(tmp1) | R32A(src3_r) | (59 << 24) | (1 << 23) | (63 << 16)));
+				src3_r = tmp1;
 			} else
 				FAIL_IF(push_inst(compiler, 0xa5070000 /* nill */ | R20A(tmp1) | 0x1f));
 		}
 
-		ins = is_right ? 0x88000000 /* srl */ : 0x89000000 /* sll */;
-		FAIL_IF(push_inst(compiler, ins | R20A(src_dst_r) | R12A(src2_r)));
+		if (dst_r == src1_r) {
+			ins = is_right ? 0x88000000 /* srl */ : 0x89000000 /* sll */;
+			FAIL_IF(push_inst(compiler, ins | R20A(dst_r) | R12A(src3_r)));
+		} else {
+			ins = is_right ? 0xeb00000000de /* srlk */ : 0xeb00000000df /* sllk */;
+			FAIL_IF(push_inst(compiler, ins | R36A(dst_r) | R32A(src1_r) | R28A(src3_r)));
+		}
 
-		if (src2_r != tmp1) {
+		if (src3_r != tmp1) {
 			FAIL_IF(push_inst(compiler, 0xa50f0000 /* llill */ | R20A(tmp1) | 0x1f));
-			FAIL_IF(push_inst(compiler, 0x1700 /* xr */ | R4A(tmp1) | R0A(src2_r)));
+			FAIL_IF(push_inst(compiler, 0x1700 /* xr */ | R4A(tmp1) | R0A(src3_r)));
 		} else
 			FAIL_IF(push_inst(compiler, 0xc00700000000 /* xilf */ | R36A(tmp1) | 0x1f));
 
-		if (src1_r == tmp0) {
-			ins = is_right ? 0x89000000 /* sll */ : 0x88000000 /* srl */;
-			FAIL_IF(push_inst(compiler, ins | R20A(tmp0) | R12A(tmp1) | 0x1));
-		} else {
-			ins = is_right ? 0xeb00000000df /* sllk */ : 0xeb00000000de /* srlk */;
-			FAIL_IF(push_inst(compiler, ins | R36A(tmp0) | R32A(src1_r) | R28A(tmp1) | (0x1 << 16)));
-		}
+		ins = is_right ? 0xeb00000000df /* sllk */ : 0xeb00000000de /* srlk */;
+		FAIL_IF(push_inst(compiler, ins | R36A(tmp0) | R32A(src2_r) | R28A(tmp1) | (0x1 << 16)));
 
-		return push_inst(compiler, 0x1600 /* or */ | R4A(src_dst_r) | R0A(tmp0));
+		return push_inst(compiler, 0x1600 /* or */ | R4A(dst_r) | R0A(tmp0));
 	}
 
 	ins = is_right ? 0xeb000000000c /* srlg */ : 0xeb000000000d /* sllg */;
-	FAIL_IF(push_inst(compiler, ins | R36A(src_dst_r) | R32A(src_dst_r) | R28A(src2_r)));
+	FAIL_IF(push_inst(compiler, ins | R36A(dst_r) | R32A(src1_r) | R28A(src3_r)));
 
 	ins = is_right ? 0xeb000000000d /* sllg */ : 0xeb000000000c /* srlg */;
 
 	if (!(op & SLJIT_SHIFT_INTO_NON_ZERO)) {
-		if (src2_r != tmp1)
+		if (src3_r != tmp1)
 			FAIL_IF(push_inst(compiler, 0xa50f0000 /* llill */ | R20A(tmp1) | 0x3f));
 
-		FAIL_IF(push_inst(compiler, ins | R36A(tmp0) | R32A(src1_r) | (0x1 << 16)));
-		src1_r = tmp0;
+		FAIL_IF(push_inst(compiler, ins | R36A(tmp0) | R32A(src2_r) | (0x1 << 16)));
+		src2_r = tmp0;
 
-		if (src2_r != tmp1)
-			FAIL_IF(push_inst(compiler, 0xb9820000 /* xgr */ | R4A(tmp1) | R0A(src2_r)));
+		if (src3_r != tmp1)
+			FAIL_IF(push_inst(compiler, 0xb9820000 /* xgr */ | R4A(tmp1) | R0A(src3_r)));
 		else
 			FAIL_IF(push_inst(compiler, 0xc00700000000 /* xilf */ | R36A(tmp1) | 0x3f));
 	} else
-		FAIL_IF(push_inst(compiler, 0xb9030000 /* lcgr */ | R4A(tmp1) | R0A(src2_r)));
+		FAIL_IF(push_inst(compiler, 0xb9030000 /* lcgr */ | R4A(tmp1) | R0A(src3_r)));
 
-	FAIL_IF(push_inst(compiler, ins | R36A(tmp0) | R32A(src1_r) | R28A(tmp1)));
-	return push_inst(compiler, 0xb9810000 /* ogr */ | R4A(src_dst_r) | R0A(tmp0));
+	FAIL_IF(push_inst(compiler, ins | R36A(tmp0) | R32A(src2_r) | R28A(tmp1)));
+	return push_inst(compiler, 0xb9810000 /* ogr */ | R4A(dst_r) | R0A(tmp0));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *compiler, sljit_s32 op,
