@@ -1648,7 +1648,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 				return emit_op(compiler, SLJIT_ADD, flags | ALT_FORM3, dst, dstw, src2, src2w, TMP_REG2, 0);
 			}
 		}
-		return emit_op(compiler, SLJIT_ADD, flags | ((GET_FLAG_TYPE(op) == GET_FLAG_TYPE(SLJIT_SET_CARRY)) ? ALT_FORM5 : 0), dst, dstw, src1, src1w, src2, src2w);
+		return emit_op(compiler, SLJIT_ADD, flags | ((GET_FLAG_TYPE(op) == SLJIT_CARRY) ? ALT_FORM5 : 0), dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_ADDC:
 		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
@@ -1715,7 +1715,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		}
 
 		/* We know ALT_SIGN_EXT is set if it is an SLJIT_32 on 64 bit systems. */
-		return emit_op(compiler, SLJIT_SUB, flags | ((GET_FLAG_TYPE(op) == GET_FLAG_TYPE(SLJIT_SET_CARRY)) ? ALT_FORM5 : 0), dst, dstw, src1, src1w, src2, src2w);
+		return emit_op(compiler, SLJIT_SUB, flags | ((GET_FLAG_TYPE(op) == SLJIT_CARRY) ? ALT_FORM5 : 0), dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_SUBC:
 		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB;
@@ -2163,13 +2163,10 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 
 	switch (GET_FLAG_TYPE(op)) {
 	case SLJIT_UNORDERED_OR_EQUAL:
-	case SLJIT_ORDERED_NOT_EQUAL:
 		return push_inst(compiler, CROR | ((4 + 2) << 21) | ((4 + 2) << 16) | ((4 + 3) << 11));
 	case SLJIT_UNORDERED_OR_LESS:
-	case SLJIT_ORDERED_GREATER_EQUAL:
 		return push_inst(compiler, CROR | ((4 + 0) << 21) | ((4 + 0) << 16) | ((4 + 3) << 11));
 	case SLJIT_UNORDERED_OR_GREATER:
-	case SLJIT_ORDERED_LESS_EQUAL:
 		return push_inst(compiler, CROR | ((4 + 1) << 21) | ((4 + 1) << 16) | ((4 + 3) << 11));
 	}
 

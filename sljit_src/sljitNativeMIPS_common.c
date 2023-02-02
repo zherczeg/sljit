@@ -1636,7 +1636,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_ADD:
 		/* Overflow computation (both add and sub): overflow = src1_sign ^ src2_sign ^ result_sign ^ carry_flag */
 		is_overflow = GET_FLAG_TYPE(op) == SLJIT_OVERFLOW;
-		carry_src_ar = GET_FLAG_TYPE(op) == GET_FLAG_TYPE(SLJIT_SET_CARRY);
+		carry_src_ar = GET_FLAG_TYPE(op) == SLJIT_CARRY;
 
 		if (flags & SRC2_IMM) {
 			if (is_overflow) {
@@ -1692,7 +1692,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return push_inst(compiler, XOR | S(TMP_REG1) | TA(OTHER_FLAG) | DA(OTHER_FLAG), OTHER_FLAG);
 
 	case SLJIT_ADDC:
-		carry_src_ar = GET_FLAG_TYPE(op) == GET_FLAG_TYPE(SLJIT_SET_CARRY);
+		carry_src_ar = GET_FLAG_TYPE(op) == SLJIT_CARRY;
 
 		if (flags & SRC2_IMM) {
 			FAIL_IF(push_inst(compiler, SELECT_OP(DADDIU, ADDIU) | S(src1) | T(dst) | IMM(src2), DR(dst)));
@@ -1739,11 +1739,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		is_handled = 0;
 
 		if (flags & SRC2_IMM) {
-			if (GET_FLAG_TYPE(op) == SLJIT_LESS || GET_FLAG_TYPE(op) == SLJIT_GREATER_EQUAL) {
+			if (GET_FLAG_TYPE(op) == SLJIT_LESS) {
 				FAIL_IF(push_inst(compiler, SLTIU | S(src1) | TA(OTHER_FLAG) | IMM(src2), OTHER_FLAG));
 				is_handled = 1;
 			}
-			else if (GET_FLAG_TYPE(op) == SLJIT_SIG_LESS || GET_FLAG_TYPE(op) == SLJIT_SIG_GREATER_EQUAL) {
+			else if (GET_FLAG_TYPE(op) == SLJIT_SIG_LESS) {
 				FAIL_IF(push_inst(compiler, SLTI | S(src1) | TA(OTHER_FLAG) | IMM(src2), OTHER_FLAG));
 				is_handled = 1;
 			}
@@ -1760,19 +1760,15 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 			switch (GET_FLAG_TYPE(op)) {
 			case SLJIT_LESS:
-			case SLJIT_GREATER_EQUAL:
 				FAIL_IF(push_inst(compiler, SLTU | S(src1) | T(src2) | DA(OTHER_FLAG), OTHER_FLAG));
 				break;
 			case SLJIT_GREATER:
-			case SLJIT_LESS_EQUAL:
 				FAIL_IF(push_inst(compiler, SLTU | S(src2) | T(src1) | DA(OTHER_FLAG), OTHER_FLAG));
 				break;
 			case SLJIT_SIG_LESS:
-			case SLJIT_SIG_GREATER_EQUAL:
 				FAIL_IF(push_inst(compiler, SLT | S(src1) | T(src2) | DA(OTHER_FLAG), OTHER_FLAG));
 				break;
 			case SLJIT_SIG_GREATER:
-			case SLJIT_SIG_LESS_EQUAL:
 				FAIL_IF(push_inst(compiler, SLT | S(src2) | T(src1) | DA(OTHER_FLAG), OTHER_FLAG));
 				break;
 			}
@@ -1795,7 +1791,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		}
 
 		is_overflow = GET_FLAG_TYPE(op) == SLJIT_OVERFLOW;
-		is_carry = GET_FLAG_TYPE(op) == GET_FLAG_TYPE(SLJIT_SET_CARRY);
+		is_carry = GET_FLAG_TYPE(op) == SLJIT_CARRY;
 
 		if (flags & SRC2_IMM) {
 			if (is_overflow) {
@@ -1844,7 +1840,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			flags &= ~SRC2_IMM;
 		}
 
-		is_carry = GET_FLAG_TYPE(op) == GET_FLAG_TYPE(SLJIT_SET_CARRY);
+		is_carry = GET_FLAG_TYPE(op) == SLJIT_CARRY;
 
 		if (flags & SRC2_IMM) {
 			if (is_carry)
@@ -2719,36 +2715,30 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 	switch (GET_FLAG_TYPE(op)) {
 	case SLJIT_F_EQUAL:
 	case SLJIT_ORDERED_EQUAL:
-	case SLJIT_UNORDERED_OR_NOT_EQUAL:
 		inst = C_EQ_S;
 		break;
 	case SLJIT_F_NOT_EQUAL:
 	case SLJIT_UNORDERED_OR_EQUAL:
-	case SLJIT_ORDERED_NOT_EQUAL:
 		inst = C_UEQ_S;
 		break;
 	case SLJIT_F_LESS:
 	case SLJIT_ORDERED_LESS:
-	case SLJIT_UNORDERED_OR_GREATER_EQUAL:
 		inst = C_OLT_S;
 		break;
 	case SLJIT_F_GREATER_EQUAL:
 	case SLJIT_UNORDERED_OR_LESS:
-	case SLJIT_ORDERED_GREATER_EQUAL:
 		inst = C_ULT_S;
 		break;
 	case SLJIT_F_GREATER:
 	case SLJIT_ORDERED_GREATER:
-	case SLJIT_UNORDERED_OR_LESS_EQUAL:
 		inst = C_ULE_S;
 		break;
 	case SLJIT_F_LESS_EQUAL:
 	case SLJIT_UNORDERED_OR_GREATER:
-	case SLJIT_ORDERED_LESS_EQUAL:
 		inst = C_OLE_S;
 		break;
 	default:
-		SLJIT_ASSERT(GET_FLAG_TYPE(op) == SLJIT_UNORDERED || GET_FLAG_TYPE(op) == SLJIT_ORDERED);
+		SLJIT_ASSERT(GET_FLAG_TYPE(op) == SLJIT_UNORDERED);
 		inst = C_UN_S;
 		break;
 	}

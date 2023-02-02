@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+02.02.2022 - Backward compatible
+    All SLJIT_SET_* constants are
+    even numbers.
+
 27.01.2022 - Non-backward compatible
     The arguments of sljit_emit_shift_into
     are changed.

@@ -8257,7 +8257,7 @@ static void test75_set(struct sljit_compiler *compiler, sljit_s32 compare, sljit
 	sljit_s32 is_ordered;
 
 	if (sljit_cmp_info(type)) {
-		sljit_emit_fop1(compiler, compare | SLJIT_SET(type), left_fr, 0, right_fr, 0);
+		sljit_emit_fop1(compiler, compare | SLJIT_SET(type & 0xfe), left_fr, 0, right_fr, 0);
 		sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, type);
 		jump1 = sljit_emit_jump(compiler, type);
 		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 2);
@@ -8272,7 +8272,7 @@ static void test75_set(struct sljit_compiler *compiler, sljit_s32 compare, sljit
 		}
 		SLJIT_ASSERT(sljit_cmp_info(type) && sljit_cmp_info(SLJIT_UNORDERED) && sljit_cmp_info(SLJIT_ORDERED));
 
-		sljit_emit_fop1(compiler, compare | SLJIT_SET(type), left_fr, 0, right_fr, 0);
+		sljit_emit_fop1(compiler, compare | SLJIT_SET(type & 0xfe), left_fr, 0, right_fr, 0);
 		sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, type);
 		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 0);
 
