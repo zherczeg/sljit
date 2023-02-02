@@ -1343,7 +1343,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 
 /* Special data copy which involves floating point registers.
 
-  type must be between SLJIT_COPY_TO_F64 and SLJIT_COPY32_FROM_F32
+  op must be between SLJIT_COPY_TO_F64 and SLJIT_COPY32_FROM_F32
   freg must be a floating point register
   reg must be a register or register pair */
 

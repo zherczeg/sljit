@@ -37,9 +37,9 @@ static sljit_s32 emit_load_imm64(struct sljit_compiler *compiler, sljit_s32 reg,
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + 2 + sizeof(sljit_sw));
 	FAIL_IF(!inst);
 	INC_SIZE(2 + sizeof(sljit_sw));
-	*inst++ = REX_W | ((reg_map[reg] <= 7) ? 0 : REX_B);
-	*inst++ = U8(MOV_r_i32 | (reg_map[reg] & 0x7));
-	sljit_unaligned_store_sw(inst, imm);
+	inst[0] = REX_W | ((reg_map[reg] <= 7) ? 0 : REX_B);
+	inst[1] = U8(MOV_r_i32 | (reg_map[reg] & 0x7));
+	sljit_unaligned_store_sw(inst + 2, imm);
 	return SLJIT_SUCCESS;
 }
 
@@ -196,6 +196,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 		*inst++ = 0x66;
 	if (rex)
 		*inst++ = rex;
+
 	buf_ptr = inst + size;
 
 	/* Encode mod/rm byte. */
@@ -539,15 +540,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		tmp = SLJIT_FS0 - fsaveds;
 		for (i = SLJIT_FS0; i > tmp; i--) {
 			inst = emit_x86_instruction(compiler, 2 | EX86_SSE2, i, 0, SLJIT_MEM1(SLJIT_SP), saved_float_regs_offset);
-			*inst++ = GROUP_0F;
-			*inst = MOVAPS_xm_x;
+			inst[0] = GROUP_0F;
+			inst[1] = MOVAPS_xm_x;
 			saved_float_regs_offset += 16;
 		}
 
 		for (i = fscratches; i >= SLJIT_FIRST_SAVED_FLOAT_REG; i--) {
 			inst = emit_x86_instruction(compiler, 2 | EX86_SSE2, i, 0, SLJIT_MEM1(SLJIT_SP), saved_float_regs_offset);
-			*inst++ = GROUP_0F;
-			*inst = MOVAPS_xm_x;
+			inst[0] = GROUP_0F;
+			inst[1] = MOVAPS_xm_x;
 			saved_float_regs_offset += 16;
 		}
 	}
@@ -606,15 +607,15 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 		tmp = SLJIT_FS0 - fsaveds;
 		for (i = SLJIT_FS0; i > tmp; i--) {
 			inst = emit_x86_instruction(compiler, 2 | EX86_SSE2, i, 0, SLJIT_MEM1(SLJIT_SP), saved_float_regs_offset);
-			*inst++ = GROUP_0F;
-			*inst = MOVAPS_x_xm;
+			inst[0] = GROUP_0F;
+			inst[1] = MOVAPS_x_xm;
 			saved_float_regs_offset += 16;
 		}
 
 		for (i = fscratches; i >= SLJIT_FIRST_SAVED_FLOAT_REG; i--) {
 			inst = emit_x86_instruction(compiler, 2 | EX86_SSE2, i, 0, SLJIT_MEM1(SLJIT_SP), saved_float_regs_offset);
-			*inst++ = GROUP_0F;
-			*inst = MOVAPS_x_xm;
+			inst[0] = GROUP_0F;
+			inst[1] = MOVAPS_x_xm;
 			saved_float_regs_offset += 16;
 		}
 
@@ -894,7 +895,7 @@ static sljit_s32 emit_fast_enter(struct sljit_compiler *compiler, sljit_s32 dst,
 	compiler->mode32 = 1;
 	inst = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
 	FAIL_IF(!inst);
-	*inst++ = POP_rm;
+	*inst = POP_rm;
 	return SLJIT_SUCCESS;
 }
 
@@ -924,8 +925,8 @@ static sljit_s32 emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src
 		compiler->mode32 = 1;
 		inst = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
 		FAIL_IF(!inst);
-		*inst++ = GROUP_FF;
-		*inst |= PUSH_rm;
+		inst[0] = GROUP_FF;
+		inst[1] |= PUSH_rm;
 
 		inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
 		FAIL_IF(!inst);
@@ -1065,7 +1066,7 @@ static sljit_s32 emit_mov_int(struct sljit_compiler *compiler, sljit_s32 sign,
 		if (sign) {
 			inst = emit_x86_instruction(compiler, 1, dst_r, 0, src, srcw);
 			FAIL_IF(!inst);
-			*inst++ = MOVSXD_r_rm;
+			*inst = MOVSXD_r_rm;
 		} else {
 			compiler->mode32 = 1;
 			FAIL_IF(emit_mov(compiler, dst_r, 0, src, srcw));

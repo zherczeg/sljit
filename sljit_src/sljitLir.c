@@ -1776,6 +1776,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fcopy(struct sljit_compil
 		if (reg & REG_PAIR_MASK) {
 			CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(REG_PAIR_FIRST(reg)));
 			CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(REG_PAIR_SECOND(reg)));
+
+			if (op == SLJIT_COPY_TO_F64)
+				break;
+
+			CHECK_ARGUMENT(REG_PAIR_FIRST(reg) != REG_PAIR_SECOND(reg));
 			break;
 		}
 

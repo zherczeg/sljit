@@ -1161,7 +1161,7 @@ static sljit_s32 emit_fast_enter(struct sljit_compiler *compiler, sljit_s32 dst,
 	/* Memory. */
 	inst = emit_x86_instruction(compiler, 1, 0, 0, dst, dstw);
 	FAIL_IF(!inst);
-	*inst++ = POP_rm;
+	*inst = POP_rm;
 	return SLJIT_SUCCESS;
 }
 
@@ -1181,8 +1181,8 @@ static sljit_s32 emit_fast_return(struct sljit_compiler *compiler, sljit_s32 src
 	else {
 		inst = emit_x86_instruction(compiler, 1, 0, 0, src, srcw);
 		FAIL_IF(!inst);
-		*inst++ = GROUP_FF;
-		*inst |= PUSH_rm;
+		inst[0] = GROUP_FF;
+		inst[1] |= PUSH_rm;
 
 		inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
 		FAIL_IF(!inst);
@@ -1309,6 +1309,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 		reg2 = REG_PAIR_SECOND(reg);
 		reg = REG_PAIR_FIRST(reg);
 
+		if (reg == reg2)
+			reg = 0;
+
 		CHECK_EXTRA_REGS(reg2, reg2w, (void)0);
 	}
 
@@ -1331,7 +1334,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 		inst[2] = PSHUFD_x_xm;
 		inst[3] = U8(MOD_REG | (TMP_FREG << 3) | freg);
 		inst[4] = 1;
-	} else {
+	} else if (reg != 0) {
 		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, TMP_FREG, 0, reg, regw);
 		inst[0] = GROUP_0F;
 		inst[1] = MOVD_x_rm;
@@ -1350,8 +1353,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 
 		inst[0] = GROUP_66;
 		inst[1] = GROUP_0F;
-		inst[2] = PUNPCKLWQ_x_xm;
-		inst[3] = U8(MOD_REG | (freg << 3) | TMP_FREG);
+		inst[2] = PUNPCKLDQ_x_xm;
+		inst[3] = U8(MOD_REG | (freg << 3) | (reg == 0 ? freg : TMP_FREG));
 	} else {
 		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, TMP_FREG, 0, reg, regw);
 		inst[0] = GROUP_0F;
