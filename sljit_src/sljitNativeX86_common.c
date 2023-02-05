@@ -69,7 +69,7 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 #define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
 
 static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 3] = {
-	0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 7, 6, 3, 4, 5
+	0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 5, 7, 6, 4, 3
 };
 
 #define CHECK_EXTRA_REGS(p, w, do) \
@@ -3254,109 +3254,51 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	return sljit_emit_op2(compiler, op, dst_save, dstw_save, dst_save, dstw_save, TMP_REG1, 0);
 
 #else
+	SLJIT_ASSERT(reg_map[TMP_REG1] < 4);
+
 	/* The SLJIT_CONFIG_X86_32 code path starts here. */
-	if (GET_OPCODE(op) < SLJIT_ADD && FAST_IS_REG(dst)) {
-		if (reg_map[dst] <= 4) {
-			/* Low byte is accessible. */
-			inst = (sljit_u8*)ensure_buf(compiler, 1 + 3 + 3);
-			FAIL_IF(!inst);
-			INC_SIZE(3 + 3);
-			/* Set low byte to conditional flag. */
-			*inst++ = GROUP_0F;
-			*inst++ = cond_set;
-			*inst++ = U8(MOD_REG | reg_map[dst]);
-
-			*inst++ = GROUP_0F;
-			*inst++ = MOVZX_r_rm8;
-			*inst = U8(MOD_REG | (reg_map[dst] << 3) | reg_map[dst]);
-			return SLJIT_SUCCESS;
-		}
-
-		/* Low byte is not accessible. */
-		if (cpu_feature_list == 0)
-			get_cpu_features();
-
-		if (cpu_feature_list & CPU_FEATURE_CMOV) {
-			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, 1);
-			/* a xor reg, reg operation would overwrite the flags. */
-			EMIT_MOV(compiler, dst, 0, SLJIT_IMM, 0);
-
-			inst = (sljit_u8*)ensure_buf(compiler, 1 + 3);
-			FAIL_IF(!inst);
-			INC_SIZE(3);
-
-			*inst++ = GROUP_0F;
-			/* cmovcc = setcc - 0x50. */
-			*inst++ = U8(cond_set - 0x50);
-			*inst++ = U8(MOD_REG | (reg_map[dst] << 3) | reg_map[TMP_REG1]);
-			return SLJIT_SUCCESS;
-		}
-
-		inst = (sljit_u8*)ensure_buf(compiler, 1 + 1 + 3 + 3 + 1);
+	if (GET_OPCODE(op) < SLJIT_ADD && FAST_IS_REG(dst) && reg_map[dst] <= 4) {
+		/* Low byte is accessible. */
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 3 + 3);
 		FAIL_IF(!inst);
-		INC_SIZE(1 + 3 + 3 + 1);
-		*inst++ = U8(XCHG_EAX_r | reg_map[TMP_REG1]);
-		/* Set al to conditional flag. */
+		INC_SIZE(3 + 3);
+		/* Set low byte to conditional flag. */
 		*inst++ = GROUP_0F;
 		*inst++ = cond_set;
-		*inst++ = MOD_REG | 0 /* eax */;
+		*inst++ = U8(MOD_REG | reg_map[dst]);
 
 		*inst++ = GROUP_0F;
 		*inst++ = MOVZX_r_rm8;
-		*inst++ = U8(MOD_REG | (reg_map[dst] << 3) | 0 /* eax */);
-		*inst++ = U8(XCHG_EAX_r | reg_map[TMP_REG1]);
+		*inst = U8(MOD_REG | (reg_map[dst] << 3) | reg_map[dst]);
 		return SLJIT_SUCCESS;
 	}
 
 	if (GET_OPCODE(op) == SLJIT_OR && !GET_ALL_FLAGS(op) && FAST_IS_REG(dst) && reg_map[dst] <= 4) {
-		SLJIT_ASSERT(reg_map[SLJIT_R0] == 0);
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 3 + 2);
+		FAIL_IF(!inst);
+		INC_SIZE(3 + 2);
 
-		if (dst != SLJIT_R0) {
-			inst = (sljit_u8*)ensure_buf(compiler, 1 + 1 + 3 + 2 + 1);
-			FAIL_IF(!inst);
-			INC_SIZE(1 + 3 + 2 + 1);
-			/* Set low register to conditional flag. */
-			*inst++ = U8(XCHG_EAX_r | reg_map[TMP_REG1]);
-			*inst++ = GROUP_0F;
-			*inst++ = cond_set;
-			*inst++ = MOD_REG | 0 /* eax */;
-			*inst++ = OR_rm8_r8;
-			*inst++ = MOD_REG | (0 /* eax */ << 3) | reg_map[dst];
-			*inst++ = U8(XCHG_EAX_r | reg_map[TMP_REG1]);
-		}
-		else {
-			inst = (sljit_u8*)ensure_buf(compiler, 1 + 2 + 3 + 2 + 2);
-			FAIL_IF(!inst);
-			INC_SIZE(2 + 3 + 2 + 2);
-			/* Set low register to conditional flag. */
-			*inst++ = XCHG_r_rm;
-			*inst++ = U8(MOD_REG | (1 /* ecx */ << 3) | reg_map[TMP_REG1]);
-			*inst++ = GROUP_0F;
-			*inst++ = cond_set;
-			*inst++ = MOD_REG | 1 /* ecx */;
-			*inst++ = OR_rm8_r8;
-			*inst++ = MOD_REG | (1 /* ecx */ << 3) | 0 /* eax */;
-			*inst++ = XCHG_r_rm;
-			*inst++ = U8(MOD_REG | (1 /* ecx */ << 3) | reg_map[TMP_REG1]);
-		}
+		/* Set low byte to conditional flag. */
+		*inst++ = GROUP_0F;
+		*inst++ = cond_set;
+		*inst++ = U8(MOD_REG | reg_map[TMP_REG1]);
+
+		*inst++ = OR_rm8_r8;
+		*inst++ = U8(MOD_REG | (reg_map[TMP_REG1] << 3) | reg_map[dst]);
 		return SLJIT_SUCCESS;
 	}
 
-	/* Set TMP_REG1 to the bit. */
-	inst = (sljit_u8*)ensure_buf(compiler, 1 + 1 + 3 + 3 + 1);
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + 3 + 3);
 	FAIL_IF(!inst);
-	INC_SIZE(1 + 3 + 3 + 1);
-	*inst++ = U8(XCHG_EAX_r | reg_map[TMP_REG1]);
-	/* Set al to conditional flag. */
+	INC_SIZE(3 + 3);
+	/* Set low byte to conditional flag. */
 	*inst++ = GROUP_0F;
 	*inst++ = cond_set;
-	*inst++ = MOD_REG | 0 /* eax */;
+	*inst++ = U8(MOD_REG | reg_map[TMP_REG1]);
 
 	*inst++ = GROUP_0F;
 	*inst++ = MOVZX_r_rm8;
-	*inst++ = MOD_REG | (0 << 3) /* eax */ | 0 /* eax */;
-
-	*inst++ = U8(XCHG_EAX_r | reg_map[TMP_REG1]);
+	*inst = U8(MOD_REG | (reg_map[TMP_REG1] << 3) | reg_map[TMP_REG1]);
 
 	if (GET_OPCODE(op) < SLJIT_ADD)
 		return emit_mov(compiler, dst, dstw, TMP_REG1, 0);
