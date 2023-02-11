@@ -2506,7 +2506,12 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 	}
 
 	FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VCMP_F32, op & SLJIT_32, src1, src2, 0)));
-	return push_inst(compiler, VMRS);
+	FAIL_IF(push_inst(compiler, VMRS));
+
+	if (GET_FLAG_TYPE(op) != SLJIT_UNORDERED_OR_EQUAL)
+		return SLJIT_SUCCESS;
+
+	return push_inst(compiler, (CMP - CONDITIONAL) | (0x60000000 /* VS */) | SET_FLAGS | RN(TMP_REG1) | RM(TMP_REG1));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compiler, sljit_s32 op,
@@ -2646,13 +2651,13 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_EQUAL:
 	case SLJIT_F_EQUAL:
 	case SLJIT_ORDERED_EQUAL:
-	case SLJIT_UNORDERED_OR_EQUAL: /* Not supported. */
+	case SLJIT_UNORDERED_OR_EQUAL:
 		return 0x00000000;
 
 	case SLJIT_NOT_EQUAL:
 	case SLJIT_F_NOT_EQUAL:
 	case SLJIT_UNORDERED_OR_NOT_EQUAL:
-	case SLJIT_ORDERED_NOT_EQUAL: /* Not supported. */
+	case SLJIT_ORDERED_NOT_EQUAL:
 		return 0x10000000;
 
 	case SLJIT_CARRY:

@@ -646,15 +646,13 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type);
 
 /* If type is between SLJIT_ORDERED_EQUAL and SLJIT_ORDERED_LESS_EQUAL,
-   sljit_cmp_info returns one, if the cpu supports the passed floating
-   point comparison type.
+   sljit_cmp_info returns with:
+     zero - if the cpu supports the floating point comparison type
+     one - if the comparison requires two machine instructions
+     two - if the comparison requires more than two machine instructions
 
-   If type is SLJIT_UNORDERED or SLJIT_ORDERED, sljit_cmp_info returns
-   one, if the cpu supports checking the unordered comparison result
-   regardless of the comparison type passed to the comparison instruction.
-   The returned value is always one, if there is at least one type between
-   SLJIT_ORDERED_EQUAL and SLJIT_ORDERED_LESS_EQUAL where sljit_cmp_info
-   returns with a zero value.
+   When the result is non-zero, it is recommended to avoid
+   using the specified comparison type if it is easy to do so.
 
    Otherwise it returns zero. */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type);

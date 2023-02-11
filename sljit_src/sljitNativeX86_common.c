@@ -184,6 +184,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define CMP_EAX_i32	0x3d
 #define CMP_r_rm	0x3b
 #define CMP_rm_r	0x39
+#define CMPS_x_xm	0xc2
 #define CVTPD2PS_x_xm	0x5a
 #define CVTSI2SD_x_rm	0x2a
 #define CVTTSD2SI_r_xm	0x2c
@@ -466,13 +467,11 @@ static sljit_u8 get_jump_code(sljit_uw type)
 	case SLJIT_EQUAL:
 	case SLJIT_F_EQUAL:
 	case SLJIT_UNORDERED_OR_EQUAL:
-	case SLJIT_ORDERED_EQUAL: /* Not supported. */
 		return 0x84 /* je */;
 
 	case SLJIT_NOT_EQUAL:
 	case SLJIT_F_NOT_EQUAL:
 	case SLJIT_ORDERED_NOT_EQUAL:
-	case SLJIT_UNORDERED_OR_NOT_EQUAL: /* Not supported. */
 		return 0x85 /* jne */;
 
 	case SLJIT_LESS:
@@ -520,9 +519,11 @@ static sljit_u8 get_jump_code(sljit_uw type)
 		return 0x81 /* jno */;
 
 	case SLJIT_UNORDERED:
+	case SLJIT_ORDERED_EQUAL: /* NaN. */
 		return 0x8a /* jp */;
 
 	case SLJIT_ORDERED:
+	case SLJIT_UNORDERED_OR_NOT_EQUAL: /* Not NaN. */
 		return 0x8b /* jpo */;
 	}
 	return 0;
@@ -797,16 +798,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
 {
-	if (type < SLJIT_UNORDERED || type > SLJIT_ORDERED_LESS_EQUAL)
-		return 0;
-
 	switch (type) {
 	case SLJIT_ORDERED_EQUAL:
 	case SLJIT_UNORDERED_OR_NOT_EQUAL:
-		return 0;
+		return 2;
 	}
 
-	return 1;
+	return 0;
 }
 
 /* --------------------------------------------------------------------- */
@@ -2925,9 +2923,28 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
+	sljit_u8 *inst;
+
 	switch (GET_FLAG_TYPE(op)) {
+	case SLJIT_ORDERED_EQUAL:
+		/* Also: SLJIT_UNORDERED_OR_NOT_EQUAL */
+		FAIL_IF(emit_sse2_load(compiler, op & SLJIT_32, TMP_FREG, src1, src1w));
+		FAIL_IF(emit_sse2(compiler, CMPS_x_xm, op & SLJIT_32, TMP_FREG, src2, src2w));
+
+		/* EQ */
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
+		FAIL_IF(!inst);
+		INC_SIZE(1);
+		*inst = 0;
+
+		src1 = TMP_FREG;
+		src2 = TMP_FREG;
+		src2w = 0;
+		break;
+
 	case SLJIT_ORDERED_LESS:
 	case SLJIT_UNORDERED_OR_GREATER:
+		/* Also: SLJIT_UNORDERED_OR_GREATER_EQUAL, SLJIT_ORDERED_LESS_EQUAL  */
 		if (!FAST_IS_REG(src2)) {
 			FAIL_IF(emit_sse2_load(compiler, op & SLJIT_32, TMP_FREG, src2, src2w));
 			src2 = TMP_FREG;

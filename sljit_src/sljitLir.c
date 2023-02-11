@@ -1945,8 +1945,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fcmp(struct sljit_compile
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_32)));
-	CHECK_ARGUMENT((type & 0xff) >= SLJIT_F_EQUAL && (type & 0xff) <= SLJIT_ORDERED_LESS_EQUAL
-				&& ((type & 0xff) <= SLJIT_ORDERED || sljit_cmp_info(type & 0xff)));
+	CHECK_ARGUMENT((type & 0xff) >= SLJIT_F_EQUAL && (type & 0xff) <= SLJIT_ORDERED_LESS_EQUAL);
 	FUNCTION_FCHECK(src1, src1w);
 	FUNCTION_FCHECK(src2, src2w);
 	compiler->last_flags = 0;
@@ -2621,20 +2620,17 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 
 #endif /* !SLJIT_CONFIG_MIPS */
 
-#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
+#if (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
 {
-	if (type < SLJIT_UNORDERED || type > SLJIT_ORDERED_LESS_EQUAL)
-		return 0;
-
 	switch (type) {
 	case SLJIT_UNORDERED_OR_EQUAL:
 	case SLJIT_ORDERED_NOT_EQUAL:
-		return 0;
+		return 1;
 	}
 
-	return 1;
+	return 0;
 }
 
 #endif /* SLJIT_CONFIG_ARM */

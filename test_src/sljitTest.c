@@ -8252,54 +8252,13 @@ static void test74(void)
 static void test75_set(struct sljit_compiler *compiler, sljit_s32 compare, sljit_s32 type, sljit_s32 left_fr, sljit_s32 right_fr)
 {
 	/* Testing both sljit_emit_op_flags and sljit_emit_jump. */
-	struct sljit_jump* jump1;
-	struct sljit_jump* jump2;
-	sljit_s32 is_ordered;
+	struct sljit_jump* jump;
 
-	if (sljit_cmp_info(type)) {
-		sljit_emit_fop1(compiler, compare | SLJIT_SET(type & 0xfe), left_fr, 0, right_fr, 0);
-		sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, type);
-		jump1 = sljit_emit_jump(compiler, type);
-		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 2);
-		sljit_set_label(jump1, sljit_emit_label(compiler));
-	} else {
-		if (type < SLJIT_UNORDERED_OR_EQUAL) {
-			is_ordered = (type & 0x1) ^ 0x1;
-			type += SLJIT_UNORDERED_OR_EQUAL - SLJIT_ORDERED_EQUAL;
-		} else {
-			is_ordered = type & 0x1;
-			type -= SLJIT_UNORDERED_OR_EQUAL - SLJIT_ORDERED_EQUAL;
-		}
-		SLJIT_ASSERT(sljit_cmp_info(type) && sljit_cmp_info(SLJIT_UNORDERED) && sljit_cmp_info(SLJIT_ORDERED));
-
-		sljit_emit_fop1(compiler, compare | SLJIT_SET(type & 0xfe), left_fr, 0, right_fr, 0);
-		sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, type);
-		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 0);
-
-		if (is_ordered) {
-			sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_ORDERED);
-
-			jump1 = sljit_emit_jump(compiler, SLJIT_UNORDERED);
-			jump2 = sljit_emit_jump(compiler, type);
-			sljit_set_label(jump1, sljit_emit_label(compiler));
-			sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 2);
-			sljit_set_label(jump2, sljit_emit_label(compiler));
-
-			sljit_emit_op2(compiler, SLJIT_AND, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
-		} else {
-			sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_UNORDERED);
-
-			jump1 = sljit_emit_jump(compiler, SLJIT_UNORDERED);
-			jump2 = sljit_emit_jump(compiler, type);
-			sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 2);
-			sljit_set_label(jump1, sljit_emit_label(compiler));
-			sljit_set_label(jump2, sljit_emit_label(compiler));
-
-			sljit_emit_op2(compiler, SLJIT_OR, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
-		}
-
-		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R2, 0);
-	}
+	sljit_emit_fop1(compiler, compare | SLJIT_SET(type & 0xfe), left_fr, 0, right_fr, 0);
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, type);
+	jump = sljit_emit_jump(compiler, type);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 2);
+	sljit_set_label(jump, sljit_emit_label(compiler));
 
 	sljit_emit_op1(compiler, SLJIT_MOV_U8, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R0, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_S0, 0, SLJIT_S0, 0, SLJIT_IMM, sizeof(sljit_s8));

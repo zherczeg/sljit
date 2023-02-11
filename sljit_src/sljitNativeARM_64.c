@@ -81,6 +81,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define BR 0xd61f0000
 #define BRK 0xd4200000
 #define CBZ 0xb4000000
+#define CCMPI 0xfa400800
 #define CLZ 0xdac01000
 #define CSEL 0x9a800000
 #define CSINC 0x9a800400
@@ -407,6 +408,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	default:
 		return 0;
 	}
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
+{
+	switch (type) {
+	case SLJIT_UNORDERED_OR_EQUAL:
+	case SLJIT_ORDERED_NOT_EQUAL:
+		return 2;
+	}
+
+	return 0;
 }
 
 /* --------------------------------------------------------------------- */
@@ -1763,7 +1775,13 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 		src2 = TMP_FREG2;
 	}
 
-	return push_inst(compiler, (FCMP ^ inv_bits) | VN(src1) | VM(src2));
+	FAIL_IF(push_inst(compiler, (FCMP ^ inv_bits) | VN(src1) | VM(src2)));
+
+	if (GET_FLAG_TYPE(op) != SLJIT_UNORDERED_OR_EQUAL)
+		return SLJIT_SUCCESS;
+
+	FAIL_IF(push_inst(compiler, CSINC | (0x0 << 12) | RD(TMP_REG1) | RN(TMP_ZERO) | RM(TMP_ZERO)));
+	return push_inst(compiler, CCMPI | (0x0 << 16) | (0x7 << 12) | RN(TMP_REG1) | 0x4);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compiler, sljit_s32 op,
@@ -1884,13 +1902,13 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_EQUAL:
 	case SLJIT_F_EQUAL:
 	case SLJIT_ORDERED_EQUAL:
-	case SLJIT_UNORDERED_OR_EQUAL: /* Not supported. */
+	case SLJIT_UNORDERED_OR_EQUAL:
 		return 0x1;
 
 	case SLJIT_NOT_EQUAL:
 	case SLJIT_F_NOT_EQUAL:
 	case SLJIT_UNORDERED_OR_NOT_EQUAL:
-	case SLJIT_ORDERED_NOT_EQUAL: /* Not supported. */
+	case SLJIT_ORDERED_NOT_EQUAL:
 		return 0x0;
 
 	case SLJIT_CARRY:
