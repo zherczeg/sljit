@@ -3198,39 +3198,63 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 dst_reg,
-	sljit_s32 src, sljit_sw srcw)
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2_reg)
 {
 	sljit_uw cc, tmp;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_cmov(compiler, type, dst_reg, src, srcw));
+	CHECK(check_sljit_emit_select(compiler, type, dst_reg, src1, src1w, src2_reg));
+
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+	if (src2_reg != dst_reg && src1 == dst_reg) {
+		src1 = src2_reg;
+		src1w = 0;
+		src2_reg = dst_reg;
+		type ^= 0x1;
+	}
+
+	if (src1 & SLJIT_MEM) {
+		FAIL_IF(emit_op_mem(compiler, WORD_SIZE | LOAD_DATA, (src2_reg != dst_reg) ? dst_reg : TMP_REG1, src1, src1w, TMP_REG2));
+
+		if (src2_reg != dst_reg) {
+			src1 = src2_reg;
+			src1w = 0;
+			type ^= 0x1;
+		} else {
+			src1 = TMP_REG1;
+			src1w = 0;
+		}
+	} else if (dst_reg != src2_reg)
+		FAIL_IF(push_inst(compiler, MOV | RD(dst_reg) | RM(src2_reg)));
 
 	cc = get_cc(compiler, type & ~SLJIT_32);
 
-	if (SLJIT_UNLIKELY(src & SLJIT_IMM)) {
-		tmp = get_imm((sljit_uw)srcw);
+	if (SLJIT_UNLIKELY(src1 & SLJIT_IMM)) {
+		tmp = get_imm((sljit_uw)src1w);
 		if (tmp)
 			return push_inst(compiler, ((MOV | RD(dst_reg) | tmp) & ~COND_MASK) | cc);
 
-		tmp = get_imm(~(sljit_uw)srcw);
+		tmp = get_imm(~(sljit_uw)src1w);
 		if (tmp)
 			return push_inst(compiler, ((MVN | RD(dst_reg) | tmp) & ~COND_MASK) | cc);
 
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
-		tmp = (sljit_uw)srcw;
+		tmp = (sljit_uw)src1w;
 		FAIL_IF(push_inst(compiler, (MOVW & ~COND_MASK) | cc | RD(dst_reg) | ((tmp << 4) & 0xf0000) | (tmp & 0xfff)));
 		if (tmp <= 0xffff)
 			return SLJIT_SUCCESS;
 		return push_inst(compiler, (MOVT & ~COND_MASK) | cc | RD(dst_reg) | ((tmp >> 12) & 0xf0000) | ((tmp >> 16) & 0xfff));
 #else
-		FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)srcw));
-		src = TMP_REG1;
+		FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)src1w));
+		src1 = TMP_REG1;
 #endif
 	}
 
-	return push_inst(compiler, ((MOV | RD(dst_reg) | RM(src)) & ~COND_MASK) | cc);
+	return push_inst(compiler, ((MOV | RD(dst_reg) | RM(src1)) & ~COND_MASK) | cc);
 }
 
 static sljit_s32 update_mem_addr(struct sljit_compiler *compiler, sljit_s32 *mem, sljit_sw *memw, sljit_s32 max_offset)

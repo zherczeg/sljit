@@ -1561,19 +1561,22 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 type);
 
-/* Emit a conditional mov instruction which moves source to destination,
-   if the condition is satisfied. Unlike other arithmetic operations this
-   instruction does not support memory access.
+/* Emit a conditional select instruction which moves src1 to dst_reg,
+   if the condition is satisfied, or src2_reg to dst_reg otherwise.
 
    type must be between SLJIT_EQUAL and SLJIT_ORDERED_LESS_EQUAL
    type can be combined (or'ed) with SLJIT_32
-   dst_reg must be a valid register
-   src must be a valid register or immediate (SLJIT_IMM)
+   dst_reg and src2_reg must be valid registers
+   src1 must be valid operand
+
+   Note: if src1 is a memory operand, its value
+         might be loaded even if the condition is false.
 
    Flags: - (does not modify flags) */
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 dst_reg,
-	sljit_s32 src, sljit_sw srcw);
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2_reg);
 
 /* The following flags are used by sljit_emit_mem(), sljit_emit_mem_update(),
    sljit_emit_fmem(), and sljit_emit_fmem_update(). */

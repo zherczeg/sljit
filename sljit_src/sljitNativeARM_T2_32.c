@@ -2762,23 +2762,47 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	return push_inst32(compiler, MOV_W | SET_FLAGS | RD4(TMP_REG1) | RM4(dst_r));
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compiler, sljit_s32 type,
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 dst_reg,
-	sljit_s32 src, sljit_sw srcw)
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2_reg)
 {
 	sljit_uw cc, tmp;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_cmov(compiler, type, dst_reg, src, srcw));
+	CHECK(check_sljit_emit_select(compiler, type, dst_reg, src1, src1w, src2_reg));
+
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+	if (src2_reg != dst_reg && src1 == dst_reg) {
+		src1 = src2_reg;
+		src1w = 0;
+		src2_reg = dst_reg;
+		type ^= 0x1;
+	}
+
+	if (src1 & SLJIT_MEM) {
+		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, (src2_reg != dst_reg) ? dst_reg : TMP_REG1, src1, src1w, TMP_REG2));
+
+		if (src2_reg != dst_reg) {
+			src1 = src2_reg;
+			src1w = 0;
+			type ^= 0x1;
+		} else {
+			src1 = TMP_REG1;
+			src1w = 0;
+		}
+	} else if (dst_reg != src2_reg)
+		FAIL_IF(push_inst16(compiler, MOV | SET_REGS44(dst_reg, src2_reg)));
 
 	cc = get_cc(compiler, type & ~SLJIT_32);
 
-	if (!(src & SLJIT_IMM)) {
+	if (!(src1 & SLJIT_IMM)) {
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
-		return push_inst16(compiler, MOV | SET_REGS44(dst_reg, src));
+		return push_inst16(compiler, MOV | SET_REGS44(dst_reg, src1));
 	}
 
-	tmp = (sljit_uw) srcw;
+	tmp = (sljit_uw)src1w;
 
 	if (tmp < 0x10000) {
 		/* set low 16 bits, set hi 16 bits to 0. */
@@ -2787,13 +2811,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 			| COPY_BITS(tmp, 12, 16, 4) | COPY_BITS(tmp, 11, 26, 1) | COPY_BITS(tmp, 8, 12, 3) | (tmp & 0xff));
 	}
 
-	tmp = get_imm((sljit_uw)srcw);
+	tmp = get_imm((sljit_uw)src1w);
 	if (tmp != INVALID_IMM) {
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
 		return push_inst32(compiler, MOV_WI | RD4(dst_reg) | tmp);
 	}
 
-	tmp = get_imm(~(sljit_uw)srcw);
+	tmp = get_imm(~(sljit_uw)src1w);
 	if (tmp != INVALID_IMM) {
 		FAIL_IF(push_inst16(compiler, IT | (cc << 4) | 0x8));
 		return push_inst32(compiler, MVN_WI | RD4(dst_reg) | tmp);
@@ -2801,7 +2825,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 
 	FAIL_IF(push_inst16(compiler, IT | (cc << 4) | ((cc & 0x1) << 3) | 0x4));
 
-	tmp = (sljit_uw) srcw;
+	tmp = (sljit_uw)src1w;
 	FAIL_IF(push_inst32(compiler, MOVW | RD4(dst_reg)
 		| COPY_BITS(tmp, 12, 16, 4) | COPY_BITS(tmp, 11, 26, 1) | COPY_BITS(tmp, 8, 12, 3) | (tmp & 0xff)));
 	return push_inst32(compiler, MOVT | RD4(dst_reg)
