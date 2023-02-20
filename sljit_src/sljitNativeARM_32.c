@@ -111,6 +111,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define POP		0xe8bd0000
 #define RBIT		0xe6ff0f30
 #define REV		0xe6bf0f30
+#define REV16		0xe6bf0fb0
 #define RSB		0xe0600000
 #define RSC		0xe0e00000
 #define SBC		0xe0c00000
@@ -1437,7 +1438,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	sljit_s32 is_masked;
 	sljit_uw shift_type;
 
-	switch (GET_OPCODE(op)) {
+	switch (op) {
 	case SLJIT_MOV:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
 		if (dst != src2) {
@@ -1505,17 +1506,25 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 	case SLJIT_REV:
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-		FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG1) | (8 << 7) | (0 << 5) | RM(src2)));
-		FAIL_IF(push_inst(compiler, MOV | RD(dst) | (24 << 7) | (1 << 5) | RM(src2)));
-		FAIL_IF(push_inst(compiler, ORR | RD(dst) | RN(dst) | (16 << 7) | (0 << 5) | RM(TMP_REG1)));
-		FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG1) | (16 << 7) | (1 << 5) | RM(TMP_REG1)));
-		FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG1) | (8 << 7) | (3 << 5) | RM(TMP_REG1)));
-		FAIL_IF(push_inst(compiler, ORR | RD(dst) | RN(dst) | (8 << 7) | (0 << 5) | RM(TMP_REG1)));
-		return push_inst(compiler, ORR | RD(dst) | RN(dst) | (8 << 7) | (1 << 5) | RM(TMP_REG1));
+		FAIL_IF(push_inst(compiler, EOR | RD(TMP_REG1) | RN(src2) | (16 << 7) | (3 << 5) | RM(src2)));
+		FAIL_IF(push_inst(compiler, MOV | RD(dst) | (8 << 7) | (3 << 5) | RM(src2)));
+		FAIL_IF(push_inst(compiler, BIC | RD(TMP_REG1) | RN(TMP_REG1) | SRC2_IMM | (8 << 8) | 0xff));
+		return push_inst(compiler, EOR | RD(dst) | RN(dst) | (8 << 7) | (1 << 5) | RM(TMP_REG1));
 #else /* !SLJIT_CONFIG_ARM_V5 */
 		return push_inst(compiler, REV | RD(dst) | RM(src2));
 #endif /* SLJIT_CONFIG_ARM_V5 */
 
+	case SLJIT_REV_U16:
+	case SLJIT_REV_S16:
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
+		FAIL_IF(push_inst(compiler, AND | RD(TMP_REG1) | RN(src2) | SRC2_IMM | (12 << 8) | 0xff));
+		FAIL_IF(push_inst(compiler, MOV | RD(dst) | (24 << 7) | (0 << 5) | RM(src2)));
+		FAIL_IF(push_inst(compiler, ORR | RD(dst) | RN(dst) | (8 << 7) | (0 << 5) | RM(TMP_REG1)));
+		return push_inst(compiler, MOV | RD(dst) | (16 << 7) | (op == SLJIT_REV_U16 ? (1 << 5) : (2 << 5)) | RM(dst));
+#else /* !SLJIT_CONFIG_ARM_V5 */
+		FAIL_IF(push_inst(compiler, REV16 | RD(dst) | RM(src2)));
+		return push_inst(compiler, (op == SLJIT_REV_U16 ? UXTH : SXTH) | RD(dst) | RM(dst));
+#endif /* SLJIT_CONFIG_ARM_V5 */
 	case SLJIT_ADD:
 		SLJIT_ASSERT(!(flags & INV_IMM));
 
@@ -1546,7 +1555,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		SLJIT_ASSERT(!(src2 & SRC2_IMM));
 		compiler->status_flags_state = 0;
 
-		if (!HAS_FLAGS(op))
+		if (!(flags & SET_FLAGS))
 			return push_inst(compiler, MUL | RN(dst) | RM8(src2) | RM(src1));
 
 		FAIL_IF(push_inst(compiler, SMULL | RN(TMP_REG1) | RD(dst) | RM8(src2) | RM(src1)));
@@ -1574,19 +1583,19 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_SHL:
 	case SLJIT_MSHL:
 		shift_type = 0;
-		is_masked = GET_OPCODE(op) == SLJIT_MSHL;
+		is_masked = op == SLJIT_MSHL;
 		break;
 
 	case SLJIT_LSHR:
 	case SLJIT_MLSHR:
 		shift_type = 1;
-		is_masked = GET_OPCODE(op) == SLJIT_MLSHR;
+		is_masked = op == SLJIT_MLSHR;
 		break;
 
 	case SLJIT_ASHR:
 	case SLJIT_MASHR:
 		shift_type = 2;
-		is_masked = GET_OPCODE(op) == SLJIT_MASHR;
+		is_masked = op == SLJIT_MASHR;
 		break;
 
 	case SLJIT_ROTL:
@@ -1922,13 +1931,15 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 	sljit_s32 flags = HAS_FLAGS(op) ? SET_FLAGS : 0;
 	sljit_s32 neg_op = 0;
 
+	op = GET_OPCODE(op);
+
 	if (dst == TMP_REG2)
 		flags |= UNUSED_RETURN;
 
 	SLJIT_ASSERT(!(inp_flags & ALLOW_INV_IMM) || (inp_flags & ALLOW_IMM));
 
 	if (inp_flags & ALLOW_NEG_IMM) {
-		switch (GET_OPCODE(op)) {
+		switch (op) {
 		case SLJIT_ADD:
 			compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
 			neg_op = SLJIT_SUB;
@@ -2173,6 +2184,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
 	case SLJIT_REV:
+	case SLJIT_REV_U16:
+	case SLJIT_REV_S16:
 		return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src, srcw);
 	}
 

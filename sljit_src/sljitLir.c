@@ -1018,7 +1018,8 @@ static const char* op0_names[] = {
 static const char* op1_names[] = {
 	"", ".u8", ".s8", ".u16",
 	".s16", ".u32", ".s32", "32",
-	".p", "clz", "ctz", "rev"
+	".p", "clz", "ctz", "rev",
+	".u16", ".s16"
 };
 
 static const char* op2_names[] = {
@@ -1336,7 +1337,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	}
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_REV);
+	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_REV_S16);
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
@@ -1358,13 +1359,13 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		if (GET_OPCODE(op) <= SLJIT_MOV_P)
-		{
+		if (GET_OPCODE(op) <= SLJIT_MOV_P) {
 			fprintf(compiler->verbose, "  mov%s%s ", !(op & SLJIT_32) ? "" : "32",
 				op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE]);
-		}
-		else
-		{
+		} else if (GET_OPCODE(op) >= SLJIT_REV_U16) {
+			fprintf(compiler->verbose, "  rev%s%s ", !(op & SLJIT_32) ? "" : "32",
+				op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE]);
+		} else {
 			fprintf(compiler->verbose, "  %s%s%s%s%s ", op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE], !(op & SLJIT_32) ? "" : "32",
 				!(op & SLJIT_SET_Z) ? "" : ".z", !(op & VARIABLE_FLAG_MASK) ? "" : ".",
 				!(op & VARIABLE_FLAG_MASK) ? "" : jump_names[GET_FLAG_TYPE(op)]);

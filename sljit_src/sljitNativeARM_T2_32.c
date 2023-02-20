@@ -162,6 +162,8 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define PUSH_W		0xe92d0000
 #define REV		0xba00
 #define REV_W		0xfa90f080
+#define REV16		0xba40
+#define REV16_W		0xfa90f090
 #define RBIT		0xfa90f0a0
 #define RORS		0x41c0
 #define ROR_W		0xfa60f000
@@ -621,6 +623,8 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		case SLJIT_CLZ:
 		case SLJIT_CTZ:
 		case SLJIT_REV:
+		case SLJIT_REV_U16:
+		case SLJIT_REV_S16:
 		case SLJIT_MUL:
 			/* No form with immediate operand. */
 			break;
@@ -845,6 +849,16 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		if (IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, REV | RD3(dst) | RN3(arg2));
 		return push_inst32(compiler, REV_W | RN4(arg2) | RD4(dst) | RM4(arg2));
+	case SLJIT_REV_U16:
+	case SLJIT_REV_S16:
+		if (IS_2_LO_REGS(dst, arg2))
+			FAIL_IF(push_inst16(compiler, REV16 | RD3(dst) | RN3(arg2)));
+		else
+			FAIL_IF(push_inst32(compiler, REV16_W | RN4(arg2) | RD4(dst) | RM4(arg2)));
+
+		if (reg_map[dst] <= 7)
+			return push_inst16(compiler, ((flags & 0xffff) == SLJIT_REV_U16 ? UXTH : SXTH) | RD3(dst) | RN3(dst));
+		return push_inst32(compiler, ((flags & 0xffff) == SLJIT_REV_U16 ? UXTH_W : SXTH_W) | RD4(dst) | RM4(dst));
 	case SLJIT_ADD:
 		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
 		if (IS_3_LO_REGS(dst, arg1, arg2))

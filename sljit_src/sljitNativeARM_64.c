@@ -119,9 +119,10 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define RBIT 0xdac00000
 #define RET 0xd65f0000
 #define REV 0xdac00c00
+#define REV16 0xdac00400
 #define RORV 0x9ac02c00
 #define SBC 0xda000000
-#define SBFM 0x93000000
+#define SBFM 0x93400000
 #define SCVTF 0x9e620000
 #define SDIV 0x9ac00c00
 #define SMADDL 0x9b200000
@@ -140,7 +141,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SUB 0xcb000000
 #define SUBI 0xd1000000
 #define SUBS 0xeb000000
-#define UBFM 0xd3000000
+#define UBFM 0xd3400000
 #define UDIV 0x9ac00800
 #define UMULH 0x9bc03c00
 
@@ -654,6 +655,8 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		case SLJIT_CLZ:
 		case SLJIT_CTZ:
 		case SLJIT_REV:
+		case SLJIT_REV_U16:
+		case SLJIT_REV_S16:
 		case SLJIT_ADDC:
 		case SLJIT_SUBC:
 			/* No form with immediate operand (except imm 0, which
@@ -737,6 +740,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				inst_bits = ((sljit_ins)1 << 22) | (((sljit_ins)-imm & 0x3f) << 16) | ((63 - (sljit_ins)imm) << 10);
 			}
 
+			inv_bits |= inv_bits >> 9;
 			FAIL_IF(push_inst(compiler, (UBFM ^ inv_bits) | RD(dst) | RN(arg1) | inst_bits));
 			goto set_flags;
 		case SLJIT_LSHR:
@@ -746,6 +750,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			if (flags & ARG1_IMM)
 				break;
 
+			inv_bits |= inv_bits >> 9;
 			if (op >= SLJIT_ASHR)
 				inv_bits |= 1 << 30;
 
@@ -802,19 +807,19 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		return push_inst(compiler, ORR | RD(dst) | RN(TMP_ZERO) | RM(arg2));
 	case SLJIT_MOV_U8:
 		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
-		return push_inst(compiler, (UBFM ^ W_OP) | RD(dst) | RN(arg2) | (7 << 10));
+		inv_bits |= inv_bits >> 9;
+		return push_inst(compiler, (UBFM ^ inv_bits) | RD(dst) | RN(arg2) | (7 << 10));
 	case SLJIT_MOV_S8:
 		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
-		if (!(flags & INT_OP))
-			inv_bits |= 1 << 22;
+		inv_bits |= inv_bits >> 9;
 		return push_inst(compiler, (SBFM ^ inv_bits) | RD(dst) | RN(arg2) | (7 << 10));
 	case SLJIT_MOV_U16:
 		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
-		return push_inst(compiler, (UBFM ^ W_OP) | RD(dst) | RN(arg2) | (15 << 10));
+		inv_bits |= inv_bits >> 9;
+		return push_inst(compiler, (UBFM ^ inv_bits) | RD(dst) | RN(arg2) | (15 << 10));
 	case SLJIT_MOV_S16:
 		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
-		if (!(flags & INT_OP))
-			inv_bits |= 1 << 22;
+		inv_bits |= inv_bits >> 9;
 		return push_inst(compiler, (SBFM ^ inv_bits) | RD(dst) | RN(arg2) | (15 << 10));
 	case SLJIT_MOV32:
 		SLJIT_ASSERT(!(flags & SET_FLAGS) && arg1 == TMP_REG1);
@@ -838,6 +843,12 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		SLJIT_ASSERT(arg1 == TMP_REG1);
 		inv_bits |= inv_bits >> 21;
 		return push_inst(compiler, (REV ^ inv_bits) | RD(dst) | RN(arg2));
+	case SLJIT_REV_U16:
+	case SLJIT_REV_S16:
+		SLJIT_ASSERT(arg1 == TMP_REG1);
+		FAIL_IF(push_inst(compiler, (REV16 ^ inv_bits) | RD(dst) | RN(arg2)));
+		inv_bits |= inv_bits >> 9;
+		return push_inst(compiler, ((op == SLJIT_REV_U16 ? UBFM : SBFM) ^ inv_bits) | RD(dst) | RN(dst) | (15 << 10));
 	case SLJIT_ADD:
 		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
 		CHECK_FLAGS(1 << 29);
@@ -1553,7 +1564,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 		else
 			imm = (sljit_ins)(inv_bits ? ((31 << 16) | (30 << 10)) : ((63 << 16) | (62 << 10) | (1 << 22)));
 
-		FAIL_IF(push_inst(compiler, (UBFM ^ inv_bits) | RD(TMP_REG1) | RN(src2_reg) | imm));
+		FAIL_IF(push_inst(compiler, (UBFM ^ (inv_bits | (inv_bits >> 9))) | RD(TMP_REG1) | RN(src2_reg) | imm));
 
 		/* Set imm to mask. */
 		imm = (sljit_ins)(inv_bits ? (4 << 10) : ((5 << 10) | (1 << 22)));

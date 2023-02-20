@@ -11098,6 +11098,128 @@ static void test88(void)
 	successful_tests++;
 }
 
+static void test89(void)
+{
+	/* Test reverse two bytes. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	sljit_sw buf[5];
+	sljit_s32 ibuf[4];
+	sljit_s16 hbuf[7];
+	sljit_s32 i;
+
+	if (verbose)
+		printf("Run test89\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	for (i = 0; i < 5; i++)
+		buf[i] = -1;
+	for (i = 0; i < 4; i++)
+		ibuf[i] = -1;
+	for (i = 0; i < 7; i++)
+		hbuf[i] = -1;
+
+	hbuf[0] = (sljit_s16)0x8c9d;
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS3(VOID, W, W, W), 5, 5, 0, 0, 2 * sizeof(sljit_sw));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0xeeabcd);
+	sljit_emit_op1(compiler, SLJIT_REV_U16, SLJIT_R0, 0, SLJIT_R0, 0);
+	/* buf[0] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R0, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 0xeeabcd);
+	sljit_emit_op1(compiler, SLJIT_REV_S16, SLJIT_R1, 0, SLJIT_R2, 0);
+	/* buf[1] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_R1, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R3, 0, SLJIT_IMM, 0xeeedcb);
+	sljit_emit_op1(compiler, SLJIT_REV_U16, SLJIT_R4, 0, SLJIT_R3, 0);
+	/* buf[2] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_sw), SLJIT_R4, 0);
+
+	/* hbuf[1] */
+	sljit_emit_op1(compiler, SLJIT_REV_U16, SLJIT_MEM1(SLJIT_S2), sizeof(sljit_s16), SLJIT_MEM1(SLJIT_S2), 0);
+	/* hbuf[2] */
+	sljit_emit_op1(compiler, SLJIT_REV_S16, SLJIT_MEM1(SLJIT_S2), 2 * sizeof(sljit_s16), SLJIT_MEM1(SLJIT_S2), 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV_U16, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_sw), SLJIT_IMM, 0xedcb);
+	sljit_emit_op1(compiler, SLJIT_REV_U16, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_sw));
+	/* buf[3] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_sw), SLJIT_R0, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV_S16, SLJIT_MEM1(SLJIT_S2), 3 * sizeof(sljit_s16), SLJIT_IMM, 0xedcb);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 3);
+	sljit_emit_op1(compiler, SLJIT_REV_S16, SLJIT_R1, 0, SLJIT_MEM2(SLJIT_S2, SLJIT_R1), 1);
+	/* buf[4] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_sw), SLJIT_R1, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV_U16, SLJIT_R2, 0, SLJIT_IMM, 0xd9c8);
+	/* hbuf[3] */
+	sljit_emit_op1(compiler, SLJIT_REV_S16, SLJIT_MEM1(SLJIT_S2), 3 * sizeof(sljit_s16), SLJIT_R2, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV_U16, SLJIT_R4, 0, SLJIT_R2, 0);
+	sljit_emit_op1(compiler, SLJIT_REV_S16, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_s16), SLJIT_R4, 0);
+	/* hbuf[4] */
+	sljit_emit_op1(compiler, SLJIT_MOV_U16, SLJIT_MEM1(SLJIT_S2), 4 * sizeof(sljit_s16), SLJIT_MEM1(SLJIT_SP), sizeof(sljit_s16));
+
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 0xeeb1c2);
+	sljit_emit_op1(compiler, SLJIT_REV32_U16, SLJIT_R0, 0, SLJIT_R0, 0);
+	/* ibuf[0] */
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), 0, SLJIT_R0, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R2, 0, SLJIT_IMM, 0xeeb1c2);
+	sljit_emit_op1(compiler, SLJIT_REV32_S16, SLJIT_R1, 0, SLJIT_R2, 0);
+	/* ibuf[1] */
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_s32), SLJIT_R1, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R3, 0, SLJIT_IMM, 0xddbfae);
+	sljit_emit_op1(compiler, SLJIT_REV32_S16, SLJIT_R4, 0, SLJIT_R3, 0);
+	/* ibuf[2] */
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), 2 * sizeof(sljit_s32), SLJIT_R4, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV32_U16, SLJIT_MEM1(SLJIT_S1), 3 * sizeof(sljit_s32), SLJIT_IMM, 0xbfae);
+	sljit_emit_op1(compiler, SLJIT_REV32_U16, SLJIT_R1, 0, SLJIT_MEM0(), (sljit_sw)(ibuf + 3));
+	/* ibuf[3] */
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S1), 3 * sizeof(sljit_s32), SLJIT_R1, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 0x880102);
+	sljit_emit_op1(compiler, SLJIT_REV32_U16, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_s32), SLJIT_R1, 0);
+	/* hbuf[5] */
+	sljit_emit_op1(compiler, SLJIT_MOV_U16, SLJIT_MEM1(SLJIT_S2), 5 * sizeof(sljit_s16), SLJIT_MEM1(SLJIT_SP), sizeof(sljit_s32));
+
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R3, 0, SLJIT_IMM, 0x880102);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 6 * sizeof(sljit_s16));
+	/* hbuf[6] */
+	sljit_emit_op1(compiler, SLJIT_REV32_S16, SLJIT_MEM2(SLJIT_S2, SLJIT_R1), 0, SLJIT_R3, 0);
+
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func3((sljit_sw)buf, (sljit_sw)ibuf, (sljit_sw)hbuf);
+
+	FAILED(buf[0] != 0xcdab, "test89 case 1 failed\n");
+	FAILED(buf[1] != -0x3255, "test89 case 2 failed\n");
+	FAILED(buf[2] != 0xcbed, "test89 case 3 failed\n");
+	FAILED(hbuf[1] != (sljit_s16)0x9d8c, "test89 case 4 failed\n");
+	FAILED(hbuf[2] != (sljit_s16)0x9d8c, "test89 case 5 failed\n");
+	FAILED(buf[3] != 0xcbed, "test89 case 6 failed\n");
+	FAILED(buf[4] != -0x3413, "test89 case 7 failed\n");
+	FAILED(hbuf[3] != (sljit_s16)0xc8d9, "test89 case 8 failed\n");
+	FAILED(hbuf[4] != (sljit_s16)0xc8d9, "test89 case 9 failed\n");
+	FAILED(ibuf[0] != 0xc2b1, "test89 case 10 failed\n");
+	FAILED(ibuf[1] != -0x3d4f, "test89 case 11 failed\n");
+	FAILED(ibuf[2] != -0x5141, "test89 case 12 failed\n");
+	FAILED(ibuf[3] != 0xaebf, "test89 case 13 failed\n");
+	FAILED(hbuf[5] != (sljit_s16)0x0201, "test89 case 14 failed\n");
+	FAILED(hbuf[6] != (sljit_s16)0x0201, "test89 case 15 failed\n");
+
+	sljit_free_code(code.code, NULL);
+	successful_tests++;
+}
+
 int sljit_test(int argc, char* argv[])
 {
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -11198,12 +11320,13 @@ int sljit_test(int argc, char* argv[])
 	test86();
 	test87();
 	test88();
+	test89();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 88
+#	define TEST_COUNT 89
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

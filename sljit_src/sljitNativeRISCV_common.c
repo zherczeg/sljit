@@ -1068,15 +1068,15 @@ static sljit_s32 emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 op, slj
 	sljit_s32 is_clz = (GET_OPCODE(op) == SLJIT_CLZ);
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 	sljit_ins word = (op & SLJIT_32) >> 5;
-	sljit_ins max = (op & SLJIT_32) ? 32 : 64;
+	sljit_ins word_size = (op & SLJIT_32) ? 32 : 64;
 #else /* !SLJIT_CONFIG_RISCV_64 */
-	sljit_ins max = 32;
+	sljit_ins word_size = 32;
 #endif /* SLJIT_CONFIG_RISCV_64 */
 
 	SLJIT_ASSERT(WORD == 0 || WORD == 0x8);
 
 	/* The OTHER_FLAG is the counter. */
-	FAIL_IF(push_inst(compiler, ADDI | WORD | RD(OTHER_FLAG) | RS1(TMP_ZERO) | IMM_I(max)));
+	FAIL_IF(push_inst(compiler, ADDI | WORD | RD(OTHER_FLAG) | RS1(TMP_ZERO) | IMM_I(word_size)));
 
 	/* The TMP_REG2 is the next value. */
 	if (src != TMP_REG2)
@@ -1092,7 +1092,7 @@ static sljit_s32 emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 op, slj
 		FAIL_IF(push_inst(compiler, BLT | RS1(TMP_REG2) | RS2(TMP_ZERO) | ((sljit_ins)(2 * SSIZE_OF(ins)) << 7) | ((sljit_ins)(8 * SSIZE_OF(ins)) << 20)));
 
 	/* The TMP_REG1 is the next shift. */
-	FAIL_IF(push_inst(compiler, ADDI | WORD | RD(TMP_REG1) | RS1(TMP_ZERO) | IMM_I(max)));
+	FAIL_IF(push_inst(compiler, ADDI | WORD | RD(TMP_REG1) | RS1(TMP_ZERO) | IMM_I(word_size)));
 
 	FAIL_IF(push_inst(compiler, ADDI | WORD | RD(EQUAL_FLAG) | RS1(TMP_REG2) | IMM_I(0)));
 	FAIL_IF(push_inst(compiler, SRLI | WORD | RD(TMP_REG1) | RS1(TMP_REG1) | IMM_I(1)));
@@ -1147,6 +1147,22 @@ static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op, sljit_s
 	FAIL_IF(push_inst(compiler, AND | RD(dst) | RS1(dst) | RS2(OTHER_FLAG)));
 	FAIL_IF(push_inst(compiler, AND | RD(TMP_REG1) | RS1(TMP_REG1) | RS2(OTHER_FLAG)));
 	FAIL_IF(push_inst(compiler, SLLI | WORD_32 | RD(dst) | RS1(dst) | IMM_I(8)));
+	return push_inst(compiler, OR | RD(dst) | RS1(dst) | RS2(TMP_REG1));
+}
+
+static sljit_s32 emit_rev16(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 dst, sljit_sw src)
+{
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+	sljit_ins word = (op & SLJIT_32) >> 5;
+	sljit_ins word_size = (op & SLJIT_32) ? 32 : 64;
+#else /* !SLJIT_CONFIG_RISCV_64 */
+	sljit_ins word_size = 32;
+#endif /* SLJIT_CONFIG_RISCV_64 */
+
+	FAIL_IF(push_inst(compiler, SRLI | WORD | RD(TMP_REG1) | RS1(src) | IMM_I(8)));
+	FAIL_IF(push_inst(compiler, SLLI | WORD | RD(dst) | RS1(src) | IMM_I(word_size - 8)));
+	FAIL_IF(push_inst(compiler, ANDI | RD(TMP_REG1) | RS1(TMP_REG1) | IMM_I(0xff)));
+	FAIL_IF(push_inst(compiler, (GET_OPCODE(op) == SLJIT_REV_U16 ? SRLI : SRAI) | WORD | RD(dst) | RS1(dst) | IMM_I(word_size - 16)));
 	return push_inst(compiler, OR | RD(dst) | RS1(dst) | RS2(TMP_REG1));
 }
 
@@ -1246,6 +1262,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_REV:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
 		return emit_rev(compiler, op, dst, src2);
+
+	case SLJIT_REV_U16:
+	case SLJIT_REV_S16:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
+		return emit_rev16(compiler, op, dst, src2);
 
 	case SLJIT_ADD:
 		/* Overflow computation (both add and sub): overflow = src1_sign ^ src2_sign ^ result_sign ^ carry_flag */
@@ -1811,6 +1832,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_CTZ:
 	case SLJIT_REV:
 		return emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, src, srcw);
+
+	case SLJIT_REV_U16:
+	case SLJIT_REV_S16:
+		return emit_op(compiler, op, HALF_DATA, dst, dstw, TMP_REG1, 0, src, srcw);
 	}
 
 	SLJIT_UNREACHABLE();

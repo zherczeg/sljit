@@ -184,6 +184,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define LD		(HI(58) | 0)
 #define LFD		(HI(50))
 #define LFS		(HI(48))
+#define LHBRX		(HI(31) | LO(790))
 #define LWBRX		(HI(31) | LO(534))
 #define LWZ		(HI(32))
 #define MFCR		(HI(31) | LO(19))
@@ -226,6 +227,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define STFD		(HI(54))
 #define STFIWX		(HI(31) | LO(983))
 #define STFS		(HI(52))
+#define STHBRX		(HI(31) | LO(918))
 #define STW		(HI(36))
 #define STWBRX		(HI(31) | LO(662))
 #define STWU		(HI(37))
@@ -1337,18 +1339,36 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 	return SLJIT_SUCCESS;
 }
 
-static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op_flags,
+static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_s32 mem, offs_reg, inp_flags;
 	sljit_sw memw;
-	SLJIT_UNUSED_ARG(op_flags);
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+	sljit_s32 is_32 = op & SLJIT_32;
+
+	op = GET_OPCODE(op);
+#endif /* SLJIT_CONFIG_PPC_64 */
 
 	if (!((dst | src) & SLJIT_MEM)) {
 		/* Both are registers. */
+		if (op != SLJIT_REV) {
+			if (src == dst) {
+				FAIL_IF(push_inst(compiler, RLWIMI | S(dst) | A(dst) | RLWI_SH(16) | RLWI_MBE(8, 15)));
+				FAIL_IF(push_inst(compiler, RLWINM | S(dst) | A(dst) | RLWI_SH(24) | RLWI_MBE(16, 31)));
+			} else {
+				FAIL_IF(push_inst(compiler, RLWINM | S(src) | A(dst) | RLWI_SH(8) | RLWI_MBE(16, 23)));
+				FAIL_IF(push_inst(compiler, RLWIMI | S(src) | A(dst) | RLWI_SH(24) | RLWI_MBE(24, 31)));
+			}
+
+			if (op == SLJIT_REV_U16)
+				return SLJIT_SUCCESS;
+			return push_inst(compiler, EXTSH | S(dst) | A(dst));
+		}
+
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-		if (!(op_flags & SLJIT_32)) {
+		if (!is_32) {
 			FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG2) | A(0) | IMM(TMP_MEM_OFFSET_HI)));
 			FAIL_IF(push_inst(compiler, RLDICL | S(src) | A(TMP_REG1) | RLDI_SH(32) | RLDI_MB(32)));
 			FAIL_IF(push_inst(compiler, STWBRX | S(src) | A(SLJIT_SP) | B(TMP_REG2)));
@@ -1371,11 +1391,16 @@ static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op_flags,
 		memw = dstw;
 
 		if (src & SLJIT_MEM) {
+			inp_flags = HALF_DATA | LOAD_DATA;
+
+			if (op == SLJIT_REV) {
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-			inp_flags = ((op_flags & SLJIT_32) ? INT_DATA : WORD_DATA) | LOAD_DATA;
+				inp_flags = (is_32 ? INT_DATA : WORD_DATA) | LOAD_DATA;
 #else /* !SLJIT_CONFIG_PPC_64 */
-			inp_flags = WORD_DATA | LOAD_DATA;
+				inp_flags = WORD_DATA | LOAD_DATA;
 #endif /* SLJIT_CONFIG_PPC_64 */
+			}
+
 			FAIL_IF(emit_op_mem(compiler, inp_flags, TMP_REG1, src, srcw, TMP_REG2));
 			src = TMP_REG1;
 		}
@@ -1405,8 +1430,19 @@ static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op_flags,
 		offs_reg = TMP_REG2;
 	}
 
+	if (op != SLJIT_REV) {
+		if (dst & SLJIT_MEM)
+			return push_inst(compiler, STHBRX | S(src) | A(mem) | B(offs_reg));
+
+		FAIL_IF(push_inst(compiler, LHBRX | S(dst) | A(mem) | B(offs_reg)));
+
+		if (op == SLJIT_REV_U16)
+			return SLJIT_SUCCESS;
+		return push_inst(compiler, EXTSH | S(dst) | A(dst));
+	}
+
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	if (!(op_flags & SLJIT_32)) {
+	if (!is_32) {
 		if (dst & SLJIT_MEM) {
 			FAIL_IF(push_inst(compiler, STWBRX | S(src) | A(mem) | B(offs_reg)));
 			FAIL_IF(push_inst(compiler, RLDICL | S(src) | A(TMP_REG1) | RLDI_SH(32) | RLDI_MB(32)));
@@ -1507,12 +1543,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-		return emit_op(compiler, op, flags | (!(op_flags & SLJIT_32) ? 0 : ALT_FORM1), dst, dstw, TMP_REG1, 0, src, srcw);
-#else
+		if (op_flags & SLJIT_32)
+			flags |= ALT_FORM1;
+#endif /* SLJIT_CONFIG_PPC_64 */
 		return emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, src, srcw);
-#endif
 	case SLJIT_REV:
-		return emit_rev(compiler, op_flags, dst, dstw, src, srcw);
+	case SLJIT_REV_U16:
+	case SLJIT_REV_S16:
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+		op |= (op_flags & SLJIT_32);
+#endif /* SLJIT_CONFIG_PPC_64 */
+		return emit_rev(compiler, op, dst, dstw, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;

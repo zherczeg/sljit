@@ -1578,6 +1578,7 @@ static sljit_s32 emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 is_clz,
 }
 
 static sljit_s32 emit_bswap(struct sljit_compiler *compiler,
+	sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
@@ -1586,10 +1587,19 @@ static sljit_s32 emit_bswap(struct sljit_compiler *compiler,
 	sljit_uw size;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	sljit_u8 rex = 0;
+#else /* !SLJIT_CONFIG_X86_64 */
+	sljit_s32 dst_is_ereg = op & SLJIT_32;
+
+	op &= ~SLJIT_32;
 #endif /* SLJIT_CONFIG_X86_64 */
 
-	if (src != dst_r)
-		EMIT_MOV(compiler, dst_r, 0, src, srcw);
+	if (src != dst_r) {
+		/* Only the lower 16 bit is read for eregs. */
+		if (op != SLJIT_REV)
+			FAIL_IF(emit_mov_half(compiler, 0, dst_r, 0, src, srcw));
+		else
+			EMIT_MOV(compiler, dst_r, 0, src, srcw);
+	}
 
 	size = 2;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -1618,8 +1628,31 @@ static sljit_s32 emit_bswap(struct sljit_compiler *compiler,
 	inst[1] = BSWAP_r | reg_map[dst_r];
 #endif /* SLJIT_CONFIG_X86_64 */
 
-	if (dst & SLJIT_MEM)
-		EMIT_MOV(compiler, dst, dstw, TMP_REG1, 0);
+	if (op != SLJIT_REV) {
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		size = compiler->mode32 ? 16 : 48;
+#else /* !SLJIT_CONFIG_X86_64 */
+		size = 16;
+#endif /* SLJIT_CONFIG_X86_64 */
+
+		inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, (sljit_sw)size, dst_r, 0);
+		FAIL_IF(!inst);
+		if (op == SLJIT_REV_U16)
+			*inst |= SHR;
+		else
+			*inst |= SAR;
+	}
+
+	if (dst & SLJIT_MEM) {
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		if (dst_is_ereg)
+			op = SLJIT_REV;
+#endif /* SLJIT_CONFIG_X86_32 */
+		if (op != SLJIT_REV)
+			FAIL_IF(emit_mov_half(compiler, 0, dst, dstw, TMP_REG1, 0));
+		else
+			EMIT_MOV(compiler, dst, dstw, TMP_REG1, 0);
+	}
 	return SLJIT_SUCCESS;
 }
 
@@ -1754,7 +1787,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_CTZ:
 		return emit_clz_ctz(compiler, (op == SLJIT_CLZ), dst, dstw, src, srcw);
 	case SLJIT_REV:
-		return emit_bswap(compiler, dst, dstw, src, srcw);
+	case SLJIT_REV_U16:
+	case SLJIT_REV_S16:
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		if (dst_is_ereg)
+			op |= SLJIT_32;
+#endif /* SLJIT_CONFIG_X86_32 */
+		return emit_bswap(compiler, op, dst, dstw, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;
