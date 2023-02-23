@@ -1016,10 +1016,17 @@ static const char* op0_names[] = {
 };
 
 static const char* op1_names[] = {
+	"mov", "mov", "mov", "mov",
+	"mov", "mov", "mov", "mov",
+	"mov", "clz", "ctz", "rev",
+	"rev", "rev", "rev", "rev"
+};
+
+static const char* op1_types[] = {
 	"", ".u8", ".s8", ".u16",
 	".s16", ".u32", ".s32", "32",
-	".p", "clz", "ctz", "rev",
-	".u16", ".s16"
+	".p", "", "", "",
+	".u16", ".s16", ".u32", ".s32"
 };
 
 static const char* op2_names[] = {
@@ -1276,7 +1283,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_return(struct sljit_compi
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		if (GET_OPCODE(op) < SLJIT_MOV_F64) {
 			fprintf(compiler->verbose, "  return%s%s ", !(op & SLJIT_32) ? "" : "32",
-				op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE]);
+				op1_types[GET_OPCODE(op) - SLJIT_OP1_BASE]);
 			sljit_verbose_param(compiler, src, srcw);
 		} else {
 			fprintf(compiler->verbose, "  return%s ", !(op & SLJIT_32) ? ".f64" : ".f32");
@@ -1337,7 +1344,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	}
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_REV_S16);
+	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_REV_S32);
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
@@ -1345,6 +1352,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	case SLJIT_MOV_S32:
 	case SLJIT_MOV32:
 	case SLJIT_MOV_P:
+	case SLJIT_REV_U32:
+	case SLJIT_REV_S32:
 		/* Nothing allowed */
 		CHECK_ARGUMENT(!(op & (SLJIT_32 | SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
 		break;
@@ -1359,17 +1368,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		if (GET_OPCODE(op) <= SLJIT_MOV_P) {
-			fprintf(compiler->verbose, "  mov%s%s ", !(op & SLJIT_32) ? "" : "32",
-				op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE]);
-		} else if (GET_OPCODE(op) >= SLJIT_REV_U16) {
-			fprintf(compiler->verbose, "  rev%s%s ", !(op & SLJIT_32) ? "" : "32",
-				op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE]);
-		} else {
-			fprintf(compiler->verbose, "  %s%s%s%s%s ", op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE], !(op & SLJIT_32) ? "" : "32",
-				!(op & SLJIT_SET_Z) ? "" : ".z", !(op & VARIABLE_FLAG_MASK) ? "" : ".",
-				!(op & VARIABLE_FLAG_MASK) ? "" : jump_names[GET_FLAG_TYPE(op)]);
-		}
+		fprintf(compiler->verbose, "  %s%s%s ", op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE],
+			!(op & SLJIT_32) ? "" : "32", op1_types[GET_OPCODE(op) - SLJIT_OP1_BASE]);
 
 		sljit_verbose_param(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", ");
@@ -2055,7 +2055,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_flags(struct sljit_com
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  flags.%s%s%s ",
 			GET_OPCODE(op) < SLJIT_OP2_BASE ? "mov" : op2_names[GET_OPCODE(op) - SLJIT_OP2_BASE],
-			GET_OPCODE(op) < SLJIT_OP2_BASE ? op1_names[GET_OPCODE(op) - SLJIT_OP1_BASE] : ((op & SLJIT_32) ? "32" : ""),
+			GET_OPCODE(op) < SLJIT_OP2_BASE ? op1_types[GET_OPCODE(op) - SLJIT_OP1_BASE] : ((op & SLJIT_32) ? "32" : ""),
 			!(op & SLJIT_SET_Z) ? "" : ".z");
 		sljit_verbose_param(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", %s\n", jump_names[type]);
@@ -2161,8 +2161,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 		else
 			fprintf(compiler->verbose, "  %s%s%s",
 				(type & SLJIT_MEM_STORE) ? "store" : "load",
-				!(type & SLJIT_32) ? "" : "32",
-				op1_names[(type & 0xff) - SLJIT_OP1_BASE]);
+				!(type & SLJIT_32) ? "" : "32", op1_types[(type & 0xff) - SLJIT_OP1_BASE]);
 
 		if (type & SLJIT_MEM_UNALIGNED)
 			printf(".un");
@@ -2222,7 +2221,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem_update(struct sljit_c
 			fprintf(compiler->verbose, "  %s%s%s.%s ",
 				(type & SLJIT_MEM_STORE) ? "store" : "load",
 				!(type & SLJIT_32) ? "" : "32",
-				op1_names[(type & 0xff) - SLJIT_OP1_BASE],
+				op1_types[(type & 0xff) - SLJIT_OP1_BASE],
 				(type & SLJIT_MEM_POST) ? "post" : "pre");
 
 		sljit_verbose_reg(compiler, reg);

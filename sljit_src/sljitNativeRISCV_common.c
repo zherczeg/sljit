@@ -1260,6 +1260,10 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return emit_clz_ctz(compiler, op, dst, src2);
 
 	case SLJIT_REV:
+	case SLJIT_REV_S32:
+#if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
+	case SLJIT_REV_U32:
+#endif /* SLJIT_CONFIG_RISCV_32 */
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
 		return emit_rev(compiler, op, dst, src2);
 
@@ -1267,6 +1271,16 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_REV_S16:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
 		return emit_rev16(compiler, op, dst, src2);
+
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+	case SLJIT_REV_U32:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM) && dst != TMP_REG1);
+		FAIL_IF(emit_rev(compiler, op, dst, src2));
+		if (dst == TMP_REG2)
+			return SLJIT_SUCCESS;
+		FAIL_IF(push_inst(compiler, SLLI | RD(dst) | RS1(dst) | IMM_I(32)));
+		return push_inst(compiler, SRLI | RD(dst) | RS1(dst) | IMM_I(32));
+#endif /* SLJIT_CONFIG_RISCV_32 */
 
 	case SLJIT_ADD:
 		/* Overflow computation (both add and sub): overflow = src1_sign ^ src2_sign ^ result_sign ^ carry_flag */
@@ -1836,6 +1850,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
 		return emit_op(compiler, op, HALF_DATA, dst, dstw, TMP_REG1, 0, src, srcw);
+
+	case SLJIT_REV_U32:
+	case SLJIT_REV_S32:
+		return emit_op(compiler, op | SLJIT_32, INT_DATA, dst, dstw, TMP_REG1, 0, src, srcw);
 	}
 
 	SLJIT_UNREACHABLE();

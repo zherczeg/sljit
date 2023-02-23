@@ -1589,13 +1589,18 @@ static sljit_s32 emit_bswap(struct sljit_compiler *compiler,
 	sljit_u8 rex = 0;
 #else /* !SLJIT_CONFIG_X86_64 */
 	sljit_s32 dst_is_ereg = op & SLJIT_32;
+#endif /* SLJIT_CONFIG_X86_64 */
 
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	if (op == SLJIT_REV_U32 || op == SLJIT_REV_S32)
+		compiler->mode32 = 1;
+#else /* !SLJIT_CONFIG_X86_64 */
 	op &= ~SLJIT_32;
 #endif /* SLJIT_CONFIG_X86_64 */
 
 	if (src != dst_r) {
 		/* Only the lower 16 bit is read for eregs. */
-		if (op != SLJIT_REV)
+		if (op == SLJIT_REV_U16 || op == SLJIT_REV_S16)
 			FAIL_IF(emit_mov_half(compiler, 0, dst_r, 0, src, srcw));
 		else
 			EMIT_MOV(compiler, dst_r, 0, src, srcw);
@@ -1628,7 +1633,7 @@ static sljit_s32 emit_bswap(struct sljit_compiler *compiler,
 	inst[1] = BSWAP_r | reg_map[dst_r];
 #endif /* SLJIT_CONFIG_X86_64 */
 
-	if (op != SLJIT_REV) {
+	if (op == SLJIT_REV_U16 || op == SLJIT_REV_S16) {
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		size = compiler->mode32 ? 16 : 48;
 #else /* !SLJIT_CONFIG_X86_64 */
@@ -1648,11 +1653,21 @@ static sljit_s32 emit_bswap(struct sljit_compiler *compiler,
 		if (dst_is_ereg)
 			op = SLJIT_REV;
 #endif /* SLJIT_CONFIG_X86_32 */
-		if (op != SLJIT_REV)
-			FAIL_IF(emit_mov_half(compiler, 0, dst, dstw, TMP_REG1, 0));
-		else
-			EMIT_MOV(compiler, dst, dstw, TMP_REG1, 0);
+		if (op == SLJIT_REV_U16 || op == SLJIT_REV_S16)
+			return emit_mov_half(compiler, 0, dst, dstw, TMP_REG1, 0);
+
+		return emit_mov(compiler, dst, dstw, TMP_REG1, 0);
 	}
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	if (op == SLJIT_REV_S32) {
+		compiler->mode32 = 0;
+		inst = emit_x86_instruction(compiler, 1, dst, 0, dst, 0);
+		FAIL_IF(!inst);
+		*inst = MOVSXD_r_rm;
+	}
+#endif /* SLJIT_CONFIG_X86_64 */
+
 	return SLJIT_SUCCESS;
 }
 
@@ -1789,6 +1804,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_REV:
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
+	case SLJIT_REV_U32:
+	case SLJIT_REV_S32:
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		if (dst_is_ereg)
 			op |= SLJIT_32;

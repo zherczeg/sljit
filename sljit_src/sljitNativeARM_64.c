@@ -657,6 +657,8 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		case SLJIT_REV:
 		case SLJIT_REV_U16:
 		case SLJIT_REV_S16:
+		case SLJIT_REV_U32:
+		case SLJIT_REV_S32:
 		case SLJIT_ADDC:
 		case SLJIT_SUBC:
 			/* No form with immediate operand (except imm 0, which
@@ -845,10 +847,19 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		return push_inst(compiler, (REV ^ inv_bits) | RD(dst) | RN(arg2));
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
-		SLJIT_ASSERT(arg1 == TMP_REG1);
-		FAIL_IF(push_inst(compiler, (REV16 ^ inv_bits) | RD(dst) | RN(arg2)));
+		SLJIT_ASSERT(arg1 == TMP_REG1 && dst != TMP_REG2);
+		FAIL_IF(push_inst(compiler, (REV16 ^ (sljit_ins)0x80000000) | RD(dst) | RN(arg2)));
+		if (dst == TMP_REG1 || (arg2 == TMP_REG2 && op == SLJIT_REV_U16))
+			return SLJIT_SUCCESS;
 		inv_bits |= inv_bits >> 9;
 		return push_inst(compiler, ((op == SLJIT_REV_U16 ? UBFM : SBFM) ^ inv_bits) | RD(dst) | RN(dst) | (15 << 10));
+	case SLJIT_REV_U32:
+	case SLJIT_REV_S32:
+		SLJIT_ASSERT(arg1 == TMP_REG1 && dst != TMP_REG2);
+		FAIL_IF(push_inst(compiler, (REV ^ (sljit_ins)0x80000400) | RD(dst) | RN(arg2)));
+		if (op == SLJIT_REV_U32 || dst == TMP_REG1)
+			return SLJIT_SUCCESS;
+		return push_inst(compiler, SBFM | (1 << 22) | RD(dst) | RN(dst) | (31 << 10));
 	case SLJIT_ADD:
 		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
 		CHECK_FLAGS(1 << 29);
@@ -1427,11 +1438,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	}
 
 	flags = HAS_FLAGS(op_flags) ? SET_FLAGS : 0;
-	mem_flags = WORD_SIZE;
 
-	if (op_flags & SLJIT_32) {
-		flags |= INT_OP;
+	switch (op) {
+	case SLJIT_REV_U16:
+	case SLJIT_REV_S16:
+		mem_flags = HALF_SIZE;
+		break;
+	case SLJIT_REV_U32:
+	case SLJIT_REV_S32:
 		mem_flags = INT_SIZE;
+		break;
+	default:
+		mem_flags = WORD_SIZE;
+
+		if (op_flags & SLJIT_32) {
+			flags |= INT_OP;
+			mem_flags = INT_SIZE;
+		}
+		break;
 	}
 
 	if (src & SLJIT_MEM) {

@@ -1505,6 +1505,9 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 #endif /* SLJIT_CONFIG_ARM_V5 */
 
 	case SLJIT_REV:
+	case SLJIT_REV_U32:
+	case SLJIT_REV_S32:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 		FAIL_IF(push_inst(compiler, EOR | RD(TMP_REG1) | RN(src2) | (16 << 7) | (3 << 5) | RM(src2)));
 		FAIL_IF(push_inst(compiler, MOV | RD(dst) | (8 << 7) | (3 << 5) | RM(src2)));
@@ -1516,13 +1519,21 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED) && src2 != TMP_REG1 && dst != TMP_REG1);
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
+		if (dst == TMP_REG2) {
+			FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG2) | (8 << 7) | (3 << 5) | RM(src2)));
+			FAIL_IF(push_inst(compiler, BIC | RD(TMP_REG2) | RN(TMP_REG2) | SRC2_IMM | (12 << 8) | 0xff));
+			return push_inst(compiler, ORR | RD(TMP_REG2) | RN(TMP_REG2) | (16 << 7) | (1 << 5) | RM(TMP_REG2));
+		}
 		FAIL_IF(push_inst(compiler, AND | RD(TMP_REG1) | RN(src2) | SRC2_IMM | (12 << 8) | 0xff));
 		FAIL_IF(push_inst(compiler, MOV | RD(dst) | (24 << 7) | (0 << 5) | RM(src2)));
 		FAIL_IF(push_inst(compiler, ORR | RD(dst) | RN(dst) | (8 << 7) | (0 << 5) | RM(TMP_REG1)));
 		return push_inst(compiler, MOV | RD(dst) | (16 << 7) | (op == SLJIT_REV_U16 ? (1 << 5) : (2 << 5)) | RM(dst));
 #else /* !SLJIT_CONFIG_ARM_V5 */
 		FAIL_IF(push_inst(compiler, REV16 | RD(dst) | RM(src2)));
+		if (dst == TMP_REG2 || (src2 == TMP_REG2 && op == SLJIT_REV_U16))
+			return SLJIT_SUCCESS;
 		return push_inst(compiler, (op == SLJIT_REV_U16 ? UXTH : SXTH) | RD(dst) | RM(dst));
 #endif /* SLJIT_CONFIG_ARM_V5 */
 	case SLJIT_ADD:
@@ -2184,9 +2195,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
 	case SLJIT_REV:
+	case SLJIT_REV_U32:
+	case SLJIT_REV_S32:
+		return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src, srcw);
+
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
-		return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src, srcw);
+		return emit_op(compiler, op, HALF_SIZE, dst, dstw, TMP_REG1, 0, src, srcw);
 	}
 
 	return SLJIT_SUCCESS;

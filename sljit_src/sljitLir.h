@@ -1064,6 +1064,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
    Note: immediate source argument is not supported */
 #define SLJIT_REV_S16			(SLJIT_OP1_BASE + 13)
 #define SLJIT_REV32_S16			(SLJIT_REV_S16 | SLJIT_32)
+/* Reverse the order of bytes in the lower 32 bit and extend as unsigned
+   Flags: - (may destroy flags)
+   Note: converts between little and big endian formats
+   Note: immediate source argument is not supported */
+#define SLJIT_REV_U32			(SLJIT_OP1_BASE + 14)
+/* Reverse the order of bytes in the lower 32 bit and extend as signed
+   Flags: - (may destroy flags)
+   Note: converts between little and big endian formats
+   Note: immediate source argument is not supported */
+#define SLJIT_REV_S32			(SLJIT_OP1_BASE + 15)
 
 /* The following unary operations are supported by using sljit_emit_op2:
      - binary not: SLJIT_XOR with immedate -1 as src1 or src2

@@ -625,6 +625,8 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		case SLJIT_REV:
 		case SLJIT_REV_U16:
 		case SLJIT_REV_S16:
+		case SLJIT_REV_U32:
+		case SLJIT_REV_S32:
 		case SLJIT_MUL:
 			/* No form with immediate operand. */
 			break;
@@ -846,19 +848,28 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		FAIL_IF(push_inst32(compiler, RBIT | RN4(arg2) | RD4(dst) | RM4(arg2)));
 		return push_inst32(compiler, CLZ | RN4(dst) | RD4(dst) | RM4(dst));
 	case SLJIT_REV:
+	case SLJIT_REV_U32:
+	case SLJIT_REV_S32:
+		SLJIT_ASSERT(arg1 == TMP_REG2);
 		if (IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, REV | RD3(dst) | RN3(arg2));
 		return push_inst32(compiler, REV_W | RN4(arg2) | RD4(dst) | RM4(arg2));
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
+		SLJIT_ASSERT(arg1 == TMP_REG2 && dst != TMP_REG2);
+
+		flags &= 0xffff;
 		if (IS_2_LO_REGS(dst, arg2))
 			FAIL_IF(push_inst16(compiler, REV16 | RD3(dst) | RN3(arg2)));
 		else
 			FAIL_IF(push_inst32(compiler, REV16_W | RN4(arg2) | RD4(dst) | RM4(arg2)));
 
+		if (dst == TMP_REG1 || (arg2 == TMP_REG1 && flags == SLJIT_REV_U16))
+			return SLJIT_SUCCESS;
+
 		if (reg_map[dst] <= 7)
-			return push_inst16(compiler, ((flags & 0xffff) == SLJIT_REV_U16 ? UXTH : SXTH) | RD3(dst) | RN3(dst));
-		return push_inst32(compiler, ((flags & 0xffff) == SLJIT_REV_U16 ? UXTH_W : SXTH_W) | RD4(dst) | RM4(dst));
+			return push_inst16(compiler, (flags == SLJIT_REV_U16 ? UXTH : SXTH) | RD3(dst) | RN3(dst));
+		return push_inst32(compiler, (flags == SLJIT_REV_U16 ? UXTH_W : SXTH_W) | RD4(dst) | RM4(dst));
 	case SLJIT_ADD:
 		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
 		if (IS_3_LO_REGS(dst, arg1, arg2))
@@ -1764,10 +1775,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		return emit_op_mem(compiler, flags | STORE, dst_r, dst, dstw, TMP_REG2);
 	}
 
+	SLJIT_COMPILE_ASSERT(WORD_SIZE == 0, word_size_must_be_0);
 	flags = HAS_FLAGS(op_flags) ? SET_FLAGS : 0;
 
+	if (op == SLJIT_REV_U16 || op == SLJIT_REV_S16)
+		flags |= HALF_SIZE;
+
 	if (src & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, src, srcw, TMP_REG1));
+		FAIL_IF(emit_op_mem(compiler, flags, TMP_REG1, src, srcw, TMP_REG1));
 		src = TMP_REG1;
 	}
 
