@@ -3468,6 +3468,44 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	return SLJIT_SUCCESS;
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_freg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2_freg)
+{
+	sljit_u8* inst;
+	sljit_uw size;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fselect(compiler, type, dst_freg, src1, src1w, src2_freg));
+
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	compiler->mode32 = 1;
+#endif /* SLJIT_CONFIG_X86_64 */
+
+	if (dst_freg != src2_freg) {
+		if (dst_freg == src1) {
+			src1 = src2_freg;
+			src1w = 0;
+			type ^= 0x1;
+		} else
+			FAIL_IF(emit_sse2_load(compiler, type & SLJIT_32, dst_freg, src2_freg, 0));
+	}
+
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + 2);
+	FAIL_IF(!inst);
+	INC_SIZE(2);
+	inst[0] = U8(get_jump_code((sljit_uw)(type & ~SLJIT_32) ^ 0x1) - 0x10);
+
+	size = compiler->size;
+	FAIL_IF(emit_sse2_load(compiler, type & SLJIT_32, dst_freg, src1, src1w));
+
+	inst[1] = U8(compiler->size - size);
+	return SLJIT_SUCCESS;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_local_base(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw offset)
 {
 	CHECK_ERROR();

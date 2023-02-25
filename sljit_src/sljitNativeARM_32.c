@@ -2997,8 +2997,6 @@ static sljit_s32 hardfloat_call_with_args(struct sljit_compiler *compiler, sljit
 
 #endif /* __SOFTFP__ */
 
-#undef EMIT_FPU_OPERATION
-
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 arg_types)
 {
@@ -3284,6 +3282,40 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 
 	return push_inst(compiler, ((MOV | RD(dst_reg) | RM(src1)) & ~COND_MASK) | cc);
 }
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_freg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2_freg)
+{
+	sljit_uw cc;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fselect(compiler, type, dst_freg, src1, src1w, src2_freg));
+
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+	type ^= SLJIT_32;
+
+	if (dst_freg != src2_freg) {
+		if (dst_freg == src1) {
+			src1 = src2_freg;
+			src1w = 0;
+			type ^= 0x1;
+		} else
+			FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VMOV_F32, (type & SLJIT_32), dst_freg, src2_freg, 0)));
+	}
+
+	if (src1 & SLJIT_MEM) {
+		FAIL_IF(emit_fop_mem(compiler, (type & SLJIT_32) | FPU_LOAD, TMP_FREG1, src1, src1w));
+		src1 = TMP_FREG1;
+	}
+
+	cc = get_cc(compiler, type & ~SLJIT_32);
+	return push_inst(compiler, EMIT_FPU_OPERATION((VMOV_F32 & ~COND_MASK) | cc, (type & SLJIT_32), dst_freg, src1, 0));
+}
+
+#undef EMIT_FPU_OPERATION
 
 static sljit_s32 update_mem_addr(struct sljit_compiler *compiler, sljit_s32 *mem, sljit_sw *memw, sljit_s32 max_offset)
 {

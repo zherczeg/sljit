@@ -836,6 +836,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
 #define SLJIT_IMM		0x40
 #define SLJIT_REG_PAIR(r1, r2)	((r1) | ((r2) << 8))
 
+/* Macros for checking operand types (only for valid arguments). */
+#define SLJIT_IS_REG(arg)	((arg) > 0 && (arg) < SLJIT_IMM)
+#define SLJIT_IS_MEM(arg)	((arg) & SLJIT_MEM)
+#define SLJIT_IS_MEM0(arg)	((arg) == SLJIT_MEM)
+#define SLJIT_IS_MEM1(arg)	((arg) > SLJIT_MEM && (arg) < (SLJIT_MEM + SLJIT_IMM))
+#define SLJIT_IS_MEM2(arg)	(((arg) & SLJIT_MEM) && (arg) >= (SLJIT_MEM << 1))
+#define SLJIT_IS_IMM(arg)	((arg) == SLJIT_IMM)
+#define SLJIT_IS_REG_PAIR(arg)	(((arg) >> 8) != 0)
+
 /* Sets 32 bit operation mode on 64 bit CPUs. This option is ignored on
    32 bit CPUs. When this option is set for an arithmetic operation, only
    the lower 32 bits of the input registers are used, and the CPU status
@@ -1587,7 +1596,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
    if the condition is satisfied, or src2_reg to dst_reg otherwise.
 
    type must be between SLJIT_EQUAL and SLJIT_ORDERED_LESS_EQUAL
-   type can be combined (or'ed) with SLJIT_32
+   type can be combined (or'ed) with SLJIT_32 to move 32 bit
+       register values instead of word sized ones
    dst_reg and src2_reg must be valid registers
    src1 must be valid operand
 
@@ -1599,6 +1609,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	sljit_s32 dst_reg,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2_reg);
+
+/* Emit a conditional floating point select instruction which moves
+   src1 to dst_reg, if the condition is satisfied, or src2_reg to
+   dst_reg otherwise.
+
+   type must be between SLJIT_EQUAL and SLJIT_ORDERED_LESS_EQUAL
+   type can be combined (or'ed) with SLJIT_32 to move 32 bit
+       floating point values instead of 64 bit ones
+   dst_freg and src2_freg must be valid floating point registers
+   src1 must be valid operand
+
+   Note: if src1 is a memory operand, its value
+         might be loaded even if the condition is false.
+
+   Flags: - (does not modify flags) */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_freg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2_freg);
 
 /* The following flags are used by sljit_emit_mem(), sljit_emit_mem_update(),
    sljit_emit_fmem(), and sljit_emit_fmem_update(). */

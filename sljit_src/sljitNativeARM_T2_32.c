@@ -2104,12 +2104,12 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 	op ^= SLJIT_32;
 
 	if (src1 & SLJIT_MEM) {
-		emit_fop_mem(compiler, (op & SLJIT_32) | FPU_LOAD, TMP_FREG1, src1, src1w);
+		FAIL_IF(emit_fop_mem(compiler, (op & SLJIT_32) | FPU_LOAD, TMP_FREG1, src1, src1w));
 		src1 = TMP_FREG1;
 	}
 
 	if (src2 & SLJIT_MEM) {
-		emit_fop_mem(compiler, (op & SLJIT_32) | FPU_LOAD, TMP_FREG2, src2, src2w);
+		FAIL_IF(emit_fop_mem(compiler, (op & SLJIT_32) | FPU_LOAD, TMP_FREG2, src2, src2w));
 		src2 = TMP_FREG2;
 	}
 
@@ -2140,7 +2140,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 		op ^= SLJIT_32;
 
 	if (src & SLJIT_MEM) {
-		emit_fop_mem(compiler, (op & SLJIT_32) | FPU_LOAD, dst_r, src, srcw);
+		FAIL_IF(emit_fop_mem(compiler, (op & SLJIT_32) | FPU_LOAD, dst_r, src, srcw));
 		src = dst_r;
 	}
 
@@ -2187,11 +2187,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 	if (src1 & SLJIT_MEM) {
-		emit_fop_mem(compiler, (op & SLJIT_32) | FPU_LOAD, TMP_FREG1, src1, src1w);
+		FAIL_IF(emit_fop_mem(compiler, (op & SLJIT_32) | FPU_LOAD, TMP_FREG1, src1, src1w));
 		src1 = TMP_FREG1;
 	}
 	if (src2 & SLJIT_MEM) {
-		emit_fop_mem(compiler, (op & SLJIT_32) | FPU_LOAD, TMP_FREG2, src2, src2w);
+		FAIL_IF(emit_fop_mem(compiler, (op & SLJIT_32) | FPU_LOAD, TMP_FREG2, src2, src2w));
 		src2 = TMP_FREG2;
 	}
 
@@ -2859,6 +2859,36 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		| COPY_BITS(tmp, 12, 16, 4) | COPY_BITS(tmp, 11, 26, 1) | COPY_BITS(tmp, 8, 12, 3) | (tmp & 0xff)));
 	return push_inst32(compiler, MOVT | RD4(dst_reg)
 		| COPY_BITS(tmp, 12 + 16, 16, 4) | COPY_BITS(tmp, 11 + 16, 26, 1) | COPY_BITS(tmp, 8 + 16, 12, 3) | ((tmp & 0xff0000) >> 16));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_freg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2_freg)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fselect(compiler, type, dst_freg, src1, src1w, src2_freg));
+
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+	type ^= SLJIT_32;
+
+	if (dst_freg != src2_freg) {
+		if (dst_freg == src1) {
+			src1 = src2_freg;
+			src1w = 0;
+			type ^= 0x1;
+		} else
+			FAIL_IF(push_inst32(compiler, VMOV_F32 | (type & SLJIT_32) | DD4(dst_freg) | DM4(src2_freg)));
+	}
+
+	if (src1 & SLJIT_MEM) {
+		FAIL_IF(emit_fop_mem(compiler, (type & SLJIT_32) | FPU_LOAD, TMP_FREG1, src1, src1w));
+		src1 = TMP_FREG1;
+	}
+
+	FAIL_IF(push_inst16(compiler, IT | (get_cc(compiler, type & ~SLJIT_32) << 4) | 0x8));
+	return push_inst32(compiler, VMOV_F32 | (type & SLJIT_32) | DD4(dst_freg) | DM4(src1));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,

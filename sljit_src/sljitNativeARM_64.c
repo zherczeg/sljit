@@ -91,6 +91,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define FABS 0x1e60c000
 #define FADD 0x1e602800
 #define FCMP 0x1e602000
+#define FCSEL 0x1e600c00
 #define FCVT 0x1e224000
 #define FCVTZS 0x9e780000
 #define FDIV 0x1e601800
@@ -1754,7 +1755,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 		inv_bits |= W_OP;
 
 	if (src & SLJIT_MEM) {
-		emit_fop_mem(compiler, (op & SLJIT_32) ? INT_SIZE : WORD_SIZE, TMP_FREG1, src, srcw);
+		FAIL_IF(emit_fop_mem(compiler, (op & SLJIT_32) ? INT_SIZE : WORD_SIZE, TMP_FREG1, src, srcw));
 		src = TMP_FREG1;
 	}
 
@@ -1801,12 +1802,12 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 	sljit_ins inv_bits = (op & SLJIT_32) ? (1 << 22) : 0;
 
 	if (src1 & SLJIT_MEM) {
-		emit_fop_mem(compiler, mem_flags, TMP_FREG1, src1, src1w);
+		FAIL_IF(emit_fop_mem(compiler, mem_flags, TMP_FREG1, src1, src1w));
 		src1 = TMP_FREG1;
 	}
 
 	if (src2 & SLJIT_MEM) {
-		emit_fop_mem(compiler, mem_flags, TMP_FREG2, src2, src2w);
+		FAIL_IF(emit_fop_mem(compiler, mem_flags, TMP_FREG2, src2, src2w));
 		src2 = TMP_FREG2;
 	}
 
@@ -1835,7 +1836,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 
 	if (src & SLJIT_MEM) {
-		emit_fop_mem(compiler, (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_F32) ? (mem_flags ^ 0x1) : mem_flags, dst_r, src, srcw);
+		FAIL_IF(emit_fop_mem(compiler, (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_F32) ? (mem_flags ^ 0x1) : mem_flags, dst_r, src, srcw));
 		src = dst_r;
 	}
 
@@ -1880,11 +1881,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 	if (src1 & SLJIT_MEM) {
-		emit_fop_mem(compiler, mem_flags, TMP_FREG1, src1, src1w);
+		FAIL_IF(emit_fop_mem(compiler, mem_flags, TMP_FREG1, src1, src1w));
 		src1 = TMP_FREG1;
 	}
 	if (src2 & SLJIT_MEM) {
-		emit_fop_mem(compiler, mem_flags, TMP_FREG2, src2, src2w);
+		FAIL_IF(emit_fop_mem(compiler, mem_flags, TMP_FREG2, src2, src2w));
 		src2 = TMP_FREG2;
 	}
 
@@ -2239,6 +2240,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 
 	cc = get_cc(compiler, type & ~SLJIT_32);
 	return push_inst(compiler, (CSEL ^ inv_bits) | (cc << 12) | RD(dst_reg) | RN(src2_reg) | RM(src1));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_freg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2_freg)
+{
+	sljit_ins inv_bits = (type & SLJIT_32) ? (1 << 22) : 0;
+	sljit_ins cc;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fselect(compiler, type, dst_freg, src1, src1w, src2_freg));
+
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+	if (src1 & SLJIT_MEM) {
+		FAIL_IF(emit_fop_mem(compiler, (type & SLJIT_32) ? INT_SIZE : WORD_SIZE, TMP_FREG1, src1, src1w));
+		src1 = TMP_FREG1;
+	}
+
+	cc = get_cc(compiler, type & ~SLJIT_32);
+	return push_inst(compiler, (FCSEL ^ inv_bits) | (cc << 12) | VD(dst_freg) | VN(src2_freg) | VM(src1));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
