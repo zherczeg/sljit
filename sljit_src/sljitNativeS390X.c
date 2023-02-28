@@ -2027,20 +2027,21 @@ static sljit_s32 sljit_emit_rev(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_gpr reg;
 	sljit_ins ins;
 	sljit_s32 opcode = GET_OPCODE(op);
+	sljit_s32 is_16bit = (opcode == SLJIT_REV_U16 || opcode == SLJIT_REV_S16);
 
 	if (dst & SLJIT_MEM) {
 		if (src & SLJIT_MEM) {
-			FAIL_IF(load_store_op(compiler, tmp0, src, srcw, op & SLJIT_32, opcode == SLJIT_REV ? load_forms : load_halfword_forms));
+			FAIL_IF(load_store_op(compiler, tmp0, src, srcw, op & SLJIT_32, is_16bit ? load_halfword_forms : load_forms));
 			reg = tmp0;
 		} else
 			reg = gpr(src);
 
 		FAIL_IF(make_addr_bxy(compiler, &addr, dst, dstw, tmp1));
 
-		if (opcode == SLJIT_REV)
-			ins = (op & SLJIT_32) ? 0xe3000000003e /* strv */ : 0xe3000000002f /* strvg */;
-		else
+		if (is_16bit)
 			ins = 0xe3000000003f /* strvh */;
+		else
+			ins = (op & SLJIT_32) ? 0xe3000000003e /* strv */ : 0xe3000000002f /* strvg */;
 
 		return push_inst(compiler, ins | R36A(reg) | R32A(addr.index) | R28A(addr.base) | disp_s20(addr.offset));
 	}
@@ -2050,20 +2051,24 @@ static sljit_s32 sljit_emit_rev(struct sljit_compiler *compiler, sljit_s32 op,
 	if (src & SLJIT_MEM) {
 		FAIL_IF(make_addr_bxy(compiler, &addr, src, srcw, tmp1));
 
-		if (opcode == SLJIT_REV)
-			ins = (op & SLJIT_32) ? 0xe3000000001e /* lrv */ : 0xe3000000000f /* lrvg */;
-		else
+		if (is_16bit)
 			ins = 0xe3000000001f /* lrvh */;
+		else
+			ins = (op & SLJIT_32) ? 0xe3000000001e /* lrv */ : 0xe3000000000f /* lrvg */;
 
 		FAIL_IF(push_inst(compiler, ins | R36A(reg) | R32A(addr.index) | R28A(addr.base) | disp_s20(addr.offset)));
 
 		if (opcode == SLJIT_REV)
 			return SLJIT_SUCCESS;
 
-		if (op & SLJIT_32)
-			ins = (opcode == SLJIT_REV_U16) ? 0xb9950000 /* llhr */ : 0xb9270000 /* lhr */;
-		else
-			ins = (opcode == SLJIT_REV_U16) ? 0xb9850000 /* llghr */ : 0xb9070000 /* lghr */;
+		if (is_16bit) {
+			if (op & SLJIT_32)
+				ins = (opcode == SLJIT_REV_U16) ? 0xb9950000 /* llhr */ : 0xb9270000 /* lhr */;
+			else
+				ins = (opcode == SLJIT_REV_U16) ? 0xb9850000 /* llghr */ : 0xb9070000 /* lghr */;
+		} else
+			ins = (opcode == SLJIT_REV_U32) ? 0xb9160000 /* llgfr */ : 0xb9140000 /* lgfr */;
+
 		return push_inst(compiler, ins | R4A(reg) | R0A(reg));
 	}
 
@@ -2072,6 +2077,11 @@ static sljit_s32 sljit_emit_rev(struct sljit_compiler *compiler, sljit_s32 op,
 
 	if (opcode == SLJIT_REV)
 		return SLJIT_SUCCESS;
+
+	if (!is_16bit) {
+		ins = (opcode == SLJIT_REV_U32) ? 0xb9160000 /* llgfr */ : 0xb9140000 /* lgfr */;
+		return push_inst(compiler, ins | R4A(reg) | R0A(reg));
+	}
 
 	if (op & SLJIT_32) {
 		ins = (opcode == SLJIT_REV_U16) ? 0x88000000 /* srl */ : 0x8a000000 /* sra */;
@@ -2327,6 +2337,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 		FAIL_IF(sljit_emit_clz_ctz(compiler, op, dst_r, src_r));
 		break;
+	case SLJIT_REV_U32:
+	case SLJIT_REV_S32:
+		op |= SLJIT_32;
+		/* fallthrough */
 	case SLJIT_REV:
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
@@ -3722,6 +3736,49 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 
 	ins = (type & SLJIT_32) ? 0xb9f20000 /* locr */ : 0xb9e20000 /* locgr */;
 	return push_inst(compiler, ins | (mask << 12) | R4A(dst_r) | R0A(src_r));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 dst_freg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2_freg)
+{
+	sljit_ins ins;
+	struct sljit_label *label;
+	struct sljit_jump *jump;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fselect(compiler, type, dst_freg, src1, src1w, src2_freg));
+
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+	if (dst_freg != src2_freg) {
+		if (dst_freg == src1) {
+			src1 = src2_freg;
+			src1w = 0;
+			type ^= 0x1;
+		} else {
+			ins = (type & SLJIT_32) ? 0x3800 /* ler */ : 0x2800 /* ldr */;
+			FAIL_IF(push_inst(compiler, ins | F4(dst_freg) | F0(src2_freg)));
+		}
+	}
+
+	SLJIT_SKIP_CHECKS(compiler);
+	jump = sljit_emit_jump(compiler, (type & ~SLJIT_32) ^ 0x1);
+	FAIL_IF(!jump);
+
+	if (!(src1 & SLJIT_MEM)) {
+		ins = (type & SLJIT_32) ? 0x3800 /* ler */ : 0x2800 /* ldr */;
+		FAIL_IF(push_inst(compiler, ins | F4(dst_freg) | F0(src1)));
+	} else
+		FAIL_IF(float_mem(compiler, FLOAT_LOAD | (type & SLJIT_32), dst_freg, src1, src1w));
+
+	SLJIT_SKIP_CHECKS(compiler);
+	label = sljit_emit_label(compiler);
+	FAIL_IF(!label);
+
+	sljit_set_label(jump, label);
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
