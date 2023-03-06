@@ -107,7 +107,7 @@ extern "C" {
 /* Cannot allocate executable memory.
    Only sljit_generate_code() returns with this error code. */
 #define SLJIT_ERR_EX_ALLOC_FAILED	3
-/* Return value for SLJIT_CONFIG_UNSUPPORTED placeholder architecture. */
+/* Unsupported instruction form. */
 #define SLJIT_ERR_UNSUPPORTED		4
 /* An ivalid argument is passed to any SLJIT function. */
 #define SLJIT_ERR_BAD_ARGUMENT		5
