@@ -1006,10 +1006,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #define LOAD_DATA	0x08
 
 /* Flag bits for emit_op. */
-#define ALLOW_IMM	0x10
-#define ALLOW_INV_IMM	0x20
-#define ALLOW_ANY_IMM	(ALLOW_IMM | ALLOW_INV_IMM)
-#define ALLOW_NEG_IMM	0x40
+#define ALLOW_IMM		0x10
+#define ALLOW_INV_IMM		0x20
+#define ALLOW_ANY_IMM		(ALLOW_IMM | ALLOW_INV_IMM)
+#define ALLOW_NEG_IMM		0x40
+#define ALLOW_DOUBLE_IMM	0x80
 
 /* s/l - store/load (1 bit)
    u/s - signed/unsigned (1 bit)
@@ -1232,7 +1233,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 #endif
 
 	if (local_size > 0)
-		FAIL_IF(emit_op(compiler, SLJIT_SUB, ALLOW_IMM, SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, local_size));
+		FAIL_IF(emit_op(compiler, SLJIT_SUB, ALLOW_IMM | ALLOW_DOUBLE_IMM, SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, local_size));
 
 	return SLJIT_SUCCESS;
 }
@@ -1261,13 +1262,8 @@ static sljit_s32 emit_add_sp(struct sljit_compiler *compiler, sljit_uw imm)
 {
 	sljit_uw imm2 = get_imm(imm);
 
-	if (imm2 == 0) {
-		imm2 = (imm & ~(sljit_uw)0x3ff) >> 10;
-		imm = (imm & 0x3ff) >> 2;
-
-		FAIL_IF(push_inst(compiler, ADD | SRC2_IMM | RD(SLJIT_SP) | RN(SLJIT_SP) | 0xb00 | imm2));
-		return push_inst(compiler, ADD | SRC2_IMM | RD(SLJIT_SP) | RN(SLJIT_SP) | 0xf00 | (imm & 0xff));
-	}
+	if (imm2 == 0)
+		return emit_op(compiler, SLJIT_ADD, ALLOW_IMM | ALLOW_DOUBLE_IMM, SLJIT_SP, 0, SLJIT_SP, 0, SLJIT_IMM, (sljit_sw)imm);
 
 	return push_inst(compiler, ADD | RD(SLJIT_SP) | RN(SLJIT_SP) | imm2);
 }
@@ -1673,8 +1669,7 @@ static sljit_uw get_imm(sljit_uw imm)
 	if (!(imm & 0xff000000)) {
 		imm <<= 8;
 		rol = 8;
-	}
-	else {
+	} else {
 		imm = (imm << 24) | (imm >> 8);
 		rol = 0;
 	}
@@ -1696,22 +1691,19 @@ static sljit_uw get_imm(sljit_uw imm)
 
 	if (!(imm & 0x00ffffff))
 		return SRC2_IMM | (imm >> 24) | (rol << 8);
-	else
-		return 0;
+	return 0;
 }
 
-#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
-static sljit_s32 generate_int(struct sljit_compiler *compiler, sljit_s32 reg, sljit_uw imm, sljit_s32 positive)
+static sljit_uw compute_imm(sljit_uw imm, sljit_uw* imm2)
 {
 	sljit_uw mask;
 	sljit_uw imm1;
-	sljit_uw imm2;
 	sljit_uw rol;
 
 	/* Step1: Search a zero byte (8 continous zero bit). */
 	mask = 0xff000000;
 	rol = 8;
-	while(1) {
+	while (1) {
 		if (!(imm & mask)) {
 			/* Rol imm by rol. */
 			imm = (imm << rol) | (imm >> (32 - rol));
@@ -1719,6 +1711,7 @@ static sljit_s32 generate_int(struct sljit_compiler *compiler, sljit_s32 reg, sl
 			rol = 4 + (rol >> 1);
 			break;
 		}
+
 		rol += 2;
 		mask >>= 2;
 		if (mask & 0x3) {
@@ -1748,9 +1741,8 @@ static sljit_s32 generate_int(struct sljit_compiler *compiler, sljit_s32 reg, sl
 
 	if (!(imm & 0xff000000)) {
 		imm1 = SRC2_IMM | ((imm >> 16) & 0xff) | (((rol + 4) & 0xf) << 8);
-		imm2 = SRC2_IMM | ((imm >> 8) & 0xff) | (((rol + 8) & 0xf) << 8);
-	}
-	else if (imm & 0xc0000000) {
+		*imm2 = SRC2_IMM | ((imm >> 8) & 0xff) | (((rol + 8) & 0xf) << 8);
+	} else if (imm & 0xc0000000) {
 		imm1 = SRC2_IMM | ((imm >> 24) & 0xff) | ((rol & 0xf) << 8);
 		imm <<= 8;
 		rol += 4;
@@ -1771,11 +1763,10 @@ static sljit_s32 generate_int(struct sljit_compiler *compiler, sljit_s32 reg, sl
 		}
 
 		if (!(imm & 0x00ffffff))
-			imm2 = SRC2_IMM | (imm >> 24) | ((rol & 0xf) << 8);
+			*imm2 = SRC2_IMM | (imm >> 24) | ((rol & 0xf) << 8);
 		else
 			return 0;
-	}
-	else {
+	} else {
 		if (!(imm & 0xf0000000)) {
 			imm <<= 4;
 			rol += 2;
@@ -1801,25 +1792,23 @@ static sljit_s32 generate_int(struct sljit_compiler *compiler, sljit_s32 reg, sl
 		}
 
 		if (!(imm & 0x00ffffff))
-			imm2 = SRC2_IMM | (imm >> 24) | ((rol & 0xf) << 8);
+			*imm2 = SRC2_IMM | (imm >> 24) | ((rol & 0xf) << 8);
 		else
 			return 0;
 	}
 
-	FAIL_IF(push_inst(compiler, (positive ? MOV : MVN) | RD(reg) | imm1));
-	FAIL_IF(push_inst(compiler, (positive ? ORR : BIC) | RD(reg) | RN(reg) | imm2));
-	return 1;
+	return imm1;
 }
-#endif
 
 static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 reg, sljit_uw imm)
 {
 	sljit_uw tmp;
-
-#if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
+	sljit_uw imm1, imm2;
+#else /* !SLJIT_CONFIG_ARM_V5 */
 	if (!(imm & ~(sljit_uw)0xffff))
 		return push_inst(compiler, MOVW | RD(reg) | ((imm << 4) & 0xf0000) | (imm & 0xfff));
-#endif
+#endif /* SLJIT_CONFIG_ARM_V5 */
 
 	/* Create imm by 1 inst. */
 	tmp = get_imm(imm);
@@ -1832,17 +1821,26 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 reg, 
 
 #if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5)
 	/* Create imm by 2 inst. */
-	FAIL_IF(generate_int(compiler, reg, imm, 1));
-	FAIL_IF(generate_int(compiler, reg, ~imm, 0));
+	imm1 = compute_imm(imm, &imm2);
+	if (imm1 != 0) {
+		FAIL_IF(push_inst(compiler, MOV | RD(reg) | imm1));
+		return push_inst(compiler, ORR | RD(reg) | RN(reg) | imm2);
+	}
+
+	imm1 = compute_imm(~imm, &imm2);
+	if (imm1 != 0) {
+		FAIL_IF(push_inst(compiler, MVN | RD(reg) | imm1));
+		return push_inst(compiler, BIC | RD(reg) | RN(reg) | imm2);
+	}
 
 	/* Load integer. */
 	return push_inst_with_literal(compiler, EMIT_DATA_TRANSFER(WORD_SIZE | LOAD_DATA, 1, reg, TMP_PC, 0), imm);
-#else
+#else /* !SLJIT_CONFIG_ARM_V5 */
 	FAIL_IF(push_inst(compiler, MOVW | RD(reg) | ((imm << 4) & 0xf0000) | (imm & 0xfff)));
 	if (imm <= 0xffff)
 		return SLJIT_SUCCESS;
 	return push_inst(compiler, MOVT | RD(reg) | ((imm >> 12) & 0xf0000) | ((imm >> 16) & 0xfff));
-#endif
+#endif /* SLJIT_CONFIG_ARM_V5 */
 }
 
 static sljit_s32 emit_op_mem(struct sljit_compiler *compiler, sljit_s32 flags, sljit_s32 reg,
@@ -1947,12 +1945,16 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 
 	/* We prefers register and simple consts. */
 	sljit_s32 dst_reg;
-	sljit_s32 src1_reg;
+	sljit_s32 src1_reg = 0;
 	sljit_s32 src2_reg = 0;
 	sljit_s32 flags = HAS_FLAGS(op) ? SET_FLAGS : 0;
 	sljit_s32 neg_op = 0;
+	sljit_u32 imm2;
 
 	op = GET_OPCODE(op);
+
+	if (flags & SET_FLAGS)
+		inp_flags &= ~ALLOW_DOUBLE_IMM;
 
 	if (dst == TMP_REG2)
 		flags |= UNUSED_RETURN;
@@ -2040,8 +2042,7 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 	else if (src1 & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, inp_flags | LOAD_DATA, TMP_REG1, src1, src1w, TMP_REG1));
 		src1_reg = TMP_REG1;
-	}
-	else {
+	} else if (!(inp_flags & ALLOW_DOUBLE_IMM) || src2_reg != 0 || op == SLJIT_SUB || op == SLJIT_SUBC) {
 		FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)src1w));
 		src1_reg = TMP_REG1;
 	}
@@ -2070,8 +2071,62 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 			src2_reg = src2;
 		else if (src2 & SLJIT_MEM)
 			FAIL_IF(emit_op_mem(compiler, inp_flags | LOAD_DATA, src2_reg, src2, src2w, TMP_REG2));
-		else
+		else if (!(inp_flags & ALLOW_DOUBLE_IMM))
 			FAIL_IF(load_immediate(compiler, src2_reg, (sljit_uw)src2w));
+		else {
+			SLJIT_ASSERT(!(flags & SET_FLAGS));
+
+			if (src1_reg == 0) {
+				FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)src1w));
+				src1_reg = TMP_REG1;
+			}
+
+			src2_reg = (sljit_s32)compute_imm((sljit_uw)src2w, &imm2);
+
+			if (src2_reg == 0 && neg_op != 0) {
+				src2_reg = (sljit_s32)compute_imm((sljit_uw)-src2w, &imm2);
+				if (src2_reg != 0)
+					op = neg_op;
+			}
+
+			if (src2_reg == 0) {
+				FAIL_IF(load_immediate(compiler, TMP_REG2, (sljit_uw)src2w));
+				src2_reg = TMP_REG2;
+			} else {
+				FAIL_IF(emit_single_op(compiler, op, flags, (sljit_uw)dst_reg, (sljit_uw)src1_reg, (sljit_uw)src2_reg));
+				src1_reg = dst_reg;
+				src2_reg = (sljit_s32)imm2;
+
+				if (op == SLJIT_ADDC)
+					op = SLJIT_ADD;
+				else if (op == SLJIT_SUBC)
+					op = SLJIT_SUB;
+			}
+		}
+	}
+
+	if (src1_reg == 0) {
+		SLJIT_ASSERT((inp_flags & ALLOW_DOUBLE_IMM) && !(flags & SET_FLAGS));
+
+		src1_reg = (sljit_s32)compute_imm((sljit_uw)src1w, &imm2);
+
+		if (src1_reg == 0 && neg_op != 0) {
+			src1_reg = (sljit_s32)compute_imm((sljit_uw)-src1w, &imm2);
+			if (src1_reg != 0)
+				op = neg_op;
+		}
+
+		if (src1_reg == 0) {
+			FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)src1w));
+			src1_reg = TMP_REG1;
+		} else {
+			FAIL_IF(emit_single_op(compiler, op, flags, (sljit_uw)dst_reg, (sljit_uw)src2_reg, (sljit_uw)src1_reg));
+			src1_reg = dst_reg;
+			src2_reg = (sljit_s32)imm2;
+
+			if (op == SLJIT_ADDC)
+				op = SLJIT_ADD;
+		}
 	}
 
 	FAIL_IF(emit_single_op(compiler, op, flags, (sljit_uw)dst_reg, (sljit_uw)src1_reg, (sljit_uw)src2_reg));
@@ -2235,13 +2290,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	case SLJIT_ADDC:
 	case SLJIT_SUB:
 	case SLJIT_SUBC:
-		return emit_op(compiler, op, ALLOW_IMM | ALLOW_NEG_IMM, dst, dstw, src1, src1w, src2, src2w);
+		return emit_op(compiler, op, ALLOW_IMM | ALLOW_NEG_IMM | ALLOW_DOUBLE_IMM, dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_OR:
-		return emit_op(compiler, op, ALLOW_IMM, dst, dstw, src1, src1w, src2, src2w);
+		return emit_op(compiler, op, ALLOW_IMM | ALLOW_DOUBLE_IMM, dst, dstw, src1, src1w, src2, src2w);
 
 	case SLJIT_XOR:
-		inp_flags = ALLOW_IMM;
+		inp_flags = ALLOW_IMM | ALLOW_DOUBLE_IMM;
 		if (((src1 & SLJIT_IMM) && src1w == -1) || ((src2 & SLJIT_IMM) && src2w == -1)) {
 			inp_flags |= ALLOW_INV_IMM;
 		}
