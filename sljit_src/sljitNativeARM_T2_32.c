@@ -117,6 +117,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define BKPT		0xbe00
 #define BLX		0x4780
 #define BX		0x4700
+#define CLREX		0xf3bf8f2f
 #define CLZ		0xfab0f080
 #define CMNI_W		0xf1100f00
 #define CMP		0x4280
@@ -129,6 +130,10 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define EOR_W		0xea800000
 #define IT		0xbf00
 #define LDR_SP		0x9800
+#define LDAEX		0xe8d00fef
+#define LDAEXB		0xe8d00fcf
+#define LDAEXD		0xe8d000ff
+#define LDAEXH		0xe8d00fdf
 #define LDR		0xf8d00000
 #define LDRD		0xe9500000
 #define LDRI		0xf8500800
@@ -175,6 +180,10 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SBC_W		0xeb600000
 #define SDIV		0xfb90f0f0
 #define SMULL		0xfb800000
+#define STLEX		0xe8c00fe0
+#define STLEXB		0xe8c00fc0
+#define STLEXD		0xe8c000f0
+#define STLEXH		0xe8c00fd0
 #define STRD		0xe9400000
 #define STR_SP		0x9000
 #define SUBS		0x1a00
@@ -3281,4 +3290,70 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ta
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset)
 {
 	sljit_set_jump_addr(addr, (sljit_uw)new_constant, executable_offset);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 base_reg,
+	sljit_s32 data_reg,
+	sljit_s32 temp_reg)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_atomic_load(compiler, op, base_reg, data_reg, temp_reg));
+
+	sljit_emit_mem_unaligned(compiler, SLJIT_MOV, data_reg, SLJIT_IMM, 0);
+	sljit_u32 inst = 0;
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV:
+	case SLJIT_MOV32:
+	case SLJIT_MOV_U32:
+		inst = LDAEX;
+		break;
+	case SLJIT_MOV_U8:
+	case SLJIT_MOV32_U8:
+		inst = LDAEXB;
+		break;
+	case SLJIT_MOV_U16:
+	case SLJIT_MOV32_U16:
+		inst = LDAEXH;
+		break;
+	default:
+		SLJIT_UNREACHABLE();
+	}
+	push_inst32(compiler, inst | RN4(base_reg) | RT4(data_reg));
+	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 base_reg,
+	sljit_s32 data_reg,
+	sljit_s32 temp_reg)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_atomic_store(compiler, op, base_reg, data_reg, temp_reg));
+
+	compiler->last_flags |= SLJIT_SET_Z;
+	sljit_u32 inst = 0;
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV:
+	case SLJIT_MOV32:
+	case SLJIT_MOV_U32:
+		inst = STLEX;
+		break;
+	case SLJIT_MOV_U8:
+	case SLJIT_MOV32_U8:
+		inst = STLEXB;
+		break;
+	case SLJIT_MOV_U16:
+	case SLJIT_MOV32_U16:
+		inst = STLEXH;
+		break;
+	default:
+		SLJIT_UNREACHABLE();
+	}
+
+	push_inst32(compiler, inst | RN4(base_reg) | RT4(data_reg)| RM4(temp_reg) );
+	push_inst16(compiler, CMP | IMM8(0) | RDN3(temp_reg));
+	return SLJIT_SUCCESS;
 }

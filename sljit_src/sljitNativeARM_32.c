@@ -98,6 +98,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define CLZ		0xe16f0f10
 #define CMN		0xe1600000
 #define CMP		0xe1400000
+#define CMP_imm		0xe3500000
 #define BKPT		0xe1200070
 #define EOR		0xe0200000
 #define LDR		0xe5100000
@@ -141,8 +142,17 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 /* Arm v7 specific instructions. */
-#define MOVW		0xe3000000
+#define CLREX		0xf57ff01f
+#define LDREX		0x01900f9f
+#define LDREXB		0x01d00f9f
+#define LDREXD		0x01b00f9f
+#define LDREXH		0x01f00f9f
 #define MOVT		0xe3400000
+#define MOVW		0xe3000000
+#define STREX		0x01800f90
+#define STREXB		0x01c00f90
+#define STREXD		0x01a00f90
+#define STREXH		0x01e00f90
 #define SXTB		0xe6af0070
 #define SXTH		0xe6bf0070
 #define UXTB		0xe6ef0070
@@ -3847,4 +3857,78 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ta
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset)
 {
 	inline_set_const(addr, executable_offset, (sljit_uw)new_constant, 1);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 base_reg,
+	sljit_s32 data_reg,
+	sljit_s32 temp_reg)
+{
+#if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_atomic_load(compiler, op, base_reg, data_reg, temp_reg));
+
+	sljit_emit_mem_unaligned(compiler, SLJIT_MOV, data_reg, SLJIT_IMM, 0);
+	sljit_u32 inst = CONDITIONAL;
+
+	switch (GET_OPCODE(op)) {
+		case SLJIT_MOV:
+		case SLJIT_MOV32:
+		case SLJIT_MOV_U32:
+			inst |= LDREX;
+			break;
+		case SLJIT_MOV_U8:
+		case SLJIT_MOV32_U8:
+			inst |= LDREXB;
+			break;
+		case SLJIT_MOV_U16:
+		case SLJIT_MOV32_U16:
+			inst |= LDREXH;
+			break;
+		default:
+			SLJIT_UNREACHABLE();
+	}
+	push_inst(compiler, inst | RN(base_reg) | RD(data_reg));
+	return SLJIT_SUCCESS;
+#else /* !SLJIT_CONFIG_ARM_V7 */
+	return SLJIT_ERR_UNSUPPORTED;
+#endif /* SLJIT_CONFIG_ARM_V7 */
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 base_reg,
+	sljit_s32 data_reg,
+	sljit_s32 temp_reg)
+{
+#if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_atomic_store(compiler, op, base_reg, data_reg, temp_reg));
+
+	compiler->last_flags |= SLJIT_SET_Z;
+	sljit_u32 inst = CONDITIONAL;
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV:
+	case SLJIT_MOV32:
+	case SLJIT_MOV_U32:
+		inst |= STREX;
+		break;
+	case SLJIT_MOV_U8:
+	case SLJIT_MOV32_U8:
+		inst |= STREXB;
+		break;
+	case SLJIT_MOV_U16:
+	case SLJIT_MOV32_U16:
+		inst |= STREXH;
+		break;
+	default:
+		SLJIT_UNREACHABLE();
+	}
+
+	push_inst(compiler, inst | RN(base_reg) | RD(temp_reg) | RM(data_reg));
+	push_inst(compiler, CMP_imm | RN(temp_reg) | 0);
+	return SLJIT_SUCCESS;
+#else /* !SLJIT_CONFIG_ARM_V7 */
+	return SLJIT_ERR_UNSUPPORTED;
+#endif /* SLJIT_CONFIG_ARM_V7 */
 }
