@@ -1935,6 +1935,34 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void);
 #endif
 
+/* Atomic load loads data from memory to a register atomically,
+   marking the memory location as locked if necessary.
+
+   base_reg must have the memory address the data should be loaded from
+   data_reg is the register the data will be loaded into
+   temp_reg is a register used to store temporary data while executing
+     the load operation
+
+   Flags: - (does not modify flags) */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 base_reg,
+	sljit_s32 data_reg,
+	sljit_s32 temp_reg);
+
+/* Atomic store stores data from one register to memory atomically,
+   clearing a memory lock if necessary and successful.
+
+   base_reg must have the memory address the data should be stored to
+   data_reg is a register containing the data that will be stored
+   temp_reg is a register used to store temporary data while executing
+     the store operation
+
+   Flags: ZF is cleared if not successful */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 base_reg,
+	sljit_s32 data_reg,
+	sljit_s32 temp_reg);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
