@@ -1439,28 +1439,32 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_SET_CARRY			SLJIT_SET(SLJIT_CARRY)
 #define SLJIT_NOT_CARRY			13
 
+#define SLJIT_ATOMIC_STORED		14
+#define SLJIT_SET_ATOMIC_STORED		SLJIT_SET(SLJIT_ATOMIC_STORED)
+#define SLJIT_ATOMIC_NOT_STORED		15
+
 /* Basic floating point comparison types.
 
    Note: when the comparison result is unordered, their behaviour is unspecified. */
 
-#define SLJIT_F_EQUAL				14
+#define SLJIT_F_EQUAL				16
 #define SLJIT_SET_F_EQUAL			SLJIT_SET(SLJIT_F_EQUAL)
-#define SLJIT_F_NOT_EQUAL			15
+#define SLJIT_F_NOT_EQUAL			17
 #define SLJIT_SET_F_NOT_EQUAL			SLJIT_SET(SLJIT_F_EQUAL)
-#define SLJIT_F_LESS				16
+#define SLJIT_F_LESS				18
 #define SLJIT_SET_F_LESS			SLJIT_SET(SLJIT_F_LESS)
-#define SLJIT_F_GREATER_EQUAL			17
+#define SLJIT_F_GREATER_EQUAL			19
 #define SLJIT_SET_F_GREATER_EQUAL		SLJIT_SET(SLJIT_F_LESS)
-#define SLJIT_F_GREATER				18
+#define SLJIT_F_GREATER				20
 #define SLJIT_SET_F_GREATER			SLJIT_SET(SLJIT_F_GREATER)
-#define SLJIT_F_LESS_EQUAL			19
+#define SLJIT_F_LESS_EQUAL			21
 #define SLJIT_SET_F_LESS_EQUAL			SLJIT_SET(SLJIT_F_GREATER)
 
 /* Jumps when either argument contains a NaN value. */
-#define SLJIT_UNORDERED				20
+#define SLJIT_UNORDERED				22
 #define SLJIT_SET_UNORDERED			SLJIT_SET(SLJIT_UNORDERED)
 /* Jumps when neither argument contains a NaN value. */
-#define SLJIT_ORDERED				21
+#define SLJIT_ORDERED				23
 #define SLJIT_SET_ORDERED			SLJIT_SET(SLJIT_UNORDERED)
 
 /* Ordered / unordered floating point comparison types.
@@ -1468,41 +1472,41 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
    Note: each comparison type has an ordered and unordered form. Some
          architectures supports only either of them (see: sljit_cmp_info). */
 
-#define SLJIT_ORDERED_EQUAL			22
+#define SLJIT_ORDERED_EQUAL			24
 #define SLJIT_SET_ORDERED_EQUAL			SLJIT_SET(SLJIT_ORDERED_EQUAL)
-#define SLJIT_UNORDERED_OR_NOT_EQUAL		23
+#define SLJIT_UNORDERED_OR_NOT_EQUAL		25
 #define SLJIT_SET_UNORDERED_OR_NOT_EQUAL	SLJIT_SET(SLJIT_ORDERED_EQUAL)
-#define SLJIT_ORDERED_LESS			24
+#define SLJIT_ORDERED_LESS			26
 #define SLJIT_SET_ORDERED_LESS			SLJIT_SET(SLJIT_ORDERED_LESS)
-#define SLJIT_UNORDERED_OR_GREATER_EQUAL	25
+#define SLJIT_UNORDERED_OR_GREATER_EQUAL	27
 #define SLJIT_SET_UNORDERED_OR_GREATER_EQUAL	SLJIT_SET(SLJIT_ORDERED_LESS)
-#define SLJIT_ORDERED_GREATER			26
+#define SLJIT_ORDERED_GREATER			28
 #define SLJIT_SET_ORDERED_GREATER		SLJIT_SET(SLJIT_ORDERED_GREATER)
-#define SLJIT_UNORDERED_OR_LESS_EQUAL		27
+#define SLJIT_UNORDERED_OR_LESS_EQUAL		29
 #define SLJIT_SET_UNORDERED_OR_LESS_EQUAL	SLJIT_SET(SLJIT_ORDERED_GREATER)
 
-#define SLJIT_UNORDERED_OR_EQUAL		28
+#define SLJIT_UNORDERED_OR_EQUAL		30
 #define SLJIT_SET_UNORDERED_OR_EQUAL		SLJIT_SET(SLJIT_UNORDERED_OR_EQUAL)
-#define SLJIT_ORDERED_NOT_EQUAL			29
+#define SLJIT_ORDERED_NOT_EQUAL			31
 #define SLJIT_SET_ORDERED_NOT_EQUAL		SLJIT_SET(SLJIT_UNORDERED_OR_EQUAL)
-#define SLJIT_UNORDERED_OR_LESS			30
+#define SLJIT_UNORDERED_OR_LESS			32
 #define SLJIT_SET_UNORDERED_OR_LESS		SLJIT_SET(SLJIT_UNORDERED_OR_LESS)
-#define SLJIT_ORDERED_GREATER_EQUAL		31
+#define SLJIT_ORDERED_GREATER_EQUAL		33
 #define SLJIT_SET_ORDERED_GREATER_EQUAL		SLJIT_SET(SLJIT_UNORDERED_OR_LESS)
-#define SLJIT_UNORDERED_OR_GREATER		32
+#define SLJIT_UNORDERED_OR_GREATER		34
 #define SLJIT_SET_UNORDERED_OR_GREATER		SLJIT_SET(SLJIT_UNORDERED_OR_GREATER)
-#define SLJIT_ORDERED_LESS_EQUAL		33
+#define SLJIT_ORDERED_LESS_EQUAL		35
 #define SLJIT_SET_ORDERED_LESS_EQUAL		SLJIT_SET(SLJIT_UNORDERED_OR_GREATER)
 
 /* Unconditional jump types. */
-#define SLJIT_JUMP			34
+#define SLJIT_JUMP			36
 /* Fast calling method. See the description above. */
-#define SLJIT_FAST_CALL			35
+#define SLJIT_FAST_CALL			37
 /* Default C calling convention. */
-#define SLJIT_CALL			36
+#define SLJIT_CALL			38
 /* Called function must be compiled by SLJIT.
    See SLJIT_ENTER_REG_ARG option. */
-#define SLJIT_CALL_REG_ARG		37
+#define SLJIT_CALL_REG_ARG		39
 
 /* The target can be changed during runtime (see: sljit_set_jump_addr). */
 #define SLJIT_REWRITABLE_JUMP		0x1000
@@ -1743,6 +1747,56 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 	sljit_s32 freg,
 	sljit_s32 mem, sljit_sw memw);
 
+/* The sljit_emit_atomic_load and sljit_emit_atomic_store operations
+   allows performing an atomic read-modify-write operation. First,
+   a value must be loaded from memory using sljit_emit_atomic_load.
+   Then, the updated value must be written back to the same memory
+   location by sljit_emit_atomic_store. A thread can only perform a
+   single atomic operation, and the memory area of the value should
+   not be modified between the load and store operations.
+
+   op must be between SLJIT_MOV and SLJIT_MOV_P, excluding all signed loads
+     such as SLJIT_MOV32_S16
+   dst_reg is the register where the data will be loaded into
+   mem_reg is the base address of the memory load (it cannot be
+     SLJIT_SP or a virtual register on x86-32)
+   temp_reg is an output register, which value is set by the load
+     operation and its value must be passed to sljit_emit_atomic_store
+     without modifications
+
+   Note: the memory operation (op) and the base address (mem_reg)
+     passed to sljit_emit_atomic_load and sljit_emit_atomic_store
+     must be the same, otherwise the operation is undefined.
+
+   Note: mem_reg and temp_reg passed to sljit_emit_atomic_load
+     and sljit_emit_atomic_store can be different, only their
+     expected value is specified here.
+
+   Flags: - (does not modify flags) */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_reg,
+	sljit_s32 mem_reg,
+	sljit_s32 temp_reg);
+
+/* The sljit_emit_atomic_load and sljit_emit_atomic_store operations
+   allows performing an atomic read-modify-write operation. See the
+   description of sljit_emit_atomic_load.
+
+   op must be between SLJIT_MOV and SLJIT_MOV_P, excluding all signed
+     loads such as SLJIT_MOV32_S16
+   src_reg is the register which value is stored into the memory
+   mem_reg is the base address of the memory store (it cannot be
+     SLJIT_SP or a virtual register on x86-32)
+   temp_reg must contain the value returned in the temp_reg of
+     sljit_emit_atomic_load (the value in temp_reg is not preserved)
+
+   Flags: ATOMIC_STORED is set if the operation is successful,
+     otherwise the memory remains unchanged. */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 src_reg,
+	sljit_s32 mem_reg,
+	sljit_s32 temp_reg);
+
 /* Copies the base address of SLJIT_SP + offset to dst. The offset can
    represent the starting address of a value in the local data (stack).
    The offset is not limited by the local data limits, it can be any value.
@@ -1934,34 +1988,6 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct
    before the application terminates. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void);
 #endif
-
-/* Atomic load loads data from memory to a register atomically,
-   marking the memory location as locked if necessary.
-
-   base_reg must have the memory address the data should be loaded from
-   data_reg is the register the data will be loaded into
-   temp_reg is a register used to store temporary data while executing
-     the load operation
-
-   Flags: - (does not modify flags) */
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 base_reg,
-	sljit_s32 data_reg,
-	sljit_s32 temp_reg);
-
-/* Atomic store stores data from one register to memory atomically,
-   clearing a memory lock if necessary and successful.
-
-   base_reg must have the memory address the data should be stored to
-   data_reg is a register containing the data that will be stored
-   temp_reg is a register used to store temporary data while executing
-     the store operation
-
-   Flags: ZF is cleared if not successful */
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 base_reg,
-	sljit_s32 data_reg,
-	sljit_s32 temp_reg);
 
 #ifdef __cplusplus
 } /* extern "C" */

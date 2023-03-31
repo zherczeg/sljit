@@ -1061,6 +1061,7 @@ static const char* jump_names[] = {
 	"sig_greater", "sig_less_equal",
 	"overflow", "not_overflow",
 	"carry", "not_carry",
+	"atomic_stored", "atomic_not_stored",
 	"f_equal", "f_not_equal",
 	"f_less", "f_greater_equal",
 	"f_greater", "f_less_equal",
@@ -1381,8 +1382,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 }
 
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 base_reg,
-	sljit_s32 data_reg,
+	sljit_s32 dst_reg,
+	sljit_s32 mem_reg,
 	sljit_s32 temp_reg)
 {
 	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
@@ -1392,12 +1393,12 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_load(struct sljit_
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOV_P);
-	CHECK_ARGUMENT((GET_OPCODE(op) % 2) == 1 || GET_OPCODE(op) == SLJIT_MOV || GET_OPCODE(op) == SLJIT_MOV_P);
+	CHECK_ARGUMENT(GET_OPCODE(op) != SLJIT_MOV_S8 && GET_OPCODE(op) != SLJIT_MOV_S16 && GET_OPCODE(op) != SLJIT_MOV_S32);
 
-	/* All args must be registers. */
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(base_reg));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(data_reg));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(temp_reg));
+	/* All arguments must be valid registers. */
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(dst_reg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(mem_reg) && !CHECK_IF_VIRTUAL_REGISTER(mem_reg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(temp_reg) && dst_reg != temp_reg);
 
 	if (op == SLJIT_MOV32_U8 || op == SLJIT_MOV32_U16) {
 		/* Only SLJIT_32 is allowed. */
@@ -1413,10 +1414,10 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_load(struct sljit_
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  atomic_load%s%s ", !(op & SLJIT_32) ? "" : "32",
 				op1_types[GET_OPCODE(op) - SLJIT_OP1_BASE]);
-		sljit_verbose_reg(compiler, base_reg);
-		fprintf(compiler->verbose, ", ");
-		sljit_verbose_reg(compiler, data_reg);
-		fprintf(compiler->verbose, ", ");
+		sljit_verbose_reg(compiler, dst_reg);
+		fprintf(compiler->verbose, ", [");
+		sljit_verbose_reg(compiler, mem_reg);
+		fprintf(compiler->verbose, "], ");
 		sljit_verbose_reg(compiler, temp_reg);
 		fprintf(compiler->verbose, "\n");
 	}
@@ -1425,8 +1426,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_load(struct sljit_
 }
 
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 base_reg,
-	sljit_s32 data_reg,
+	sljit_s32 src_reg,
+	sljit_s32 mem_reg,
 	sljit_s32 temp_reg)
 {
 	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
@@ -1436,34 +1437,33 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_store(struct sljit
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_MOV_P);
-	CHECK_ARGUMENT((GET_OPCODE(op) % 2) == 1 || GET_OPCODE(op) == SLJIT_MOV || GET_OPCODE(op) == SLJIT_MOV_P);
+	CHECK_ARGUMENT(GET_OPCODE(op) != SLJIT_MOV_S8 && GET_OPCODE(op) != SLJIT_MOV_S16 && GET_OPCODE(op) != SLJIT_MOV_S32);
 
-	/* All args must be registers. */
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(base_reg));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(data_reg));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(temp_reg));
+	/* All arguments must be valid registers. */
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(src_reg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(mem_reg) && !CHECK_IF_VIRTUAL_REGISTER(mem_reg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(temp_reg) && src_reg != temp_reg);
 
-	/* SLJIT_SET_Z is required. */
-	CHECK_ARGUMENT((op & SLJIT_SET_Z));
+	CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK) || GET_FLAG_TYPE(op) == SLJIT_ATOMIC_STORED);
 
-	if (op == (SLJIT_MOV32_U8 | SLJIT_SET_Z) || op == (SLJIT_MOV32_U16 | SLJIT_SET_Z)) {
-		/* Only SLJIT_32, SLJIT_SET_Z is allowed. */
-		CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK));
+	if (GET_OPCODE(op) == SLJIT_MOV_U8 || GET_OPCODE(op) == SLJIT_MOV_U16) {
+		/* Only SLJIT_32, SLJIT_ATOMIC_STORED is allowed. */
+		CHECK_ARGUMENT(!(op & SLJIT_SET_Z));
 	} else {
-		/* Only SLJIT_SET_Z is allowed. */
-		CHECK_ARGUMENT(!(op & (SLJIT_32 | VARIABLE_FLAG_MASK)));
+		/* Only SLJIT_ATOMIC_STORED is allowed. */
+		CHECK_ARGUMENT(!(op & (SLJIT_32 | SLJIT_SET_Z)));
 	}
 
-	compiler->last_flags = GET_FLAG_TYPE(op) | (op & (SLJIT_32 | SLJIT_SET_Z));
+	compiler->last_flags = GET_FLAG_TYPE(op) | (op & SLJIT_32);
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  atomic_store%s%s%s ", !(op & SLJIT_32) ? "" : "32",
-				op1_types[GET_OPCODE(op) - SLJIT_OP1_BASE], !(op & SLJIT_SET_Z) ? "" : ".z");
-		sljit_verbose_reg(compiler, base_reg);
-		fprintf(compiler->verbose, ", ");
-		sljit_verbose_reg(compiler, data_reg);
-		fprintf(compiler->verbose, ", ");
+				op1_types[GET_OPCODE(op) - SLJIT_OP1_BASE], !(op & VARIABLE_FLAG_MASK) ? "" : ".stored");
+		sljit_verbose_reg(compiler, src_reg);
+		fprintf(compiler->verbose, ", [");
+		sljit_verbose_reg(compiler, mem_reg);
+		fprintf(compiler->verbose, "], ");
 		sljit_verbose_reg(compiler, temp_reg);
 		fprintf(compiler->verbose, "\n");
 	}
