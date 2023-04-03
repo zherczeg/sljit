@@ -247,6 +247,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define PUSH_r		0x50
 #define PUSH_rm		(/* GROUP_FF */ 6 << 3)
 #define PUSHF		0x9c
+#define PXOR_x_xm	0xef
 #define ROL		(/* SHIFT */ 0 << 3)
 #define ROR		(/* SHIFT */ 1 << 3)
 #define RET_near	0xc3

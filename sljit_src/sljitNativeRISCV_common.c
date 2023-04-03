@@ -2368,6 +2368,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	return SLJIT_SUCCESS;
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_f32 value)
+{
+	union {
+		sljit_s32 imm;
+		sljit_f32 value;
+	} u;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fset32(compiler, freg, value));
+
+	u.value = value;
+
+	if (u.imm == 0)
+		return push_inst(compiler, FMV_W_X | RS1(TMP_ZERO) | FRD(freg));
+
+	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm, TMP_REG3));
+	return push_inst(compiler, FMV_W_X | RS1(TMP_REG1) | FRD(freg));
+}
+
 /* --------------------------------------------------------------------- */
 /*  Conditional instructions                                             */
 /* --------------------------------------------------------------------- */

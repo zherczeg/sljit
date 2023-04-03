@@ -97,6 +97,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define FDIV 0x1e601800
 #define FMOV 0x1e604000
 #define FMOV_R 0x9e660000
+#define FMOV_I 0x1e601000
 #define FMUL 0x1e600800
 #define FNEG 0x1e614000
 #define FSUB 0x1e603800
@@ -1915,6 +1916,62 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	return emit_fop_mem(compiler, mem_flags | STORE, TMP_FREG1, dst, dstw);
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_f32 value)
+{
+	sljit_u32 exp;
+	union {
+		sljit_s32 imm;
+		sljit_f32 value;
+	} u;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fset32(compiler, freg, value));
+
+	u.value = value;
+
+	if (u.imm == 0)
+		return push_inst(compiler, (FMOV_R ^ (W_OP | (1 << 22))) | RN(TMP_ZERO) | VD(freg) | (1 << 16));
+
+	if ((u.imm << (32 - 19)) == 0) {
+		exp = (u.imm >> (23 + 2)) & 0x3f;
+
+		if (exp == 0x20 || exp == 0x1f)
+			return push_inst(compiler, (FMOV_I ^ (1 << 22)) | (sljit_ins)((((u.imm >> 24) & 0x80) | ((u.imm >> 19) & 0x7f)) << 13) | VD(freg));
+	}
+
+	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm));
+	return push_inst(compiler, (FMOV_R ^ (W_OP | (1 << 22))) | RN(TMP_REG1) | VD(freg) | (1 << 16));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_f64 value)
+{
+	sljit_uw exp;
+	union {
+		sljit_sw imm;
+		sljit_f64 value;
+	} u;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fset64(compiler, freg, value));
+
+	u.value = value;
+
+	if (u.imm == 0)
+		return push_inst(compiler, FMOV_R | RN(TMP_ZERO) | VD(freg) | (sljit_ins)1 << 16);
+
+	if ((u.imm << (64 - 48)) == 0) {
+		exp = (u.imm >> (52 + 2)) & 0x1ff;
+
+		if (exp == 0x100 || exp == 0xff)
+			return push_inst(compiler, FMOV_I | (sljit_ins)((((u.imm >> 56) & 0x80) | ((u.imm >> 48) & 0x7f)) << 13) | VD(freg));
+	}
+
+	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm));
+	return push_inst(compiler, FMOV_R | RN(TMP_REG1) | VD(freg) | (1 << 16));
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 freg, sljit_s32 reg)
 {
@@ -1924,12 +1981,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
 
 	if (GET_OPCODE(op) == SLJIT_COPY_TO_F64)
-		inst = FMOV_R | RN(reg) | VD(freg) | (sljit_ins)1 << 16;
+		inst = FMOV_R | RN(reg) | VD(freg) | (1 << 16);
 	else
 		inst = FMOV_R | VN(freg) | RD(reg);
 
 	if (op & SLJIT_32)
-		inst ^= ((sljit_ins)1 << 31) | ((sljit_ins)1 << 22);
+		inst ^= W_OP | (1 << 22);
 
 	return push_inst(compiler, inst);
 }

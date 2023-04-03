@@ -1370,6 +1370,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
    with 32 bit operations later. */
 #define SLJIT_COPY32_FROM_F32		(SLJIT_COPY_FROM_F64 | SLJIT_32)
 
+/* Sets a floating point register to an immediate value. */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_f32 value);
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_f64 value);
+
 /* Special data copy which involves floating point registers.
 
   op must be between SLJIT_COPY_TO_F64 and SLJIT_COPY32_FROM_F32

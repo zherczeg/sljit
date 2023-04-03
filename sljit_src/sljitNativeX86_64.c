@@ -1085,6 +1085,85 @@ static sljit_s32 emit_mov_int(struct sljit_compiler *compiler, sljit_s32 sign,
 	return SLJIT_SUCCESS;
 }
 
+static sljit_s32 sljit_emit_fset(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_u8 rex, sljit_s32 is_zero)
+{
+	sljit_u8 *inst;
+	sljit_u32 size;
+
+	if (is_zero) {
+		rex = freg_map[freg] >= 8 ? (REX_R | REX_B) : 0;
+	} else {
+		if (freg_map[freg] >= 8)
+			rex |= REX_R;
+		if (reg_map[TMP_REG1] >= 8)
+			rex |= REX_B;
+	}
+
+	size = (rex != 0) ? 5 : 4;
+
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
+	FAIL_IF(!inst);
+	INC_SIZE(size);
+
+	*inst++ = GROUP_66;
+	if (rex != 0)
+		*inst++ = rex;
+	inst[0] = GROUP_0F;
+
+	if (is_zero) {
+		inst[1] = PXOR_x_xm;
+		inst[2] = U8(freg_lmap[freg] | (freg_lmap[freg] << 3) | MOD_REG);
+	} else {
+		inst[1] = MOVD_x_rm;
+		inst[2] = U8(reg_lmap[TMP_REG1] | (freg_lmap[freg] << 3) | MOD_REG);
+	}
+
+	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_f32 value)
+{
+	union {
+		sljit_s32 imm;
+		sljit_f32 value;
+	} u;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fset32(compiler, freg, value));
+
+	u.value = value;
+
+	if (u.imm != 0) {
+		compiler->mode32 = 1;
+		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, u.imm);
+	}
+
+	return sljit_emit_fset(compiler, freg, 0, u.imm == 0);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_f64 value)
+{
+	union {
+		sljit_sw imm;
+		sljit_f64 value;
+	} u;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fset64(compiler, freg, value));
+
+	u.value = value;
+
+	if (u.imm != 0) {
+		compiler->mode32 = 0;
+		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, u.imm);
+	}
+
+	return sljit_emit_fset(compiler, freg, REX_W, u.imm == 0);
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 freg, sljit_s32 reg)
 {

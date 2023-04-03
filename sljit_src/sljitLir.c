@@ -1846,6 +1846,54 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop2(struct sljit_compile
 	CHECK_RETURN_OK;
 }
 
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fset32(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_f32 value)
+{
+	SLJIT_UNUSED_ARG(value);
+
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		CHECK_RETURN_OK;
+	}
+
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  fset32 ");
+		sljit_verbose_freg(compiler, freg);
+		fprintf(compiler->verbose, ", %f\n", value);
+	}
+#endif
+	CHECK_RETURN_OK;
+}
+
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fset64(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_f64 value)
+{
+	SLJIT_UNUSED_ARG(value);
+
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		CHECK_RETURN_OK;
+	}
+
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  fset64 ");
+		sljit_verbose_freg(compiler, freg);
+		fprintf(compiler->verbose, ", %lf\n", value);
+	}
+#endif
+	CHECK_RETURN_OK;
+}
+
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 freg, sljit_s32 reg)
 {

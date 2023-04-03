@@ -325,6 +325,30 @@ static SLJIT_INLINE sljit_s32 emit_const(struct sljit_compiler *compiler, sljit_
 	return push_inst(compiler, ORI | S(reg) | A(reg) | IMM(init_value));
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *compiler,
+	sljit_s32 freg, sljit_f64 value)
+{
+	union {
+		sljit_s32 imm[2];
+		sljit_f64 value;
+	} u;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fset64(compiler, freg, value));
+
+	u.value = value;
+
+	if (u.imm[0] != 0)
+		FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm[0]));
+	if (u.imm[1] != 0)
+		FAIL_IF(load_immediate(compiler, TMP_REG2, u.imm[1]));
+
+	/* Saved in the same endianness. */
+	FAIL_IF(push_inst(compiler, STW | S(u.imm[0] != 0 ? TMP_REG1 : TMP_ZERO) | A(SLJIT_SP) | TMP_MEM_OFFSET));
+	FAIL_IF(push_inst(compiler, STW | S(u.imm[1] != 0 ? TMP_REG2 : TMP_ZERO) | A(SLJIT_SP) | (TMP_MEM_OFFSET + sizeof(sljit_s32))));
+	return push_inst(compiler, LFD | FS(freg) | A(SLJIT_SP) | TMP_MEM_OFFSET);
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 freg, sljit_s32 reg)
 {
