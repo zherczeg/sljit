@@ -3672,6 +3672,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	sljit_s32 data_reg,
 	sljit_s32 temp_reg)
 {
+	sljit_s32 opcode = op;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, base_reg, data_reg, temp_reg));
 
@@ -3680,8 +3682,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 #endif /* SLJIT_CONFIG_X86_64 */
 
 	EMIT_MOV(compiler, data_reg, 0, SLJIT_IMM, 0);
-
-	sljit_s32 opcode = op;
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
@@ -3708,14 +3708,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	sljit_s32 data_reg,
 	sljit_s32 temp_reg)
 {
+	sljit_u8 *inst;
+	sljit_s32 reg4 = -1;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, base_reg, data_reg, temp_reg));
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	compiler->mode32 = op & SLJIT_32;
 #endif /* SLJIT_CONFIG_X86_64 */
-
-	sljit_u8 *inst;
-	sljit_s32 reg4 = -1;
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	compiler->mode32 = 0;
@@ -3757,6 +3757,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 		compiler->mode32 = SLJIT_32;
 #endif /* SLJIT_CONFIG_X86_64 */
 		emit_single_byte_inst(GROUP_66);
+		/* fallthrough */
 	case SLJIT_MOV32:
 	case SLJIT_MOV_U32:
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)

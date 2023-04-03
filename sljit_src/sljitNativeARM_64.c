@@ -2543,11 +2543,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	sljit_s32 data_reg,
 	sljit_s32 temp_reg)
 {
+	sljit_u32 inst;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, base_reg, data_reg, temp_reg));
 
+	SLJIT_UNUSED_ARG(temp_reg);
+
 	sljit_emit_mem_unaligned(compiler, SLJIT_MOV, data_reg, SLJIT_IMM, 0);
-	sljit_u32 inst = 0;
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
@@ -2568,8 +2571,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	default:
 		SLJIT_UNREACHABLE();
 	}
-	push_inst(compiler, inst | RN(base_reg) | RT(data_reg));
-	return SLJIT_SUCCESS;
+	return push_inst(compiler, inst | RN(base_reg) | RT(data_reg));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
@@ -2577,10 +2579,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	sljit_s32 data_reg,
 	sljit_s32 temp_reg)
 {
+	sljit_u32 inst;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, base_reg, data_reg, temp_reg));
-
-	sljit_u32 inst = 0;
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
@@ -2602,7 +2604,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 		SLJIT_UNREACHABLE();
 	}
 
-	push_inst(compiler, inst | RM(temp_reg) | RN(base_reg) | RT(data_reg));
-	push_inst(compiler, CMP_imm | IMM12(0) | RN(temp_reg));
-	return SLJIT_SUCCESS;
+	FAIL_IF(push_inst(compiler, inst | RM(temp_reg) | RN(base_reg) | RT(data_reg)));
+	return push_inst(compiler, CMP_imm | IMM12(0) | RN(temp_reg));
 }

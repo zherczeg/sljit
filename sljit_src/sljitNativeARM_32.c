@@ -3920,12 +3920,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	sljit_s32 temp_reg)
 {
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+	sljit_u32 inst;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, base_reg, data_reg, temp_reg));
 
-	sljit_emit_mem_unaligned(compiler, SLJIT_MOV, data_reg, SLJIT_IMM, 0);
-	sljit_u32 inst = CONDITIONAL;
+	SLJIT_UNUSED_ARG(temp_reg);
 
+	sljit_emit_mem_unaligned(compiler, SLJIT_MOV, data_reg, SLJIT_IMM, 0);
+
+	inst = CONDITIONAL;
 	switch (GET_OPCODE(op)) {
 		case SLJIT_MOV:
 		case SLJIT_MOV32:
@@ -3943,9 +3947,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 		default:
 			SLJIT_UNREACHABLE();
 	}
-	push_inst(compiler, inst | RN(base_reg) | RD(data_reg));
-	return SLJIT_SUCCESS;
+	return push_inst(compiler, inst | RN(base_reg) | RD(data_reg));
 #else /* !SLJIT_CONFIG_ARM_V7 */
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(op);
+	SLJIT_UNUSED_ARG(base_reg);
+	SLJIT_UNUSED_ARG(data_reg);
+	SLJIT_UNUSED_ARG(temp_reg);
+
 	return SLJIT_ERR_UNSUPPORTED;
 #endif /* SLJIT_CONFIG_ARM_V7 */
 }
@@ -3956,12 +3965,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	sljit_s32 temp_reg)
 {
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+	sljit_u32 inst;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, base_reg, data_reg, temp_reg));
 
 	compiler->last_flags |= SLJIT_SET_Z;
-	sljit_u32 inst = CONDITIONAL;
 
+	inst = CONDITIONAL;
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
 	case SLJIT_MOV32:
@@ -3980,10 +3991,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 		SLJIT_UNREACHABLE();
 	}
 
-	push_inst(compiler, inst | RN(base_reg) | RD(temp_reg) | RM(data_reg));
-	push_inst(compiler, CMP_imm | RN(temp_reg) | 0);
-	return SLJIT_SUCCESS;
+	FAIL_IF(push_inst(compiler, inst | RN(base_reg) | RD(temp_reg) | RM(data_reg)));
+	return push_inst(compiler, CMP_imm | RN(temp_reg) | 0);
 #else /* !SLJIT_CONFIG_ARM_V7 */
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(op);
+	SLJIT_UNUSED_ARG(base_reg);
+	SLJIT_UNUSED_ARG(data_reg);
+	SLJIT_UNUSED_ARG(temp_reg);
+
 	return SLJIT_ERR_UNSUPPORTED;
 #endif /* SLJIT_CONFIG_ARM_V7 */
 }
