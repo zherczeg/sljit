@@ -93,7 +93,7 @@ extern "C" {
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) \
 	+ (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) \
-	+ (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) \
+	+ (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6) \
 	+ (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7) \
 	+ (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2) \
 	+ (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
@@ -111,7 +111,7 @@ extern "C" {
 
 #if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) \
 	&& !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) \
-	&& !(defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) \
+	&& !(defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6) \
 	&& !(defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7) \
 	&& !(defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2) \
 	&& !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
@@ -152,7 +152,7 @@ extern "C" {
 	 || (defined(__ARM_ARCH_9A__)))
 #define SLJIT_CONFIG_ARM_V7 1
 #elif defined(__arm__) || defined (__ARM__)
-#define SLJIT_CONFIG_ARM_V5 1
+#define SLJIT_CONFIG_ARM_V6 1
 #elif defined(__ppc64__) || defined(__powerpc64__) || (defined(_ARCH_PPC64) && defined(__64BIT__)) || (defined(_POWER) && defined(__64BIT__))
 #define SLJIT_CONFIG_PPC_64 1
 #elif defined(__ppc__) || defined(__powerpc__) || defined(_ARCH_PPC) || defined(_ARCH_PWR) || defined(_ARCH_PWR2) || defined(_POWER)
@@ -181,7 +181,7 @@ extern "C" {
 #elif (defined(_M_ARM) && _M_ARM >= 7)
 #define SLJIT_CONFIG_ARM_V7 1
 #elif defined(_ARM_)
-#define SLJIT_CONFIG_ARM_V5 1
+#define SLJIT_CONFIG_ARM_V6 1
 #elif defined(_M_ARM64) || defined(__aarch64__)
 #define SLJIT_CONFIG_ARM_64 1
 #else
@@ -199,7 +199,7 @@ extern "C" {
 /* CPU family type detection. */
 /******************************/
 
-#if (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7) \
+#if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7) \
 	|| (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
 #define SLJIT_CONFIG_ARM_32 1
 #endif
@@ -671,7 +671,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
 
-#elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+#elif (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 
 #define SLJIT_NUMBER_OF_REGISTERS 12
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 8

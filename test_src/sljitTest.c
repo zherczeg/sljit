@@ -4131,7 +4131,7 @@ static void test41(void)
 	if (reg > 7)
 		inst[0] |= 0x02; /* REX_X */
 	sljit_emit_op_custom(compiler, inst, 4);
-#elif (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
+#elif (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 	/* add rd, rn, rm */
 	inst = 0xe0800000 | ((sljit_u32)sljit_get_register_index(SLJIT_RETURN_REG) << 12)
 		| ((sljit_u32)sljit_get_register_index(SLJIT_S0) << 16)
@@ -6107,8 +6107,7 @@ static void test57(void)
 		FAILED(addr[1] == addr[2], "test57 case 2 failed\n");
 		FAILED(addr[2] == addr[3], "test57 case 3 failed\n");
 		FAILED(addr[3] == addr[4], "test57 case 4 failed\n");
-	}
-	else {
+	} else {
 		FAILED(addr[0] != addr[1], "test57 case 1 failed\n");
 		FAILED(addr[1] != addr[2], "test57 case 2 failed\n");
 		FAILED(addr[2] != addr[3], "test57 case 3 failed\n");
