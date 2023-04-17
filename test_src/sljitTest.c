@@ -11523,13 +11523,14 @@ static void test91(void)
 static void test92(void)
 {
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
-		|| (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
+		|| (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
+		|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	/* Test atomic load and store. */
 	executable_code code;
 	struct sljit_compiler *compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_label *label;
 	struct sljit_jump *jump;
-	sljit_sw buf[26];
+	sljit_sw buf[32];
 	sljit_s32 i;
 
 	if (verbose)
@@ -11537,7 +11538,7 @@ static void test92(void)
 
 	FAILED(!compiler, "cannot create compiler\n");
 
-	for (i = 0; i < 26; i++)
+	for (i = 0; i < 32; i++)
 		buf[i] = -1;
 
 	buf[0] = -4678;
@@ -11549,6 +11550,9 @@ static void test92(void)
 	*(sljit_u32*)(buf + 17) = 987609876;
 	*(sljit_u8*)(buf + 20) = 192;
 	buf[23] = 6359;
+	((sljit_u8*)(buf + 26))[1] = 105;
+	((sljit_u8*)(buf + 28))[2] = 13;
+	((sljit_u16*)(buf + 30))[1] = 14876;
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, P), 5, 5, 0, 0, 2 * sizeof(sljit_sw));
 
@@ -11671,6 +11675,38 @@ static void test92(void)
 	/* buf[25] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 25 * sizeof(sljit_sw), SLJIT_R0, 0);
 
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 26 * sizeof(sljit_sw) + 1);
+	label = sljit_emit_label(compiler);
+	sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R0, SLJIT_R1);
+	/* buf[27] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 27 * sizeof(sljit_sw), SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 204);
+	/* buf[26] */
+	sljit_emit_atomic_store(compiler, SLJIT_MOV_U8 | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
+	jump = sljit_emit_jump(compiler, SLJIT_ATOMIC_STORED);
+	sljit_set_label(sljit_emit_jump(compiler, SLJIT_JUMP), label);
+	sljit_set_label(jump, sljit_emit_label(compiler));
+
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 28 * sizeof(sljit_sw) + 2);
+	label = sljit_emit_label(compiler);
+	sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R0, SLJIT_R1);
+	/* buf[29] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 29 * sizeof(sljit_sw), SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 240);
+	/* buf[28] */
+	sljit_emit_atomic_store(compiler, SLJIT_MOV_U8 | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
+	sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
+
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 30 * sizeof(sljit_sw) + 2);
+	label = sljit_emit_label(compiler);
+	sljit_emit_atomic_load(compiler, SLJIT_MOV_U16, SLJIT_R0, SLJIT_R1);
+	/* buf[31] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 31 * sizeof(sljit_sw), SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 51403);
+	/* buf[30] */
+	sljit_emit_atomic_store(compiler, SLJIT_MOV_U16 | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
+	sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler);
@@ -11715,6 +11751,17 @@ static void test92(void)
 	FAILED(buf[23] != 4059, "test92 case 31 failed\n");
 	FAILED(buf[24] != 6359, "test92 case 32 failed\n");
 	FAILED(buf[25] != (sljit_sw)(buf + 23), "test92 case 33 failed\n");
+	FAILED(((sljit_u8*)(buf + 26))[0] != 255, "test92 case 34 failed\n");
+	FAILED(((sljit_u8*)(buf + 26))[1] != 204, "test92 case 35 failed\n");
+	FAILED(((sljit_u8*)(buf + 26))[2] != 255, "test92 case 36 failed\n");
+	FAILED(buf[27] != 105, "test92 case 37 failed\n");
+	FAILED(((sljit_u8*)(buf + 28))[1] != 255, "test92 case 38 failed\n");
+	FAILED(((sljit_u8*)(buf + 28))[2] != 240, "test92 case 39 failed\n");
+	FAILED(((sljit_u8*)(buf + 28))[3] != 255, "test92 case 40 failed\n");
+	FAILED(buf[29] != 13, "test92 case 41 failed\n");
+	FAILED(((sljit_u16*)(buf + 30))[0] != 65535, "test92 case 42 failed\n");
+	FAILED(((sljit_u16*)(buf + 30))[1] != 51403, "test92 case 43 failed\n");
+	FAILED(buf[31] != 14876, "test92 case 44 failed\n");
 
 	sljit_free_code(code.code, NULL);
 #endif
