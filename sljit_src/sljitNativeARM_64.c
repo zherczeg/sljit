@@ -937,14 +937,14 @@ set_flags:
 #define STORE		0x10
 #define SIGNED		0x20
 
-#define BYTE_SIZE	0x0
-#define HALF_SIZE	0x1
-#define INT_SIZE	0x2
-#define WORD_SIZE	0x3
+#define BYTE_SIZE	0x0u
+#define HALF_SIZE	0x1u
+#define INT_SIZE	0x2u
+#define WORD_SIZE	0x3u
 
 #define MEM_SIZE_SHIFT(flags) ((sljit_ins)(flags) & 0x3)
 
-static sljit_s32 emit_op_mem(struct sljit_compiler *compiler, sljit_s32 flags, sljit_s32 reg,
+static sljit_s32 emit_op_mem(struct sljit_compiler *compiler, sljit_ins flags, sljit_s32 reg,
 	sljit_s32 arg, sljit_sw argw, sljit_s32 tmp_reg)
 {
 	sljit_u32 shift = MEM_SIZE_SHIFT(flags);
@@ -1375,8 +1375,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
-	sljit_s32 dst_r, flags, mem_flags;
+	sljit_s32 dst_r, flags;
 	sljit_s32 op_flags = GET_ALL_FLAGS(op);
+	sljit_ins mem_flags;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op1(compiler, op, dst, dstw, src, srcw));
@@ -1483,7 +1484,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
-	sljit_s32 dst_r, flags, mem_flags;
+	sljit_s32 dst_r, flags;
+	sljit_ins mem_flags;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op2(compiler, op, 0, dst, dstw, src1, src1w, src2, src2w));
@@ -1702,7 +1704,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 /*  Floating point operators                                             */
 /* --------------------------------------------------------------------- */
 
-static sljit_s32 emit_fop_mem(struct sljit_compiler *compiler, sljit_s32 flags, sljit_s32 reg, sljit_s32 arg, sljit_sw argw)
+static sljit_s32 emit_fop_mem(struct sljit_compiler *compiler, sljit_ins flags, sljit_s32 reg, sljit_s32 arg, sljit_sw argw)
 {
 	sljit_u32 shift = MEM_SIZE_SHIFT(flags);
 	sljit_ins type = (shift << 30);
@@ -1805,7 +1807,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
-	sljit_s32 mem_flags = (op & SLJIT_32) ? INT_SIZE : WORD_SIZE;
+	sljit_ins mem_flags = (op & SLJIT_32) ? INT_SIZE : WORD_SIZE;
 	sljit_ins inv_bits = (op & SLJIT_32) ? (1 << 22) : 0;
 
 	if (src1 & SLJIT_MEM) {
@@ -1831,7 +1833,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
-	sljit_s32 dst_r, mem_flags = (op & SLJIT_32) ? INT_SIZE : WORD_SIZE;
+	sljit_s32 dst_r;
+	sljit_ins mem_flags = (op & SLJIT_32) ? INT_SIZE : WORD_SIZE;
 	sljit_ins inv_bits;
 
 	CHECK_ERROR();
@@ -1877,7 +1880,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
-	sljit_s32 dst_r, mem_flags = (op & SLJIT_32) ? INT_SIZE : WORD_SIZE;
+	sljit_s32 dst_r;
+	sljit_ins mem_flags = (op & SLJIT_32) ? INT_SIZE : WORD_SIZE;
 	sljit_ins inv_bits = (op & SLJIT_32) ? (1 << 22) : 0;
 
 	CHECK_ERROR();
@@ -2236,8 +2240,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 type)
 {
-	sljit_s32 dst_r, src_r, flags, mem_flags;
-	sljit_ins cc;
+	sljit_s32 dst_r, src_r, flags;
+	sljit_ins cc, mem_flags;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, type));
