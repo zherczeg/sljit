@@ -3294,13 +3294,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst_reg,
-	sljit_s32 mem_reg,
-	sljit_s32 temp_reg)
+	sljit_s32 mem_reg)
 {
 	sljit_ins ins = 0;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg, temp_reg));
+	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV_U8:

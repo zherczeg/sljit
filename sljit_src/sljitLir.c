@@ -1383,8 +1383,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst_reg,
-	sljit_s32 mem_reg,
-	sljit_s32 temp_reg)
+	sljit_s32 mem_reg)
 {
 	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
 		compiler->skip_checks = 0;
@@ -1398,7 +1397,6 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_load(struct sljit_
 	/* All arguments must be valid registers. */
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(dst_reg));
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(mem_reg) && !CHECK_IF_VIRTUAL_REGISTER(mem_reg));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(temp_reg) && dst_reg != temp_reg);
 
 	if (op == SLJIT_MOV32_U8 || op == SLJIT_MOV32_U16) {
 		/* Only SLJIT_32 is allowed. */
@@ -1417,9 +1415,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_load(struct sljit_
 		sljit_verbose_reg(compiler, dst_reg);
 		fprintf(compiler->verbose, ", [");
 		sljit_verbose_reg(compiler, mem_reg);
-		fprintf(compiler->verbose, "], ");
-		sljit_verbose_reg(compiler, temp_reg);
-		fprintf(compiler->verbose, "\n");
+		fprintf(compiler->verbose, "]\n");
 	}
 #endif /* SLJIT_VERBOSE */
 	CHECK_RETURN_OK;

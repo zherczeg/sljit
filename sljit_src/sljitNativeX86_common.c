@@ -1256,9 +1256,6 @@ static sljit_s32 emit_mov_byte(struct sljit_compiler *compiler, sljit_s32 sign,
 {
 	sljit_u8* inst;
 	sljit_s32 dst_r;
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	sljit_s32 work_r;
-#endif
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	compiler->mode32 = 0;
@@ -1337,56 +1334,9 @@ static sljit_s32 emit_mov_byte(struct sljit_compiler *compiler, sljit_s32 sign,
 	}
 
 	if (dst & SLJIT_MEM) {
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		if (dst_r == TMP_REG1) {
-			/* Find a non-used register, whose reg_map[src] < 4. */
-			if ((dst & REG_MASK) == SLJIT_R0) {
-				if ((dst & OFFS_REG_MASK) == TO_OFFS_REG(SLJIT_R1))
-					work_r = SLJIT_R2;
-				else
-					work_r = SLJIT_R1;
-			}
-			else {
-				if ((dst & OFFS_REG_MASK) != TO_OFFS_REG(SLJIT_R0))
-					work_r = SLJIT_R0;
-				else if ((dst & REG_MASK) == SLJIT_R1)
-					work_r = SLJIT_R2;
-				else
-					work_r = SLJIT_R1;
-			}
-
-			if (work_r == SLJIT_R0) {
-				ENCODE_PREFIX(XCHG_EAX_r | reg_map[TMP_REG1]);
-			}
-			else {
-				inst = emit_x86_instruction(compiler, 1, work_r, 0, dst_r, 0);
-				FAIL_IF(!inst);
-				*inst = XCHG_r_rm;
-			}
-
-			inst = emit_x86_instruction(compiler, 1, work_r, 0, dst, dstw);
-			FAIL_IF(!inst);
-			*inst = MOV_rm8_r8;
-
-			if (work_r == SLJIT_R0) {
-				ENCODE_PREFIX(XCHG_EAX_r | reg_map[TMP_REG1]);
-			}
-			else {
-				inst = emit_x86_instruction(compiler, 1, work_r, 0, dst_r, 0);
-				FAIL_IF(!inst);
-				*inst = XCHG_r_rm;
-			}
-		}
-		else {
-			inst = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
-			FAIL_IF(!inst);
-			*inst = MOV_rm8_r8;
-		}
-#else
 		inst = emit_x86_instruction(compiler, 1 | EX86_REX | EX86_NO_REXW, dst_r, 0, dst, dstw);
 		FAIL_IF(!inst);
 		*inst = MOV_rm8_r8;
-#endif
 	}
 
 	return SLJIT_SUCCESS;
@@ -3514,39 +3464,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst_reg,
-	sljit_s32 mem_reg,
-	sljit_s32 temp_reg)
+	sljit_s32 mem_reg)
 {
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	sljit_sw dstw = 0;
-	sljit_sw tempw = 0;
-#endif /* SLJIT_CONFIG_X86_32 */
-
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg, temp_reg));
-	CHECK_EXTRA_REGS(dst_reg, dstw, (void)0);
-	CHECK_EXTRA_REGS(temp_reg, tempw, (void)0);
+	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
 	SLJIT_SKIP_CHECKS(compiler);
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	FAIL_IF(sljit_emit_op1(compiler, op, dst_reg, 0, SLJIT_MEM1(mem_reg), 0));
-	compiler->mode32 = op & SLJIT_32;
-	return emit_mov(compiler, temp_reg, 0, dst_reg, 0);
-#else /* !SLJIT_CONFIG_X86_64 */
-	if (FAST_IS_REG(dst_reg)) {
-		FAIL_IF(sljit_emit_op1(compiler, op, dst_reg, 0, SLJIT_MEM1(mem_reg), 0));
-		return emit_mov(compiler, temp_reg, tempw, dst_reg, 0);
-	}
-
-	if (FAST_IS_REG(temp_reg)) {
-		FAIL_IF(sljit_emit_op1(compiler, op, temp_reg, 0, SLJIT_MEM1(mem_reg), 0));
-		return emit_mov(compiler, dst_reg, dstw, temp_reg, 0);
-	}
-
-	FAIL_IF(sljit_emit_op1(compiler, op, TMP_REG1, 0, SLJIT_MEM1(mem_reg), 0));
-	EMIT_MOV(compiler, dst_reg, dstw, TMP_REG1, 0);
-	return emit_mov(compiler, temp_reg, tempw, TMP_REG1, 0);
-#endif /* SLJIT_CONFIG_X86_32 */
+	return sljit_emit_op1(compiler, op, dst_reg, 0, SLJIT_MEM1(mem_reg), 0);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,

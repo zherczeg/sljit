@@ -1754,36 +1754,36 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 	sljit_s32 freg,
 	sljit_s32 mem, sljit_sw memw);
 
-/* The sljit_emit_atomic_load and sljit_emit_atomic_store operations
-   allows performing an atomic read-modify-write operation. First,
+/* The sljit_emit_atomic_load and sljit_emit_atomic_store operation
+   pair can perform an atomic read-modify-write operation. First,
    a value must be loaded from memory using sljit_emit_atomic_load.
    Then, the updated value must be written back to the same memory
-   location by sljit_emit_atomic_store. A thread can only perform a
-   single atomic operation, and the memory area of the value should
-   not be modified between the load and store operations.
+   location by sljit_emit_atomic_store. A thread can only perform
+   a single atomic operation at the same time, and it should not
+   modify the memory area targeted by the atomic operation between
+   the load/store operations.
 
    op must be between SLJIT_MOV and SLJIT_MOV_P, excluding all signed loads
      such as SLJIT_MOV32_S16
    dst_reg is the register where the data will be loaded into
    mem_reg is the base address of the memory load (it cannot be
      SLJIT_SP or a virtual register on x86-32)
-   temp_reg is an output register, which value is set by the load
-     operation and its value must be passed to sljit_emit_atomic_store
-     without modifications
+
+   Note: atomic operations are experimental, and
+     not implemented for all cpus.
 
    Note: the memory operation (op) and the base address (mem_reg)
      passed to sljit_emit_atomic_load and sljit_emit_atomic_store
      must be the same, otherwise the operation is undefined.
 
-   Note: mem_reg and temp_reg passed to sljit_emit_atomic_load
-     and sljit_emit_atomic_store can be different, only their
-     expected value is specified here.
+   Note: the mem_reg register passed to sljit_emit_atomic_load and
+     sljit_emit_atomic_store can be different, only their value
+     must be the same.
 
    Flags: - (does not modify flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst_reg,
-	sljit_s32 mem_reg,
-	sljit_s32 temp_reg);
+	sljit_s32 mem_reg);
 
 /* The sljit_emit_atomic_load and sljit_emit_atomic_store operations
    allows performing an atomic read-modify-write operation. See the
@@ -1794,8 +1794,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
    src_reg is the register which value is stored into the memory
    mem_reg is the base address of the memory store (it cannot be
      SLJIT_SP or a virtual register on x86-32)
-   temp_reg must contain the value returned in the temp_reg of
-     sljit_emit_atomic_load (the value in temp_reg is not preserved)
+   temp_reg must contain the value loaded into dst_reg by the
+     sljit_emit_atomic_load operation (the store operation
+     does not preserve the value of temp_reg)
 
    Flags: ATOMIC_STORED is set if the operation is successful,
      otherwise the memory remains unchanged. */
