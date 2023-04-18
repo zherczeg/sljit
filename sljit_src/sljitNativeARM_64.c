@@ -1921,7 +1921,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *comp
 {
 	sljit_u32 exp;
 	union {
-		sljit_s32 imm;
+		sljit_u32 imm;
 		sljit_f32 value;
 	} u;
 
@@ -1940,7 +1940,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *comp
 			return push_inst(compiler, (FMOV_I ^ (1 << 22)) | (sljit_ins)((((u.imm >> 24) & 0x80) | ((u.imm >> 19) & 0x7f)) << 13) | VD(freg));
 	}
 
-	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm));
+	FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_s32)u.imm));
 	return push_inst(compiler, (FMOV_R ^ (W_OP | (1 << 22))) | RN(TMP_REG1) | VD(freg) | (1 << 16));
 }
 
@@ -1949,7 +1949,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 {
 	sljit_uw exp;
 	union {
-		sljit_sw imm;
+		sljit_uw imm;
 		sljit_f64 value;
 	} u;
 
@@ -1968,7 +1968,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 			return push_inst(compiler, FMOV_I | (sljit_ins)((((u.imm >> 56) & 0x80) | ((u.imm >> 48) & 0x7f)) << 13) | VD(freg));
 	}
 
-	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm));
+	FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_sw)u.imm));
 	return push_inst(compiler, FMOV_R | RN(TMP_REG1) | VD(freg) | (1 << 16));
 }
 
