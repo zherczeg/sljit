@@ -3494,8 +3494,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	SLJIT_ASSERT(FAST_IS_REG(src_reg) || src_reg == SLJIT_MEM1(SLJIT_SP));
 	SLJIT_ASSERT(FAST_IS_REG(temp_reg) || temp_reg == SLJIT_MEM1(SLJIT_SP));
 
+	op = GET_OPCODE(op);
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	if ((src_reg & SLJIT_MEM) || (GET_OPCODE(op) == SLJIT_MOV_U8 && reg_map[src_reg] >= 4)) {
+	if ((src_reg & SLJIT_MEM) || (op == SLJIT_MOV_U8 && reg_map[src_reg] >= 4)) {
 		/* Src is virtual register or its low byte is not accessible. */
 		SLJIT_ASSERT(src_reg != SLJIT_R1);
 		free_reg = src_reg;
@@ -3540,7 +3541,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	}
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	compiler->mode32 = (op != SLJIT_MOV) && (op != SLJIT_MOV_P);
+	compiler->mode32 = op != SLJIT_MOV && op != SLJIT_MOV_P;
 #endif /* SLJIT_CONFIG_X86_64 */
 
 	/* Lock prefix. */
@@ -3550,17 +3551,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	*inst = GROUP_LOCK;
 
 	size = 2;
-	if (GET_OPCODE(op) == SLJIT_MOV_U16)
+	if (op == SLJIT_MOV_U16)
 		size |= EX86_HALF_ARG | EX86_PREF_66;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	if (GET_OPCODE(op) == SLJIT_MOV_U8)
+	if (op == SLJIT_MOV_U8)
 		size |= EX86_REX;
 #endif /* SLJIT_CONFIG_X86_64 */
 
 	inst = emit_x86_instruction(compiler, size, src_reg, 0, SLJIT_MEM1(mem_reg), 0);
 	FAIL_IF(!inst);
 	inst[0] = GROUP_0F;
-	inst[1] = U8(GET_OPCODE(op) == SLJIT_MOV_U8 ? CMPXCHG_rm8_r : CMPXCHG_rm_r);
+	inst[1] = U8(op == SLJIT_MOV_U8 ? CMPXCHG_rm8_r : CMPXCHG_rm_r);
 
 	if (temp_reg != SLJIT_R0) {
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)

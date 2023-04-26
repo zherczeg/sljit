@@ -11541,7 +11541,7 @@ static void test92(void)
 	for (i = 0; i < 32; i++)
 		buf[i] = -1;
 
-	buf[0] = -4678;
+	buf[0] = 4678;
 	*(sljit_u8*)(buf + 2) = 178;
 	*(sljit_u8*)(buf + 5) = 211;
 	*(sljit_u16*)(buf + 9) = 17897;
@@ -11714,8 +11714,9 @@ static void test92(void)
 	sljit_free_compiler(compiler);
 
 	code.func1((sljit_sw)&buf);
+
 	FAILED(buf[0] != -9856, "test92 case 1 failed\n");
-	FAILED(buf[1] != -4678, "test92 case 2 failed\n");
+	FAILED(buf[1] != 4678, "test92 case 2 failed\n");
 	FAILED(*(sljit_u8*)(buf + 2) != 203, "test92 case 3 failed\n");
 	FAILED(((sljit_u8*)(buf + 2))[1] != 0xff, "test92 case 4 failed\n");
 	FAILED(buf[3] != 178, "test92 case 5 failed\n");

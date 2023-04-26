@@ -1772,6 +1772,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
    Note: atomic operations are experimental, and
      not implemented for all cpus.
 
+   Note: the base address (mem_reg) might be aligned to the natural
+     size of the memory operation (op), otherwise the operation is
+     undefined.
+
    Note: the memory operation (op) and the base address (mem_reg)
      passed to sljit_emit_atomic_load and sljit_emit_atomic_store
      must be the same, otherwise the operation is undefined.
