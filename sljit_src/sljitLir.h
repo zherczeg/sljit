@@ -1774,6 +1774,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
      - the memory operation (op) and the base address (stored in mem_reg)
        passed to the load/store operations must be the same (the mem_reg
        can be a different register, only its value must be the same)
+     - an store must always follow a load for the same transaction.
 
    op must be between SLJIT_MOV and SLJIT_MOV_P, excluding all
      signed loads such as SLJIT_MOV32_S16
@@ -1797,7 +1798,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
      SLJIT_SP or a virtual register on x86-32)
    temp_reg is a not preserved scratch register, which must be
      initialized with the value loaded into the dst_reg during the
-     sljit_emit_atomic_load operation, or the operation is undefined
+     corresponding sljit_emit_atomic_load operation, or the operation
+     is undefined
 
    Flags: ATOMIC_STORED is set if the operation is successful,
      otherwise the memory remains unchanged. */
