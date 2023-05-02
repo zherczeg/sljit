@@ -80,6 +80,9 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define BLR 0xd63f0000
 #define BR 0xd61f0000
 #define BRK 0xd4200000
+#define CAS 0xc8a07c00
+#define CASB 0x08a07c00
+#define CASH 0x48a07c00
 #define CBZ 0xb4000000
 #define CCMPI 0xfa400800
 #define CLZ 0xdac01000
@@ -152,6 +155,13 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define UBFM 0xd3400000
 #define UDIV 0x9ac00800
 #define UMULH 0x9bc03c00
+
+#define CSET (CSINC | RM(TMP_ZERO) | RN(TMP_ZERO))
+#define LDR (STRI | (1 << 22))
+#define LDRB (STRBI | (1 << 22))
+#define LDRH (LDRB | (1 << 30))
+#define LDRSW ((LDRI ^ (1 << 30)) ^ (0x3 << 22))
+#define MOV (ORR | RN(TMP_ZERO))
 
 static sljit_s32 push_inst(struct sljit_compiler *compiler, sljit_ins ins)
 {
@@ -2487,11 +2497,30 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	sljit_s32 dst_reg,
 	sljit_s32 mem_reg)
 {
-	sljit_ins ins = 0;
+	sljit_ins ins;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
+#ifdef __ARM_FEATURE_ATOMICS
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV32:
+		ins = LDR ^ (1 << 30);
+		break;
+	case SLJIT_MOV_U32:
+		ins = LDRSW;
+		break;
+	case SLJIT_MOV_U16:
+		ins = LDRH;
+		break;
+	case SLJIT_MOV_U8:
+		ins = LDRB;
+		break;
+	default:
+		ins = LDR;
+		break;
+	}
+#else /* !__ARM_FEATURE_ATOMICS */
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV32:
 	case SLJIT_MOV_U32:
@@ -2507,7 +2536,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 		ins = LDXR;
 		break;
 	}
-
+#endif /* ARM_FEATURE_ATOMICS */
 	return push_inst(compiler, ins | RN(mem_reg) | RT(dst_reg));
 }
 
@@ -2517,9 +2546,53 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	sljit_s32 temp_reg)
 {
 	sljit_ins ins;
+	sljit_s32 tmp = temp_reg;
+	sljit_ins cmp = 0;
+	sljit_ins inv_bits = W_OP;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
+
+#ifdef __ARM_FEATURE_ATOMICS
+	if (op & SLJIT_SET_ATOMIC_STORED)
+		cmp = (SUBS ^ W_OP) | RD(TMP_ZERO);
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV32:
+	case SLJIT_MOV_U32:
+		ins = CAS ^ (1 << 30);
+		break;
+	case SLJIT_MOV_U16:
+		ins = CASH;
+		break;
+	case SLJIT_MOV_U8:
+		ins = CASB;
+		break;
+	default:
+		ins = CAS;
+		inv_bits = 0;
+		if (cmp)
+			cmp ^= W_OP;
+		break;
+	}
+
+	if (cmp) {
+		FAIL_IF(push_inst(compiler, MOV ^ inv_bits | RM(temp_reg) | RD(TMP_REG1)));
+		tmp = TMP_REG1;
+	}
+	FAIL_IF(push_inst(compiler, ins | RM(tmp) | RN(mem_reg) | RD(src_reg)));
+	if (!cmp)
+		return SLJIT_SUCCESS;
+
+	FAIL_IF(push_inst(compiler, cmp | RM(tmp) | RN(temp_reg)));
+	FAIL_IF(push_inst(compiler, CSET ^ inv_bits | RD(tmp)));
+	return push_inst(compiler, cmp | RM(tmp) | RN(TMP_ZERO));
+#else /* !__ARM_FEATURE_ATOMICS */
+	SLJIT_UNUSED_ARG(tmp);
+	SLJIT_UNUSED_ARG(inv_bits);
+
+	if (op & SLJIT_SET_ATOMIC_STORED)
+		cmp = (SUBI ^ W_OP) | (1 << 29);
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV32:
@@ -2538,7 +2611,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	}
 
 	FAIL_IF(push_inst(compiler, ins | RM(TMP_REG1) | RN(mem_reg) | RT(src_reg)));
-	return push_inst(compiler, (SUBI ^ W_OP) | (1 << 29) | RD(TMP_ZERO) | RN(TMP_REG1));
+	return cmp ? push_inst(compiler, cmp | RD(TMP_ZERO) | RN(TMP_REG1)) : SLJIT_SUCCESS;
+#endif /* __ARM_FEATURE_ATOMICS */
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_local_base(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw offset)
