@@ -11555,7 +11555,7 @@ static void test92(void)
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	((sljit_s32*)(buf + 33))[1] = -1;
 #endif /* SLJIT_64BIT_ARCHITECTURE */
-	buf[36] = 0xffaa55;
+	buf[37] = WCONST(0x1122334444332211, 0x11222211);
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, P), 5, 5, 0, 0, 2 * sizeof(sljit_sw));
 
@@ -11746,17 +11746,17 @@ static void test92(void)
 	/* buf[35] */
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 35 * sizeof(sljit_sw), SLJIT_ATOMIC_STORED);
 
+	/* case50: abandoned atomic load is safe */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
-	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 36 * sizeof(sljit_sw));
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_R1, 0);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 37 * sizeof(sljit_sw));
 	sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R0, SLJIT_R1);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S2, 0, SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_R0, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_IMM, 1);
 	sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R0, SLJIT_R1);
-	/* buf[36] */
-	sljit_emit_atomic_store(compiler, SLJIT_MOV_U8, SLJIT_S2, SLJIT_R1, SLJIT_R0);
 	/* buf[37] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_sw), SLJIT_S2, 0);
+	sljit_emit_atomic_store(compiler, SLJIT_MOV_U8, SLJIT_R2, SLJIT_R1, SLJIT_R0);
+	/* buf[36] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 36 * sizeof(sljit_sw), SLJIT_R2, 0);
 
 	sljit_emit_return_void(compiler);
 
@@ -11824,8 +11824,8 @@ static void test92(void)
 	FAILED(buf[34] != 0xffffffff, "test92 case 48 failed\n");
 #endif /* SLJIT_64BIT_ARCHITECTURE */
 	FAILED(buf[35] != 1, "test92 case 49 failed\n");
-	FAILED(buf[36] != 0xff5555, "test92 case 50 failed\n");
-	FAILED(buf[37] != 0x55, "test92 case 51 failed\n");
+	FAILED(buf[36] != 0x11, "test92 case 50 (load) failed\n");
+	FAILED(((sljit_u8*)(buf + 37))[1] != buf[36], "test92 case 50 (store) failed\n");
 
 	sljit_free_code(code.code, NULL);
 #endif
