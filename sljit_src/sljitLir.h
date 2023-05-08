@@ -1305,15 +1305,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_dst(struct sljit_compiler *comp
 /* Flags: - (may destroy flags) */
 #define SLJIT_CONV_F64_FROM_S32		(SLJIT_FOP1_BASE + 5)
 #define SLJIT_CONV_F32_FROM_S32		(SLJIT_CONV_F64_FROM_S32 | SLJIT_32)
+/* Flags: - (may destroy flags) */
+#define SLJIT_CONV_F64_FROM_UW		(SLJIT_FOP1_BASE + 6)
+#define SLJIT_CONV_F32_FROM_UW		(SLJIT_CONV_F64_FROM_UW | SLJIT_32)
+/* Flags: - (may destroy flags) */
+#define SLJIT_CONV_F64_FROM_U32		(SLJIT_FOP1_BASE + 7)
+#define SLJIT_CONV_F32_FROM_U32		(SLJIT_CONV_F64_FROM_U32 | SLJIT_32)
 /* Note: dst is the left and src is the right operand for SLJIT_CMP_F32/64.
    Flags: EQUAL_F | LESS_F | GREATER_EQUAL_F | GREATER_F | LESS_EQUAL_F */
-#define SLJIT_CMP_F64			(SLJIT_FOP1_BASE + 6)
+#define SLJIT_CMP_F64			(SLJIT_FOP1_BASE + 8)
 #define SLJIT_CMP_F32			(SLJIT_CMP_F64 | SLJIT_32)
 /* Flags: - (may destroy flags) */
-#define SLJIT_NEG_F64			(SLJIT_FOP1_BASE + 7)
+#define SLJIT_NEG_F64			(SLJIT_FOP1_BASE + 9)
 #define SLJIT_NEG_F32			(SLJIT_NEG_F64 | SLJIT_32)
 /* Flags: - (may destroy flags) */
-#define SLJIT_ABS_F64			(SLJIT_FOP1_BASE + 8)
+#define SLJIT_ABS_F64			(SLJIT_FOP1_BASE + 10)
 #define SLJIT_ABS_F32			(SLJIT_ABS_F64 | SLJIT_32)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compiler, sljit_s32 op,

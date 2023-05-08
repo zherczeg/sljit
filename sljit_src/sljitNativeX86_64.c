@@ -38,7 +38,7 @@ static sljit_s32 emit_load_imm64(struct sljit_compiler *compiler, sljit_s32 reg,
 	FAIL_IF(!inst);
 	INC_SIZE(2 + sizeof(sljit_sw));
 	inst[0] = REX_W | ((reg_map[reg] <= 7) ? 0 : REX_B);
-	inst[1] = U8(MOV_r_i32 | (reg_map[reg] & 0x7));
+	inst[1] = U8(MOV_r_i32 | reg_lmap[reg]);
 	sljit_unaligned_store_sw(inst + 2, imm);
 	return SLJIT_SUCCESS;
 }
@@ -1042,13 +1042,13 @@ static sljit_s32 emit_mov_int(struct sljit_compiler *compiler, sljit_s32 sign,
 
 	if (src & SLJIT_IMM) {
 		if (FAST_IS_REG(dst)) {
-			if (sign || ((sljit_uw)srcw <= 0x7fffffff)) {
-				inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, (sljit_sw)(sljit_s32)srcw, dst, dstw);
-				FAIL_IF(!inst);
-				*inst = MOV_rm_i32;
-				return SLJIT_SUCCESS;
-			}
-			return emit_load_imm64(compiler, dst, srcw);
+			if (!sign || ((sljit_u32)srcw <= 0x7fffffff))
+				return emit_do_imm32(compiler, reg_map[dst] <= 7 ? 0 : REX_B, U8(MOV_r_i32 | reg_lmap[dst]), srcw);
+
+			inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, (sljit_sw)(sljit_s32)srcw, dst, dstw);
+			FAIL_IF(!inst);
+			*inst = MOV_rm_i32;
+			return SLJIT_SUCCESS;
 		}
 		compiler->mode32 = 1;
 		inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, (sljit_sw)(sljit_s32)srcw, dst, dstw);
@@ -1069,7 +1069,7 @@ static sljit_s32 emit_mov_int(struct sljit_compiler *compiler, sljit_s32 sign,
 			*inst = MOVSXD_r_rm;
 		} else {
 			compiler->mode32 = 1;
-			FAIL_IF(emit_mov(compiler, dst_r, 0, src, srcw));
+			EMIT_MOV(compiler, dst_r, 0, src, srcw);
 			compiler->mode32 = 0;
 		}
 	}
