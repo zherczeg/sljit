@@ -3278,33 +3278,61 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 	return SLJIT_SUCCESS;
 }
 
-static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_sw(struct sljit_compiler *compiler, sljit_s32 op,
+static sljit_s32 sljit_emit_fop1_conv_f64_from_w(struct sljit_compiler *compiler, sljit_ins ins,
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
-	sljit_ins ins;
 
 	if (src & SLJIT_IMM) {
 		FAIL_IF(push_load_imm_inst(compiler, tmp0, srcw));
 		src = (sljit_s32)tmp0;
 	}
 	else if (src & SLJIT_MEM) {
-		FAIL_IF(load_word(compiler, tmp0, src, srcw, GET_OPCODE(op) >= SLJIT_CONV_F64_FROM_S32));
+		FAIL_IF(load_word(compiler, tmp0, src, srcw, ins & 0x100000));
 		src = (sljit_s32)tmp0;
 	}
+
+	FAIL_IF(push_inst(compiler, ins | F4(dst_r) | R0(src)));
+
+	if (dst & SLJIT_MEM)
+		return float_mem(compiler, FLOAT_STORE | ((ins & 0x10000) ? 0 : SLJIT_32), TMP_FREG1, dst, dstw);
+
+	return SLJIT_SUCCESS;
+}
+
+static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_sw(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 src, sljit_sw srcw)
+{
+	sljit_ins ins;
+
+	if ((src & SLJIT_IMM) && GET_OPCODE(op) == SLJIT_CONV_F64_FROM_S32)
+		srcw = (sljit_s32)srcw;
 
 	if (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_SW)
 		ins = (op & SLJIT_32) ? 0xb3a40000 /* cegbr */ : 0xb3a50000 /* cdgbr */;
 	else
 		ins = (op & SLJIT_32) ? 0xb3940000 /* cefbr */ : 0xb3950000 /* cdfbr */;
 
-	FAIL_IF(push_inst(compiler, ins | F4(dst_r) | R0(src)));
+	return sljit_emit_fop1_conv_f64_from_w(compiler, ins, dst, dstw, src, srcw);
+}
 
-	if (dst & SLJIT_MEM)
-		return float_mem(compiler, FLOAT_STORE | (op & SLJIT_32), TMP_FREG1, dst, dstw);
+static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_uw(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 src, sljit_sw srcw)
+{
+	sljit_ins ins;
 
-	return SLJIT_SUCCESS;
+	if ((src & SLJIT_IMM) && GET_OPCODE(op) == SLJIT_CONV_F64_FROM_U32)
+		srcw = (sljit_u32)srcw;
+
+	if (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_UW)
+		ins = (op & SLJIT_32) ? 0xb3a00000 /* celgbr */ : 0xb3a10000 /* cdlgbr */;
+	else
+		ins = (op & SLJIT_32) ? 0xb3900000 /* celfbr */ : 0xb3910000 /* cdlfbr */;
+
+	return sljit_emit_fop1_conv_f64_from_w(compiler, ins, dst, dstw, src, srcw);
 }
 
 static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compiler, sljit_s32 op,
