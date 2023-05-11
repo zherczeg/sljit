@@ -12041,9 +12041,9 @@ static void test94(void)
 	FAILED(f64_check.bin.low != 0xf0000000 || f64_check.bin.high != 0x41efffff, "test94 case 5 failed\n");
 	f32_check.value = sbuf[2]; /* 0xffffff80 */
 	FAILED(f32_check.bin != 0x4f800000, "test94 case 6 failed\n");
-	f64_check.value = dbuf[3]; /* 0xffffff80 */
+	f64_check.value = dbuf[3]; /* 0xffffff00 */
 	FAILED(f64_check.bin.low != 0xe0000000 || f64_check.bin.high != 0x41efffff, "test94 case 7 failed\n");
-	f32_check.value = sbuf[3]; /* 0xffffff80 */
+	f32_check.value = sbuf[3]; /* 0xffffff00 */
 	FAILED(f32_check.bin != 0x4f7fffff, "test94 case 8 failed\n");
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	f64_check.value = dbuf[4]; /* 0x7fff000000000000 */

@@ -726,6 +726,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
 
 #define MEM_MASK	0x7f
 
+#define FLOAT_DATA(op) (DOUBLE_DATA | ((op & SLJIT_32) >> 6))
+
 /* Other inp_flags. */
 
 /* Integer opertion and set flags -> requires exts on 64 bit systems. */
@@ -749,6 +751,9 @@ ALT_FORM1		0x001000
 ...
 ALT_FORM5		0x010000 */
 
+static sljit_s32 emit_op_mem(struct sljit_compiler *compiler, sljit_s32 inp_flags, sljit_s32 reg,
+	sljit_s32 arg, sljit_sw argw, sljit_s32 tmp_reg);
+
 #if (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32)
 #include "sljitNativePPC_32.c"
 #else
@@ -770,9 +775,6 @@ ALT_FORM5		0x010000 */
 #endif
 
 #define STACK_MAX_DISTANCE	(0x8000 - SSIZE_OF(sw) - LR_SAVE_OFFSET)
-
-static sljit_s32 emit_op_mem(struct sljit_compiler *compiler, sljit_s32 inp_flags, sljit_s32 reg,
-	sljit_s32 arg, sljit_sw argw, sljit_s32 tmp_reg);
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compiler,
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
@@ -2078,7 +2080,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 /*  Floating point operators                                             */
 /* --------------------------------------------------------------------- */
 
-#define FLOAT_DATA(op) (DOUBLE_DATA | ((op & SLJIT_32) >> 6))
 #define SELECT_FOP(op, single, double) ((sljit_ins)((op & SLJIT_32) ? single : double))
 
 static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_compiler *compiler, sljit_s32 op,
@@ -2134,83 +2135,6 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 	}
 
 	return push_inst(compiler, STFIWX | FS(TMP_FREG1) | A(dst & REG_MASK) | B(dstw));
-}
-
-static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_sw(struct sljit_compiler *compiler, sljit_s32 op,
-	sljit_s32 dst, sljit_sw dstw,
-	sljit_s32 src, sljit_sw srcw)
-{
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-
-	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
-
-	if (src & SLJIT_IMM) {
-		if (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_S32)
-			srcw = (sljit_s32)srcw;
-
-		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
-		src = TMP_REG1;
-	} else if (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_S32) {
-		if (FAST_IS_REG(src))
-			FAIL_IF(push_inst(compiler, EXTSW | S(src) | A(TMP_REG1)));
-		else
-			FAIL_IF(emit_op_mem(compiler, INT_DATA | SIGNED_DATA | LOAD_DATA, TMP_REG1, src, srcw, TMP_REG1));
-		src = TMP_REG1;
-	}
-
-	if (FAST_IS_REG(src)) {
-		FAIL_IF(push_inst(compiler, STD | S(src) | A(SLJIT_SP) | TMP_MEM_OFFSET));
-		FAIL_IF(push_inst(compiler, LFD | FS(TMP_FREG1) | A(SLJIT_SP) | TMP_MEM_OFFSET));
-	} else
-		FAIL_IF(emit_op_mem(compiler, DOUBLE_DATA | LOAD_DATA, TMP_FREG1, src, srcw, TMP_REG1));
-
-	FAIL_IF(push_inst(compiler, FCFID | FD(dst_r) | FB(TMP_FREG1)));
-
-	if (dst & SLJIT_MEM)
-		return emit_op_mem(compiler, FLOAT_DATA(op), TMP_FREG1, dst, dstw, TMP_REG1);
-
-	if (op & SLJIT_32)
-		return push_inst(compiler, FRSP | FD(dst_r) | FB(dst_r));
-	return SLJIT_SUCCESS;
-
-#else /* !SLJIT_CONFIG_PPC_64 */
-
-	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
-	sljit_s32 invert_sign = 1;
-
-	if (src & SLJIT_IMM) {
-		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw ^ (sljit_sw)0x80000000));
-		src = TMP_REG1;
-		invert_sign = 0;
-	} else if (!FAST_IS_REG(src)) {
-		FAIL_IF(emit_op_mem(compiler, WORD_DATA | SIGNED_DATA | LOAD_DATA, TMP_REG1, src, srcw, TMP_REG1));
-		src = TMP_REG1;
-	}
-
-	/* First, a special double floating point value is constructed: (2^53 + (input xor (2^31)))
-	   The double precision format has exactly 53 bit precision, so the lower 32 bit represents
-	   the lower 32 bit of such value. The result of xor 2^31 is the same as adding 0x80000000
-	   to the input, which shifts it into the 0 - 0xffffffff range. To get the converted floating
-	   point value, we need to subtract 2^53 + 2^31 from the constructed value. */
-	FAIL_IF(push_inst(compiler, ADDIS | D(TMP_REG2) | A(0) | 0x4330));
-	if (invert_sign)
-		FAIL_IF(push_inst(compiler, XORIS | S(src) | A(TMP_REG1) | 0x8000));
-	FAIL_IF(push_inst(compiler, STW | S(TMP_REG2) | A(SLJIT_SP) | TMP_MEM_OFFSET_HI));
-	FAIL_IF(push_inst(compiler, STW | S(TMP_REG1) | A(SLJIT_SP) | TMP_MEM_OFFSET_LOW));
-	FAIL_IF(push_inst(compiler, ADDIS | D(TMP_REG1) | A(0) | 0x8000));
-	FAIL_IF(push_inst(compiler, LFD | FS(TMP_FREG1) | A(SLJIT_SP) | TMP_MEM_OFFSET));
-	FAIL_IF(push_inst(compiler, STW | S(TMP_REG1) | A(SLJIT_SP) | TMP_MEM_OFFSET_LOW));
-	FAIL_IF(push_inst(compiler, LFD | FS(TMP_FREG2) | A(SLJIT_SP) | TMP_MEM_OFFSET));
-
-	FAIL_IF(push_inst(compiler, FSUB | FD(dst_r) | FA(TMP_FREG1) | FB(TMP_FREG2)));
-
-	if (dst & SLJIT_MEM)
-		return emit_op_mem(compiler, FLOAT_DATA(op), TMP_FREG1, dst, dstw, TMP_REG1);
-	if (op & SLJIT_32)
-		return push_inst(compiler, FRSP | FD(dst_r) | FB(dst_r));
-	return SLJIT_SUCCESS;
-
-#endif /* SLJIT_CONFIG_PPC_64 */
 }
 
 static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compiler, sljit_s32 op,
