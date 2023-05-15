@@ -11924,8 +11924,8 @@ static void test94(void)
 	/* Floating point convert from unsigned. */
 	executable_code code;
 	struct sljit_compiler* compiler;
-	sljit_f64 dbuf[10];
-	sljit_f32 sbuf[10];
+	sljit_f64 dbuf[9];
+	sljit_f32 sbuf[9];
 	sljit_s32 i;
 	sljit_sw value1 = WCONST(0xfffffffffffff800, 0xffffff00);
 	sljit_sw value2 = WCONST(0x8000000000000801, 0x80000101);
@@ -11960,10 +11960,10 @@ static void test94(void)
 		return;
 	}
 
-	for (i = 0; i < 10; i++)
+	for (i = 0; i < 9; i++)
 		dbuf[i] = -1.0;
 
-	for (i = 0; i < 10; i++)
+	for (i = 0; i < 9; i++)
 		sbuf[i] = -1.0;
 
 	compiler = sljit_create_compiler(NULL, NULL);
@@ -12021,6 +12021,14 @@ static void test94(void)
 	/* sbuf[7] */
 	sljit_emit_fop1(compiler, SLJIT_CONV_F32_FROM_UW, SLJIT_MEM1(SLJIT_S1), 7 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_R2), -64);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, WCONST(0x8000000000000401, 0x80000001));
+	/* dbuf[8] */
+	sljit_emit_fop1(compiler, SLJIT_CONV_F64_FROM_UW, SLJIT_MEM1(SLJIT_S0), 8 * sizeof(sljit_f64), SLJIT_R2, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, WCONST(0x8000008000000001, 0x80000081));
+	/* sbuf[8] */
+	sljit_emit_fop1(compiler, SLJIT_CONV_F32_FROM_UW, SLJIT_MEM1(SLJIT_S1), 8 * sizeof(sljit_f32), SLJIT_R2, 0);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler);
@@ -12062,6 +12070,10 @@ static void test94(void)
 	FAILED(f64_check.bin.low != 1 || f64_check.bin.high != 0x43e00000, "test94 case 15 failed\n");
 	f32_check.value = sbuf[7]; /* 0x8000000000000801 */
 	FAILED(f32_check.bin != 0x5f000000, "test94 case 16 failed\n");
+	f64_check.value = dbuf[8]; /* 0x8000000000000401 */
+	FAILED(f64_check.bin.low != 1 || f64_check.bin.high != 0x43e00000, "test94 case 17 failed\n");
+	f32_check.value = sbuf[8]; /* 0x8000008000000001 */
+	FAILED(f32_check.bin != 0x5f000001, "test94 case 18 failed\n");
 #else /* !SLJIT_64BIT_ARCHITECTURE */
 	f64_check.value = dbuf[4]; /* 0x7fff0000 */
 	FAILED(f64_check.bin.low != 0 || f64_check.bin.high != 0x41dfffc0, "test94 case 9 failed\n");
@@ -12079,6 +12091,10 @@ static void test94(void)
 	FAILED(f64_check.bin.low != 0x20200000 || f64_check.bin.high != 0x41e00000, "test94 case 15 failed\n");
 	f32_check.value = sbuf[7]; /* 0x80000101 */
 	FAILED(f32_check.bin != 0x4f000001, "test94 case 16 failed\n");
+	f64_check.value = dbuf[8]; /* 0x80000001 */
+	FAILED(f64_check.bin.low != 0x00200000 || f64_check.bin.high != 0x41e00000, "test94 case 17 failed\n");
+	f32_check.value = sbuf[8]; /* 0x80000081 */
+	FAILED(f32_check.bin != 0x4f000001, "test94 case 18 failed\n");
 #endif /* SLJIT_64BIT_ARCHITECTURE */
 
 	successful_tests++;

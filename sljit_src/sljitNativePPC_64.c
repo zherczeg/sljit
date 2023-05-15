@@ -609,48 +609,55 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_uw(struct sljit_comp
 	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
-	sljit_s32 is32 = GET_OPCODE(op) == SLJIT_CONV_F64_FROM_U32;
 
-	if (src & SLJIT_IMM) {
-		if (is32)
-			srcw = (sljit_u32)srcw;
+	if (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_U32) {
+		if (src & SLJIT_IMM) {
+			FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_u32)srcw));
+			src = TMP_REG1;
+		} else {
+			if (FAST_IS_REG(src))
+				FAIL_IF(push_inst(compiler, CLRLDI(TMP_REG1, src, 32)));
+			else
+				FAIL_IF(emit_op_mem(compiler, INT_DATA | LOAD_DATA, TMP_REG1, src, srcw, TMP_REG1));
+			src = TMP_REG1;
+		}
 
-		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
-		src = TMP_REG1;
-	} else if (is32) {
-		if (FAST_IS_REG(src))
-			FAIL_IF(push_inst(compiler, CLRLDI(TMP_REG1, src, 32)));
-		else
-			FAIL_IF(emit_op_mem(compiler, INT_DATA | LOAD_DATA, TMP_REG1, src, srcw, TMP_REG1));
-		src = TMP_REG1;
-	}
-
-	if (!is32) {
-		if (src & SLJIT_MEM) {
+		FAIL_IF(push_inst(compiler, STD | S(src) | A(SLJIT_SP) | TMP_MEM_OFFSET));
+		FAIL_IF(push_inst(compiler, LFD | FS(TMP_FREG1) | A(SLJIT_SP) | TMP_MEM_OFFSET));
+		FAIL_IF(push_inst(compiler, FCFID | FD(dst_r) | FB(TMP_FREG1)));
+	} else {
+		if (src & SLJIT_IMM) {
+			FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
+			src = TMP_REG1;
+		} else if (src & SLJIT_MEM) {
 			FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, TMP_REG1, src, srcw, TMP_REG1));
 			src = TMP_REG1;
 		}
 
-		FAIL_IF(push_inst(compiler, CLRLDI(TMP_REG2, src, 1)));
-		FAIL_IF(push_inst(compiler, STD | S(TMP_REG2) | A(SLJIT_SP) | TMP_MEM_OFFSET));
-		FAIL_IF(push_inst(compiler, ADDIS | D(TMP_REG2) | A(0) | 0x43e0));
-	} else
-		FAIL_IF(push_inst(compiler, STD | S(src) | A(SLJIT_SP) | TMP_MEM_OFFSET));
-
-	FAIL_IF(push_inst(compiler, LFD | FS(TMP_FREG1) | A(SLJIT_SP) | TMP_MEM_OFFSET));
-
-	if (!is32)
-		FAIL_IF(push_inst(compiler, SLDI(32) | S(TMP_REG2) | A(TMP_REG2)));
-
-	FAIL_IF(push_inst(compiler, FCFID | FD(dst_r) | FB(TMP_FREG1)));
-
-	if (!is32) {
 		FAIL_IF(push_inst(compiler, CMPI | CRD(0 | 1) | A(src) | 0));
-		FAIL_IF(push_inst(compiler, BCx | (4 << 21) | (0 << 16) | 16));
+		FAIL_IF(push_inst(compiler, BCx | (12 << 21) | (0 << 16) | 20));
+		FAIL_IF(push_inst(compiler, STD | S(src) | A(SLJIT_SP) | TMP_MEM_OFFSET));
+		FAIL_IF(push_inst(compiler, LFD | FS(TMP_FREG1) | A(SLJIT_SP) | TMP_MEM_OFFSET));
+		FAIL_IF(push_inst(compiler, FCFID | FD(dst_r) | FB(TMP_FREG1)));
+		FAIL_IF(push_inst(compiler, Bx | ((op & SLJIT_32) ? 36 : 32)));
 
-		FAIL_IF(push_inst(compiler, STD | S(TMP_REG2) | A(SLJIT_SP) | TMP_MEM_OFFSET));
-		FAIL_IF(push_inst(compiler, LFD | FS(TMP_FREG2) | A(SLJIT_SP) | TMP_MEM_OFFSET));
-		FAIL_IF(push_inst(compiler, FADD | FD(dst_r) | FA(dst_r) | FB(TMP_FREG2)));
+		if (op & SLJIT_32)
+			FAIL_IF(push_inst(compiler, RLWINM | S(src) | A(TMP_REG2) | RLWI_SH(10) | RLWI_MBE(10, 21)));
+		else
+			FAIL_IF(push_inst(compiler, ANDI | S(src) | A(TMP_REG2) | 0x1));
+
+		/* Shift right. */
+		FAIL_IF(push_inst(compiler, RLDICL | S(src) | A(TMP_REG1) | RLDI_SH(63) | RLDI_MB(1)));
+
+		if (op & SLJIT_32)
+			FAIL_IF(push_inst(compiler, RLDICR | S(TMP_REG1) | A(TMP_REG1) | RLDI_SH(0) | RLDI_ME(53)));
+
+		FAIL_IF(push_inst(compiler, OR | S(TMP_REG1) | A(TMP_REG1) | B(TMP_REG2)));
+
+		FAIL_IF(push_inst(compiler, STD | S(TMP_REG1) | A(SLJIT_SP) | TMP_MEM_OFFSET));
+		FAIL_IF(push_inst(compiler, LFD | FS(TMP_FREG1) | A(SLJIT_SP) | TMP_MEM_OFFSET));
+		FAIL_IF(push_inst(compiler, FCFID | FD(dst_r) | FB(TMP_FREG1)));
+		FAIL_IF(push_inst(compiler, FADD | FD(dst_r) | FA(dst_r) | FB(dst_r)));
 	}
 
 	if (op & SLJIT_32)
