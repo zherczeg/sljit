@@ -1448,19 +1448,35 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 	u.value = value;
 
 	if (u.imm[0] == 0) {
-		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1 | EX86_SSE2_OP2, freg, 0, freg, 0);
-		FAIL_IF(!inst);
-		inst[0] = GROUP_0F;
-		inst[1] = PXOR_x_xm;
-
-		if (u.imm[1] == 0)
+		if (u.imm[1] == 0) {
+			inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1 | EX86_SSE2_OP2, freg, 0, freg, 0);
+			FAIL_IF(!inst);
+			inst[0] = GROUP_0F;
+			inst[1] = PXOR_x_xm;
 			return SLJIT_SUCCESS;
-	} else {
+		}
+
+		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, u.imm[1]);
+	} else
 		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, u.imm[0]);
 
-		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, TMP_REG1, 0);
+	inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, TMP_REG1, 0);
+	inst[0] = GROUP_0F;
+	inst[1] = MOVD_x_rm;
+
+	if (u.imm[1] == 0)
+		return SLJIT_SUCCESS;
+
+	if (u.imm[0] == 0) {
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 4);
+		FAIL_IF(!inst);
+		INC_SIZE(4);
+
 		inst[0] = GROUP_0F;
-		inst[1] = MOVD_x_rm;
+		inst[1] = SHUFPS_x_xm;
+		inst[2] = U8(MOD_REG | (freg << 3) | freg);
+		inst[3] = 0x51;
+		return SLJIT_SUCCESS;
 	}
 
 	if (u.imm[0] != u.imm[1]) {
@@ -1480,14 +1496,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 		tmp_freg = TMP_FREG;
 	}
 
-	inst = (sljit_u8*)ensure_buf(compiler, 1 + 4);
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + 3);
 	FAIL_IF(!inst);
-	INC_SIZE(4);
+	INC_SIZE(3);
 
-	inst[0] = GROUP_66;
-	inst[1] = GROUP_0F;
-	inst[2] = PUNPCKLDQ_x_xm;
-	inst[3] = U8(MOD_REG | (freg << 3) | tmp_freg);
+	inst[0] = GROUP_0F;
+	inst[1] = UNPCKLPS_x_xm;
+	inst[2] = U8(MOD_REG | (freg << 3) | tmp_freg);
 	return SLJIT_SUCCESS;
 }
 
@@ -1549,14 +1564,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 	}
 
 	if (GET_OPCODE(op) == SLJIT_COPY_TO_F64) {
-		inst = (sljit_u8*)ensure_buf(compiler, 1 + 4);
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 3);
 		FAIL_IF(!inst);
-		INC_SIZE(4);
+		INC_SIZE(3);
 
-		inst[0] = GROUP_66;
-		inst[1] = GROUP_0F;
-		inst[2] = PUNPCKLDQ_x_xm;
-		inst[3] = U8(MOD_REG | (freg << 3) | (reg == 0 ? freg : TMP_FREG));
+		inst[0] = GROUP_0F;
+		inst[1] = UNPCKLPS_x_xm;
+		inst[2] = U8(MOD_REG | (freg << 3) | (reg == 0 ? freg : TMP_FREG));
 	} else {
 		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, TMP_FREG, 0, reg, regw);
 		FAIL_IF(!inst);

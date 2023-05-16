@@ -244,7 +244,6 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define POPF		0x9d
 #define PREFETCH	0x18
 #define PSHUFD_x_xm	0x70
-#define PUNPCKLDQ_x_xm	0x62
 #define PUSH_i32	0x68
 #define PUSH_r		0x50
 #define PUSH_rm		(/* GROUP_FF */ 6 << 3)
@@ -263,6 +262,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define SHLD		(/* GROUP_0F */ 0xa5)
 #define SHRD		(/* GROUP_0F */ 0xad)
 #define SHR		(/* SHIFT */ 5 << 3)
+#define SHUFPS_x_xm	0xc6
 #define SUB		(/* BINARY */ 5 << 3)
 #define SUB_EAX_i32	0x2d
 #define SUB_r_rm	0x2b
@@ -273,6 +273,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define TZCNT_r_rm	(/* GROUP_F3 */ /* GROUP_0F */ 0xbc)
 #define UCOMISD_x_xm	0x2e
 #define UNPCKLPD_x_xm	0x14
+#define UNPCKLPS_x_xm	0x14
 #define XCHG_EAX_r	0x90
 #define XCHG_r_rm	0x87
 #define XOR		(/* BINARY */ 6 << 3)
