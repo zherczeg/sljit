@@ -249,6 +249,18 @@
 #endif /* SLJIT_CONFIG_RISCV_64 */
 #endif /* SLJIT_CONFIG_RISCV */
 
+#if (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
+#	define IS_COND		0x004
+#	define IS_CALL		0x008
+
+#	define PATCH_B		0x010
+#	define PATCH_J		0x020
+
+#	define PATCH_REL32	0x040
+#	define PATCH_ABS32	0x080
+#	define PATCH_ABS52	0x100
+
+#endif /* SLJIT_CONFIG_LOONGARCH */
 /* Stack management. */
 
 #define GET_SAVED_REGISTERS_SIZE(scratches, saveds, extra) \
@@ -2649,6 +2661,8 @@ static sljit_s32 sljit_emit_fmem_unaligned(struct sljit_compiler *compiler, slji
 #	include "sljitNativeRISCV_common.c"
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 #	include "sljitNativeS390X.c"
+#elif (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
+#	include "sljitNativeLOONGARCH_64.c"
 #endif
 
 static SLJIT_INLINE sljit_s32 emit_mov_before_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
@@ -2696,7 +2710,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 }
 
 #if !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
-	&& !(defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
+	&& !(defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV) \
+	&& !(defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 src1, sljit_sw src1w,
