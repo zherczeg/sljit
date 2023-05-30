@@ -517,6 +517,11 @@ struct sljit_compiler {
 	sljit_s32 mode;
 #endif
 
+#if (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
+	sljit_s32 cache_arg;
+	sljit_sw cache_argw;
+#endif
+
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	FILE* verbose;
 #endif
@@ -840,6 +845,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
    riscv:  [reg+imm], -2048 <= imm <= 2047
            Write-back is not supported
    s390x:  [reg+imm], -2^19 <= imm < 2^19
+           [reg+reg] is supported
+           Write-back is not supported
+   loongarch:  [reg+imm], -2048 <= imm <= 2047
            [reg+reg] is supported
            Write-back is not supported
 */
