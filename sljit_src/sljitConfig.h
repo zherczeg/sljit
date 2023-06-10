@@ -148,6 +148,11 @@ extern "C" {
 #define SLJIT_VERBOSE 1
 #endif
 
+/* Atomic emulation level */
+#ifndef SLJIT_ATOMIC_EMULATION
+#define SLJIT_ATOMIC_EMULATION 0
+#endif
+
 /*
   SLJIT_IS_FPU_AVAILABLE
     The availability of the FPU can be controlled by SLJIT_IS_FPU_AVAILABLE.

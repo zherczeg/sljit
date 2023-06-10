@@ -1663,6 +1663,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_COPY_F32:
 	case SLJIT_HAS_COPY_F64:
 		return 1;
+	case SLJIT_HAS_ATOMIC_8BIT:
+	case SLJIT_HAS_ATOMIC_16BIT:
 	case SLJIT_HAS_CTZ:
 		return 2;
 	case SLJIT_HAS_CMOV:

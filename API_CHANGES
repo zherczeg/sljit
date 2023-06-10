@@ -1,5 +1,10 @@
 This file is the short summary of the API changes:
 
+10.06.2023 - Backward compatible
+    Emulation for atomic operations in narrow bitwidths is
+    configurable at build time, SLJIT_HAS_ATOMIC_{8,16}BIT
+    provide availability at runtime.
+
 16.02.2022 - Non-backward compatible
     The sljit_emit_cmov operation is replaced
     by sljit_emit_select.

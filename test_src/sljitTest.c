@@ -11537,22 +11537,35 @@ static void test92(void)
 {
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 		|| (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
-		|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+		|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
+		|| (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 	/* Test atomic load and store. */
 	executable_code code;
 	struct sljit_compiler *compiler = sljit_create_compiler(NULL, NULL);
 	struct sljit_label *label;
 	struct sljit_jump *jump;
-	sljit_sw buf[38];
-	sljit_s32 i;
+	sljit_sw buf[42];
+	sljit_u8 padbyte;
+	sljit_sw padding = 0;
+	int i;
 
 	if (verbose)
 		printf("Run test92\n");
 
 	FAILED(!compiler, "cannot create compiler\n");
 
-	for (i = 0; i < 36; i++)
-		buf[i] = WCONST(0x5555555555555555, 0x55555555);
+	if (sljit_has_cpu_feature(SLJIT_HAS_ATOMIC_8BIT)) {
+		padbyte = 0x55;
+		for (i = 0; i < (int)sizeof(sljit_sw); i++) {
+			padding |= padbyte;
+			padding <<= 8;
+		}
+		padding |= padbyte;
+	} else
+		padbyte = 0;
+
+	for (i = 0; i < 42; i++)
+		buf[i] = padding;
 
 	buf[0] = 4678;
 	*(sljit_u8*)(buf + 2) = 78;
@@ -11567,8 +11580,12 @@ static void test92(void)
 	((sljit_u16*)(buf + 31))[1] = 14876;
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	((sljit_s32*)(buf + 33))[1] = -1;
+	buf[37] = (sljit_sw)SLJIT_W(0xfe000000000000fe);
 #endif /* SLJIT_64BIT_ARCHITECTURE */
-	buf[37] = WCONST(0x1122334444332211, 0x11222211);
+	buf[38] = SLJIT_FUNC_ADDR(test92);
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	((sljit_u16*)(buf + 40))[2] = 0x3117;
+#endif /* SLJIT_64BIT_ARCHITECTURE */
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, P), 5, 5, 0, 0, 2 * sizeof(sljit_sw));
 
@@ -11674,6 +11691,19 @@ static void test92(void)
 	/* buf[19] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 19 * sizeof(sljit_sw), SLJIT_R0, 0);
 
+	/* case: SLJIT_MOV_P */
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R2, 0, SLJIT_S0, 0, SLJIT_IMM, 38 * sizeof(sljit_sw));
+	label = sljit_emit_label(compiler);
+	sljit_emit_atomic_load(compiler, SLJIT_MOV_P, SLJIT_R0, SLJIT_R2);
+	sljit_emit_op1(compiler, SLJIT_MOV_P, SLJIT_S1, 0, SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV_P, SLJIT_R1, 0, SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV_P, SLJIT_R0, 0, SLJIT_R2, 0);
+	/* buf[38] */
+	sljit_emit_atomic_store(compiler, SLJIT_MOV_P | SLJIT_SET_ATOMIC_STORED, SLJIT_R0, SLJIT_R2, SLJIT_R1);
+	sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
+	/* buf[39] */
+	sljit_emit_op1(compiler, SLJIT_MOV_P, SLJIT_MEM1(SLJIT_S0), 39 * sizeof(sljit_sw), SLJIT_S1, 0);
+
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 20 * sizeof(sljit_sw));
 	label = sljit_emit_label(compiler);
 	sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R3, SLJIT_R1);
@@ -11704,45 +11734,65 @@ static void test92(void)
 	/* buf[25] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 25 * sizeof(sljit_sw), SLJIT_R0, 0);
 
-	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 26 * sizeof(sljit_sw) + 1);
-	label = sljit_emit_label(compiler);
-	sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R0, SLJIT_R1);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S2, 0, SLJIT_R0, 0);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 204);
-	/* buf[26] */
-	sljit_emit_atomic_store(compiler, SLJIT_MOV_U8 | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
-	jump = sljit_emit_jump(compiler, SLJIT_ATOMIC_STORED);
-	sljit_set_label(sljit_emit_jump(compiler, SLJIT_JUMP), label);
-	sljit_set_label(jump, sljit_emit_label(compiler));
-	/* buf[27] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 27 * sizeof(sljit_sw), SLJIT_S2, 0);
+	if (sljit_has_cpu_feature(SLJIT_HAS_ATOMIC_8BIT)) {
+		/* case: byte aligned lower offset */
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 26 * sizeof(sljit_sw) + 1);
+		label = sljit_emit_label(compiler);
+		sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R0, SLJIT_R1);
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S2, 0, SLJIT_R0, 0);
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 204);
+		/* buf[26] */
+		sljit_emit_atomic_store(compiler, SLJIT_MOV_U8 | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
+		jump = sljit_emit_jump(compiler, SLJIT_ATOMIC_STORED);
+		sljit_set_label(sljit_emit_jump(compiler, SLJIT_JUMP), label);
+		sljit_set_label(jump, sljit_emit_label(compiler));
+		/* buf[27] */
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 27 * sizeof(sljit_sw), SLJIT_S2, 0);
 
-	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 28 * sizeof(sljit_sw) + 2);
-	label = sljit_emit_label(compiler);
-	sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R0, SLJIT_R1);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_R0, 0);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 240);
-	/* buf[28] */
-	sljit_emit_atomic_store(compiler, SLJIT_MOV_U8 | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
-	sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
-	/* buf[29] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 29 * sizeof(sljit_sw), SLJIT_S1, 0);
-	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_ATOMIC_NOT_STORED);
+		/* case: byte aligned higher offset */
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 28 * sizeof(sljit_sw) + 2);
+		label = sljit_emit_label(compiler);
+		sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R0, SLJIT_R1);
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_R0, 0);
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 240);
+		/* buf[28] */
+		sljit_emit_atomic_store(compiler, SLJIT_MOV_U8 | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
+		sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
+		/* buf[29] */
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 29 * sizeof(sljit_sw), SLJIT_S1, 0);
+		sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_ATOMIC_NOT_STORED);
+	}
+
 	/* buf[30] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 30 * sizeof(sljit_sw), SLJIT_R0, 0);
 
-	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 31 * sizeof(sljit_sw) + 2);
+	if (sljit_has_cpu_feature(SLJIT_HAS_ATOMIC_16BIT)) {
+		/* case: half aligned lower offset */
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 31 * sizeof(sljit_sw) + 2);
+		label = sljit_emit_label(compiler);
+		sljit_emit_atomic_load(compiler, SLJIT_MOV_U16, SLJIT_R0, SLJIT_R1);
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_R0, 0);
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 51403);
+		/* buf[31] */
+		sljit_emit_atomic_store(compiler, SLJIT_MOV_U16 | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
+		sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
+		/* buf[32] */
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 32 * sizeof(sljit_sw), SLJIT_S1, 0);
+	}
+
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	/* case: half aligned higher offset */
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 40 * sizeof(sljit_sw) + 4);
 	label = sljit_emit_label(compiler);
 	sljit_emit_atomic_load(compiler, SLJIT_MOV_U16, SLJIT_R0, SLJIT_R1);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_R0, 0);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 51403);
-	/* buf[31] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 0x1337);
+	/* buf[40] */
 	sljit_emit_atomic_store(compiler, SLJIT_MOV_U16 | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
 	sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
-	/* buf[32] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 32 * sizeof(sljit_sw), SLJIT_S1, 0);
+	/* buf[41] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 41 * sizeof(sljit_sw), SLJIT_S1, 0);
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 33 * sizeof(sljit_sw) + sizeof(sljit_u32));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_IMM, 0);
 	label = sljit_emit_label(compiler);
@@ -11753,23 +11803,25 @@ static void test92(void)
 	sljit_emit_atomic_store(compiler, SLJIT_MOV32 | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
 	sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
 	/* buf[34] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 34 * sizeof(sljit_sw), SLJIT_S1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S0), 34 * sizeof(sljit_sw), SLJIT_S1, 0);
 #endif /* SLJIT_64BIT_ARCHITECTURE */
 
 	/* buf[35] */
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 35 * sizeof(sljit_sw), SLJIT_ATOMIC_STORED);
 
-	/* case50: abandoned atomic load is safe */
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	/* case50: abandoned atomic load (byte) */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 37 * sizeof(sljit_sw));
 	sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R0, SLJIT_R1);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_R0, 0);
-	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_IMM, 1);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_IMM, sizeof(sljit_s32));
 	sljit_emit_atomic_load(compiler, SLJIT_MOV_U8, SLJIT_R0, SLJIT_R1);
 	/* buf[37] */
 	sljit_emit_atomic_store(compiler, SLJIT_MOV_U8, SLJIT_R2, SLJIT_R1, SLJIT_R0);
 	/* buf[36] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 36 * sizeof(sljit_sw), SLJIT_R2, 0);
+#endif /* SLJIT_64BIT_ARCHITECTURE */
 
 	sljit_emit_return_void(compiler);
 
@@ -11782,63 +11834,76 @@ static void test92(void)
 	FAILED(buf[0] != -9856, "test92 case 1 failed\n");
 	FAILED(buf[1] != 4678, "test92 case 2 failed\n");
 	FAILED(*(sljit_u8*)(buf + 2) != 203, "test92 case 3 failed\n");
-	FAILED(((sljit_u8*)(buf + 2))[1] != 0x55, "test92 case 4 failed\n");
+	FAILED(((sljit_u8*)(buf + 2))[1] != padbyte, "test92 case 4 failed\n");
 	FAILED(buf[3] != 78, "test92 case 5 failed\n");
 	FAILED(buf[4] != 203, "test92 case 6 failed\n");
 	FAILED(*(sljit_u8*)(buf + 5) != 97, "test92 case 7 failed\n");
-	FAILED(((sljit_u8*)(buf + 5))[1] != 0x55, "test92 case 8 failed\n");
+	FAILED(((sljit_u8*)(buf + 5))[1] != padbyte, "test92 case 8 failed\n");
 	FAILED(*(sljit_u32*)(buf + 6) != 211, "test92 case 9 failed\n");
 	FAILED(buf[7] != (sljit_sw)(buf + 5), "test92 case 10 failed\n");
 	FAILED(buf[8] != 97, "test92 case 11 failed\n");
 	FAILED(*(sljit_u16*)(buf + 9) != (sljit_u16)(sljit_sw)(buf + 9), "test92 case 12 failed\n");
-	FAILED(((sljit_u8*)(buf + 9))[2] != 0x55, "test92 case 13 failed\n");
+	FAILED(((sljit_u8*)(buf + 9))[2] != padbyte, "test92 case 13 failed\n");
 	FAILED(buf[10] != 17897, "test92 case 14 failed\n");
 	FAILED(buf[11] != (sljit_sw)(buf + 9), "test92 case 15 failed\n");
 	FAILED(*(sljit_u16*)(buf + 12) != 41306, "test92 case 16 failed\n");
-	FAILED(((sljit_u8*)(buf + 12))[2] != 0x55, "test92 case 17 failed\n");
+	FAILED(((sljit_u8*)(buf + 12))[2] != padbyte, "test92 case 17 failed\n");
 	FAILED(*(sljit_u32*)(buf + 13) != 57812, "test92 case 18 failed\n");
 	FAILED(buf[14] != 41306, "test92 case 19 failed\n");
 	FAILED(*(sljit_u32*)(buf + 15) != 987654321, "test92 case 20 failed\n");
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-	FAILED(((sljit_u8*)(buf + 15))[4] != 0x55, "test92 case 21 failed\n");
+	FAILED(((sljit_u8*)(buf + 15))[4] != padbyte, "test92 case 21 failed\n");
 #endif /* SLJIT_64BIT_ARCHITECTURE */
 	FAILED(buf[16] != 1234567890, "test92 case 22 failed\n");
 	FAILED(*(sljit_u32*)(buf + 17) != 678906789, "test92 case 23 failed\n");
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-	FAILED(((sljit_u8*)(buf + 17))[4] != 0x55, "test92 case 24 failed\n");
+	FAILED(((sljit_u8*)(buf + 17))[4] != padbyte, "test92 case 24 failed\n");
 #endif /* SLJIT_64BIT_ARCHITECTURE */
 	FAILED(*(sljit_u32*)(buf + 18) != 987609876, "test92 case 25 failed\n");
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-	FAILED(((sljit_u8*)(buf + 18))[4] != 0x55, "test92 case 25 (overflow) failed\n");
+	FAILED(((sljit_u8*)(buf + 18))[4] != padbyte, "test92 case 25 (overflow) failed\n");
 #endif /* SLJIT_64BIT_ARCHITECTURE */
 	FAILED(buf[19] != -573621, "test92 case 26 failed\n");
 	FAILED(*(sljit_u8*)(buf + 20) != 240, "test92 case 27 failed\n");
-	FAILED(((sljit_u8*)(buf + 20))[1] != 0x55, "test92 case 28 failed\n");
+	FAILED(((sljit_u8*)(buf + 20))[1] != padbyte, "test92 case 28 failed\n");
 	FAILED(buf[21] != 192, "test92 case 29 failed\n");
 	FAILED(buf[22] != -5893, "test92 case 30 failed\n");
 	FAILED(buf[23] != 4059, "test92 case 31 failed\n");
 	FAILED(buf[24] != 6359, "test92 case 32 failed\n");
 	FAILED(buf[25] != (sljit_sw)(buf + 23), "test92 case 33 failed\n");
-	FAILED(((sljit_u8*)(buf + 26))[0] != 0x55, "test92 case 34 failed\n");
-	FAILED(((sljit_u8*)(buf + 26))[1] != 204, "test92 case 35 failed\n");
-	FAILED(((sljit_u8*)(buf + 26))[2] != 0x55, "test92 case 36 failed\n");
-	FAILED(buf[27] != 105, "test92 case 37 failed\n");
-	FAILED(((sljit_u8*)(buf + 28))[1] != 0x55, "test92 case 38 failed\n");
-	FAILED(((sljit_u8*)(buf + 28))[2] != 240, "test92 case 39 failed\n");
-	FAILED(((sljit_u8*)(buf + 28))[3] != 0x55, "test92 case 40 failed\n");
-	FAILED(buf[29] != 13, "test92 case 41 failed\n");
-	FAILED(buf[30] != 0, "test92 case 42 failed\n");
-	FAILED(((sljit_u16*)(buf + 31))[0] != 0x5555, "test92 case 43 failed\n");
-	FAILED(((sljit_u16*)(buf + 31))[1] != 51403, "test92 case 44 failed\n");
-	FAILED(buf[32] != 14876, "test92 case 45 failed\n");
+	if (sljit_has_cpu_feature(SLJIT_HAS_ATOMIC_8BIT)) {
+		FAILED(((sljit_u8*)(buf + 26))[0] != padbyte, "test92 case 34 failed\n");
+		FAILED(((sljit_u8*)(buf + 26))[1] != 204, "test92 case 35 failed\n");
+		FAILED(((sljit_u8*)(buf + 26))[2] != padbyte, "test92 case 36 failed\n");
+		FAILED(buf[27] != 105, "test92 case 37 failed\n");
+		FAILED(((sljit_u8*)(buf + 28))[1] != padbyte, "test92 case 38 failed\n");
+		FAILED(((sljit_u8*)(buf + 28))[2] != 240, "test92 case 39 failed\n");
+		FAILED(((sljit_u8*)(buf + 28))[3] != padbyte, "test92 case 40 failed\n");
+		FAILED(buf[29] != 13, "test92 case 41 failed\n");
+		FAILED(buf[30] != 0, "test92 case 42 failed\n");
+	}
+	if (sljit_has_cpu_feature(SLJIT_HAS_ATOMIC_16BIT)) {
+		FAILED(((sljit_u8*)(buf + 31))[1] != padbyte, "test92 case 43 failed\n");
+		FAILED(((sljit_u16*)(buf + 31))[1] != 51403, "test92 case 44 failed\n");
+		FAILED(buf[32] != 14876, "test92 case 45 failed\n");
+	}
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-	FAILED(((sljit_u32*)(buf + 33))[0] != 0x55555555, "test92 case 46 failed\n");
+	FAILED(((sljit_u8*)(buf + 33))[3] != padbyte, "test92 case 46 failed\n");
 	FAILED(((sljit_u32*)(buf + 33))[1] != 0xdeadbeef, "test92 case 47 failed\n");
-	FAILED(buf[34] != 0xffffffff, "test92 case 48 failed\n");
+	FAILED(((sljit_u32*)(buf + 34))[0] != 0xffffffff, "test92 case 48 failed\n");
 #endif /* SLJIT_64BIT_ARCHITECTURE */
 	FAILED(buf[35] != 1, "test92 case 49 failed\n");
-	FAILED(buf[36] != 0x11, "test92 case 50 (load) failed\n");
-	FAILED(((sljit_u8*)(buf + 37))[1] != buf[36], "test92 case 50 (store) failed\n");
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	FAILED(buf[36] != 0xfe, "test92 case 50 (load) failed\n");
+	FAILED(((sljit_u8*)(buf + 37))[0] != buf[36], "test92 case 50 (store) failed\n");
+#endif /* SLJIT_64BIT_ARCHITECTURE */
+	FAILED(buf[38] != (sljit_sw)&buf[38], "test92 case 51 (store) failed \n");
+	FAILED(buf[39] != SLJIT_FUNC_ADDR(test92), "test92 case 51 (load) failed \n");
+#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+	FAILED(((sljit_u16*)(buf + 40))[2] != 0x1337, "test92 case 52 (store) failed\n");
+	FAILED(((sljit_u8*)(buf + 40))[6] != padbyte, "test92 case 52 (padding) failed\n");
+	FAILED(buf[41] != 0x3117, "test92 case 52 (load) failed\n");
+#endif /* SLJIT_64BIT_ARCHITECTURE */
 
 	sljit_free_code(code.code, NULL);
 #endif
