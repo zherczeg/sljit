@@ -72,6 +72,7 @@
 #include "sljitConfigPre.h"
 #endif /* SLJIT_HAVE_CONFIG_PRE */
 
+#include "sljitConfigCPU.h"
 #include "sljitConfig.h"
 
 /* The following header file defines useful macros for fine tuning
