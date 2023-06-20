@@ -3955,7 +3955,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	/* tmp0 = tmp0 << (((mem_r ^ 0x3) & 0x3) << 3) */
 	FAIL_IF(push_inst(compiler, 0xa50f0000 /* llill */ | R20A(tmp1) | (sljit_ins)((mask == 0xff) ? 0x18 : 0x10)));
 	FAIL_IF(push_inst(compiler, 0xb9800000 /* ngr */ | R4A(tmp_r) | R0A(mem_r)));
-	FAIL_IF(push_inst(compiler, 0xec0000000057 /* rxsbg */ | R36A(tmp1) | R32A(mem_r) | (58 << 24) | (60 << 16) | (3 << 8)));
+	FAIL_IF(push_inst(compiler, 0xec0000000057 /* rxsbg */ | R36A(tmp1) | R32A(mem_r) | (59 << 24) | (60 << 16) | (3 << 8)));
 	FAIL_IF(push_inst(compiler, 0xeb000000000d /* sllg */ | R36A(tmp0) | R32A(tmp0) | R28A(tmp1)));
 
 	/* Already computed: tmp_r = mem_r & ~0x3 */
