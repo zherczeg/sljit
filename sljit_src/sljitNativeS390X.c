@@ -810,6 +810,7 @@ SLJIT_S390X_RILB(brasl, 0xc00500000000, 1)
 SLJIT_S390X_RILB(larl,  0xc00000000000, 1)
 
 /* LOAD RELATIVE LONG */
+SLJIT_S390X_RILB(lrl,   0xc40d00000000, have_genext())
 SLJIT_S390X_RILB(lgrl,  0xc40800000000, have_genext())
 
 #undef SLJIT_S390X_RILB
@@ -3926,6 +3927,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	sljit_s32 temp_reg)
 {
 	sljit_ins mask;
+	sljit_gpr src_r = gpr(src_reg);
 	sljit_gpr tmp_r = gpr(temp_reg);
 	sljit_gpr mem_r = gpr(mem_reg);
 
@@ -3933,17 +3935,29 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
 
 	switch (GET_OPCODE(op)) {
-	case SLJIT_MOV32:
-	case SLJIT_MOV_U32:
-		return push_inst(compiler, 0xba000000 /* cs */ | R20A(tmp_r) | R16A(gpr(src_reg)) | R12A(mem_r));
 	case SLJIT_MOV_U8:
 		mask = 0xff;
 		break;
 	case SLJIT_MOV_U16:
-		mask = 0xffff;
-		break;
+		FAIL_IF(push_inst(compiler, lr(tmp0, mem_r)));
+		FAIL_IF(push_inst(compiler, lgr(tmp1, mem_r)));
+		FAIL_IF(push_inst(compiler, 0xa5070000 /* nill */ | R20A(tmp1) | 0xfffc));
+		mem_r = tmp1;
+		FAIL_IF(push_inst(compiler, 0x58000000 /* l */ | R20A(tmp_r) | R12A(mem_r)));
+		FAIL_IF(push_inst(compiler, 0xc00b00000000 /* nilf */ | R36A(tmp0) | 0x3));
+		FAIL_IF(push_inst(compiler, 0xa7840000 /* je */ | (2 + 2 * 3 + 2)));
+		FAIL_IF(push_inst(compiler, 0xec0000000055 /* risbg */ | R36A(tmp0) | R32A(src_r) | ((16 * 3) << 24) | (63 << 16)));
+		FAIL_IF(push_inst(compiler, 0xec0000000055 /* risbg */ | R36A(tmp0) | R32A(tmp_r) | ((16 * 2) << 24) | ((16 * 3 - 1) << 16)));
+		FAIL_IF(push_inst(compiler, 0xa7f40000 /* j */ | (2 + 2 * 3)));
+		FAIL_IF(push_inst(compiler, 0xec0000000055 /* risbg */ | R36A(tmp0) | R32A(tmp_r) | ((16 * 3) << 24) | (63 << 16)));
+		FAIL_IF(push_inst(compiler, 0xec0000000055 /* risbg */ | R36A(tmp0) | R32A(src_r) | ((16 * 2) << 24) | ((16 * 3 - 1) << 16) | (16 << 8)));
+		src_r = tmp0;
+		/* FALLTHRU */
+	case SLJIT_MOV32:
+	case SLJIT_MOV_U32:
+		return push_inst(compiler, 0xba000000 /* cs */ | R20A(tmp_r) | R16A(src_r) | R12A(mem_r));
 	default:
-		return push_inst(compiler, 0xeb0000000030 /* csg */ | R36A(tmp_r) | R32A(gpr(src_reg)) | R28A(mem_r));
+		return push_inst(compiler, 0xeb0000000030 /* csg */ | R36A(tmp_r) | R32A(src_r) | R28A(mem_r));
 	}
 
 	/* tmp0 = (src_reg ^ tmp_r) & mask */
