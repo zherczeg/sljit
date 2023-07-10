@@ -2642,18 +2642,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	case SLJIT_ADD_F64:
 		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VADD_F32, op & SLJIT_32, dst_r, src2, src1)));
 		break;
-
 	case SLJIT_SUB_F64:
 		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VSUB_F32, op & SLJIT_32, dst_r, src2, src1)));
 		break;
-
 	case SLJIT_MUL_F64:
 		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VMUL_F32, op & SLJIT_32, dst_r, src2, src1)));
 		break;
-
 	case SLJIT_DIV_F64:
 		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VDIV_F32, op & SLJIT_32, dst_r, src2, src1)));
 		break;
+	case SLJIT_COPYSIGN_F64:
+		FAIL_IF(push_inst(compiler, VMOV | (1 << 20) | VN(src2) | RD(TMP_REG1) | ((op & SLJIT_32) ? (1 << 7) : 0)));
+		FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VABS_F32, op & SLJIT_32, dst_r, src1, 0)));
+		FAIL_IF(push_inst(compiler, CMP | SET_FLAGS | RN(TMP_REG1) | SRC2_IMM | 0));
+		return push_inst(compiler, EMIT_FPU_OPERATION((VNEG_F32 & ~COND_MASK) | 0xb0000000, op & SLJIT_32, dst_r, dst_r, 0));
 	}
 
 	if (dst_r == TMP_FREG1)

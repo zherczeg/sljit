@@ -12113,6 +12113,125 @@ static void test94(void)
 	successful_tests++;
 }
 
+static void test95(void)
+{
+	/* Test fpu copysign. */
+	executable_code code;
+	struct sljit_compiler* compiler;
+	int i;
+
+	union {
+		sljit_f64 value;
+		struct {
+			sljit_u32 bits1;
+			sljit_u32 bits2;
+		} u;
+	} dbuf[8];
+	union {
+		sljit_f32 value;
+		sljit_u32 bits;
+	} sbuf[8];
+
+	if (verbose)
+		printf("Run test95\n");
+
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+		if (verbose)
+			printf("no fpu available, test95 skipped\n");
+		successful_tests++;
+		return;
+	}
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	for (i = 0; i < 8; i++) {
+		dbuf[i].value = 123.0;
+		sbuf[i].value = 123.0;
+	}
+
+	dbuf[0].value = 1786.5;
+	dbuf[1].value = -8403.25;
+#if (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
+	dbuf[2].u.bits1 = 0;
+	dbuf[2].u.bits2 = 0x7fff0000;
+#else /* !SLJIT_LITTLE_ENDIAN */
+	dbuf[2].u.bits1 = 0x7fff0000;
+	dbuf[2].u.bits2 = 0;
+#endif /* SLJIT_LITTLE_ENDIAN */
+	dbuf[3].value = 9054;
+
+	sbuf[0].value = 6371.75;
+	sbuf[1].value = -2713.5;
+	sbuf[2].bits = 0xfff00000;
+	sbuf[3].value = -5791.25;
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS2(VOID, P, P), 2, 2, 6, 0, 0);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f64));
+	sljit_emit_fop2r(compiler, SLJIT_COPYSIGN_F64, SLJIT_FR0, SLJIT_FR0, 0, SLJIT_FR1, 0);
+	/* dbuf[4] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_f64), SLJIT_FR0, 0);
+
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR4, 0, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_f32));
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR3, 0, SLJIT_MEM1(SLJIT_S1), 0);
+	sljit_emit_fop2r(compiler, SLJIT_COPYSIGN_F32, SLJIT_FR3, SLJIT_FR4, 0, SLJIT_FR3, 0);
+	/* sbuf[4] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S1), 4 * sizeof(sljit_f32), SLJIT_FR3, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 2 * sizeof(sljit_f64));
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 8 * sizeof(sljit_f64));
+	sljit_emit_fop2r(compiler, SLJIT_COPYSIGN_F64, SLJIT_FR2, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), 0, SLJIT_MEM1(SLJIT_R1), -7 * (sljit_sw)sizeof(sljit_f64));
+	/* dbuf[5] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_f64), SLJIT_FR2, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 2);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR4, 0, SLJIT_MEM1(SLJIT_S1), 0);
+	sljit_emit_fop2r(compiler, SLJIT_COPYSIGN_F32, SLJIT_FR5, SLJIT_MEM2(SLJIT_S1, SLJIT_R1), 2, SLJIT_FR4, 0);
+	/* sbuf[5] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S1), 5 * sizeof(sljit_f32), SLJIT_FR5, 0);
+
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR2, 0, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR3, 0, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_f64));
+	sljit_emit_fop2r(compiler, SLJIT_COPYSIGN_F64, SLJIT_FR0, SLJIT_FR3, 0, SLJIT_FR2, 0);
+	/* dbuf[6] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_f64), SLJIT_FR0, 0);
+
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR2, 0, SLJIT_MEM1(SLJIT_S1), 3 * sizeof(sljit_f32));
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_S1, 0, SLJIT_IMM, 0x12345);
+	sljit_emit_fop2r(compiler, SLJIT_COPYSIGN_F32, SLJIT_FR2, SLJIT_FR2, 0, SLJIT_MEM1(SLJIT_R0), -0x12345 + (sljit_sw)sizeof(sljit_f32));
+	/* sbuf[6] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S1), 6 * sizeof(sljit_f32), SLJIT_FR2, 0);
+
+	sljit_emit_fop2r(compiler, SLJIT_COPYSIGN_F64, SLJIT_FR5, SLJIT_MEM0(), (sljit_sw)(dbuf + 1), SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_f64));
+	/* dbuf[7] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 7 * sizeof(sljit_f64), SLJIT_FR5, 0);
+
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func2((sljit_sw)&dbuf, (sljit_sw)&sbuf);
+	FAILED(dbuf[4].value != -1786.5, "test95 case 1 failed\n");
+	FAILED(sbuf[4].value != 2713.5, "test95 case 2 failed\n");
+#if (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
+	FAILED(dbuf[5].u.bits1 != 0, "test95 case 3 failed\n");
+	FAILED(dbuf[5].u.bits2 != 0xffff0000, "test95 case 4 failed\n");
+#else /* !SLJIT_LITTLE_ENDIAN */
+	FAILED(dbuf[5].u.bits1 != 0xffff0000, "test95 case 3 failed\n");
+	FAILED(dbuf[5].u.bits2 != 0, "test95 case 4 failed\n");
+#endif /* SLJIT_LITTLE_ENDIAN */
+	FAILED(sbuf[5].bits != 0x7ff00000, "test95 case 5 failed\n");
+	FAILED(dbuf[6].value != 9054, "test95 case 6 failed\n");
+	FAILED(sbuf[6].value != -5791.25, "test95 case 7 failed\n");
+	FAILED(dbuf[7].value != 8403.25, "test95 case 8 failed\n");
+
+	sljit_free_code(code.code, NULL);
+	successful_tests++;
+}
+
 int sljit_test(int argc, char* argv[])
 {
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -12220,12 +12339,13 @@ int sljit_test(int argc, char* argv[])
 	test92();
 	test93();
 	test94();
+	test95();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 94
+#	define TEST_COUNT 95
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

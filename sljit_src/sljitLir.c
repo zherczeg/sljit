@@ -1070,6 +1070,10 @@ static const char* fop2_names[] = {
 	"add", "sub", "mul", "div"
 };
 
+static const char* fop2r_names[] = {
+	"copysign"
+};
+
 static const char* jump_names[] = {
 	"equal", "not_equal",
 	"less", "greater_equal",
@@ -1835,6 +1839,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop2(struct sljit_compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
+	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
+		compiler->skip_checks = 0;
+		CHECK_RETURN_OK;
+	}
+
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
 	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_ADD_F64 && GET_OPCODE(op) <= SLJIT_DIV_F64);
@@ -1847,6 +1856,32 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop2(struct sljit_compile
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  %s%s ", fop2_names[GET_OPCODE(op) - SLJIT_FOP2_BASE], (op & SLJIT_32) ? ".f32" : ".f64");
 		sljit_verbose_fparam(compiler, dst, dstw);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_fparam(compiler, src1, src1w);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_fparam(compiler, src2, src2w);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+	CHECK_RETURN_OK;
+}
+
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop2r(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_freg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
+	CHECK_ARGUMENT(GET_OPCODE(op) == SLJIT_COPYSIGN_F64);
+	FUNCTION_FCHECK(src1, src1w);
+	FUNCTION_FCHECK(src2, src2w);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(dst_freg));
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  %s%s ", fop2r_names[GET_OPCODE(op) - SLJIT_FOP2R_BASE], (op & SLJIT_32) ? ".f32" : ".f64");
+		sljit_verbose_freg(compiler, dst_freg);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_fparam(compiler, src1, src1w);
 		fprintf(compiler->verbose, ", ");
@@ -2708,6 +2743,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 	SLJIT_SKIP_CHECKS(compiler);
 	return sljit_emit_return_void(compiler);
 }
+
+#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2r(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_freg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fop2r(compiler, op, dst_freg, src1, src1w, src2, src2w));
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+	ADJUST_LOCAL_OFFSET(src2, src2w);
+
+	SLJIT_SKIP_CHECKS(compiler);
+	return sljit_emit_fop2(compiler, op, dst_freg, 0, src1, src1w, src2, src2w);
+}
+
+#endif /* !SLJIT_CONFIG_X86 */
 
 #if !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
 	&& !(defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV) \

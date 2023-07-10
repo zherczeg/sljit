@@ -3057,11 +3057,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_NEG_F64:
-		FAIL_IF(emit_sse2_logic(compiler, XORPD_x_xm, 1, dst_r, SLJIT_MEM0(), (sljit_sw)(op & SLJIT_32 ? sse2_buffer : sse2_buffer + 8)));
+		FAIL_IF(emit_sse2_logic(compiler, XORPD_x_xm, !(op & SLJIT_32), dst_r, SLJIT_MEM0(), (sljit_sw)((op & SLJIT_32) ? sse2_buffer : sse2_buffer + 8)));
 		break;
 
 	case SLJIT_ABS_F64:
-		FAIL_IF(emit_sse2_logic(compiler, ANDPD_x_xm, 1, dst_r, SLJIT_MEM0(), (sljit_sw)(op & SLJIT_32 ? sse2_buffer + 4 : sse2_buffer + 12)));
+		FAIL_IF(emit_sse2_logic(compiler, ANDPD_x_xm, !(op & SLJIT_32), dst_r, SLJIT_MEM0(), (sljit_sw)((op & SLJIT_32) ? sse2_buffer + 4 : sse2_buffer + 12)));
 		break;
 	}
 
@@ -3129,6 +3129,41 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	if (dst_r == TMP_FREG)
 		return emit_sse2_store(compiler, op & SLJIT_32, dst, dstw, TMP_FREG);
 	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2r(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_freg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fop2r(compiler, op, dst_freg, src1, src1w, src2, src2w));
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+	ADJUST_LOCAL_OFFSET(src2, src2w);
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	compiler->mode32 = 1;
+#endif
+
+	if (dst_freg == src1) {
+		FAIL_IF(emit_sse2_load(compiler, op & SLJIT_32, TMP_FREG, src2, src2w));
+		FAIL_IF(emit_sse2_logic(compiler, XORPD_x_xm, !(op & SLJIT_32), TMP_FREG, src1, src1w));
+		FAIL_IF(emit_sse2_logic(compiler, ANDPD_x_xm, !(op & SLJIT_32), TMP_FREG, SLJIT_MEM0(), (sljit_sw)((op & SLJIT_32) ? sse2_buffer : sse2_buffer + 8)));
+		return emit_sse2_logic(compiler, XORPD_x_xm, !(op & SLJIT_32), dst_freg, TMP_FREG, 0);
+	}
+
+	if (src1 & SLJIT_MEM) {
+		FAIL_IF(emit_sse2_load(compiler, op & SLJIT_32, TMP_FREG, src1, src1w));
+		src1 = TMP_FREG;
+		src1w = 0;
+	}
+
+	if (dst_freg != src2)
+		FAIL_IF(emit_sse2_load(compiler, op & SLJIT_32, dst_freg, src2, src2w));
+
+	FAIL_IF(emit_sse2_logic(compiler, XORPD_x_xm, !(op & SLJIT_32), dst_freg, src1, src1w));
+	FAIL_IF(emit_sse2_logic(compiler, ANDPD_x_xm, !(op & SLJIT_32), dst_freg, SLJIT_MEM0(), (sljit_sw)((op & SLJIT_32) ? sse2_buffer : sse2_buffer + 8)));
+	return emit_sse2_logic(compiler, XORPD_x_xm, !(op & SLJIT_32), dst_freg, src1, src1w);
 }
 
 /* --------------------------------------------------------------------- */

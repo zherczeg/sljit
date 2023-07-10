@@ -152,6 +152,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SUB 0xcb000000
 #define SUBI 0xd1000000
 #define SUBS 0xeb000000
+#define TBZ 0x36000000
 #define UBFM 0xd3400000
 #define UCVTF 0x9e630000
 #define UDIV 0x9ac00800
@@ -1945,6 +1946,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	case SLJIT_DIV_F64:
 		FAIL_IF(push_inst(compiler, (FDIV ^ inv_bits) | VD(dst_r) | VN(src1) | VM(src2)));
 		break;
+	case SLJIT_COPYSIGN_F64:
+		FAIL_IF(push_inst(compiler, (FMOV_R ^ ((op & SLJIT_32) ? (W_OP | (1 << 22)) : 0)) | VN(src2) | RD(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, (FABS ^ inv_bits) | VD(dst_r) | VN(src1)));
+		FAIL_IF(push_inst(compiler, TBZ | ((op & SLJIT_32) ? 0 : ((sljit_ins)1 << 31)) | (0x1f << 19) | (2 << 5) | RT(TMP_REG1)));
+		return push_inst(compiler, (FNEG ^ inv_bits) | VD(dst_r) | VN(dst_r));
 	}
 
 	if (!(dst & SLJIT_MEM))

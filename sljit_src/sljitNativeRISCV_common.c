@@ -2383,6 +2383,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	case SLJIT_DIV_F64:
 		FAIL_IF(push_inst(compiler, FDIV_S | FMT(op) | FRD(dst_r) | FRS1(src1) | FRS2(src2)));
 		break;
+
+	case SLJIT_COPYSIGN_F64:
+		return push_inst(compiler, FSGNJ_S | FMT(op) | FRD(dst_r) | FRS1(src1) | FRS2(src2));
 	}
 
 	if (dst_r == TMP_FREG2)

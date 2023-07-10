@@ -2227,6 +2227,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	case SLJIT_DIV_F64:
 		FAIL_IF(push_inst32(compiler, VDIV_F32 | (op & SLJIT_32) | DD4(dst_r) | DN4(src1) | DM4(src2)));
 		break;
+	case SLJIT_COPYSIGN_F64:
+		FAIL_IF(push_inst32(compiler, VMOV | (1 << 20) | DN4(src2) | RT4(TMP_REG1) | ((op & SLJIT_32) ? (1 << 7) : 0)));
+		FAIL_IF(push_inst32(compiler, VABS_F32 | (op & SLJIT_32) | DD4(dst_r) | DM4(src1)));
+		FAIL_IF(push_inst32(compiler, CMPI_W | RN4(TMP_REG1) | 0));
+		FAIL_IF(push_inst16(compiler, IT | (0xb << 4) | 0x8));
+		return push_inst32(compiler, VNEG_F32 | (op & SLJIT_32) | DD4(dst_r) | DM4(dst_r));
 	}
 
 	if (!(dst & SLJIT_MEM))
