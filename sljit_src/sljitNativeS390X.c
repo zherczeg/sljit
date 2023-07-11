@@ -126,6 +126,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 
 #define F0(r) ((sljit_ins)freg_map[r])
 #define F4(r) (R4A((sljit_ins)freg_map[r]))
+#define F12(r) (R12A((sljit_ins)freg_map[r]))
 #define F20(r) (R20A((sljit_ins)freg_map[r]))
 #define F36(r) (R36A((sljit_ins)freg_map[r]))
 
@@ -3482,6 +3483,32 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 
 	SLJIT_ASSERT(dst_r != TMP_FREG1);
 	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2r(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_freg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+	sljit_s32 reg;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fop2r(compiler, op, dst_freg, src1, src1w, src2, src2w));
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+	ADJUST_LOCAL_OFFSET(src2, src2w);
+
+	if (src2 & SLJIT_MEM) {
+		FAIL_IF(float_mem(compiler, FLOAT_LOAD | (op & SLJIT_32), TMP_FREG1, src2, src2w));
+		src2 = TMP_FREG1;
+	}
+
+	if (src1 & SLJIT_MEM) {
+		reg = (dst_freg == src2) ? TMP_FREG1 : dst_freg;
+		FAIL_IF(float_mem(compiler, FLOAT_LOAD | (op & SLJIT_32), reg, src1, src1w));
+		src1 = reg;
+	}
+
+	return push_inst(compiler, 0xb3720000 /* cpsdr */ | F12(src2) | F4(dst_freg) | F0(src1));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *compiler,
