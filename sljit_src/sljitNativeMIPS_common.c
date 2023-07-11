@@ -3019,18 +3019,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	case SLJIT_ADD_F64:
 		FAIL_IF(push_inst(compiler, ADD_S | FMT(op) | FT(src2) | FS(src1) | FD(dst_r), MOVABLE_INS));
 		break;
-
 	case SLJIT_SUB_F64:
 		FAIL_IF(push_inst(compiler, SUB_S | FMT(op) | FT(src2) | FS(src1) | FD(dst_r), MOVABLE_INS));
 		break;
-
 	case SLJIT_MUL_F64:
 		FAIL_IF(push_inst(compiler, MUL_S | FMT(op) | FT(src2) | FS(src1) | FD(dst_r), MOVABLE_INS));
 		break;
-
 	case SLJIT_DIV_F64:
 		FAIL_IF(push_inst(compiler, DIV_S | FMT(op) | FT(src2) | FS(src1) | FD(dst_r), MOVABLE_INS));
 		break;
+	case SLJIT_COPYSIGN_F64:
+		FAIL_IF(push_inst(compiler, SELECT_OP(DMFC1, MFC1) | T(TMP_REG1) | FS(src1), DR(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, SELECT_OP(DMFC1, MFC1) | T(TMP_REG2) | FS(src2), DR(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, XOR | S(TMP_REG2) | T(TMP_REG1) | D(TMP_REG2), DR(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, SELECT_OP(DSRL32, SRL) | T(TMP_REG2) | D(TMP_REG2) | SH_IMM(31), DR(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, SELECT_OP(DSLL32, SLL) | T(TMP_REG2) | D(TMP_REG2) | SH_IMM(31), DR(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, XOR | S(TMP_REG1) | T(TMP_REG2) | D(TMP_REG1), DR(TMP_REG1)));
+		return push_inst(compiler, SELECT_OP(DMTC1, MTC1) | T(TMP_REG1) | FS(dst_r), MOVABLE_INS);
 	}
 
 	if (dst_r == TMP_FREG2)
