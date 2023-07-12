@@ -86,7 +86,7 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 3] = {
 #define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
 
 /* Note: r12 & 0x7 == 0b100, which decoded as SIB byte present
-   Note: avoid to use r12 and r13 for memory addessing
+   Note: avoid to use r12 and r13 for memory addressing
    therefore r12 is better to be a higher saved register. */
 #ifndef _WIN64
 /* Args: rdi(=7), rsi(=6), rdx(=2), rcx(=1), r8, r9. Scratches: rax(=0), r10, r11 */
@@ -156,7 +156,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define EX86_SSE2		(EX86_SSE2_OP1 | EX86_SSE2_OP2)
 
 /* --------------------------------------------------------------------- */
-/*  Instrucion forms                                                     */
+/*  Instruction forms                                                    */
 /* --------------------------------------------------------------------- */
 
 #define ADD		(/* BINARY */ 0 << 3)
@@ -2728,7 +2728,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 	if (src3 & SLJIT_IMM) {
 		inst[1] = U8((is_left ? SHLD : SHRD) - 1);
 
-		/* Immedate argument is added separately. */
+		/* Immediate argument is added separately. */
 		inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
 		FAIL_IF(!inst);
 		INC_SIZE(1);
