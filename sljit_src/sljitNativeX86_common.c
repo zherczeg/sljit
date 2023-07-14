@@ -222,11 +222,14 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define MOVAPS_xm_x	0x29
 #define MOVD_x_rm	0x6e
 #define MOVD_rm_x	0x7e
+#define MOVDQA_x_xm	0x6f
+#define MOVDQA_xm_x	0x7f
 #define MOVSD_x_xm	0x10
 #define MOVSD_xm_x	0x11
 #define MOVSXD_r_rm	0x63
 #define MOVSX_r_rm8	(/* GROUP_0F */ 0xbe)
 #define MOVSX_r_rm16	(/* GROUP_0F */ 0xbf)
+#define MOVUPS_x_xm	0x10
 #define MOVZX_r_rm8	(/* GROUP_0F */ 0xb6)
 #define MOVZX_r_rm16	(/* GROUP_0F */ 0xb7)
 #define MUL		(/* GROUP_F7 */ 4 << 3)
@@ -3501,6 +3504,60 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 
 	inst[1] = U8(compiler->size - size);
 	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 mem, sljit_sw memw)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_s32 alignment = SLJIT_SIMD_GET_ALIGNMENT(type);
+	sljit_u8 *inst;
+	sljit_u8 opcode = 0;
+	sljit_uw pref = 2 | EX86_SSE2;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_mem(compiler, type, freg, mem, memw));
+
+	ADJUST_LOCAL_OFFSET(mem, memw);
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	compiler->mode32 = 1;
+#endif
+
+	if (reg_size == 4) {
+		if (type & SLJIT_SIMD_MEM_FLOAT) {
+			if (elem_size == 2 || elem_size == 3) {
+				opcode = alignment >= 4 ? MOVAPS_x_xm : MOVUPS_x_xm;
+
+				if (elem_size == 3)
+					pref |= EX86_PREF_66;
+
+				if (type & SLJIT_SIMD_MEM_STORE)
+					opcode = U8(opcode + 1);
+			}
+		} else {
+			opcode = (type & SLJIT_SIMD_MEM_STORE) ? MOVDQA_xm_x : MOVDQA_x_xm;
+			pref |= alignment >= 4 ? EX86_PREF_66 : EX86_PREF_F3;
+		}
+
+		if (opcode == 0)
+			return SLJIT_ERR_UNSUPPORTED;
+
+		if (type & SLJIT_SIMD_MEM_TEST)
+			return SLJIT_SUCCESS;
+
+		inst = emit_x86_instruction(compiler, pref, freg, 0, mem, memw);
+		FAIL_IF(!inst);
+
+		inst[0] = GROUP_0F;
+		inst[1] = opcode;
+		return SLJIT_SUCCESS;
+	}
+
+	/* TODO: Support VEX prefix and longer reg types. */
+	return SLJIT_ERR_UNSUPPORTED;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,

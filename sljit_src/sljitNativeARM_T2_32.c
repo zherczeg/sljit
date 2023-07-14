@@ -211,6 +211,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define VCVT_F64_F32	0xeeb70ac0
 #define VCVT_S32_F32	0xeebd0ac0
 #define VDIV_F32	0xee800a00
+#define VLD1		0xf9200000
 #define VLDR_F32	0xed100a00
 #define VMOV_F32	0xeeb00a40
 #define VMOV		0xee000a10
@@ -220,6 +221,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define VNEG_F32	0xeeb10a40
 #define VPOP		0xecbd0b00
 #define VPUSH		0xed2d0b00
+#define VST1		0xf9000000
 #define VSTR_F32	0xed000a00
 #define VSUB_F32	0xee300a40
 
@@ -3310,6 +3312,69 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 }
 
 #undef FPU_LOAD
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 mem, sljit_sw memw)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_s32 alignment = SLJIT_SIMD_GET_ALIGNMENT(type);
+	sljit_ins ins;
+	sljit_uw imm;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_mem(compiler, type, freg, mem, memw));
+
+	ADJUST_LOCAL_OFFSET(mem, memw);
+
+	if (reg_size != 3 && reg_size != 4)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if ((type & SLJIT_SIMD_MEM_FLOAT) && (elem_size < 2 || elem_size > 3))
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_SIMD_MEM_TEST)
+		return SLJIT_SUCCESS;
+
+	if (SLJIT_UNLIKELY(mem & OFFS_REG_MASK)) {
+		FAIL_IF(push_inst32(compiler, ADD_W | RD4(TMP_REG1) | RN4(mem & REG_MASK) | RM4(OFFS_REG(mem)) | ((sljit_uw)(memw & 0x3) << 6)));
+		mem = TMP_REG1;
+	} else if (mem & REG_MASK) {
+		mem &= REG_MASK;
+
+		if (memw != 0) {
+			imm = get_imm((sljit_uw)(memw < 0 ? -memw : memw));
+
+			if (imm == INVALID_IMM) {
+				FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)memw));
+				FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(TMP_REG1, mem)));
+			} else
+				FAIL_IF(push_inst32(compiler, ((memw < 0) ? SUB_WI : ADD_WI) | RD4(TMP_REG1) | RN4(mem) | imm));
+
+			mem = TMP_REG1;
+		}
+	} else {
+		FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)memw));
+		mem = TMP_REG1;
+	}
+
+	if (elem_size > 3)
+		elem_size = 3;
+
+	ins = ((type & SLJIT_SIMD_MEM_STORE) ? VST1 : VLD1)
+		| (sljit_ins)((reg_size == 3) ? (0x7 << 8) : (0xa << 8))
+		| ((sljit_ins)(freg_map[freg] & ~0x1) << 12);
+
+	SLJIT_ASSERT(reg_size >= alignment);
+
+	if (alignment == 3)
+		ins |= 0x10;
+	else if (alignment >= 4)
+		ins |= 0x20;
+
+	return push_inst32(compiler, ins | RN4(mem) | ((sljit_ins)elem_size) << 6 | 0xf);
+}
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst_reg,

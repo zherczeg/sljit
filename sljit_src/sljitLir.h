@@ -1798,6 +1798,66 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 	sljit_s32 freg,
 	sljit_s32 mem, sljit_sw memw);
 
+/* The following flags are used by sljit_emit_simd_mem(). */
+
+/* Memory load operation. This is the default. */
+#define SLJIT_SIMD_MEM_LOAD		0x000000
+/* Memory store operation */
+#define SLJIT_SIMD_MEM_STORE		0x000001
+/* Move floating point data between the register and memory */
+#define SLJIT_SIMD_MEM_FLOAT		0x000002
+/* Tests whether the operation is available */
+#define SLJIT_SIMD_MEM_TEST		0x000004
+/* Move data to/from a 64 bit (8 byte) long SIMD register */
+#define SLJIT_SIMD_MEM_REG_64		(3 << 12)
+/* Move data to/from a 128 bit (16 byte) long SIMD register */
+#define SLJIT_SIMD_MEM_REG_128		(4 << 12)
+/* Move data to/from a 256 bit (32 byte) long SIMD register */
+#define SLJIT_SIMD_MEM_REG_256		(5 << 12)
+/* Move data to/from a 512 bit (64 byte) long SIMD register */
+#define SLJIT_SIMD_MEM_REG_512		(6 << 12)
+/* Element size is 8 bit long (this is the default), usually cannot be combined with SLJIT_SIMD_MEM_FLOAT */
+#define SLJIT_SIMD_MEM_ELEM_8		(0 << 18)
+/* Element size is 16 bit long, usually cannot be combined with SLJIT_SIMD_MEM_FLOAT */
+#define SLJIT_SIMD_MEM_ELEM_16		(1 << 18)
+/* Element size is 32 bit long */
+#define SLJIT_SIMD_MEM_ELEM_32		(2 << 18)
+/* Element size is 64 bit long */
+#define SLJIT_SIMD_MEM_ELEM_64		(3 << 18)
+/* Element size is 128 bit long */
+#define SLJIT_SIMD_MEM_ELEM_128		(4 << 18)
+/* Memory address is unaligned (this is the default) */
+#define SLJIT_SIMD_MEM_UNALIGNED	(0 << 24)
+/* Memory address is 16 bit aligned */
+#define SLJIT_SIMD_MEM_ALIGNED_16	(1 << 24)
+/* Memory address is 32 bit aligned */
+#define SLJIT_SIMD_MEM_ALIGNED_32	(2 << 24)
+/* Memory address is 64 bit aligned */
+#define SLJIT_SIMD_MEM_ALIGNED_64	(3 << 24)
+/* Memory address is 128 bit aligned */
+#define SLJIT_SIMD_MEM_ALIGNED_128	(4 << 24)
+
+/* Moves data between a simd register and memory.
+
+   If the operation is not supported it returns with
+   SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_MEM_TEST is
+   passed, it does not emit any instructions.
+
+   type must be a combination of SLJIT_SIMD_MEM_* flags
+   freg is the source or destination simd register
+     of the operation
+   mem must be a memory operand
+
+   Note:
+       The alignment and element size must be
+       less or equal than simd register size.
+
+   Flags: - (does not modify flags) */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 mem, sljit_sw memw);
+
 /* The sljit_emit_atomic_load and sljit_emit_atomic_store operation pair
    can perform an atomic read-modify-write operation. First, an unsigned
    value must be loaded from memory using sljit_emit_atomic_load. Then,
