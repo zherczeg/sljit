@@ -659,6 +659,10 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_HAS_COPY_F32		9
 /* [Emulated] Copy from/to f64 operation is available (see sljit_emit_fcopy). */
 #define SLJIT_HAS_COPY_F64		10
+/* [Emulated] Loading/Storing 8bit atomics is available. */
+#define SLJIT_HAS_ATOMIC_8BIT		11
+/* [Emulated] Loading/Storing 16bit atomics is available. */
+#define SLJIT_HAS_ATOMIC_16BIT		12
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] SSE2 support is available on x86. */
@@ -1818,7 +1822,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
      - the memory operation (op) and the base address (stored in mem_reg)
        passed to the load/store operations must be the same (the mem_reg
        can be a different register, only its value must be the same)
-     - an store must always follow a load for the same transaction.
+     - an store must always follow a load for the same transaction, but
+       loads might be abandoned
+     - if the CPU defines a minimum bit width supported (SLJIT_ATOMIC_WIDTH)
+       then the memory address must be aligned to it; alternatively smaller
+       atomic types can be supported by enabling SLJIT_ATOMIC_EMULATION
 
    op must be between SLJIT_MOV and SLJIT_MOV_P, excluding all
      signed loads such as SLJIT_MOV32_S16
