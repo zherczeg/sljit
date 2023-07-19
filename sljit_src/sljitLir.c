@@ -1664,10 +1664,12 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_register_index(sljit_s32 r
 	CHECK_RETURN_OK;
 }
 
-static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_float_register_index(sljit_s32 reg)
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_float_register_index(sljit_s32 type, sljit_s32 reg)
 {
+	SLJIT_UNUSED_ARG(type);
 	SLJIT_UNUSED_ARG(reg);
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT(((type & 0xfff) == 0) && ((type >> 12) == 0 || ((type >> 12) >= 3 && (type >> 12) <= 6)));
 	CHECK_ARGUMENT(reg > 0 && reg <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 #endif
 	CHECK_RETURN_OK;
@@ -2347,11 +2349,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 	sljit_s32 allowed_flags;
 
 	if (type & SLJIT_MEM_UNALIGNED) {
-		CHECK_ARGUMENT(!(type & (SLJIT_MEM_UNALIGNED_16 | SLJIT_MEM_UNALIGNED_32)));
-	} else if (type & SLJIT_MEM_UNALIGNED_16) {
-		CHECK_ARGUMENT(!(type & SLJIT_MEM_UNALIGNED_32));
+		CHECK_ARGUMENT(!(type & (SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)));
+	} else if (type & SLJIT_MEM_ALIGNED_16) {
+		CHECK_ARGUMENT(!(type & SLJIT_MEM_ALIGNED_32));
 	} else {
-		CHECK_ARGUMENT((reg & REG_PAIR_MASK) || (type & SLJIT_MEM_UNALIGNED_32));
+		CHECK_ARGUMENT((reg & REG_PAIR_MASK) || (type & SLJIT_MEM_ALIGNED_32));
 	}
 
 	allowed_flags = SLJIT_MEM_UNALIGNED;
@@ -2360,11 +2362,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV_S32:
 	case SLJIT_MOV32:
-		allowed_flags = SLJIT_MEM_UNALIGNED | SLJIT_MEM_UNALIGNED_16;
+		allowed_flags = SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16;
 		break;
 	case SLJIT_MOV:
 	case SLJIT_MOV_P:
-		allowed_flags = SLJIT_MEM_UNALIGNED | SLJIT_MEM_UNALIGNED_16 | SLJIT_MEM_UNALIGNED_32;
+		allowed_flags = SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32;
 		break;
 	}
 
@@ -2395,9 +2397,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 
 		if (type & SLJIT_MEM_UNALIGNED)
 			printf(".unal");
-		else if (type & SLJIT_MEM_UNALIGNED_16)
+		else if (type & SLJIT_MEM_ALIGNED_16)
 			printf(".al16");
-		else if (type & SLJIT_MEM_UNALIGNED_32)
+		else if (type & SLJIT_MEM_ALIGNED_32)
 			printf(".al32");
 
 		if (reg & REG_PAIR_MASK) {
@@ -2471,15 +2473,15 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fmem(struct sljit_compile
 	CHECK_ARGUMENT((type & 0xff) == SLJIT_MOV_F64);
 
 	if (type & SLJIT_MEM_UNALIGNED) {
-		CHECK_ARGUMENT(!(type & (SLJIT_MEM_UNALIGNED_16 | SLJIT_MEM_UNALIGNED_32)));
-	} else if (type & SLJIT_MEM_UNALIGNED_16) {
-		CHECK_ARGUMENT(!(type & SLJIT_MEM_UNALIGNED_32));
+		CHECK_ARGUMENT(!(type & (SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)));
+	} else if (type & SLJIT_MEM_ALIGNED_16) {
+		CHECK_ARGUMENT(!(type & SLJIT_MEM_ALIGNED_32));
 	} else {
-		CHECK_ARGUMENT(type & SLJIT_MEM_UNALIGNED_32);
+		CHECK_ARGUMENT(type & SLJIT_MEM_ALIGNED_32);
 		CHECK_ARGUMENT(!(type & SLJIT_32));
 	}
 
-	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED | SLJIT_MEM_UNALIGNED_16 | SLJIT_MEM_UNALIGNED_32)));
+	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)));
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
 	FUNCTION_CHECK_SRC_MEM(mem, memw);
 #endif
@@ -2491,9 +2493,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fmem(struct sljit_compile
 
 		if (type & SLJIT_MEM_UNALIGNED)
 			printf(".unal");
-		else if (type & SLJIT_MEM_UNALIGNED_16)
+		else if (type & SLJIT_MEM_ALIGNED_16)
 			printf(".al16");
-		else if (type & SLJIT_MEM_UNALIGNED_32)
+		else if (type & SLJIT_MEM_ALIGNED_32)
 			printf(".al32");
 
 		fprintf(compiler->verbose, " ");

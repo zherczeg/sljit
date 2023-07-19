@@ -501,6 +501,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 {
 	switch (feature_type) {
 	case SLJIT_HAS_FPU:
+	case SLJIT_HAS_SIMD:
+	case SLJIT_SIMD_REGS_ARE_PAIRS:
 #ifdef SLJIT_IS_FPU_AVAILABLE
 		return SLJIT_IS_FPU_AVAILABLE;
 #else
@@ -1990,10 +1992,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 reg)
 	return reg_map[reg];
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 reg)
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 type, sljit_s32 reg)
 {
-	CHECK_REG_INDEX(check_sljit_get_float_register_index(reg));
-	return (freg_map[reg] << 1);
+	CHECK_REG_INDEX(check_sljit_get_float_register_index(type, reg));
+
+	if (type == 0 || type == SLJIT_SIMD_MEM_REG_64)
+		return freg_map[reg];
+
+	if (type != SLJIT_SIMD_MEM_REG_128)
+		return freg_map[reg] & ~0x1;
+
+	return -1;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
@@ -2993,7 +3002,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 	if (!(reg & REG_PAIR_MASK))
 		return sljit_emit_mem_unaligned(compiler, type, reg, mem, memw);
 
-	if (type & (SLJIT_MEM_UNALIGNED | SLJIT_MEM_UNALIGNED_16 | SLJIT_MEM_UNALIGNED_32)) {
+	if (type & (SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)) {
 		if ((mem & REG_MASK) == 0) {
 			if ((memw & 0xfff) >= (0x1000 - SSIZE_OF(sw))) {
 				imm = get_imm((sljit_uw)((memw + 0x1000) & ~0xfff));
@@ -3281,7 +3290,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_fmem(compiler, type, freg, mem, memw));
 
-	if (type & SLJIT_MEM_UNALIGNED_32)
+	if (type & SLJIT_MEM_ALIGNED_32)
 		return emit_fop_mem(compiler, ((type ^ SLJIT_32) & SLJIT_32) | ((type & SLJIT_MEM_STORE) ? 0 : FPU_LOAD), freg, mem, memw);
 
 	if (type & SLJIT_MEM_STORE) {
