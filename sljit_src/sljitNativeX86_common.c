@@ -2810,28 +2810,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_dst(struct sljit_compiler *comp
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 reg)
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 type, sljit_s32 reg)
 {
-	CHECK_REG_INDEX(check_sljit_get_register_index(reg));
+	CHECK_REG_INDEX(check_sljit_get_register_index(type, reg));
+
+	if (type == SLJIT_INT_REGISTER) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	if (reg >= SLJIT_R3 && reg <= SLJIT_R8)
-		return -1;
-#endif
-	return reg_map[reg];
-}
+		if (reg >= SLJIT_R3 && reg <= SLJIT_R8)
+			return -1;
+#endif /* SLJIT_CONFIG_X86_32 */
+		return reg_map[reg];
+	}
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 type, sljit_s32 reg)
-{
-	CHECK_REG_INDEX(check_sljit_get_float_register_index(type, reg));
-
-	if (type != 0 && type != SLJIT_SIMD_MEM_REG_128 && type != SLJIT_SIMD_MEM_REG_256 && type != SLJIT_SIMD_MEM_REG_512)
+	if (type != SLJIT_FLOAT_REGISTER && type != SLJIT_SIMD_MEM_REG_128 && type != SLJIT_SIMD_MEM_REG_256 && type != SLJIT_SIMD_MEM_REG_512)
 		return -1;
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	return reg;
-#else
+#else /* !SLJIT_CONFIG_X86_32 */
 	return freg_map[reg];
-#endif
+#endif /* SLJIT_CONFIG_X86_32 */
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,

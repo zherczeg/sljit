@@ -1,5 +1,9 @@
 This file is the short summary of the API changes:
 
+01.08.2023 - Non-backward compatible
+    A type argument is added to sljit_get_register_index
+    and sljit_get_float_register_index is removed.
+
 19.07.2023 - Non-backward compatible
     SLJIT_MEM_UNALIGNED_16/32 options are renamed
     to SLJIT_MEM_ALIGNED_16/32 and a type argument

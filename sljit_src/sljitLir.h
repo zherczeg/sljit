@@ -1967,37 +1967,39 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 /*  CPU specific functions                                               */
 /* --------------------------------------------------------------------- */
 
-/* The following function is a helper function for sljit_emit_op_custom.
-   It returns with the real machine register index ( >=0 ) of any
-   integer registers.
+/* Types for sljit_get_register_index */
 
-   reg must be an SLJIT_R(i), SLJIT_S(i), or SLJIT_SP register
-
-   Note: it returns with -1 for virtual registers (only on x86-32). */
-
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 reg);
+/* Integer registers. */
+#define SLJIT_INT_REGISTER 0
+/* Floating point registers. */
+#define SLJIT_FLOAT_REGISTER 1
 
 /* The following function is a helper function for sljit_emit_op_custom.
-   It returns with the real machine register ( >= 0 ) index of any floating
-   point register, or it returns with -1 if the register is not available.
+   It returns with the real machine register index ( >=0 ) of any registers.
 
-   type must be 0 for getting floating point register indicies,
-        or must be SLJIT_SIMD_MEM_REG_* for SIMD register indicies
-   reg must be an SLJIT_FR(i) or SLJIT_FS(i) register
+   When type is SLJIT_INT_REGISTER:
+      reg must be an SLJIT_R(i), SLJIT_S(i), or SLJIT_SP register
 
-   Note: the index represents the double precision
-         register index on ARM-32 and MIPS-32. */
+   When type is SLJIT_FLOAT_REGISTER:
+      reg must be an SLJIT_FR(i) or SLJIT_FS(i) register
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_float_register_index(sljit_s32 type, sljit_s32 reg);
+   When type is SLJIT_SIMD_MEM_REG_64 / 128 / 256 / 512 :
+      reg must be an SLJIT_FR(i) or SLJIT_FS(i) register
+
+   Note: it returns with -1 for unknown registers, such as virtual
+         registers on x86-32 or unsupported simd registers. */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 type, sljit_s32 reg);
 
 /* Any instruction can be inserted into the instruction stream by
    sljit_emit_op_custom. It has a similar purpose as inline assembly.
    The size parameter must match to the instruction size of the target
    architecture:
 
-         x86: 0 < size <= 15. The instruction argument can be byte aligned.
+         x86: 0 < size <= 15, the instruction argument can be byte aligned.
       Thumb2: if size == 2, the instruction argument must be 2 byte aligned.
               if size == 4, the instruction argument must be 4 byte aligned.
+       s390x: size can be 2, 4, or 6, the instruction argument can be byte aligned.
    Otherwise: size must be 4 and instruction argument must be 4 byte aligned. */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
