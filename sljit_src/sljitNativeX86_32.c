@@ -1480,18 +1480,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 	}
 
 	if (u.imm[0] != u.imm[1]) {
-		if (u.imm[1] == 0) {
-			inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1 | EX86_SSE2_OP2, TMP_FREG, 0, TMP_FREG, 0);
+		SLJIT_ASSERT(u.imm[1] != 0 && cpu_feature_list != 0);
+
+		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, u.imm[1]);
+
+		if (cpu_feature_list && CPU_FEATURE_SSE41) {
+			inst = emit_x86_instruction(compiler, 3 | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, TMP_REG1, 0);
 			FAIL_IF(!inst);
 			inst[0] = GROUP_0F;
-			inst[1] = PXOR_x_xm;
-		} else {
-			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, u.imm[1]);
+			inst[1] = 0x3a;
+			inst[2] = PINSRD_x_rm_i8;
 
-			inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, TMP_FREG, 0, TMP_REG1, 0);
-			inst[0] = GROUP_0F;
-			inst[1] = MOVD_x_rm;
+			inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
+			FAIL_IF(!inst);
+			INC_SIZE(1);
+			inst[0] = 1;
+			return SLJIT_SUCCESS;
 		}
+
+		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, TMP_FREG, 0, TMP_REG1, 0);
+		inst[0] = GROUP_0F;
+		inst[1] = MOVD_x_rm;
 
 		tmp_freg = TMP_FREG;
 	}
@@ -1519,6 +1528,37 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 	regw = 0;
 	reg2 = 0;
 	reg2w = 0;
+
+	SLJIT_ASSERT(cpu_feature_list != 0);
+
+	if (!(op & SLJIT_32) && (cpu_feature_list && CPU_FEATURE_SSE41)) {
+		if (reg & REG_PAIR_MASK) {
+			reg2 = REG_PAIR_FIRST(reg);
+			reg = REG_PAIR_SECOND(reg);
+
+			CHECK_EXTRA_REGS(reg, regw, (void)0);
+
+			inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, reg, regw);
+			FAIL_IF(!inst);
+			inst[0] = GROUP_0F;
+			inst[1] = GET_OPCODE(op) == SLJIT_COPY_TO_F64 ? MOVD_x_rm : MOVD_rm_x;
+		} else
+			reg2 = reg;
+
+		CHECK_EXTRA_REGS(reg2, reg2w, (void)0);
+
+		inst = emit_x86_instruction(compiler, 3 | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, reg2, reg2w);
+		FAIL_IF(!inst);
+		inst[0] = GROUP_0F;
+		inst[1] = 0x3a;
+		inst[2] = GET_OPCODE(op) == SLJIT_COPY_TO_F64 ? PINSRD_x_rm_i8 : PEXTRD_rm_x_i8;
+
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
+		FAIL_IF(!inst);
+		INC_SIZE(1);
+		inst[0] = 1;
+		return SLJIT_SUCCESS;
+	}
 
 	if (reg & REG_PAIR_MASK) {
 		reg2 = REG_PAIR_SECOND(reg);

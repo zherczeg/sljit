@@ -1873,6 +1873,34 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 	sljit_s32 freg,
 	sljit_s32 mem, sljit_sw memw);
 
+/* Moves data between a simd register lane and registers or memory.
+   If the srcdst argument is a register, it must be a floating
+   point register when SLJIT_SIMD_MEM_FLOAT is specified, and
+   a general register otherwise.
+
+   If the operation is not supported it returns with
+   SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_MEM_TEST is
+   passed, it does not emit any instructions.
+
+   type must be a combination of the following flags
+     SLJIT_SIMD_MEM_LOAD, SLJIT_SIMD_MEM_STORE,
+     SLJIT_SIMD_MEM_FLOAT, SLJIT_SIMD_MEM_TEST
+     SLJIT_SIMD_MEM_REG_*, SLJIT_SIMD_MEM_ELEM_*
+   freg is the source or destination simd register
+     of the operation
+   lane_index is the index of the lane
+   srcdst is the destination operand for loads, and
+     source operand for stores
+
+   Note:
+       The elem size must be lower than register size.
+
+   Flags: - (does not modify flags) */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg, sljit_s32 lane_index,
+	sljit_s32 srcdst, sljit_sw srcdstw);
+
 /* The sljit_emit_atomic_load and sljit_emit_atomic_store operation pair
    can perform an atomic read-modify-write operation. First, an unsigned
    value must be loaded from memory using sljit_emit_atomic_load. Then,

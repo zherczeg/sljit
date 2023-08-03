@@ -196,6 +196,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define FLDL		0xdd
 #define FSTPS		0xd9
 #define FSTPD		0xdd
+#define INSERTPS_x_xm	0x21
 #define INT3		0xcc
 #define IDIV		(/* GROUP_F7 */ 7 << 3)
 #define IMUL		(/* GROUP_F7 */ 5 << 3)
@@ -224,8 +225,15 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define MOVD_rm_x	0x7e
 #define MOVDQA_x_xm	0x6f
 #define MOVDQA_xm_x	0x7f
+#define MOVHLPS_x_x	0x12
+#define MOVHPD_m_x	0x17
+#define MOVHPD_x_m	0x16
+#define MOVLHPS_x_x	0x16
+#define MOVLPD_m_x	0x13
+#define MOVLPD_x_m	0x12
 #define MOVSD_x_xm	0x10
 #define MOVSD_xm_x	0x11
+#define MOVSHDUP_x_xm	0x16
 #define MOVSXD_r_rm	0x63
 #define MOVSX_r_rm8	(/* GROUP_0F */ 0xbe)
 #define MOVSX_r_rm16	(/* GROUP_0F */ 0xbf)
@@ -242,6 +250,12 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define OR_EAX_i32	0x0d
 #define OR_rm_r		0x09
 #define OR_rm8_r8	0x08
+#define PINSRB_x_rm_i8	0x20
+#define PINSRW_x_rm_i8	0xc4
+#define PINSRD_x_rm_i8	0x22
+#define PEXTRB_rm_x_i8	0x14
+#define PEXTRW_rm_x_i8	0x15
+#define PEXTRD_rm_x_i8	0x16
 #define POP_r		0x58
 #define POP_rm		0x8f
 #define POPF		0x9d
@@ -314,9 +328,10 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
 #define CPU_FEATURE_SSE2		0x002
 #endif
-#define CPU_FEATURE_LZCNT		0x004
-#define CPU_FEATURE_TZCNT		0x008
-#define CPU_FEATURE_CMOV		0x010
+#define CPU_FEATURE_SSE41		0x004
+#define CPU_FEATURE_LZCNT		0x008
+#define CPU_FEATURE_TZCNT		0x010
+#define CPU_FEATURE_CMOV		0x020
 
 static sljit_u32 cpu_feature_list = 0;
 
@@ -352,7 +367,7 @@ static SLJIT_INLINE void sljit_unaligned_store_sw(void *addr, sljit_sw value)
 static void get_cpu_features(void)
 {
 	sljit_u32 feature_list = CPU_FEATURE_DETECTED;
-	sljit_u32 value;
+	sljit_u32 value_ecx, value_edx;
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 
@@ -370,7 +385,8 @@ static void get_cpu_features(void)
 		feature_list |= CPU_FEATURE_LZCNT;
 
 	__cpuid(CPUInfo, 1);
-	value = (sljit_u32)CPUInfo[3];
+	value_ecx = (sljit_u32)CPUInfo[2];
+	value_edx = (sljit_u32)CPUInfo[3];
 
 #elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C) || defined(__TINYC__)
 
@@ -380,7 +396,7 @@ static void get_cpu_features(void)
 		"lzcnt %%eax, %%eax\n"
 		"setnz %%al\n"
 		"movl %%eax, %0\n"
-		: "=g" (value)
+		: "=g" (value_ecx)
 		:
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		: "eax"
@@ -389,7 +405,7 @@ static void get_cpu_features(void)
 #endif
 	);
 
-	if (value & 0x1)
+	if (value_ecx & 0x1)
 		feature_list |= CPU_FEATURE_LZCNT;
 
 	__asm__ (
@@ -397,7 +413,7 @@ static void get_cpu_features(void)
 		"tzcnt %%eax, %%eax\n"
 		"setnz %%al\n"
 		"movl %%eax, %0\n"
-		: "=g" (value)
+		: "=g" (value_ecx)
 		:
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		: "eax"
@@ -406,7 +422,7 @@ static void get_cpu_features(void)
 #endif
 	);
 
-	if (value & 0x1)
+	if (value_ecx & 0x1)
 		feature_list |= CPU_FEATURE_TZCNT;
 
 	__asm__ (
@@ -421,7 +437,8 @@ static void get_cpu_features(void)
 		"pop %%ebx\n"
 #endif
 		"movl %%edx, %0\n"
-		: "=g" (value)
+		"movl %%edx, %1\n"
+		: "=g" (value_ecx), "=g" (value_edx)
 		:
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		: "eax", "ecx", "edx"
@@ -437,35 +454,38 @@ static void get_cpu_features(void)
 		mov eax, 0
 		lzcnt eax, eax
 		setnz al
-		mov value, eax
+		mov value_ecx, eax
 	}
 
-	if (value & 0x1)
+	if (value_ecx & 0x1)
 		feature_list |= CPU_FEATURE_LZCNT;
 
 	__asm {
 		mov eax, 0
 		tzcnt eax, eax
 		setnz al
-		mov value, eax
+		mov value_ecx, eax
 	}
 
-	if (value & 0x1)
+	if (value_ecx & 0x1)
 		feature_list |= CPU_FEATURE_TZCNT;
 
 	__asm {
 		mov eax, 1
 		cpuid
-		mov value, edx
+		mov value_ecx, ecx
+		mov value_edx, edx
 	}
 
 #endif /* _MSC_VER && _MSC_VER >= 1400 */
 
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
-	if (value & 0x4000000)
+	if (value_edx & 0x4000000)
 		feature_list |= CPU_FEATURE_SSE2;
 #endif
-	if (value & 0x8000)
+	if (value_ecx & 0x80000)
+		feature_list |= CPU_FEATURE_SSE41;
+	if (value_edx & 0x8000)
 		feature_list |= CPU_FEATURE_CMOV;
 
 	cpu_feature_list = feature_list;
@@ -1470,8 +1490,7 @@ static sljit_s32 emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 is_clz,
 	sljit_s32 dst_r;
 	sljit_sw max;
 
-	if (cpu_feature_list == 0)
-		get_cpu_features();
+	SLJIT_ASSERT(cpu_feature_list != 0);
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 
@@ -2857,6 +2876,8 @@ static sljit_u32 *sse2_buffer;
 
 static void init_compiler(void)
 {
+	get_cpu_features();
+
 	/* Align to 16 bytes. */
 	sse2_buffer = (sljit_u32*)(((sljit_uw)sse2_data + 15) & ~(sljit_uw)0xf);
 
@@ -3556,6 +3577,179 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 
 		inst[0] = GROUP_0F;
 		inst[1] = opcode;
+		return SLJIT_SUCCESS;
+	}
+
+	/* TODO: Support VEX prefix and longer reg types. */
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg, sljit_s32 lane_index,
+	sljit_s32 srcdst, sljit_sw srcdstw)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_s32 dst_freg;
+	sljit_u8 *inst;
+	sljit_u8 opcode = 0;
+	sljit_uw size;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_lane_mov(compiler, type, freg, lane_index, srcdst, srcdstw));
+
+	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
+	CHECK_EXTRA_REGS(srcdst, srcdstw, (void)0);
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	compiler->mode32 = 1;
+#endif
+
+	if (reg_size == 4) {
+		if (type & SLJIT_SIMD_MEM_FLOAT) {
+			if (elem_size == 3) {
+				if (type & SLJIT_SIMD_MEM_TEST)
+					return SLJIT_SUCCESS;
+
+				if (srcdst & SLJIT_MEM) {
+					if (type & SLJIT_SIMD_MEM_STORE)
+						opcode = lane_index == 0 ? MOVLPD_m_x : MOVHPD_m_x;
+					else
+						opcode = lane_index == 0 ? MOVLPD_x_m : MOVHPD_x_m;
+
+					return emit_sse2_logic(compiler, opcode, 1, freg, srcdst, srcdstw);
+				}
+
+				if (type & SLJIT_SIMD_MEM_STORE) {
+					if (lane_index == 1)
+						return emit_sse2_logic(compiler, MOVHLPS_x_x, 0, srcdst, freg, 0);
+					return emit_sse2_load(compiler, 0, srcdst, freg, 0);
+				}
+
+				if (lane_index == 1)
+					return emit_sse2_logic(compiler, MOVLHPS_x_x, 0, freg, srcdst, 0);
+				return emit_sse2_store(compiler, 0, freg, 0, srcdst);
+			}
+
+			if (elem_size != 2)
+				return SLJIT_ERR_UNSUPPORTED;
+
+			if (type & SLJIT_SIMD_MEM_TEST)
+				return SLJIT_SUCCESS;
+
+			if (!(type & SLJIT_SIMD_MEM_STORE)) {
+				if (lane_index == 0 && !(srcdst & SLJIT_MEM))
+					return emit_sse2_store(compiler, 1, freg, 0, srcdst);
+
+				inst = emit_x86_instruction(compiler, 3 | EX86_PREF_66 | EX86_SSE2, freg, 0, srcdst, srcdstw);
+				FAIL_IF(!inst);
+				inst[0] = GROUP_0F;
+				inst[1] = 0x3a;
+				inst[2] = INSERTPS_x_xm;
+
+				inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
+				FAIL_IF(!inst);
+				INC_SIZE(1);
+				inst[0] = U8(lane_index << 4);
+				return SLJIT_SUCCESS;
+			}
+
+			if (lane_index == 0)
+				return emit_sse2_store(compiler, 1, srcdst, srcdstw, freg);
+
+			dst_freg = (srcdst & SLJIT_MEM) ? TMP_FREG : srcdst;
+
+			size = 2 | EX86_SSE2;
+			if (dst_freg == freg)
+				opcode = SHUFPS_x_xm;
+			else {
+				switch (lane_index) {
+				case 1:
+					opcode = MOVSHDUP_x_xm;
+					size = 2 | EX86_PREF_F3 | EX86_SSE2;
+					break;
+				case 2:
+					opcode = MOVHLPS_x_x;
+					break;
+				default:
+					SLJIT_ASSERT(lane_index == 3);
+					opcode = PSHUFD_x_xm;
+					size = 2 | EX86_PREF_66 | EX86_SSE2;
+					break;
+				}
+			}
+
+			inst = emit_x86_instruction(compiler, size, dst_freg, 0, freg, 0);
+			FAIL_IF(!inst);
+			inst[0] = GROUP_0F;
+			inst[1] = opcode;
+
+			if (opcode == SHUFPS_x_xm || opcode == PSHUFD_x_xm) {
+				inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
+				FAIL_IF(!inst);
+				INC_SIZE(1);
+				inst[0] = U8(lane_index);
+			}
+
+			if (dst_freg == srcdst)
+				return SLJIT_SUCCESS;
+
+			SLJIT_ASSERT(dst_freg == TMP_FREG);
+			return emit_sse2_store(compiler, 1, srcdst, srcdstw, dst_freg);
+		}
+
+		if (srcdst & SLJIT_IMM) {
+			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, srcdstw);
+			srcdst = TMP_REG1;
+			srcdstw = 0;
+		}
+
+		size = 3;
+
+		switch (elem_size) {
+		case 0:
+			opcode = (type & SLJIT_SIMD_MEM_STORE) ? PEXTRB_rm_x_i8 : PINSRB_x_rm_i8;
+			break;
+		case 1:
+			if (!(type & SLJIT_SIMD_MEM_STORE)) {
+				size = 2;
+				opcode = PINSRW_x_rm_i8;
+			} else
+				opcode = PEXTRW_rm_x_i8;
+			break;
+		case 2:
+			opcode = (type & SLJIT_SIMD_MEM_STORE) ? PEXTRD_rm_x_i8 : PINSRD_x_rm_i8;
+			break;
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		case 3:
+			/* PINSRQ / PEXTRQ */
+			opcode = (type & SLJIT_SIMD_MEM_STORE) ? PEXTRD_rm_x_i8 : PINSRD_x_rm_i8;
+			compiler->mode32 = 0;
+			break;
+#endif
+		}
+
+		if (opcode == 0)
+			return SLJIT_ERR_UNSUPPORTED;
+
+		if (type & SLJIT_SIMD_MEM_TEST)
+			return SLJIT_SUCCESS;
+
+		inst = emit_x86_instruction(compiler, size | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, srcdst, srcdstw);
+		FAIL_IF(!inst);
+		inst[0] = GROUP_0F;
+
+		if (size == 3) {
+			inst[1] = 0x3a;
+			inst[2] = opcode;
+		} else
+			inst[1] = opcode;
+
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
+		FAIL_IF(!inst);
+		INC_SIZE(1);
+		inst[0] = U8(lane_index);
+
 		return SLJIT_SUCCESS;
 	}
 
