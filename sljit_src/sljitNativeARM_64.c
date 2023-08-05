@@ -1703,7 +1703,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 type, slji
 	if (type == SLJIT_INT_REGISTER)
 		return reg_map[reg];
 
-	if (type != SLJIT_FLOAT_REGISTER && type != SLJIT_SIMD_MEM_REG_64 && type != SLJIT_SIMD_MEM_REG_128)
+	if (type != SLJIT_FLOAT_REGISTER && type != SLJIT_SIMD_REG_64 && type != SLJIT_SIMD_REG_128)
 		return -1;
 
 	return freg_map[reg];
@@ -2599,10 +2599,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 	if (reg_size != 3 && reg_size != 4)
 		return SLJIT_ERR_UNSUPPORTED;
 
-	if ((type & SLJIT_SIMD_MEM_FLOAT) && (elem_size < 2 || elem_size > 3))
+	if ((type & SLJIT_SIMD_FLOAT) && (elem_size < 2 || elem_size > 3))
 		return SLJIT_ERR_UNSUPPORTED;
 
-	if (type & SLJIT_SIMD_MEM_TEST)
+	if (type & SLJIT_SIMD_TEST)
 		return SLJIT_SUCCESS;
 
 	FAIL_IF(sljit_emit_simd_mem_offset(compiler, &mem, memw));
@@ -2610,7 +2610,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 	if (elem_size > 3)
 		elem_size = 3;
 
-	ins = (type & SLJIT_SIMD_MEM_STORE) ? ST1 : LD1;
+	ins = (type & SLJIT_SIMD_STORE) ? ST1 : LD1;
 
 	if (reg_size == 4)
 		ins |= (1 << 30);
@@ -2634,10 +2634,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 	if (reg_size != 3 && reg_size != 4)
 		return SLJIT_ERR_UNSUPPORTED;
 
-	if ((type & SLJIT_SIMD_MEM_FLOAT) && (elem_size < 2 || elem_size > 3))
+	if ((type & SLJIT_SIMD_FLOAT) && (elem_size < 2 || elem_size > 3))
 		return SLJIT_ERR_UNSUPPORTED;
 
-	if (type & SLJIT_SIMD_MEM_TEST)
+	if (type & SLJIT_SIMD_TEST)
 		return SLJIT_SUCCESS;
 
 	if (srcdst & SLJIT_MEM) {
@@ -2653,11 +2653,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 		lane_index = lane_index << elem_size;
 		ins |= (sljit_ins)(((lane_index & 0x8) << 27) | ((lane_index & 0x7) << 10));
 
-		return push_inst(compiler, ((type & SLJIT_SIMD_MEM_STORE) ? ST1_s : LD1_s) | ins | RN(srcdst) | VT(freg));
+		return push_inst(compiler, ((type & SLJIT_SIMD_STORE) ? ST1_s : LD1_s) | ins | RN(srcdst) | VT(freg));
 	}
 
-	if (type & SLJIT_SIMD_MEM_FLOAT) {
-		if (type & SLJIT_SIMD_MEM_STORE)
+	if (type & SLJIT_SIMD_FLOAT) {
+		if (type & SLJIT_SIMD_STORE)
 			ins = INS_e | ((sljit_ins)1 << (16 + elem_size)) | ((sljit_ins)lane_index << (11 + elem_size)) | RD(srcdst) | VN(freg);
 		else
 			ins = INS_e | ((((sljit_ins)lane_index << 1) | 1) << (16 + elem_size)) | VD(freg) | RN(srcdst);
@@ -2673,7 +2673,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 		srcdst = TMP_REG1;
 	}
 
-	if (type & SLJIT_SIMD_MEM_STORE)
+	if (type & SLJIT_SIMD_STORE)
 		ins = UMOV | RD(srcdst) | VN(freg);
 	else
 		ins = INS | VD(freg) | RN(srcdst);

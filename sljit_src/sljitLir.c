@@ -2541,8 +2541,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_mem(struct sljit_com
 	sljit_s32 mem, sljit_sw memw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT((type & (sljit_s32)(0xc0000fff - (SLJIT_SIMD_MEM_STORE | SLJIT_SIMD_MEM_FLOAT | SLJIT_SIMD_MEM_TEST))) == 0);
-	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_MEM_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_MEM_REG_512);
+	CHECK_ARGUMENT((type & (sljit_s32)(0xc0000fff - (SLJIT_SIMD_STORE | SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST))) == 0);
+	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) <= SLJIT_SIMD_GET_REG_SIZE(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ALIGNMENT(type) <= SLJIT_SIMD_GET_REG_SIZE(type));
 	FUNCTION_CHECK_SRC_MEM(mem, memw);
@@ -2550,9 +2550,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_mem(struct sljit_com
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		if (type & SLJIT_SIMD_MEM_TEST)
+		if (type & SLJIT_SIMD_TEST)
 			CHECK_RETURN_OK;
-		if (sljit_emit_simd_mem(compiler, type | SLJIT_SIMD_MEM_TEST, freg, mem, memw) == SLJIT_ERR_UNSUPPORTED) {
+		if (sljit_emit_simd_mem(compiler, type | SLJIT_SIMD_TEST, freg, mem, memw) == SLJIT_ERR_UNSUPPORTED) {
 			fprintf(compiler->verbose, "    # simd_mem: unsupported form, no instructions are emitted\n");
 			CHECK_RETURN_OK;
 		}
@@ -2560,7 +2560,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_mem(struct sljit_com
 		fprintf(compiler->verbose, "  %s.%d.%s%d",
 			(type & SLJIT_MEM_STORE) ? "store" : "load",
 			(8 << SLJIT_SIMD_GET_REG_SIZE(type)),
-			(type & SLJIT_SIMD_MEM_FLOAT) ? "f" : "",
+			(type & SLJIT_SIMD_FLOAT) ? "f" : "",
 			(8 << SLJIT_SIMD_GET_ELEM_SIZE(type)));
 
 		if ((type & 0x3f000000) == SLJIT_SIMD_MEM_UNALIGNED)
@@ -2582,23 +2582,23 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_lane_mov(struct slji
 	sljit_s32 srcdst, sljit_sw srcdstw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT((type & (sljit_s32)(0xff000fff - (SLJIT_SIMD_MEM_STORE | SLJIT_SIMD_MEM_FLOAT | SLJIT_SIMD_MEM_TEST))) == 0);
-	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_MEM_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_MEM_REG_512);
+	CHECK_ARGUMENT((type & (sljit_s32)(0xff000fff - (SLJIT_SIMD_STORE | SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST))) == 0);
+	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
 	CHECK_ARGUMENT(lane_index >= 0 && lane_index < (1 << (SLJIT_SIMD_GET_REG_SIZE(type) - SLJIT_SIMD_GET_ELEM_SIZE(type))));
 
-	if (type & SLJIT_SIMD_MEM_FLOAT) {
+	if (type & SLJIT_SIMD_FLOAT) {
 		FUNCTION_FCHECK(srcdst, srcdstw);
-	} else if ((type & SLJIT_SIMD_MEM_STORE) || (srcdst != SLJIT_IMM)) {
+	} else if ((type & SLJIT_SIMD_STORE) || (srcdst != SLJIT_IMM)) {
 		FUNCTION_CHECK_DST(srcdst, srcdstw);
 	}
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		if (type & SLJIT_SIMD_MEM_TEST)
+		if (type & SLJIT_SIMD_TEST)
 			CHECK_RETURN_OK;
-		if (sljit_emit_simd_lane_mov(compiler, type | SLJIT_SIMD_MEM_TEST, freg, lane_index, srcdst, srcdstw) == SLJIT_ERR_UNSUPPORTED) {
+		if (sljit_emit_simd_lane_mov(compiler, type | SLJIT_SIMD_TEST, freg, lane_index, srcdst, srcdstw) == SLJIT_ERR_UNSUPPORTED) {
 			fprintf(compiler->verbose, "    # simd_move_lane: unsupported form, no instructions are emitted\n");
 			CHECK_RETURN_OK;
 		}
@@ -2606,13 +2606,13 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_lane_mov(struct slji
 		fprintf(compiler->verbose, "  %s.%d.%s%d[%d] ",
 			(type & SLJIT_MEM_STORE) ? "store_lane" : "load_lane",
 			(8 << SLJIT_SIMD_GET_REG_SIZE(type)),
-			(type & SLJIT_SIMD_MEM_FLOAT) ? "f" : "",
+			(type & SLJIT_SIMD_FLOAT) ? "f" : "",
 			(8 << SLJIT_SIMD_GET_ELEM_SIZE(type)),
 			lane_index);
 
 		sljit_verbose_freg(compiler, freg);
 		fprintf(compiler->verbose, ", ");
-		if (type & SLJIT_SIMD_MEM_FLOAT)
+		if (type & SLJIT_SIMD_FLOAT)
 			sljit_verbose_fparam(compiler, srcdst, srcdstw);
 		else
 			sljit_verbose_param(compiler, srcdst, srcdstw);

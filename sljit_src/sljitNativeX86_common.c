@@ -2841,7 +2841,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 type, slji
 		return reg_map[reg];
 	}
 
-	if (type != SLJIT_FLOAT_REGISTER && type != SLJIT_SIMD_MEM_REG_128 && type != SLJIT_SIMD_MEM_REG_256 && type != SLJIT_SIMD_MEM_REG_512)
+	if (type != SLJIT_FLOAT_REGISTER && type != SLJIT_SIMD_REG_128 && type != SLJIT_SIMD_REG_256 && type != SLJIT_SIMD_REG_512)
 		return -1;
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
@@ -3551,25 +3551,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 #endif
 
 	if (reg_size == 4) {
-		if (type & SLJIT_SIMD_MEM_FLOAT) {
+		if (type & SLJIT_SIMD_FLOAT) {
 			if (elem_size == 2 || elem_size == 3) {
 				opcode = alignment >= 4 ? MOVAPS_x_xm : MOVUPS_x_xm;
 
 				if (elem_size == 3)
 					pref |= EX86_PREF_66;
 
-				if (type & SLJIT_SIMD_MEM_STORE)
+				if (type & SLJIT_SIMD_STORE)
 					opcode = U8(opcode + 1);
 			}
 		} else {
-			opcode = (type & SLJIT_SIMD_MEM_STORE) ? MOVDQA_xm_x : MOVDQA_x_xm;
+			opcode = (type & SLJIT_SIMD_STORE) ? MOVDQA_xm_x : MOVDQA_x_xm;
 			pref |= alignment >= 4 ? EX86_PREF_66 : EX86_PREF_F3;
 		}
 
 		if (opcode == 0)
 			return SLJIT_ERR_UNSUPPORTED;
 
-		if (type & SLJIT_SIMD_MEM_TEST)
+		if (type & SLJIT_SIMD_TEST)
 			return SLJIT_SUCCESS;
 
 		inst = emit_x86_instruction(compiler, pref, freg, 0, mem, memw);
@@ -3606,13 +3606,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 #endif
 
 	if (reg_size == 4) {
-		if (type & SLJIT_SIMD_MEM_FLOAT) {
+		if (type & SLJIT_SIMD_FLOAT) {
 			if (elem_size == 3) {
-				if (type & SLJIT_SIMD_MEM_TEST)
+				if (type & SLJIT_SIMD_TEST)
 					return SLJIT_SUCCESS;
 
 				if (srcdst & SLJIT_MEM) {
-					if (type & SLJIT_SIMD_MEM_STORE)
+					if (type & SLJIT_SIMD_STORE)
 						opcode = lane_index == 0 ? MOVLPD_m_x : MOVHPD_m_x;
 					else
 						opcode = lane_index == 0 ? MOVLPD_x_m : MOVHPD_x_m;
@@ -3620,7 +3620,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 					return emit_sse2_logic(compiler, opcode, 1, freg, srcdst, srcdstw);
 				}
 
-				if (type & SLJIT_SIMD_MEM_STORE) {
+				if (type & SLJIT_SIMD_STORE) {
 					if (lane_index == 1)
 						return emit_sse2_logic(compiler, MOVHLPS_x_x, 0, srcdst, freg, 0);
 					return emit_sse2_load(compiler, 0, srcdst, freg, 0);
@@ -3634,10 +3634,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 			if (elem_size != 2)
 				return SLJIT_ERR_UNSUPPORTED;
 
-			if (type & SLJIT_SIMD_MEM_TEST)
+			if (type & SLJIT_SIMD_TEST)
 				return SLJIT_SUCCESS;
 
-			if (!(type & SLJIT_SIMD_MEM_STORE)) {
+			if (!(type & SLJIT_SIMD_STORE)) {
 				if (lane_index == 0 && !(srcdst & SLJIT_MEM))
 					return emit_sse2_store(compiler, 1, freg, 0, srcdst);
 
@@ -3708,22 +3708,22 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 
 		switch (elem_size) {
 		case 0:
-			opcode = (type & SLJIT_SIMD_MEM_STORE) ? PEXTRB_rm_x_i8 : PINSRB_x_rm_i8;
+			opcode = (type & SLJIT_SIMD_STORE) ? PEXTRB_rm_x_i8 : PINSRB_x_rm_i8;
 			break;
 		case 1:
-			if (!(type & SLJIT_SIMD_MEM_STORE)) {
+			if (!(type & SLJIT_SIMD_STORE)) {
 				size = 2;
 				opcode = PINSRW_x_rm_i8;
 			} else
 				opcode = PEXTRW_rm_x_i8;
 			break;
 		case 2:
-			opcode = (type & SLJIT_SIMD_MEM_STORE) ? PEXTRD_rm_x_i8 : PINSRD_x_rm_i8;
+			opcode = (type & SLJIT_SIMD_STORE) ? PEXTRD_rm_x_i8 : PINSRD_x_rm_i8;
 			break;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		case 3:
 			/* PINSRQ / PEXTRQ */
-			opcode = (type & SLJIT_SIMD_MEM_STORE) ? PEXTRD_rm_x_i8 : PINSRD_x_rm_i8;
+			opcode = (type & SLJIT_SIMD_STORE) ? PEXTRD_rm_x_i8 : PINSRD_x_rm_i8;
 			compiler->mode32 = 0;
 			break;
 #endif
@@ -3732,7 +3732,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 		if (opcode == 0)
 			return SLJIT_ERR_UNSUPPORTED;
 
-		if (type & SLJIT_SIMD_MEM_TEST)
+		if (type & SLJIT_SIMD_TEST)
 			return SLJIT_SUCCESS;
 
 		inst = emit_x86_instruction(compiler, size | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, srcdst, srcdstw);
