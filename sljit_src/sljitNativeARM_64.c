@@ -88,6 +88,8 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define CLZ 0xdac01000
 #define CSEL 0x9a800000
 #define CSINC 0x9a800400
+#define DUP_e 0x0e000400
+#define DUP_g 0x0e000c00
 #define EOR 0xca000000
 #define EORI 0xd2000000
 #define EXTR 0x93c00000
@@ -108,6 +110,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define INS_e 0x6e000400
 #define LD1 0x0c407000
 #define LD1_s 0x0d400000
+#define LD1R 0x0d40c000
 #define LDRI 0xf9400000
 #define LDRI_F64 0xfd400000
 #define LDRI_POST 0xf8400400
@@ -2616,6 +2619,58 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 		ins |= (1 << 30);
 
 	return push_inst(compiler, ins | ((sljit_ins)elem_size << 10) | RN(mem) | VT(freg));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_sw srcw)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_ins ins;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_replicate(compiler, type, freg, src, srcw));
+
+	ADJUST_LOCAL_OFFSET(src, srcw);
+
+	if (reg_size != 3 && reg_size != 4)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if ((type & SLJIT_SIMD_FLOAT) && (elem_size < 2 || elem_size > 3))
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_SIMD_TEST)
+		return SLJIT_SUCCESS;
+
+	if (src & SLJIT_MEM) {
+		FAIL_IF(sljit_emit_simd_mem_offset(compiler, &src, srcw));
+
+		ins = (sljit_ins)elem_size << 10;
+
+		if (reg_size == 4)
+			ins |= (sljit_ins)1 << 30;
+
+		return push_inst(compiler, LD1R | ins | RN(src) | VT(freg));
+	}
+
+	ins = 1 << (16 + elem_size);
+
+	if (reg_size == 4)
+		ins |= (sljit_ins)1 << 30;
+
+	if (type & SLJIT_SIMD_FLOAT)
+		return push_inst(compiler, DUP_e | ins | VD(freg) | VN(src));
+
+	if (src & SLJIT_IMM) {
+		if (elem_size < 3)
+			srcw &= ((sljit_sw)1 << (((sljit_sw)1 << elem_size) << 3)) - 1;
+
+		FAIL_IF(load_immediate(compiler, TMP_REG1, srcw));
+		src = TMP_REG1;
+	}
+
+	return push_inst(compiler, DUP_g | ins | VD(freg) | RN(src));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compiler *compiler, sljit_s32 type,

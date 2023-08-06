@@ -1877,10 +1877,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 	sljit_s32 freg,
 	sljit_s32 mem, sljit_sw memw);
 
+/* Replicates a scalar value to all lanes of a simd
+   register.
+
+   If the operation is not supported, it returns with
+   SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
+   it does not emit any instructions.
+
+   type must be a combination of SLJIT_SIMD_* flags except
+     SLJIT_SIMD_STORE.
+   freg is the destination simd register of the operation
+   src is the input value for the duplication
+
+   Flags: - (does not modify flags) */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_sw srcw);
+
 /* Moves data between a simd register lane and a register or
    memory. If the srcdst argument is a register, it must be
    a floating point register when SLJIT_SIMD_FLOAT is specified,
-   and a general register otherwise.
+   or a general purpose register otherwise.
 
    If the operation is not supported, it returns with
    SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,

@@ -663,20 +663,13 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)
 {
-	sljit_u8 *inst;
-
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_return_void(compiler));
 
 	compiler->mode32 = 0;
 
 	FAIL_IF(emit_stack_frame_release(compiler, 0));
-
-	inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
-	FAIL_IF(!inst);
-	INC_SIZE(1);
-	RET();
-	return SLJIT_SUCCESS;
+	return emit_byte(compiler, RET_near);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *compiler,
@@ -875,13 +868,8 @@ static sljit_s32 emit_fast_enter(struct sljit_compiler *compiler, sljit_s32 dst,
 	sljit_u8 *inst;
 
 	if (FAST_IS_REG(dst)) {
-		if (reg_map[dst] < 8) {
-			inst = (sljit_u8*)ensure_buf(compiler, 1 + 1);
-			FAIL_IF(!inst);
-			INC_SIZE(1);
-			POP_REG(reg_lmap[dst]);
-			return SLJIT_SUCCESS;
-		}
+		if (reg_map[dst] < 8)
+			return emit_byte(compiler, U8(POP_r + reg_lmap[dst]));
 
 		inst = (sljit_u8*)ensure_buf(compiler, 1 + 2);
 		FAIL_IF(!inst);
