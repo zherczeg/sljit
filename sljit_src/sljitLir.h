@@ -1889,6 +1889,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
    freg is the destination simd register of the operation
    src is the input value for the duplication
 
+   Note:
+       When SLJIT_SIMD_FLOAT is specified, the
+       SLJIT_IMM, 0 can be passed as src/srcw arguments.
+
    Flags: - (does not modify flags) */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compiler *compiler, sljit_s32 type,

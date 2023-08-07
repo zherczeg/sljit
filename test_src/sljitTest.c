@@ -12679,7 +12679,7 @@ static void test97(void)
 
 static sljit_s32 check_simd_replicate(sljit_u8* buf, sljit_s32 length, sljit_s32 elem_size, sljit_s32 value)
 {
-	sljit_s32 count = (length / elem_size) >> 1;
+	sljit_s32 count = length / elem_size;
 	sljit_s32 i;
 
 	do {
@@ -12693,16 +12693,35 @@ static sljit_s32 check_simd_replicate(sljit_u8* buf, sljit_s32 length, sljit_s32
 	return 1;
 }
 
+static sljit_s32 check_simd_replicate_u32(sljit_u8* buf, sljit_s32 length, sljit_u32 value)
+{
+	sljit_s32 count = length / 4;
+	sljit_u32 start_value = value;
+	sljit_s32 i;
+
+	do {
+		for (i = 0; i < 4; i++) {
+			if (*buf++ != (value & 0xff))
+				return 0;
+			value >>= 8;
+		}
+
+		value = start_value;
+	} while (--count != 0);
+
+	return 1;
+}
+
 #endif /* IS_X86 || IS_ARM */
 
 static void test98(void)
 {
-	/* Test simd duplicate scalar to all lanes. */
+	/* Test simd replicate scalar to all lanes. */
 	executable_code code;
 	struct sljit_compiler* compiler;
 	sljit_s32 i, type;
 	sljit_u8* buf;
-	sljit_u8 data[63 + 352];
+	sljit_u8 data[63 + 544];
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
@@ -12717,7 +12736,7 @@ static void test98(void)
 	for (i = 0; i < 32; i++)
 		buf[i] = (sljit_u8)(200 + i);
 
-	for (i = 32; i < 352; i++)
+	for (i = 32; i < 544; i++)
 		buf[i] = 0xaa;
 
 	compiler = sljit_create_compiler(NULL, NULL);
@@ -12733,7 +12752,7 @@ static void test98(void)
 	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 48);
 
 	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 32);
-	sljit_emit_simd_replicate(compiler, type, SLJIT_FR3, SLJIT_IMM, 253);
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR3, SLJIT_IMM, 0xffff00 + 253);
 	/* buf[64] */
 	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 64);
 
@@ -12840,6 +12859,61 @@ static void test98(void)
 	/* buf[336] */
 	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 336);
 
+	/* Test constant values. */
+	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_32;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR0, SLJIT_IMM, WCONST(0xff00123456, 0x123456));
+	/* buf[352] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 352);
+
+	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_16;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR1, SLJIT_IMM, 0xff0000);
+	/* buf[368] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 368);
+
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR2, SLJIT_IMM, 0x1ffff);
+	/* buf[384] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 384);
+
+	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_ELEM_64;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR3, SLJIT_IMM, 0);
+	/* buf[400] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 400);
+
+	/* Test ARM constant values. */
+	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_16;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR4, SLJIT_IMM, 0xff0034);
+	/* buf[416] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 416);
+
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR5, SLJIT_IMM, 0xff45ff);
+	/* buf[432] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 432);
+
+	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_32;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR0, SLJIT_IMM, 0xb3);
+	/* buf[448] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 448);
+
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR1, SLJIT_IMM, (sljit_sw)0xffff46ff);
+	/* buf[464] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 464);
+
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR2, SLJIT_IMM, 0x4c0000);
+	/* buf[480] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 480);
+
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR3, SLJIT_IMM, 0x71ffffff);
+	/* buf[496] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 496);
+
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR4, SLJIT_IMM, 0x9eff);
+	/* buf[512] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 512);
+
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR5, SLJIT_IMM, (sljit_sw)0xff070000);
+	/* buf[528] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 528);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler);
@@ -12870,6 +12944,18 @@ static void test98(void)
 	FAILED(!check_simd_replicate(buf + 304, 16, 8, 216), "test98 case 17 failed\n");
 	FAILED(!check_simd_replicate(buf + 320, 16, 8, 200), "test98 case 18 failed\n");
 	FAILED(!check_simd_replicate(buf + 336, 16, 8, 208), "test98 case 19 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 352, 16, 0x123456), "test98 case 20 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 368, 16, 0), "test98 case 21 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 384, 16, 0xffffffff), "test98 case 22 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 400, 16, 0), "test98 case 23 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 416, 16, 0x340034), "test98 case 24 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 432, 16, 0x45ff45ff), "test98 case 25 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 448, 16, 0xb3), "test98 case 26 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 464, 16, 0xffff46ff), "test98 case 27 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 480, 16, 0x4c0000), "test98 case 28 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 496, 16, 0x71ffffff), "test98 case 29 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 512, 16, 0x9eff), "test98 case 30 failed\n");
+	FAILED(!check_simd_replicate_u32(buf + 528, 16, 0xff070000), "test98 case 31 failed\n");
 #endif /* IS_X86 || IS_ARM */
 
 	sljit_free_code(code.code, NULL);

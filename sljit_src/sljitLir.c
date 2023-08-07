@@ -2588,7 +2588,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_replicate(struct slj
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
 
 	if (type & SLJIT_SIMD_FLOAT) {
-		FUNCTION_FCHECK(src, srcw);
+		if (src == SLJIT_IMM) {
+			CHECK_ARGUMENT(srcw == 0);
+		} else {
+			FUNCTION_FCHECK(src, srcw);
+		}
 	} else if (src != SLJIT_IMM) {
 		FUNCTION_CHECK_DST(src, srcw);
 	}

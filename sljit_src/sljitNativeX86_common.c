@@ -252,6 +252,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define OR_EAX_i32	0x0d
 #define OR_rm_r		0x09
 #define OR_rm8_r8	0x08
+#define PCMPEQB_x_xm	0x74
 #define PINSRB_x_rm_i8	0x20
 #define PINSRW_x_rm_i8	0xc4
 #define PINSRD_x_rm_i8	0x22
@@ -3597,6 +3598,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 			if (type & SLJIT_SIMD_TEST)
 				return SLJIT_SUCCESS;
 
+			if (src & SLJIT_IMM) {
+				inst = emit_x86_instruction(compiler, 2 | (elem_size == 3 ? EX86_PREF_66 : 0) | EX86_SSE2, freg, 0, freg, 0);
+				FAIL_IF(!inst);
+				inst[0] = GROUP_0F;
+				inst[1] = XORPD_x_xm;
+				return SLJIT_SUCCESS;
+			}
+
 			if (elem_size == 2 && freg != src) {
 				FAIL_IF(emit_sse2_load(compiler, 1, freg, src, srcw));
 				src = freg;
@@ -3614,13 +3623,41 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 		}
 
 		if (src & SLJIT_IMM) {
+			if (elem_size == 0) {
+				srcw = (sljit_u8)srcw;
+				srcw |= srcw << 8;
+				srcw |= srcw << 16;
+				elem_size = 2;
+			} else if (elem_size == 1) {
+				srcw = (sljit_u16)srcw;
+				srcw |= srcw << 16;
+				elem_size = 2;
+			}
+
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-			if (elem_size < 3)
-				srcw = (sljit_s32)srcw;
+			if (elem_size == 2 && (sljit_s32)srcw == -1)
+				srcw = -1;
 #endif /* SLJIT_CONFIG_X86_64 */
-			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, srcw);
-			src = TMP_REG1;
-			srcw = 0;
+
+			if (srcw == 0 || srcw == -1) {
+				inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2, freg, 0, freg, 0);
+				FAIL_IF(!inst);
+				inst[0] = GROUP_0F;
+				inst[1] = srcw == 0 ? PXOR_x_xm : PCMPEQB_x_xm;
+				return SLJIT_SUCCESS;
+			}
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+			if (elem_size == 3)
+				FAIL_IF(emit_load_imm64(compiler, TMP_REG1, srcw));
+			else {
+#endif /* SLJIT_CONFIG_X86_64 */
+				EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, srcw);
+				src = TMP_REG1;
+				srcw = 0;
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+			}
+#endif /* SLJIT_CONFIG_X86_64 */
 		}
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
