@@ -3509,9 +3509,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *compiler, sljit_s32 type,
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
-	sljit_s32 mem, sljit_sw memw)
+	sljit_s32 srcdst, sljit_sw srcdstw)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
 	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
@@ -3521,15 +3521,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 	sljit_uw pref = 2 | EX86_SSE2;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_mem(compiler, type, freg, mem, memw));
+	CHECK(check_sljit_emit_simd_mov(compiler, type, freg, srcdst, srcdstw));
 
-	ADJUST_LOCAL_OFFSET(mem, memw);
+	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	compiler->mode32 = 1;
 #endif /* SLJIT_CONFIG_X86_64 */
 
 	if (reg_size == 4) {
+		if (!(srcdst & SLJIT_MEM))
+			alignment = 4;
+
 		if (type & SLJIT_SIMD_FLOAT) {
 			if (elem_size == 2 || elem_size == 3) {
 				opcode = alignment >= 4 ? MOVAPS_x_xm : MOVUPS_x_xm;
@@ -3551,7 +3554,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 		if (type & SLJIT_SIMD_TEST)
 			return SLJIT_SUCCESS;
 
-		inst = emit_x86_instruction(compiler, pref, freg, 0, mem, memw);
+		inst = emit_x86_instruction(compiler, pref, freg, 0, srcdst, srcdstw);
 		FAIL_IF(!inst);
 
 		inst[0] = GROUP_0F;

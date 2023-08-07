@@ -75,13 +75,13 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 	(reg_map[reg1] <= 7 && reg_map[reg2] <= 7 && reg_map[reg3] <= 7)
 
 /* Thumb32 encodings. */
-#define RD4(rd) ((sljit_ins)reg_map[rd] << 8)
-#define RN4(rn) ((sljit_ins)reg_map[rn] << 16)
 #define RM4(rm) ((sljit_ins)reg_map[rm])
+#define RD4(rd) ((sljit_ins)reg_map[rd] << 8)
 #define RT4(rt) ((sljit_ins)reg_map[rt] << 12)
-#define DD4(dd) ((sljit_ins)freg_map[dd] << 12)
-#define DN4(dn) ((sljit_ins)freg_map[dn] << 16)
-#define DM4(dm) ((sljit_ins)freg_map[dm])
+#define RN4(rn) ((sljit_ins)reg_map[rn] << 16)
+#define VM4(dm) ((sljit_ins)freg_map[dm])
+#define VD4(dd) ((sljit_ins)freg_map[dd] << 12)
+#define VN4(dn) ((sljit_ins)freg_map[dn] << 16)
 #define IMM5(imm) \
 	(COPY_BITS(imm, 2, 12, 3) | (((sljit_ins)imm & 0x3) << 6))
 #define IMM12(imm) \
@@ -1223,12 +1223,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		}
 
 		if (fsaveds + fscratches >= SLJIT_NUMBER_OF_FLOAT_REGISTERS) {
-			FAIL_IF(push_inst32(compiler, VPUSH | DD4(SLJIT_FS0) | ((sljit_uw)SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS << 1)));
+			FAIL_IF(push_inst32(compiler, VPUSH | VD4(SLJIT_FS0) | ((sljit_uw)SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS << 1)));
 		} else {
 			if (fsaveds > 0)
-				FAIL_IF(push_inst32(compiler, VPUSH | DD4(SLJIT_FS0) | ((sljit_uw)fsaveds << 1)));
+				FAIL_IF(push_inst32(compiler, VPUSH | VD4(SLJIT_FS0) | ((sljit_uw)fsaveds << 1)));
 			if (fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG)
-				FAIL_IF(push_inst32(compiler, VPUSH | DD4(fscratches) | ((sljit_uw)(fscratches - (SLJIT_FIRST_SAVED_FLOAT_REG - 1)) << 1)));
+				FAIL_IF(push_inst32(compiler, VPUSH | VD4(fscratches) | ((sljit_uw)(fscratches - (SLJIT_FIRST_SAVED_FLOAT_REG - 1)) << 1)));
 		}
 	}
 
@@ -1305,17 +1305,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F64:
 			if (offset != old_offset)
-				*remap_ptr++ = VMOV_F32 | SLJIT_32 | DD4(offset) | DM4(old_offset);
+				*remap_ptr++ = VMOV_F32 | SLJIT_32 | VD4(offset) | VM4(old_offset);
 			old_offset++;
 			offset++;
 			break;
 		case SLJIT_ARG_TYPE_F32:
 			if (f32_offset != 0) {
-				*remap_ptr++ = VMOV_F32 | 0x20 | DD4(offset) | DM4(f32_offset);
+				*remap_ptr++ = VMOV_F32 | 0x20 | VD4(offset) | VM4(f32_offset);
 				f32_offset = 0;
 			} else {
 				if (offset != old_offset)
-					*remap_ptr++ = VMOV_F32 | DD4(offset) | DM4(old_offset);
+					*remap_ptr++ = VMOV_F32 | VD4(offset) | VM4(old_offset);
 				f32_offset = old_offset;
 				old_offset++;
 			}
@@ -1449,12 +1449,12 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 			FAIL_IF(emit_add_sp(compiler, (sljit_uw)local_size));
 
 		if (fsaveds + fscratches >= SLJIT_NUMBER_OF_FLOAT_REGISTERS) {
-			FAIL_IF(push_inst32(compiler, VPOP | DD4(SLJIT_FS0) | ((sljit_uw)SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS << 1)));
+			FAIL_IF(push_inst32(compiler, VPOP | VD4(SLJIT_FS0) | ((sljit_uw)SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS << 1)));
 		} else {
 			if (fscratches >= SLJIT_FIRST_SAVED_FLOAT_REG)
-				FAIL_IF(push_inst32(compiler, VPOP | DD4(fscratches) | ((sljit_uw)(fscratches - (SLJIT_FIRST_SAVED_FLOAT_REG - 1)) << 1)));
+				FAIL_IF(push_inst32(compiler, VPOP | VD4(fscratches) | ((sljit_uw)(fscratches - (SLJIT_FIRST_SAVED_FLOAT_REG - 1)) << 1)));
 			if (fsaveds > 0)
-				FAIL_IF(push_inst32(compiler, VPOP | DD4(SLJIT_FS0) | ((sljit_uw)fsaveds << 1)));
+				FAIL_IF(push_inst32(compiler, VPOP | VD4(SLJIT_FS0) | ((sljit_uw)fsaveds << 1)));
 		}
 
 		local_size = GET_SAVED_REGISTERS_SIZE(compiler->scratches, compiler->saveds, 1) & 0x7;
@@ -2042,35 +2042,35 @@ static sljit_s32 emit_fop_mem(struct sljit_compiler *compiler, sljit_s32 flags, 
 
 	if ((arg & REG_MASK) && (argw & 0x3) == 0) {
 		if (!(argw & ~0x3fc))
-			return push_inst32(compiler, inst | 0x800000 | RN4(arg & REG_MASK) | DD4(reg) | ((sljit_uw)argw >> 2));
+			return push_inst32(compiler, inst | 0x800000 | RN4(arg & REG_MASK) | VD4(reg) | ((sljit_uw)argw >> 2));
 		if (!(-argw & ~0x3fc))
-			return push_inst32(compiler, inst | RN4(arg & REG_MASK) | DD4(reg) | ((sljit_uw)-argw >> 2));
+			return push_inst32(compiler, inst | RN4(arg & REG_MASK) | VD4(reg) | ((sljit_uw)-argw >> 2));
 	}
 
 	if (arg & REG_MASK) {
 		if (emit_set_delta(compiler, TMP_REG1, arg & REG_MASK, argw) != SLJIT_ERR_UNSUPPORTED) {
 			FAIL_IF(compiler->error);
-			return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG1) | DD4(reg));
+			return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG1) | VD4(reg));
 		}
 
 		imm = get_imm((sljit_uw)argw & ~(sljit_uw)0x3fc);
 		if (imm != INVALID_IMM) {
 			FAIL_IF(push_inst32(compiler, ADD_WI | RD4(TMP_REG1) | RN4(arg & REG_MASK) | imm));
-			return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG1) | DD4(reg) | (((sljit_uw)argw & 0x3fc) >> 2));
+			return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG1) | VD4(reg) | (((sljit_uw)argw & 0x3fc) >> 2));
 		}
 
 		imm = get_imm((sljit_uw)-argw & ~(sljit_uw)0x3fc);
 		if (imm != INVALID_IMM) {
 			argw = -argw;
 			FAIL_IF(push_inst32(compiler, SUB_WI | RD4(TMP_REG1) | RN4(arg & REG_MASK) | imm));
-			return push_inst32(compiler, inst | RN4(TMP_REG1) | DD4(reg) | (((sljit_uw)argw & 0x3fc) >> 2));
+			return push_inst32(compiler, inst | RN4(TMP_REG1) | VD4(reg) | (((sljit_uw)argw & 0x3fc) >> 2));
 		}
 	}
 
 	FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)argw));
 	if (arg & REG_MASK)
 		FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(TMP_REG1, (arg & REG_MASK))));
-	return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG1) | DD4(reg));
+	return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG1) | VD4(reg));
 }
 
 static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_compiler *compiler, sljit_s32 op,
@@ -2084,10 +2084,10 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 		src = TMP_FREG1;
 	}
 
-	FAIL_IF(push_inst32(compiler, VCVT_S32_F32 | (op & SLJIT_32) | DD4(TMP_FREG1) | DM4(src)));
+	FAIL_IF(push_inst32(compiler, VCVT_S32_F32 | (op & SLJIT_32) | VD4(TMP_FREG1) | VM4(src)));
 
 	if (FAST_IS_REG(dst))
-		return push_inst32(compiler, VMOV | (1 << 20) | RT4(dst) | DN4(TMP_FREG1));
+		return push_inst32(compiler, VMOV | (1 << 20) | RT4(dst) | VN4(TMP_FREG1));
 
 	/* Store the integer value from a VFP register. */
 	return emit_fop_mem(compiler, 0, TMP_FREG1, dst, dstw);
@@ -2100,17 +2100,17 @@ static sljit_s32 sljit_emit_fop1_conv_f64_from_w(struct sljit_compiler *compiler
 	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_FREG1;
 
 	if (FAST_IS_REG(src))
-		FAIL_IF(push_inst32(compiler, VMOV | RT4(src) | DN4(TMP_FREG1)));
+		FAIL_IF(push_inst32(compiler, VMOV | RT4(src) | VN4(TMP_FREG1)));
 	else if (src & SLJIT_MEM) {
 		/* Load the integer value into a VFP register. */
 		FAIL_IF(emit_fop_mem(compiler, FPU_LOAD, TMP_FREG1, src, srcw));
 	}
 	else {
 		FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)srcw));
-		FAIL_IF(push_inst32(compiler, VMOV | RT4(TMP_REG1) | DN4(TMP_FREG1)));
+		FAIL_IF(push_inst32(compiler, VMOV | RT4(TMP_REG1) | VN4(TMP_FREG1)));
 	}
 
-	FAIL_IF(push_inst32(compiler, ins | DD4(dst_r) | DM4(TMP_FREG1)));
+	FAIL_IF(push_inst32(compiler, ins | VD4(dst_r) | VM4(TMP_FREG1)));
 
 	if (dst & SLJIT_MEM)
 		return emit_fop_mem(compiler, (ins & SLJIT_32), TMP_FREG1, dst, dstw);
@@ -2147,7 +2147,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 		src2 = TMP_FREG2;
 	}
 
-	FAIL_IF(push_inst32(compiler, VCMP_F32 | (op & SLJIT_32) | DD4(src1) | DM4(src2)));
+	FAIL_IF(push_inst32(compiler, VCMP_F32 | (op & SLJIT_32) | VD4(src1) | VM4(src2)));
 	FAIL_IF(push_inst32(compiler, VMRS));
 
 	if (GET_FLAG_TYPE(op) != SLJIT_UNORDERED_OR_EQUAL)
@@ -2182,19 +2182,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	case SLJIT_MOV_F64:
 		if (src != dst_r) {
 			if (dst_r != TMP_FREG1)
-				FAIL_IF(push_inst32(compiler, VMOV_F32 | (op & SLJIT_32) | DD4(dst_r) | DM4(src)));
+				FAIL_IF(push_inst32(compiler, VMOV_F32 | (op & SLJIT_32) | VD4(dst_r) | VM4(src)));
 			else
 				dst_r = src;
 		}
 		break;
 	case SLJIT_NEG_F64:
-		FAIL_IF(push_inst32(compiler, VNEG_F32 | (op & SLJIT_32) | DD4(dst_r) | DM4(src)));
+		FAIL_IF(push_inst32(compiler, VNEG_F32 | (op & SLJIT_32) | VD4(dst_r) | VM4(src)));
 		break;
 	case SLJIT_ABS_F64:
-		FAIL_IF(push_inst32(compiler, VABS_F32 | (op & SLJIT_32) | DD4(dst_r) | DM4(src)));
+		FAIL_IF(push_inst32(compiler, VABS_F32 | (op & SLJIT_32) | VD4(dst_r) | VM4(src)));
 		break;
 	case SLJIT_CONV_F64_FROM_F32:
-		FAIL_IF(push_inst32(compiler, VCVT_F64_F32 | (op & SLJIT_32) | DD4(dst_r) | DM4(src)));
+		FAIL_IF(push_inst32(compiler, VCVT_F64_F32 | (op & SLJIT_32) | VD4(dst_r) | VM4(src)));
 		op ^= SLJIT_32;
 		break;
 	}
@@ -2231,23 +2231,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD_F64:
-		FAIL_IF(push_inst32(compiler, VADD_F32 | (op & SLJIT_32) | DD4(dst_r) | DN4(src1) | DM4(src2)));
+		FAIL_IF(push_inst32(compiler, VADD_F32 | (op & SLJIT_32) | VD4(dst_r) | VN4(src1) | VM4(src2)));
 		break;
 	case SLJIT_SUB_F64:
-		FAIL_IF(push_inst32(compiler, VSUB_F32 | (op & SLJIT_32) | DD4(dst_r) | DN4(src1) | DM4(src2)));
+		FAIL_IF(push_inst32(compiler, VSUB_F32 | (op & SLJIT_32) | VD4(dst_r) | VN4(src1) | VM4(src2)));
 		break;
 	case SLJIT_MUL_F64:
-		FAIL_IF(push_inst32(compiler, VMUL_F32 | (op & SLJIT_32) | DD4(dst_r) | DN4(src1) | DM4(src2)));
+		FAIL_IF(push_inst32(compiler, VMUL_F32 | (op & SLJIT_32) | VD4(dst_r) | VN4(src1) | VM4(src2)));
 		break;
 	case SLJIT_DIV_F64:
-		FAIL_IF(push_inst32(compiler, VDIV_F32 | (op & SLJIT_32) | DD4(dst_r) | DN4(src1) | DM4(src2)));
+		FAIL_IF(push_inst32(compiler, VDIV_F32 | (op & SLJIT_32) | VD4(dst_r) | VN4(src1) | VM4(src2)));
 		break;
 	case SLJIT_COPYSIGN_F64:
-		FAIL_IF(push_inst32(compiler, VMOV | (1 << 20) | DN4(src2) | RT4(TMP_REG1) | ((op & SLJIT_32) ? (1 << 7) : 0)));
-		FAIL_IF(push_inst32(compiler, VABS_F32 | (op & SLJIT_32) | DD4(dst_r) | DM4(src1)));
+		FAIL_IF(push_inst32(compiler, VMOV | (1 << 20) | VN4(src2) | RT4(TMP_REG1) | ((op & SLJIT_32) ? (1 << 7) : 0)));
+		FAIL_IF(push_inst32(compiler, VABS_F32 | (op & SLJIT_32) | VD4(dst_r) | VM4(src1)));
 		FAIL_IF(push_inst32(compiler, CMPI_W | RN4(TMP_REG1) | 0));
 		FAIL_IF(push_inst16(compiler, IT | (0xb << 4) | 0x8));
-		return push_inst32(compiler, VNEG_F32 | (op & SLJIT_32) | DD4(dst_r) | DM4(dst_r));
+		return push_inst32(compiler, VNEG_F32 | (op & SLJIT_32) | VD4(dst_r) | VM4(dst_r));
 	}
 
 	if (!(dst & SLJIT_MEM))
@@ -2275,12 +2275,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *comp
 
 		if (exp == 0x20 || exp == 0x1f) {
 			ins = ((u.imm >> 24) & 0x80) | ((u.imm >> 19) & 0x7f);
-			return push_inst32(compiler, (VMOV_F32 ^ (1 << 6)) | ((ins & 0xf0) << 12) | DD4(freg) | (ins & 0xf));
+			return push_inst32(compiler, (VMOV_F32 ^ (1 << 6)) | ((ins & 0xf0) << 12) | VD4(freg) | (ins & 0xf));
 		}
 	}
 
 	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm));
-	return push_inst32(compiler, VMOV | DN4(freg) | RT4(TMP_REG1));
+	return push_inst32(compiler, VMOV | VN4(freg) | RT4(TMP_REG1));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *compiler,
@@ -2303,16 +2303,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 
 		if (exp == 0x100 || exp == 0xff) {
 			ins = ((u.imm[1] >> (56 - 32)) & 0x80) | ((u.imm[1] >> (48 - 32)) & 0x7f);
-			return push_inst32(compiler, (VMOV_F32 ^ (1 << 6)) | (1 << 8) | ((ins & 0xf0) << 12) | DD4(freg) | (ins & 0xf));
+			return push_inst32(compiler, (VMOV_F32 ^ (1 << 6)) | (1 << 8) | ((ins & 0xf0) << 12) | VD4(freg) | (ins & 0xf));
 		}
 	}
 
 	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm[0]));
 	if (u.imm[0] == u.imm[1])
-		return push_inst32(compiler, VMOV2 | RN4(TMP_REG1) | RT4(TMP_REG1) | DM4(freg));
+		return push_inst32(compiler, VMOV2 | RN4(TMP_REG1) | RT4(TMP_REG1) | VM4(freg));
 
 	FAIL_IF(load_immediate(compiler, TMP_REG2, u.imm[1]));
-	return push_inst32(compiler, VMOV2 | RN4(TMP_REG2) | RT4(TMP_REG1) | DM4(freg));
+	return push_inst32(compiler, VMOV2 | RN4(TMP_REG2) | RT4(TMP_REG1) | VM4(freg));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
@@ -2328,9 +2328,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 		reg2 = REG_PAIR_SECOND(reg);
 		reg = REG_PAIR_FIRST(reg);
 
-		inst = VMOV2 | RN4(reg) | RT4(reg2) | DM4(freg);
+		inst = VMOV2 | RN4(reg) | RT4(reg2) | VM4(freg);
 	} else {
-		inst = VMOV | DN4(freg) | RT4(reg);
+		inst = VMOV | VN4(freg) | RT4(reg);
 
 		if (!(op & SLJIT_32))
 			inst |= 1 << 7;
@@ -2635,18 +2635,18 @@ static sljit_s32 hardfloat_call_with_args(struct sljit_compiler *compiler, sljit
 		switch (arg_types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F64:
 			if (offset != new_offset)
-				FAIL_IF(push_inst32(compiler, VMOV_F32 | SLJIT_32 | DD4(new_offset) | DM4(offset)));
+				FAIL_IF(push_inst32(compiler, VMOV_F32 | SLJIT_32 | VD4(new_offset) | VM4(offset)));
 
 			new_offset++;
 			offset++;
 			break;
 		case SLJIT_ARG_TYPE_F32:
 			if (f32_offset != 0) {
-				FAIL_IF(push_inst32(compiler, VMOV_F32 | 0x400000 | DD4(f32_offset) | DM4(offset)));
+				FAIL_IF(push_inst32(compiler, VMOV_F32 | 0x400000 | VD4(f32_offset) | VM4(offset)));
 				f32_offset = 0;
 			} else {
 				if (offset != new_offset)
-					FAIL_IF(push_inst32(compiler, VMOV_F32 | 0x400000 | DD4(new_offset) | DM4(offset)));
+					FAIL_IF(push_inst32(compiler, VMOV_F32 | 0x400000 | VD4(new_offset) | VM4(offset)));
 				f32_offset = new_offset;
 				new_offset++;
 			}
@@ -2827,8 +2827,8 @@ static SLJIT_INLINE sljit_s32 emit_fmov_before_return(struct sljit_compiler *com
 
 	if (FAST_IS_REG(src)) {
 		if (op & SLJIT_32)
-			return push_inst32(compiler, VMOV | (1 << 20) | DN4(src) | RT4(SLJIT_R0));
-		return push_inst32(compiler, VMOV2 | (1 << 20) | DM4(src) | RT4(SLJIT_R0) | RN4(SLJIT_R1));
+			return push_inst32(compiler, VMOV | (1 << 20) | VN4(src) | RT4(SLJIT_R0));
+		return push_inst32(compiler, VMOV2 | (1 << 20) | VM4(src) | RT4(SLJIT_R0) | RN4(SLJIT_R1));
 	}
 
 	SLJIT_SKIP_CHECKS(compiler);
@@ -2981,7 +2981,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 			src1w = 0;
 			type ^= 0x1;
 		} else
-			FAIL_IF(push_inst32(compiler, VMOV_F32 | (type & SLJIT_32) | DD4(dst_freg) | DM4(src2_freg)));
+			FAIL_IF(push_inst32(compiler, VMOV_F32 | (type & SLJIT_32) | VD4(dst_freg) | VM4(src2_freg)));
 	}
 
 	if (src1 & SLJIT_MEM) {
@@ -2990,7 +2990,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 	}
 
 	FAIL_IF(push_inst16(compiler, IT | (get_cc(compiler, type & ~SLJIT_32) << 4) | 0x8));
-	return push_inst32(compiler, VMOV_F32 | (type & SLJIT_32) | DD4(dst_freg) | DM4(src1));
+	return push_inst32(compiler, VMOV_F32 | (type & SLJIT_32) | VD4(dst_freg) | VM4(src1));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
@@ -3298,7 +3298,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 		return emit_fop_mem(compiler, ((type ^ SLJIT_32) & SLJIT_32) | ((type & SLJIT_MEM_STORE) ? 0 : FPU_LOAD), freg, mem, memw);
 
 	if (type & SLJIT_MEM_STORE) {
-		FAIL_IF(push_inst32(compiler, VMOV | (1 << 20) | DN4(freg) | RT4(TMP_REG2)));
+		FAIL_IF(push_inst32(compiler, VMOV | (1 << 20) | VN4(freg) | RT4(TMP_REG2)));
 
 		if (type & SLJIT_32)
 			return emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG2, mem, memw, TMP_REG1);
@@ -3307,13 +3307,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 		mem |= SLJIT_MEM;
 
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG2, mem, memw, TMP_REG1));
-		FAIL_IF(push_inst32(compiler, VMOV | (1 << 20) | DN4(freg) | 0x80 | RT4(TMP_REG2)));
+		FAIL_IF(push_inst32(compiler, VMOV | (1 << 20) | VN4(freg) | 0x80 | RT4(TMP_REG2)));
 		return emit_op_mem(compiler, WORD_SIZE | STORE, TMP_REG2, mem, memw + 4, TMP_REG1);
 	}
 
 	if (type & SLJIT_32) {
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, mem, memw, TMP_REG1));
-		return push_inst32(compiler, VMOV | DN4(freg) | RT4(TMP_REG2));
+		return push_inst32(compiler, VMOV | VN4(freg) | RT4(TMP_REG2));
 	}
 
 	FAIL_IF(update_mem_addr(compiler, &mem, &memw, 0xfff - 4));
@@ -3321,7 +3321,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 
 	FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, mem, memw, TMP_REG1));
 	FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, mem, memw + 4, TMP_REG1));
-	return push_inst32(compiler, VMOV2 | DM4(freg) | RT4(TMP_REG2) | RN4(TMP_REG1));
+	return push_inst32(compiler, VMOV2 | VM4(freg) | RT4(TMP_REG2) | RN4(TMP_REG1));
 }
 
 static sljit_s32 sljit_emit_simd_mem_offset(struct sljit_compiler *compiler, sljit_s32 *mem_ptr, sljit_sw memw)
@@ -3356,9 +3356,9 @@ static sljit_s32 sljit_emit_simd_mem_offset(struct sljit_compiler *compiler, slj
 	return push_inst16(compiler, ADD | SET_REGS44(TMP_REG1, mem));
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *compiler, sljit_s32 type,
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
-	sljit_s32 mem, sljit_sw memw)
+	sljit_s32 srcdst, sljit_sw srcdstw)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
 	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
@@ -3366,9 +3366,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 	sljit_ins ins;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_mem(compiler, type, freg, mem, memw));
+	CHECK(check_sljit_emit_simd_mov(compiler, type, freg, srcdst, srcdstw));
 
-	ADJUST_LOCAL_OFFSET(mem, memw);
+	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
 	if (reg_size != 3 && reg_size != 4)
 		return SLJIT_ERR_UNSUPPORTED;
@@ -3379,14 +3379,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 	if (type & SLJIT_SIMD_TEST)
 		return SLJIT_SUCCESS;
 
-	FAIL_IF(sljit_emit_simd_mem_offset(compiler, &mem, memw));
+	if (reg_size == 4)
+		freg -= 1 - (freg & 0x1);
+
+	if (!(srcdst & SLJIT_MEM)) {
+		if (type & SLJIT_SIMD_STORE)
+			ins = VD4(srcdst) | VN4(freg) | VM4(freg);
+		else
+			ins = VD4(freg) | VN4(srcdst) | VM4(srcdst);
+
+		if (reg_size == 4)
+			ins |= (1 << 6);
+
+		return push_inst32(compiler, VORR | ins);
+	}
+
+	FAIL_IF(sljit_emit_simd_mem_offset(compiler, &srcdst, srcdstw));
 
 	if (elem_size > 3)
 		elem_size = 3;
 
-	ins = ((type & SLJIT_SIMD_STORE) ? VST1 : VLD1)
-		| (sljit_ins)((reg_size == 3) ? (0x7 << 8) : (0xa << 8))
-		| ((sljit_ins)(freg_map[freg] & ~0x1) << 12);
+	ins = ((type & SLJIT_SIMD_STORE) ? VST1 : VLD1) | VD4(freg)
+		| (sljit_ins)((reg_size == 3) ? (0x7 << 8) : (0xa << 8));
 
 	SLJIT_ASSERT(reg_size >= alignment);
 
@@ -3395,7 +3409,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 	else if (alignment >= 4)
 		ins |= 0x20;
 
-	return push_inst32(compiler, ins | RN4(mem) | ((sljit_ins)elem_size) << 6 | 0xf);
+	return push_inst32(compiler, ins | RN4(srcdst) | ((sljit_ins)elem_size) << 6 | 0xf);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compiler *compiler, sljit_s32 type,
@@ -3430,12 +3444,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 			FAIL_IF(emit_fop_mem(compiler, FPU_LOAD | SLJIT_32, freg, src, srcw));
 			src = freg;
 		} else if (freg != src)
-			FAIL_IF(push_inst32(compiler, VORR | DD4(freg) | DN4(src) | DM4(src)));
+			FAIL_IF(push_inst32(compiler, VORR | VD4(freg) | VN4(src) | VM4(src)));
 
 		freg++;
 
 		if (freg != src)
-			return push_inst32(compiler, VORR | DD4(freg) | DN4(src) | DM4(src));
+			return push_inst32(compiler, VORR | VD4(freg) | VN4(src) | VM4(src));
 		return SLJIT_SUCCESS;
 	}
 
@@ -3447,7 +3461,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 		if (reg_size == 4)
 			ins |= 1 << 5;
 
-		return push_inst32(compiler, VLD1_r | ins | DD4(freg) | RN4(src) | 0xf);
+		return push_inst32(compiler, VLD1_r | ins | VD4(freg) | RN4(src) | 0xf);
 	}
 
 	if (type & SLJIT_SIMD_FLOAT) {
@@ -3456,7 +3470,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 		if (reg_size == 4)
 			ins |= 1 << 6;
 
-		return push_inst32(compiler, VDUP_s | ins | DD4(freg) | DM4(src));
+		return push_inst32(compiler, VDUP_s | ins | VD4(freg) | VM4(src));
 	}
 
 	if (src & SLJIT_IMM) {
@@ -3482,7 +3496,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 	if (reg_size == 4)
 		ins |= 1 << 21;
 
-	return push_inst32(compiler, VDUP | ins | DN4(freg) | RT4(src));
+	return push_inst32(compiler, VDUP | ins | VN4(freg) | RT4(src));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compiler *compiler, sljit_s32 type,
@@ -3524,24 +3538,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 
 		lane_index = lane_index << elem_size;
 		ins = (sljit_ins)((elem_size << 10) | (lane_index << 5));
-		return push_inst32(compiler, ((type & SLJIT_SIMD_STORE) ? VST1_s : VLD1_s) | ins | DD4(freg) | RN4(srcdst) | 0xf);
+		return push_inst32(compiler, ((type & SLJIT_SIMD_STORE) ? VST1_s : VLD1_s) | ins | VD4(freg) | RN4(srcdst) | 0xf);
 	}
 
 	if (type & SLJIT_SIMD_FLOAT) {
 		if (elem_size == 3) {
 			if (type & SLJIT_SIMD_STORE)
-				return push_inst32(compiler, VORR | DD4(srcdst) | DN4(freg) | DM4(freg));
-			return push_inst32(compiler, VMOV_F32 | SLJIT_32 | DD4(freg) | DM4(srcdst));
+				return push_inst32(compiler, VORR | VD4(srcdst) | VN4(freg) | VM4(freg));
+			return push_inst32(compiler, VMOV_F32 | SLJIT_32 | VD4(freg) | VM4(srcdst));
 		}
 
 		if (type & SLJIT_SIMD_STORE) {
 			if (lane_index == 0)
-				return push_inst32(compiler, VMOV_F32 | SLJIT_32 | DD4(srcdst) | DM4(freg));
-			return push_inst32(compiler, VDUP_s | 0xc0000 | DD4(srcdst) | DM4(freg));
+				return push_inst32(compiler, VMOV_F32 | SLJIT_32 | VD4(srcdst) | VM4(freg));
+			return push_inst32(compiler, VDUP_s | 0xc0000 | VD4(srcdst) | VM4(freg));
 		}
 
-		FAIL_IF(push_inst32(compiler, VMOV | (1 << 20) | DN4(srcdst) | RT4(TMP_REG1)));
-		return push_inst32(compiler, VMOV_s | ((sljit_ins)lane_index << 21) | DN4(freg) | RT4(TMP_REG1));
+		FAIL_IF(push_inst32(compiler, VMOV | (1 << 20) | VN4(srcdst) | RT4(TMP_REG1)));
+		return push_inst32(compiler, VMOV_s | ((sljit_ins)lane_index << 21) | VN4(freg) | RT4(TMP_REG1));
 	}
 
 	if (srcdst & SLJIT_IMM) {
@@ -3569,7 +3583,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 			ins |= 0x800000;
 	}
 
-	return push_inst32(compiler, VMOV_s | ins | DN4(freg) | RT4(srcdst));
+	return push_inst32(compiler, VMOV_s | ins | VN4(freg) | RT4(srcdst));
 }
 
 #undef FPU_LOAD

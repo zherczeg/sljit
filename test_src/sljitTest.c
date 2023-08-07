@@ -98,10 +98,26 @@ static sljit_s32 silent = 0;
 	}
 
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#define IS_32BIT 0
+#define IS_64BIT 1
 #define WCONST(const64, const32) ((sljit_sw)SLJIT_W(const64))
 #else /* !SLJIT_64BIT_ARCHITECTURE */
+#define IS_32BIT 1
+#define IS_64BIT 0
 #define WCONST(const64, const32) ((sljit_sw)const32)
 #endif /* SLJIT_64BIT_ARCHITECTURE */
+
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#define IS_X86 1
+#else /* !SLJIT_CONFIG_X86 */
+#define IS_X86 0
+#endif /* SLJIT_CONFIG_X86 */
+
+#if (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
+#define IS_ARM 1
+#else /* !SLJIT_CONFIG_ARM */
+#define IS_ARM 0
+#endif /* SLJIT_CONFIG_ARM */
 
 static void cond_set(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_s32 type)
 {
@@ -860,12 +876,12 @@ static void test9(void)
 	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_R1, 0, SLJIT_R0, 0, SLJIT_IMM, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 0x7d00);
 	sljit_emit_op2(compiler, SLJIT_LSHR32, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 32);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV_U32, SLJIT_R0, 0, SLJIT_R0, 0);
 #endif
 	sljit_emit_op2(compiler, SLJIT_OR, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0xe30000);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op2(compiler, SLJIT_ASHR, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 0xffc0);
 #else
 	sljit_emit_op2(compiler, SLJIT_ASHR, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 0xffe0);
@@ -873,7 +889,7 @@ static void test9(void)
 	sljit_emit_op2(compiler, SLJIT_OR, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 0x25000000);
 	sljit_emit_op2(compiler, SLJIT_SHL32, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 0xfffe1);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV_U32, SLJIT_R0, 0, SLJIT_R0, 0);
 #endif
 	/* buf[11] */
@@ -884,7 +900,7 @@ static void test9(void)
 	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_R1, 0, SLJIT_R0, 0, shift_reg, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 0xf600);
 	sljit_emit_op2(compiler, SLJIT_LSHR32, SLJIT_R0, 0, SLJIT_R0, 0, shift_reg, 0);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	/* Alternative form of uint32 type cast. */
 	sljit_emit_op2(compiler, SLJIT_AND, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 0xffffffff);
 #endif
@@ -976,7 +992,7 @@ static void test10(void)
 	sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R0, 0);
 	/* buf[5] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw) * 5, SLJIT_R0, 0);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 3);
 	sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_R0, 0, SLJIT_R1, 0, SLJIT_IMM, SLJIT_W(0x123456789));
 	/* buf[6] */
@@ -996,7 +1012,7 @@ static void test10(void)
 	FAILED(buf[3] != -12, "test10 case 5 failed\n");
 	FAILED(buf[4] != 100, "test10 case 6 failed\n");
 	FAILED(buf[5] != 81, "test10 case 7 failed\n");
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(buf[6] != SLJIT_W(0x123456789) * 3, "test10 case 8 failed\n");
 #endif
 
@@ -1019,13 +1035,8 @@ static void test11(void)
 	sljit_uw const2_addr;
 	sljit_uw const3_addr;
 	sljit_uw const4_addr;
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-	sljit_sw word_value1 = (sljit_sw)SLJIT_W(0xaaaaaaaaaaaaaaaa);
-	sljit_sw word_value2 = (sljit_sw)SLJIT_W(0xfee1deadfbadf00d);
-#else
-	sljit_sw word_value1 = (sljit_sw)0xaaaaaaaal;
-	sljit_sw word_value2 = (sljit_sw)0xfbadf00dl;
-#endif
+	sljit_sw word_value1 = WCONST(0xaaaaaaaaaaaaaaaa, 0xaaaaaaaa);
+	sljit_sw word_value2 = WCONST(0xfee1deadfbadf00d, 0xfbadf00d);
 	sljit_sw buf[3];
 
 	if (verbose)
@@ -1654,7 +1665,7 @@ static void test18(void)
 	buf[7] = 100;
 	buf[8] = 100;
 	buf[9] = 0;
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE) && (defined SLJIT_BIG_ENDIAN && SLJIT_BIG_ENDIAN)
+#if IS_64BIT && (defined SLJIT_BIG_ENDIAN && SLJIT_BIG_ENDIAN)
 	buf[10] = SLJIT_W(1) << 32;
 #else
 	buf[10] = 1;
@@ -1662,7 +1673,7 @@ static void test18(void)
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, P), 3, 2, 0, 0, 0);
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	/* buf[0] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_IMM, SLJIT_W(0x1122334455667788));
 	/* buf[1] */
@@ -1702,12 +1713,12 @@ static void test18(void)
 	sljit_emit_op2(compiler, SLJIT_SHL32, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw) * 9, SLJIT_IMM, SLJIT_W(0xffff0000), SLJIT_R0, 0);
 	/* buf[10] */
 	sljit_emit_op2(compiler, SLJIT_MUL32, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw) * 10, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw) * 10, SLJIT_IMM, -1);
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	/* buf[0] */
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_IMM, 0x11223344);
 	/* buf[1] */
 	sljit_emit_op2(compiler, SLJIT_ADD32, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_IMM, 0x44332211);
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_emit_return_void(compiler);
 
@@ -1716,7 +1727,7 @@ static void test18(void)
 	sljit_free_compiler(compiler);
 
 	code.func1((sljit_sw)&buf);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(buf[0] != SLJIT_W(0x1122334455667788), "test18 case 1 failed\n");
 #if (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
 	FAILED(buf[1] != 0x55667788, "test18 case 2 failed\n");
@@ -1741,10 +1752,10 @@ static void test18(void)
 	FAILED(buf[9] != (sljit_sw)SLJIT_W(0xfff0000000000000), "test18 case 10 failed\n");
 	FAILED(buf[10] != (sljit_sw)SLJIT_W(0xffffffff00000000), "test18 case 11 failed\n");
 #endif /* SLJIT_LITTLE_ENDIAN */
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	FAILED(buf[0] != 0x11223344, "test18 case 1 failed\n");
 	FAILED(buf[1] != 0x44332211, "test18 case 2 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -1817,11 +1828,7 @@ static void test20(void)
 	struct sljit_jump* jump;
 	struct sljit_label* label;
 	sljit_sw buf[6];
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-	sljit_sw offset_value = SLJIT_W(0x1234567812345678);
-#else
-	sljit_sw offset_value = SLJIT_W(0x12345678);
-#endif
+	sljit_sw offset_value = WCONST(0x1234567812345678, 0x12345678);
 
 	if (verbose)
 		printf("Run test20\n");
@@ -2092,11 +2099,7 @@ static void test23(void)
 		sljit_s32 asint;
 		sljit_u8 asbytes[4];
 	} u;
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-	sljit_sw garbage = SLJIT_W(0x1234567812345678);
-#else
-	sljit_sw garbage = 0x12345678;
-#endif
+	sljit_sw garbage = WCONST(0x1234567812345678, 0x12345678);
 
 	if (verbose)
 		printf("Run test23\n");
@@ -2295,12 +2298,12 @@ static void test24(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)&bbuf + 0x7fff7fff + 5 * (sljit_sw)sizeof(sljit_s8));
 	/* bbuf[5] */
 	sljit_emit_op1(compiler, SLJIT_MOV_S8, SLJIT_MEM1(SLJIT_R0), -0x7fff7fff, SLJIT_MEM1(SLJIT_R0), -0x7fff8000);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)&bbuf - SLJIT_W(0x123456123456));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, (sljit_sw)&bbuf - SLJIT_W(0x123456123456));
 	/* bbuf[6] */
 	sljit_emit_op1(compiler, SLJIT_MOV_S8, SLJIT_MEM1(SLJIT_R0), SLJIT_W(0x123456123456) + 6 * sizeof(sljit_s8), SLJIT_MEM1(SLJIT_R1), SLJIT_W(0x123456123456));
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_emit_return_void(compiler);
 
@@ -2325,7 +2328,7 @@ static void test24(void)
 	FAILED(bbuf[2] != 99, "test24 case 12 failed\n");
 	FAILED(bbuf[4] != 99, "test24 case 13 failed\n");
 	FAILED(bbuf[5] != 99, "test24 case 14 failed\n");
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(bbuf[6] != -128, "test24 case 15 failed\n");
 #endif
 
@@ -2335,7 +2338,7 @@ static void test24(void)
 
 static void test25(void)
 {
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	/* 64 bit loads. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
@@ -2400,7 +2403,7 @@ static void test25(void)
 	FAILED(buf[13] != SLJIT_W(0x07fff00ffff00000), "test25 case 14 failed\n");
 
 	sljit_free_code(code.code, NULL);
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 	successful_tests++;
 }
 
@@ -2493,7 +2496,7 @@ static void test27(void)
 		cond_set(compiler, SLJIT_R2, 0, type); \
 		sljit_emit_op1(compiler, SLJIT_MOV_U8, SLJIT_MEM1(SLJIT_S0), 1, SLJIT_R2, 0); \
 		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_S0, 0, SLJIT_S0, 0, SLJIT_IMM, 1);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 #define RESULT(i) i
 #else
 #define RESULT(i) (3 - i)
@@ -2684,7 +2687,7 @@ static void test27(void)
 	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_SIG_LESS, SLJIT_R0, 0, SLJIT_IMM, 0x1234);
 	SET_NEXT_BYTE(SLJIT_SIG_LESS);
 	/* buf[38] */
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(0x12300000000) - 43);
 #else
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, -43);
@@ -2859,7 +2862,7 @@ static void test29(void)
 	sljit_emit_op1(compiler, SLJIT_MOV_U16, SLJIT_R4, 0, SLJIT_IMM, 0x9cb0a6);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 7 * sizeof(sljit_uw), SLJIT_R4, 0);
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV_S32, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(-3580429715));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 8 * sizeof(sljit_uw), SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV_S32, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(-100722768662));
@@ -2868,7 +2871,7 @@ static void test29(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 10 * sizeof(sljit_uw), SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV_U32, SLJIT_R4, 0, SLJIT_IMM, SLJIT_W(0xcef97a70b5));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 11 * sizeof(sljit_uw), SLJIT_R4, 0);
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, -187);
 	sljit_emit_op1(compiler, SLJIT_MOV_S8, SLJIT_R0, 0, SLJIT_R1, 0);
@@ -2896,7 +2899,7 @@ static void test29(void)
 	sljit_emit_op1(compiler, SLJIT_MOV_U16, SLJIT_R4, 0, SLJIT_R3, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 19 * sizeof(sljit_uw), SLJIT_R4, 0);
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, SLJIT_W(-3580429715));
 	sljit_emit_op1(compiler, SLJIT_MOV_S32, SLJIT_R0, 0, SLJIT_R1, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 20 * sizeof(sljit_uw), SLJIT_R0, 0);
@@ -2909,7 +2912,7 @@ static void test29(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R3, 0, SLJIT_IMM, SLJIT_W(0xcef97a70b5));
 	sljit_emit_op1(compiler, SLJIT_MOV_U32, SLJIT_R4, 0, SLJIT_R3, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 23 * sizeof(sljit_uw), SLJIT_R4, 0);
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S2, 0, SLJIT_IMM, 0x9faa5);
 	sljit_emit_op1(compiler, SLJIT_MOV_S8, SLJIT_S2, 0, SLJIT_S2, 0);
@@ -2931,12 +2934,12 @@ static void test29(void)
 	FAILED(buf[6] != 52646, "test29 case 7 failed\n");
 	FAILED(buf[7] != 0xb0a6, "test29 case 8 failed\n");
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(buf[8] != SLJIT_W(714537581), "test29 case 9 failed\n");
 	FAILED(buf[9] != SLJIT_W(-1938520854), "test29 case 10 failed\n");
 	FAILED(buf[10] != SLJIT_W(3236202668), "test29 case 11 failed\n");
 	FAILED(buf[11] != SLJIT_W(0xf97a70b5), "test29 case 12 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	FAILED(buf[12] != 69, "test29 case 13 failed\n");
 	FAILED(buf[13] != -93, "test29 case 14 failed\n");
@@ -2947,12 +2950,12 @@ static void test29(void)
 	FAILED(buf[18] != 52646, "test29 case 19 failed\n");
 	FAILED(buf[19] != 0xb0a6, "test29 case 20 failed\n");
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(buf[20] != SLJIT_W(714537581), "test29 case 21 failed\n");
 	FAILED(buf[21] != SLJIT_W(-1938520854), "test29 case 22 failed\n");
 	FAILED(buf[22] != SLJIT_W(3236202668), "test29 case 23 failed\n");
 	FAILED(buf[23] != SLJIT_W(0xf97a70b5), "test29 case 24 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	FAILED(buf[24] != -91, "test29 case 25 failed\n");
 
@@ -2979,7 +2982,7 @@ static void test30(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 1);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R3, 0, SLJIT_IMM, 1);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R4, 0, SLJIT_IMM, 1);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_S1, 0, SLJIT_IMM, SLJIT_W(-0x123ffffffff));
 #else
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_S1, 0, SLJIT_IMM, 1);
@@ -3028,13 +3031,8 @@ static void test31(void)
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_sw buf[12];
 	sljit_s32 i;
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-	sljit_sw big_word = SLJIT_W(0x7fffffff00000000);
-	sljit_sw big_word2 = SLJIT_W(0x7fffffff00000012);
-#else
-	sljit_sw big_word = 0x7fffffff;
-	sljit_sw big_word2 = 0x00000012;
-#endif
+	sljit_sw big_word = WCONST(0x7fffffff00000000, 0x7fffffff);
+	sljit_sw big_word2 = WCONST(0x7fffffff00000012, 0x00000012);
 
 	if (verbose)
 		printf("Run test31\n");
@@ -3099,18 +3097,13 @@ static void test31(void)
 
 	FAILED(buf[0] != 1, "test31 case 1 failed\n");
 	FAILED(buf[1] != 2, "test31 case 2 failed\n");
-/* Qemu issues for 64 bit muls. */
-#if !(defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	FAILED(buf[2] != 1, "test31 case 3 failed\n");
 	FAILED(buf[3] != 2, "test31 case 4 failed\n");
-#endif
 	FAILED(buf[4] != 1, "test31 case 5 failed\n");
 	FAILED((buf[5] & (sljit_sw)0xffffffff) != (sljit_sw)0x85540c10, "test31 case 6 failed\n");
 	FAILED(buf[6] != 2, "test31 case 7 failed\n");
 	FAILED(buf[7] != 1, "test31 case 8 failed\n");
-#if !(defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	FAILED(buf[8] != 1, "test31 case 9 failed\n");
-#endif
 	FAILED(buf[9] != -1541, "test31 case 10 failed\n");
 
 	sljit_free_code(code.code, NULL);
@@ -3287,7 +3280,7 @@ static void test33(void)
 	sljit_set_label(jump, sljit_emit_label(compiler));
 
 	/* buf[4-5] */
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)SLJIT_W(0x8000000000000000));
 #else
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)SLJIT_W(0x80000000));
@@ -3315,7 +3308,7 @@ static void test33(void)
 	sljit_set_label(jump, sljit_emit_label(compiler));
 
 	/* buf[8] */
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)SLJIT_W(0x8000000000000000));
 #else
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)SLJIT_W(0x80000000));
@@ -3665,7 +3658,7 @@ static void test36(void)
 	cmp_test(compiler, SLJIT_SIG_GREATER, SLJIT_IMM, -1, SLJIT_R1, 0);
 	cmp_test(compiler, SLJIT_SIG_GREATER | SLJIT_REWRITABLE_JUMP, SLJIT_R1, 0, SLJIT_IMM, -1);
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(0xf00000004));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_R1, 0);
@@ -3676,7 +3669,7 @@ static void test36(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_R0, 0);
 	cmp_test(compiler, SLJIT_SIG_GREATER | SLJIT_32, SLJIT_R1, 0, SLJIT_IMM, 5);
 	cmp_test(compiler, SLJIT_SIG_GREATER, SLJIT_R0, 0, SLJIT_IMM, 5);
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 4);
 	/* buf[40-43] */
 	cmp_test(compiler, SLJIT_LESS | SLJIT_32, SLJIT_R0, 0, SLJIT_IMM, 5);
@@ -3684,7 +3677,7 @@ static void test36(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)0xf0000004);
 	cmp_test(compiler, SLJIT_SIG_GREATER | SLJIT_32, SLJIT_R0, 0, SLJIT_IMM, 5);
 	cmp_test(compiler, SLJIT_SIG_LESS | SLJIT_32, SLJIT_R0, 0, SLJIT_IMM, 5);
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_emit_return_void(compiler);
 
@@ -3705,11 +3698,11 @@ static void test36(void)
 }
 #undef TEST_CASES
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 #define BITN(n) (SLJIT_W(1) << (63 - (n)))
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 #define BITN(n) (1 << (31 - ((n) & 0x1f)))
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 static void test37(void)
 {
@@ -4200,7 +4193,7 @@ static void test41(void)
 
 	FAILED(code.func2(32, -11) != 21, "test41 case 1 failed\n");
 	FAILED(code.func2(1000, 234) != 1234, "test41 case 2 failed\n");
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(code.func2(SLJIT_W(0x20f0a04090c06070), SLJIT_W(0x020f0a04090c0607)) != SLJIT_W(0x22ffaa4499cc6677), "test41 case 3 failed\n");
 #endif
 
@@ -4332,7 +4325,7 @@ static void test42(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S3, 0, SLJIT_IMM, 0x5a4d0c4);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S4, 0, SLJIT_IMM, 0x9a3b06d);
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	/* buf[7-26] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(-0x5dc4f897b8cd67f5));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, SLJIT_W(0x3f8b5c026cb088df));
@@ -4402,7 +4395,7 @@ static void test42(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 25 * sizeof(sljit_sw), SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 26 * sizeof(sljit_sw), SLJIT_R1, 0);
 
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, -0x58cd67f5);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 0x3cb088df);
 	sljit_emit_op0(compiler, SLJIT_LMUL_UW);
@@ -4466,7 +4459,7 @@ static void test42(void)
 	sljit_emit_op1(compiler, SLJIT_MOV_S32, SLJIT_R1, 0, SLJIT_R1, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 25 * sizeof(sljit_sw), SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 26 * sizeof(sljit_sw), SLJIT_R1, 0);
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	/* buf[0-6] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R2, 0);
@@ -4493,7 +4486,7 @@ static void test42(void)
 	FAILED(buf[5] != 0x5a4d0c4, "test42 case 6 failed\n");
 	FAILED(buf[6] != 0x9a3b06d, "test42 case 7 failed\n");
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(buf[7] != SLJIT_W(-4388959407985636971), "test42 case 8 failed\n");
 	FAILED(buf[8] != SLJIT_W(2901680654366567099), "test42 case 9 failed\n");
 	FAILED(buf[9] != SLJIT_W(-4388959407985636971), "test42 case 10 failed\n");
@@ -4502,7 +4495,7 @@ static void test42(void)
 	FAILED(buf[12] != SLJIT_W(2532236178951865933), "test42 case 13 failed\n");
 	FAILED(buf[13] != SLJIT_W(-1), "test42 case 14 failed\n");
 	FAILED(buf[14] != SLJIT_W(-2177944059851366166), "test42 case 15 failed\n");
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	FAILED(buf[7] != -1587000939, "test42 case 8 failed\n");
 	FAILED(buf[8] != 665003983, "test42 case 9 failed\n");
 	FAILED(buf[9] != -1587000939, "test42 case 10 failed\n");
@@ -4511,24 +4504,24 @@ static void test42(void)
 	FAILED(buf[12] != 768706125, "test42 case 13 failed\n");
 	FAILED(buf[13] != -1, "test42 case 14 failed\n");
 	FAILED(buf[14] != -471654166, "test42 case 15 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	FAILED(buf[15] != 56, "test42 case 16 failed\n");
 	FAILED(buf[16] != 58392872, "test42 case 17 failed\n");
 	FAILED(buf[17] != -47, "test42 case 18 failed\n");
 	FAILED(buf[18] != 35949148, "test42 case 19 failed\n");
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(buf[19] != SLJIT_W(0x3340bfc), "test42 case 20 failed\n");
 	FAILED(buf[20] != SLJIT_W(0x3d4af2c543), "test42 case 21 failed\n");
 	FAILED(buf[21] != SLJIT_W(-0xaf978), "test42 case 22 failed\n");
 	FAILED(buf[22] != SLJIT_W(0xa64ae42b7d6), "test42 case 23 failed\n");
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	FAILED(buf[19] != SLJIT_W(0xda5), "test42 case 20 failed\n");
 	FAILED(buf[20] != SLJIT_W(0xb86d0), "test42 case 21 failed\n");
 	FAILED(buf[21] != SLJIT_W(-0x6b6e), "test42 case 22 failed\n");
 	FAILED(buf[22] != SLJIT_W(0xd357), "test42 case 23 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	FAILED(buf[23] != 0x0, "test42 case 24 failed\n");
 	FAILED(buf[24] != (sljit_sw)0xf2906b14, "test42 case 25 failed\n");
@@ -4945,13 +4938,13 @@ static void test47(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R0, 0);
 	/* buf[1] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0xd37c10);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_set_target(sljit_emit_jump(compiler, SLJIT_LESS), SLJIT_W(0x112233445566));
 #endif
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_R0, 0);
 	/* buf[2] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0x59b48e);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_set_target(sljit_emit_jump(compiler, SLJIT_LESS), SLJIT_W(0x1122334455667788));
 #endif
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_sw), SLJIT_R0, 0);
@@ -5157,7 +5150,7 @@ static void test49(void)
 		ibuf[i] = -1;
 	}
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	dbuf[9] = (sljit_f64)SLJIT_W(0x1122334455);
 #endif
 	dbuf[0] = 673.75;
@@ -5192,7 +5185,7 @@ static void test49(void)
 	/* sbuf[6] */
 	sljit_emit_fop1(compiler, SLJIT_CONV_F32_FROM_S32, SLJIT_MEM1(SLJIT_S1), 6 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_R2), 0);
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_fop1(compiler, SLJIT_CONV_SW_FROM_F64, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), 9 * sizeof(sljit_f64));
 	/* wbuf[8] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S2), 8 * sizeof(sljit_sw), SLJIT_R0, 0);
@@ -5207,7 +5200,7 @@ static void test49(void)
 	sljit_emit_fop1(compiler, SLJIT_CONV_F64_FROM_SW, SLJIT_MEM1(SLJIT_S0), 8 * sizeof(sljit_f64), SLJIT_R0, 0);
 	/* dbuf[9] */
 	sljit_emit_fop1(compiler, SLJIT_CONV_F64_FROM_S32, SLJIT_MEM1(SLJIT_S0), 9 * sizeof(sljit_f64), SLJIT_IMM, SLJIT_W(0x7766554433));
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_emit_return_void(compiler);
 
@@ -5249,12 +5242,12 @@ static void test49(void)
 	FAILED(ibuf[4] != -879, "test49 case 27 failed\n");
 	FAILED(ibuf[5] != -1, "test49 case 28 failed\n");
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(dbuf[8] != (sljit_f64)SLJIT_W(0x4455667788), "test49 case 29 failed\n");
 	FAILED(dbuf[9] != (sljit_f64)SLJIT_W(0x66554433), "test49 case 30 failed\n");
 	FAILED(wbuf[8] != SLJIT_W(0x1122334455), "test48 case 31 failed\n");
 	FAILED(ibuf[8] == 0x4455, "test48 case 32 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -5265,7 +5258,7 @@ static void test50(void)
 	/* Test stack and floating point operations. */
 	executable_code code;
 	struct sljit_compiler* compiler;
-#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#if !IS_X86
 	sljit_uw size1, size2, size3;
 	int result;
 #endif
@@ -5303,20 +5296,20 @@ static void test50(void)
 	/* sbuf[5] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_SP), 3 * sizeof(sljit_f32));
 
-#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#if !IS_X86
 	size1 = compiler->size;
 #endif
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR2, 0, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_f32));
-#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#if !IS_X86
 	size2 = compiler->size;
 #endif
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR5, 0, SLJIT_FR2, 0);
-#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#if !IS_X86
 	size3 = compiler->size;
 #endif
 	/* sbuf[6] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_f32), SLJIT_FR5, 0);
-#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#if !IS_X86
 	result = (compiler->size - size3) == (size3 - size2) && (size3 - size2) == (size2 - size1);
 #endif
 
@@ -5332,7 +5325,7 @@ static void test50(void)
 	FAILED(sbuf[4] != 145.25, "test50 case 2 failed\n");
 	FAILED(sbuf[5] != 5934, "test50 case 3 failed\n");
 	FAILED(sbuf[6] != 713.75, "test50 case 4 failed\n");
-#if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#if !IS_X86
 	FAILED(!result, "test50 case 5 failed\n");
 #endif
 
@@ -6082,7 +6075,7 @@ static void test57(void)
 	labels[1] = sljit_emit_label(compiler);
 	sljit_emit_op_src(compiler, SLJIT_PREFETCH_L2, SLJIT_MEM0(), 0);
 	labels[2] = sljit_emit_label(compiler);
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op_src(compiler, SLJIT_PREFETCH_L3, SLJIT_MEM1(SLJIT_R0), SLJIT_W(0x1122334455667788));
 #else
 	sljit_emit_op_src(compiler, SLJIT_PREFETCH_L3, SLJIT_MEM1(SLJIT_R0), 0x11223344);
@@ -6818,11 +6811,7 @@ static void test63(void)
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_uw addr[2];
 	sljit_uw buf[4];
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-	sljit_sw offs = SLJIT_W(0x123456789012);
-#else
-	sljit_sw offs = 0x12345678;
-#endif
+	sljit_sw offs = WCONST(0x123456789012, 0x12345678);
 
 	if (verbose)
 		printf("Run test63\n");
@@ -6890,18 +6879,11 @@ static void test64(void)
 	struct sljit_compiler* compiler;
 	sljit_uw buf[7];
 	sljit_s32 i;
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	/* Must be even because it is also used for addressing. */
-	sljit_sw offs1 = SLJIT_W(0x1234567812);
-	sljit_sw offs2 = SLJIT_W(0x123456781122);
-	sljit_sw offs3 = SLJIT_W(0x7fffffff7ff);
-	sljit_sw offs4 = SLJIT_W(0x1234567811223344);
-#else /* !SLJIT_64BIT_ARCHITECTURE */
-	sljit_sw offs1 = (sljit_sw)0x80000000;
-	sljit_sw offs2 = (sljit_sw)0xe0000000;
-	sljit_sw offs3 = (sljit_sw)0x87654321;
-	sljit_sw offs4 = (sljit_sw)0xffffffff;
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+	sljit_sw offs1 = WCONST(0x1234567812, 0x80000000);
+	sljit_sw offs2 = WCONST(0x123456781122, 0xe0000000);
+	sljit_sw offs3 = WCONST(0x7fffffff7ff, 0x87654321);
+	sljit_sw offs4 = WCONST(0x1234567811223344, 0xffffffff);
 
 	if (verbose)
 		printf("Run test64\n");
@@ -9368,7 +9350,7 @@ static void test77(void)
 	FAILED(wbuf[4] != (sljit_u16)-28531, "test77 case 5 failed\n");
 	FAILED(cmp_u8(bbuf, 3, hbuf, sizeof(sljit_s16)) != 1, "test77 case 6 failed\n");
 	FAILED(wbuf[5] != -38512, "test77 case 7 failed\n");
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(wbuf[6] != (sljit_u32)-38512, "test77 case 8 failed\n");
 #else
 	FAILED(wbuf[6] != -38512, "test77 case 8 failed\n");
@@ -11039,12 +11021,12 @@ static void test88(void)
 	struct sljit_compiler* compiler;
 	sljit_f64 dbuf[4];
 	sljit_f32 sbuf[2];
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_sw wbuf[2];
 	sljit_s32 ibuf[2];
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	sljit_s32 ibuf[7];
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	if (verbose)
 		printf("Run test88\n");
@@ -11065,16 +11047,16 @@ static void test88(void)
 	ibuf[1] = (sljit_s32)0xc7543100;
 	dbuf[0] = 123456789012345.0;
 	dbuf[1] = -1.0;
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	wbuf[0] = -1;
 	wbuf[1] = (sljit_sw)0xc2fee0c29f50cb10;
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	ibuf[2] = -1;
 	ibuf[3] = -1;
 	ibuf[4] = -1;
 	ibuf[5] = (sljit_sw)0x9f50cb10;
 	ibuf[6] = (sljit_sw)0xc2fee0c2;
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS2(VOID, W, W), 5, 5, 5, 0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, (sljit_sw)ibuf);
@@ -11088,7 +11070,7 @@ static void test88(void)
 	/* sbuf[1] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_f32), SLJIT_FR4, 0);
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, (sljit_sw)wbuf);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_S0), 0);
 	sljit_emit_fcopy(compiler, SLJIT_COPY_FROM_F64, SLJIT_FR1, SLJIT_S2);
@@ -11104,7 +11086,7 @@ static void test88(void)
 	sljit_emit_fcopy(compiler, SLJIT_COPY_TO_F64, SLJIT_FR3, SLJIT_R2);
 	/* dbuf[2] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_f64), SLJIT_FR3, 0);
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_S0), 0);
 	sljit_emit_fcopy(compiler, SLJIT_COPY_FROM_F64, SLJIT_FR1, SLJIT_REG_PAIR(SLJIT_S3, SLJIT_S2));
 	/* ibuf[2-3] */
@@ -11129,7 +11111,7 @@ static void test88(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, (sljit_sw)0xc00c0000);
 	sljit_emit_fcopy(compiler, SLJIT_COPY_TO_F64, SLJIT_FR3, SLJIT_R2);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_f64), SLJIT_FR3, 0);
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_emit_return_void(compiler);
 
@@ -11141,18 +11123,18 @@ static void test88(void)
 
 	FAILED(ibuf[0] != (sljit_s32)0x4640e400, "test88 case 1 failed\n");
 	FAILED(sbuf[1] != -54321.0, "test88 case 2 failed\n");
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(wbuf[0] != (sljit_sw)0x42dc12218377de40, "test88 case 3 failed\n");
 	FAILED(dbuf[1] != -543210987654321.0, "test88 case 4 failed\n");
 	FAILED(dbuf[2] != 0.0, "test88 case 5 failed\n");
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	FAILED(ibuf[2] != (sljit_sw)0x8377de40, "test88 case 3 failed\n");
 	FAILED(ibuf[3] != (sljit_sw)0x42dc1221, "test88 case 4 failed\n");
 	FAILED(ibuf[4] != (sljit_sw)0x42dc1221, "test88 case 5 failed\n");
 	FAILED(dbuf[1] != -543210987654321.0, "test88 case 6 failed\n");
 	FAILED(dbuf[2] != 0.0, "test88 case 7 failed\n");
 	FAILED(dbuf[3] != -3.5, "test88 case 8 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -11553,9 +11535,9 @@ static void test92(void)
 	((sljit_u8*)(buf + 26))[1] = 105;
 	((sljit_u8*)(buf + 28))[2] = 13;
 	((sljit_u16*)(buf + 31))[1] = 14876;
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	((sljit_s32*)(buf + 33))[1] = -1;
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 	buf[37] = WCONST(0x1122334444332211, 0x11222211);
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, P), 5, 5, 0, 0, 2 * sizeof(sljit_sw));
@@ -11730,7 +11712,7 @@ static void test92(void)
 	/* buf[32] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 32 * sizeof(sljit_sw), SLJIT_S1, 0);
 
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 33 * sizeof(sljit_sw) + sizeof(sljit_u32));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_IMM, 0);
 	label = sljit_emit_label(compiler);
@@ -11742,7 +11724,7 @@ static void test92(void)
 	sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
 	/* buf[34] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 34 * sizeof(sljit_sw), SLJIT_S1, 0);
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	/* buf[35] */
 	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 35 * sizeof(sljit_sw), SLJIT_ATOMIC_STORED);
@@ -11787,18 +11769,18 @@ static void test92(void)
 	FAILED(*(sljit_u32*)(buf + 13) != 57812, "test92 case 18 failed\n");
 	FAILED(buf[14] != 41306, "test92 case 19 failed\n");
 	FAILED(*(sljit_u32*)(buf + 15) != 987654321, "test92 case 20 failed\n");
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(((sljit_u8*)(buf + 15))[4] != 0x55, "test92 case 21 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 	FAILED(buf[16] != 1234567890, "test92 case 22 failed\n");
 	FAILED(*(sljit_u32*)(buf + 17) != 678906789, "test92 case 23 failed\n");
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(((sljit_u8*)(buf + 17))[4] != 0x55, "test92 case 24 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 	FAILED(*(sljit_u32*)(buf + 18) != 987609876, "test92 case 25 failed\n");
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(((sljit_u8*)(buf + 18))[4] != 0x55, "test92 case 25 (overflow) failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 	FAILED(buf[19] != -573621, "test92 case 26 failed\n");
 	FAILED(*(sljit_u8*)(buf + 20) != 240, "test92 case 27 failed\n");
 	FAILED(((sljit_u8*)(buf + 20))[1] != 0x55, "test92 case 28 failed\n");
@@ -11819,11 +11801,11 @@ static void test92(void)
 	FAILED(((sljit_u16*)(buf + 31))[0] != 0x5555, "test92 case 43 failed\n");
 	FAILED(((sljit_u16*)(buf + 31))[1] != 51403, "test92 case 44 failed\n");
 	FAILED(buf[32] != 14876, "test92 case 45 failed\n");
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	FAILED(((sljit_u32*)(buf + 33))[0] != 0x55555555, "test92 case 46 failed\n");
 	FAILED(((sljit_u32*)(buf + 33))[1] != 0xdeadbeef, "test92 case 47 failed\n");
 	FAILED(buf[34] != 0xffffffff, "test92 case 48 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 	FAILED(buf[35] != 1, "test92 case 49 failed\n");
 	FAILED(buf[36] != 0x11, "test92 case 50 (load) failed\n");
 	FAILED(((sljit_u8*)(buf + 37))[1] != buf[36], "test92 case 50 (store) failed\n");
@@ -12057,7 +12039,7 @@ static void test94(void)
 	FAILED(f64_check.bin.low != 0xe0000000 || f64_check.bin.high != 0x41efffff, "test94 case 7 failed\n");
 	f32_check.value = sbuf[3]; /* 0xffffff00 */
 	FAILED(f32_check.bin != 0x4f7fffff, "test94 case 8 failed\n");
-#if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
+#if IS_64BIT
 	f64_check.value = dbuf[4]; /* 0x7fff000000000000 */
 	FAILED(f64_check.bin.low != 0 || f64_check.bin.high != 0x43dfffc0, "test94 case 9 failed\n");
 	f32_check.value = sbuf[4]; /* 0x7fff000000000000 */
@@ -12078,7 +12060,7 @@ static void test94(void)
 	FAILED(f64_check.bin.low != 1 || f64_check.bin.high != 0x43e00000, "test94 case 17 failed\n");
 	f32_check.value = sbuf[8]; /* 0x8000008000000001 */
 	FAILED(f32_check.bin != 0x5f000001, "test94 case 18 failed\n");
-#else /* !SLJIT_64BIT_ARCHITECTURE */
+#else /* !IS_64BIT */
 	f64_check.value = dbuf[4]; /* 0x7fff0000 */
 	FAILED(f64_check.bin.low != 0 || f64_check.bin.high != 0x41dfffc0, "test94 case 9 failed\n");
 	f32_check.value = sbuf[4]; /* 0x7fff0000 */
@@ -12099,7 +12081,7 @@ static void test94(void)
 	FAILED(f64_check.bin.low != 0x00200000 || f64_check.bin.high != 0x41e00000, "test94 case 17 failed\n");
 	f32_check.value = sbuf[8]; /* 0x80000081 */
 	FAILED(f32_check.bin != 0x4f000001, "test94 case 18 failed\n");
-#endif /* SLJIT_64BIT_ARCHITECTURE */
+#endif /* IS_64BIT */
 
 	successful_tests++;
 }
@@ -12234,7 +12216,9 @@ static void simd_set(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
 	} while (--length != 0);
 }
 
-static sljit_s32 check_simd_mem(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
+#if IS_X86 || IS_ARM
+
+static sljit_s32 check_simd_mov(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
 {
 	if (buf[-1] != 0xaa || buf[length] != 0xaa)
 		return 0;
@@ -12252,6 +12236,8 @@ static sljit_s32 check_simd_mem(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
 	return 1;
 }
 
+#endif /* IS_X86 || IS_ARM */
+
 static void test96(void)
 {
 	/* Test simd data transfer. */
@@ -12259,8 +12245,7 @@ static void test96(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 i, type;
 	sljit_u8* buf;
-	sljit_u8 data[63 + 496];
-	sljit_u8 supported[10];
+	sljit_u8 data[63 + 680];
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
@@ -12272,7 +12257,7 @@ static void test96(void)
 	/* Buffer is 64 byte aligned. */
 	buf = (sljit_u8*)(((sljit_sw)data + (sljit_sw)63) & ~(sljit_sw)63);
 
-	for (i = 0; i < 496; i++)
+	for (i = 0; i < 680; i++)
 		buf[i] = 0xaa;
 
 	compiler = sljit_create_compiler(NULL, NULL);
@@ -12289,68 +12274,98 @@ static void test96(void)
 	simd_set(buf + 393, 197, 8);
 	simd_set(buf + 416, 58, 16);
 	simd_set(buf + 432, 203, 16);
+	simd_set(buf + 496, 105, 16);
+	simd_set(buf + 560, 19, 16);
+	simd_set(buf + 616, 202, 8);
+	simd_set(buf + 648, 123, 8);
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, P), 2, 2, 6, 0, 16);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_8 | SLJIT_SIMD_MEM_ALIGNED_128;
-	supported[0] = sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 0);
 	/* buf[32] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 32);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 65);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 82 >> 1);
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_8 | SLJIT_SIMD_MEM_UNALIGNED;
-	supported[1] = sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), 0);
 	/* buf[82] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM2(SLJIT_S0, SLJIT_R1), 1);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM2(SLJIT_S0, SLJIT_R1), 1);
 
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_IMM, 70001);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 70001);
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_32 | SLJIT_SIMD_MEM_ALIGNED_64;
-	supported[2] = sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_R0), 70001 + 104) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_R0), 70001 + 104);
 	/* buf[136] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_R1), 136 - 70001);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_R1), 136 - 70001);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_ELEM_32 | SLJIT_SIMD_MEM_ALIGNED_128;
-	supported[3] = sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM0(), (sljit_sw)(buf + 160)) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM0(), (sljit_sw)(buf + 160));
 	/* buf[192] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM0(), (sljit_sw)(buf + 192));
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM0(), (sljit_sw)(buf + 192));
 
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_IMM, 1001);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 1001);
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_ELEM_32 | SLJIT_SIMD_MEM_ALIGNED_16;
-	supported[4] = sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_R0), 1001 + 210) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_R0), 1001 + 210);
 	/* buf[230] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_R1), 230 - 1001);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_R1), 230 - 1001);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 256 >> 3);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 288 >> 3);
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_ELEM_64 | SLJIT_SIMD_MEM_ALIGNED_128;
-	supported[5] = sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), 3) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), 3);
 	/* buf[288] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM2(SLJIT_S0, SLJIT_R1), 3);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM2(SLJIT_S0, SLJIT_R1), 3);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_ELEM_64 | SLJIT_SIMD_MEM_ALIGNED_64;
-	supported[6] = sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 312) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 312);
 	/* buf[344] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 344);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 344);
 
 	type = SLJIT_SIMD_REG_64 | SLJIT_SIMD_ELEM_32 | SLJIT_SIMD_MEM_ALIGNED_64;
-	supported[7] = sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 368) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 368);
 	/* buf[384] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 384);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 384);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 393);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 402);
 	type = SLJIT_SIMD_REG_64 | SLJIT_SIMD_ELEM_64 | SLJIT_SIMD_MEM_UNALIGNED;
-	supported[8] = sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), 0);
 	/* buf[402] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM2(SLJIT_S0, SLJIT_R1), 0);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM2(SLJIT_S0, SLJIT_R1), 0);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_16 | SLJIT_SIMD_MEM_ALIGNED_128;
-	supported[9] = sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 416) != SLJIT_ERR_UNSUPPORTED;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 432);
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 464);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 416);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 432);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 464);
+
+	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_16;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 496);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 480);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_FR2, 0);
+	/* buf[528] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 528);
+
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 560);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 544);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_FR0, 0);
+	/* buf[592] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 592);
+
+	type = SLJIT_SIMD_REG_64 | SLJIT_SIMD_ELEM_8;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 616);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 608);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_FR5, 0);
+	/* buf[632] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 632);
+
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 648);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 640);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_FR2, 0);
+	/* buf[664] */
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 664);
 
 	sljit_emit_return_void(compiler);
 
@@ -12360,37 +12375,35 @@ static void test96(void)
 
 	code.func1((sljit_sw)buf);
 
-	if (supported[0])
-		FAILED(!check_simd_mem(buf + 32, 81, 16), "test96 case 1 failed\n");
-	if (supported[1])
-		FAILED(!check_simd_mem(buf + 82, 213, 16), "test96 case 2 failed\n");
-	if (supported[2])
-		FAILED(!check_simd_mem(buf + 136, 33, 16), "test96 case 3 failed\n");
-	if (supported[3])
-		FAILED(!check_simd_mem(buf + 192, 140, 16), "test96 case 4 failed\n");
-	if (supported[4])
-		FAILED(!check_simd_mem(buf + 230, 7, 16), "test96 case 5 failed\n");
-	if (supported[5])
-		FAILED(!check_simd_mem(buf + 288, 239, 16), "test96 case 6 failed\n");
-	if (supported[6])
-		FAILED(!check_simd_mem(buf + 344, 176, 16), "test96 case 7 failed\n");
-	if (supported[7])
-		FAILED(!check_simd_mem(buf + 384, 88, 8), "test96 case 8 failed\n");
-	if (supported[8])
-		FAILED(!check_simd_mem(buf + 402, 197, 8), "test96 case 9 failed\n");
-	if (supported[9])
-		FAILED(!check_simd_mem(buf + 464, sljit_has_cpu_feature(SLJIT_SIMD_REGS_ARE_PAIRS) ? 203 : 58, 16), "test96 case 10 failed\n");
-
-	for (i = 0; i < 9; i++)
-		if (supported[i])
-			break;
-
-	SLJIT_ASSERT((i < 9 && sljit_has_cpu_feature(SLJIT_HAS_SIMD))
-		|| (i == 9 && !sljit_has_cpu_feature(SLJIT_HAS_SIMD)));
+#if IS_X86 || IS_ARM
+	SLJIT_ASSERT(sljit_has_cpu_feature(SLJIT_HAS_SIMD));
+	FAILED(!check_simd_mov(buf + 32, 81, 16), "test96 case 1 failed\n");
+	FAILED(!check_simd_mov(buf + 82, 213, 16), "test96 case 2 failed\n");
+	FAILED(!check_simd_mov(buf + 136, 33, 16), "test96 case 3 failed\n");
+	FAILED(!check_simd_mov(buf + 192, 140, 16), "test96 case 4 failed\n");
+	FAILED(!check_simd_mov(buf + 230, 7, 16), "test96 case 5 failed\n");
+	FAILED(!check_simd_mov(buf + 288, 239, 16), "test96 case 6 failed\n");
+	FAILED(!check_simd_mov(buf + 344, 176, 16), "test96 case 7 failed\n");
+#endif /* IS_X86 || IS_ARM */
+#if IS_ARM
+	FAILED(!check_simd_mov(buf + 384, 88, 8), "test96 case 8 failed\n");
+	FAILED(!check_simd_mov(buf + 402, 197, 8), "test96 case 9 failed\n");
+#endif /* IS_ARM */
+#if IS_X86 || IS_ARM
+	FAILED(!check_simd_mov(buf + 464, sljit_has_cpu_feature(SLJIT_SIMD_REGS_ARE_PAIRS) ? 203 : 58, 16), "test96 case 10 failed\n");
+	FAILED(!check_simd_mov(buf + 528, 105, 16), "test96 case 11 failed\n");
+	FAILED(!check_simd_mov(buf + 592, 19, 16), "test96 case 12 failed\n");
+#endif /* IS_X86 || IS_ARM */
+#if IS_ARM
+	FAILED(!check_simd_mov(buf + 632, 202, 8), "test96 case 13 failed\n");
+	FAILED(!check_simd_mov(buf + 664, 123, 8), "test96 case 14 failed\n");
+#endif /* IS_ARM */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
+
+#if IS_X86 || IS_ARM
 
 static sljit_s32 check_simd_lane_mov(sljit_u8* buf, sljit_s32 length, sljit_s32 elem_size, sljit_s32 is_odd)
 {
@@ -12424,6 +12437,8 @@ static sljit_s32 check_simd_lane_mov(sljit_u8* buf, sljit_s32 length, sljit_s32 
 	return 1;
 }
 
+#endif /* IS_X86 || IS_ARM */
+
 static void test97(void)
 {
 	/* Test simd lane data transfer. */
@@ -12432,7 +12447,6 @@ static void test97(void)
 	sljit_s32 i, type;
 	sljit_u8* buf;
 	sljit_u8 data[63 + 288];
-	sljit_u8 supported[6];
 	sljit_f64 tmp[1];
 	sljit_sw byte_result = -1;
 	sljit_u32 f32_result = 0;
@@ -12462,10 +12476,10 @@ static void test97(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_IMM, 100000 / 2);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_8;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 0);
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 16);
 
-	supported[0] = sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, 14, SLJIT_R2, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, 14, SLJIT_R2, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, 0, SLJIT_R2, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, 12, SLJIT_MEM1(SLJIT_SP), 0);
 	sljit_get_local_base(compiler, SLJIT_R2, 0, 0);
@@ -12483,9 +12497,9 @@ static void test97(void)
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, 0, SLJIT_S2, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, 14, SLJIT_S2, 0);
 	/* buf[32] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 32);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 16);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, 1, SLJIT_R2, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM0(), (sljit_sw)&byte_result, SLJIT_R2, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, 15, SLJIT_IMM, 101 + 0xffff00);
@@ -12496,13 +12510,13 @@ static void test97(void)
 		sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, 16 - i, SLJIT_R2, 0);
 	}
 	/* buf[48] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 48);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 48);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_16;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 0);
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 16);
 
-	supported[1] = sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, 6, SLJIT_R2, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, 6, SLJIT_R2, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, 0, SLJIT_R2, 0);
 	sljit_get_local_base(compiler, SLJIT_R2, 0, 4);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, 4, SLJIT_MEM1(SLJIT_R2), 0);
@@ -12512,9 +12526,9 @@ static void test97(void)
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, 0, SLJIT_S3, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, 6, SLJIT_S3, 0);
 	/* buf[64] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 64);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 64);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 16);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, 7, SLJIT_MEM1(SLJIT_R0), 100000);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, 1, SLJIT_MEM1(SLJIT_R1), -1000);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, 5, SLJIT_MEM2(SLJIT_R0, SLJIT_S1), 1);
@@ -12524,107 +12538,107 @@ static void test97(void)
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, 1, SLJIT_S2, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, 7, SLJIT_S2, 0);
 	/* buf[80] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 80);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 80);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_32;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 0);
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 16);
 
-	supported[2] = sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, 2, SLJIT_R2, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, 2, SLJIT_R2, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, 0, SLJIT_R2, 0);
 	sljit_get_local_base(compiler, SLJIT_R2, 0, 8);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, 0, SLJIT_MEM1(SLJIT_R2), 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, 2, SLJIT_MEM1(SLJIT_SP), 8);
 	/* buf[96] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 96);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 96);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 16);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, 3, SLJIT_S3, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, 1, SLJIT_S3, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, 1, SLJIT_MEM1(SLJIT_R0), 100000);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, 3, SLJIT_MEM1(SLJIT_R1), -1000);
 	/* buf[112] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 112);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 112);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_64;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 0);
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 16);
 
-	supported[3] = sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, 0, SLJIT_R2, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, 0, SLJIT_R2, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, 0, SLJIT_R2, 0);
 	/* buf[128] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 128);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 128);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 16);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, 1, SLJIT_MEM1(SLJIT_R1), -1000);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, 1, SLJIT_MEM2(SLJIT_R0, SLJIT_S1), 1);
 	/* buf[144] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 144);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 144);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_ELEM_32;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 0);
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 16);
 
-	supported[4] = sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, 2, SLJIT_FR1, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, 2, SLJIT_FR1, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, 0, SLJIT_FR1, 0);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM0(), (sljit_sw)&f32_result, SLJIT_FR1, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, 0, SLJIT_FR0, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, 2, SLJIT_FR0, 0);
 	/* buf[160] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 160);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 160);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 16);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, 3, SLJIT_FR2, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, 1, SLJIT_FR2, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, 1, SLJIT_FR3, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, 3, SLJIT_FR3, 0);
 	/* buf[176] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 176);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 176);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 16);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, 2, SLJIT_MEM1(SLJIT_SP), 4);
 	sljit_get_local_base(compiler, SLJIT_R2, 0, 4);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_R2), 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, 0, SLJIT_MEM1(SLJIT_R0), 100000);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, 2, SLJIT_MEM1(SLJIT_R1), -1000);
 	/* buf[192] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 192);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 192);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 16);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, 3, SLJIT_MEM1(SLJIT_R1), -1000);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, 1, SLJIT_MEM2(SLJIT_R0, SLJIT_S1), 1);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, 1, SLJIT_MEM0(), (sljit_sw)tmp);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, 3, SLJIT_MEM0(), (sljit_sw)tmp);
 	/* buf[208] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 208);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 208);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_ELEM_64;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 0);
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 16);
 
-	supported[5] = sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, 0, SLJIT_FR4, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, 0, SLJIT_FR4, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, 0, SLJIT_FR4, 0);
 	/* buf[224] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 224);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 224);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 16);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, 1, SLJIT_FR5, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, 1, SLJIT_FR5, 0);
 	/* buf[240] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 240);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 240);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 16);
 	sljit_get_local_base(compiler, SLJIT_R2, 0, 8);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_R2), 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, 0, SLJIT_MEM1(SLJIT_SP), 8);
 	/* buf[256] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 256);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 256);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 16);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 16);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, 1, SLJIT_MEM1(SLJIT_R0), 100000);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, 1, SLJIT_MEM1(SLJIT_R1), -1000);
 	/* buf[272] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 272);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 272);
 
 	sljit_emit_return_void(compiler);
 
@@ -12634,40 +12648,34 @@ static void test97(void)
 
 	code.func1((sljit_sw)buf);
 
-	if (supported[0]) {
-		FAILED(!check_simd_lane_mov(buf + 32, 16, 1, 0), "test97 case 1 failed\n");
-		FAILED(!check_simd_lane_mov(buf + 48, 16, 1, 1), "test97 case 2 failed\n");
-		FAILED(byte_result != 101, "test96 case 3 failed\n");
-	}
-	if (supported[1]) {
-		FAILED(!check_simd_lane_mov(buf + 64, 16, 2, 0), "test97 case 4 failed\n");
-		FAILED(!check_simd_lane_mov(buf + 80, 16, 2, 1), "test97 case 5 failed\n");
-	}
-	if (supported[2]) {
-		FAILED(!check_simd_lane_mov(buf + 96, 16, 4, 0), "test97 case 6 failed\n");
-		FAILED(!check_simd_lane_mov(buf + 112, 16, 4, 1), "test97 case 7 failed\n");
-	}
-	if (supported[3]) {
-		FAILED(!check_simd_lane_mov(buf + 128, 16, 8, 0), "test97 case 8 failed\n");
-		FAILED(!check_simd_lane_mov(buf + 144, 16, 8, 1), "test97 case 9 failed\n");
-	}
-	if (supported[4]) {
-		FAILED(!check_simd_lane_mov(buf + 160, 16, 4, 0), "test97 case 10 failed\n");
-		FAILED(!check_simd_lane_mov(buf + 176, 16, 4, 1), "test97 case 11 failed\n");
-		FAILED(!check_simd_lane_mov(buf + 192, 16, 4, 0), "test97 case 12 failed\n");
-		FAILED(!check_simd_lane_mov(buf + 208, 16, 4, 1), "test97 case 13 failed\n");
-		FAILED(f32_result != 0x6f6e6d6c, "test96 case 14 failed\n");
-	}
-	if (supported[5]) {
-		FAILED(!check_simd_lane_mov(buf + 224, 16, 8, 0), "test97 case 15 failed\n");
-		FAILED(!check_simd_lane_mov(buf + 240, 16, 8, 1), "test97 case 16 failed\n");
-		FAILED(!check_simd_lane_mov(buf + 256, 16, 8, 0), "test97 case 17 failed\n");
-		FAILED(!check_simd_lane_mov(buf + 272, 16, 8, 1), "test97 case 18 failed\n");
-	}
+#if IS_X86 || IS_ARM
+	FAILED(!check_simd_lane_mov(buf + 32, 16, 1, 0), "test97 case 1 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 48, 16, 1, 1), "test97 case 2 failed\n");
+	FAILED(byte_result != 101, "test96 case 3 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 64, 16, 2, 0), "test97 case 4 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 80, 16, 2, 1), "test97 case 5 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 96, 16, 4, 0), "test97 case 6 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 112, 16, 4, 1), "test97 case 7 failed\n");
+#if IS_64BIT
+	FAILED(!check_simd_lane_mov(buf + 128, 16, 8, 0), "test97 case 8 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 144, 16, 8, 1), "test97 case 9 failed\n");
+#endif /* IS_64BIT */
+	FAILED(!check_simd_lane_mov(buf + 160, 16, 4, 0), "test97 case 10 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 176, 16, 4, 1), "test97 case 11 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 192, 16, 4, 0), "test97 case 12 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 208, 16, 4, 1), "test97 case 13 failed\n");
+	FAILED(f32_result != 0x6f6e6d6c, "test96 case 14 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 224, 16, 8, 0), "test97 case 15 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 240, 16, 8, 1), "test97 case 16 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 256, 16, 8, 0), "test97 case 17 failed\n");
+	FAILED(!check_simd_lane_mov(buf + 272, 16, 8, 1), "test97 case 18 failed\n");
+#endif /* IS_X86 || IS_ARM */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
+
+#if IS_X86 || IS_ARM
 
 static sljit_s32 check_simd_replicate(sljit_u8* buf, sljit_s32 length, sljit_s32 elem_size, sljit_s32 value)
 {
@@ -12685,6 +12693,8 @@ static sljit_s32 check_simd_replicate(sljit_u8* buf, sljit_s32 length, sljit_s32
 	return 1;
 }
 
+#endif /* IS_X86 || IS_ARM */
+
 static void test98(void)
 {
 	/* Test simd duplicate scalar to all lanes. */
@@ -12693,7 +12703,6 @@ static void test98(void)
 	sljit_s32 i, type;
 	sljit_u8* buf;
 	sljit_u8 data[63 + 352];
-	sljit_u8 supported[6];
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
@@ -12717,119 +12726,119 @@ static void test98(void)
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(VOID, P), 4, 4, 6, 0, 16);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_8;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 0xffff00 + 78);
-	supported[0] = sljit_emit_simd_replicate(compiler, type, SLJIT_FR0, SLJIT_R2, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR0, SLJIT_R2, 0);
 	/* buf[48] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 48);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 48);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR3, SLJIT_IMM, 253);
 	/* buf[64] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 64);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 64);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op1(compiler, SLJIT_MOV_U8, SLJIT_MEM1(SLJIT_SP), 3, SLJIT_IMM, 42);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR1, SLJIT_MEM1(SLJIT_SP), 3);
 	/* buf[80] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 80);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 80);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 15);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR5, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), 0);
 	/* buf[96] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 96);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 96);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_16;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op1(compiler, SLJIT_MOV_S16, SLJIT_R1, 0, SLJIT_MEM1(SLJIT_S0), 24);
-	supported[1] = sljit_emit_simd_replicate(compiler, type, SLJIT_FR3, SLJIT_R1, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR3, SLJIT_R1, 0);
 	/* buf[112] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 112);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 112);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR4, SLJIT_MEM0(), (sljit_sw)(buf + 10));
 	/* buf[128] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 128);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 128);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_IMM, 10000 + 20);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR0, SLJIT_MEM1(SLJIT_R0), -10000);
 	/* buf[144] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 144);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 144);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_32;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op1(compiler, SLJIT_MOV_S32, SLJIT_S3, 0, SLJIT_MEM1(SLJIT_S0), 28);
-	supported[2] = sljit_emit_simd_replicate(compiler, type, SLJIT_FR1, SLJIT_S3, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR1, SLJIT_S3, 0);
 	/* buf[160] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 160);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 160);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op1(compiler, SLJIT_MOV_U32, SLJIT_MEM1(SLJIT_SP), 4, SLJIT_MEM1(SLJIT_S0), 12);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR2, SLJIT_MEM1(SLJIT_SP), 4);
 	/* buf[176] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 176);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 176);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_R2, 0, SLJIT_S0, 0, SLJIT_IMM, 100000 - 24);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR5, SLJIT_MEM1(SLJIT_R2), 100000);
 	/* buf[192] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 192);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 192);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_64;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_MEM1(SLJIT_S0), 8);
-	supported[3] = sljit_emit_simd_replicate(compiler, type, SLJIT_FR2, SLJIT_S1, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR2, SLJIT_S1, 0);
 	/* buf[208] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 208);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 208);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 3);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR0, SLJIT_MEM2(SLJIT_S0, SLJIT_R0), 3);
 	/* buf[224] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 224);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 224);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR0, SLJIT_MEM0(), (sljit_sw)buf);
 	/* buf[240] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 240);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 240);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_ELEM_32;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR2, 0, SLJIT_MEM1(SLJIT_S0), 4);
-	supported[4] = sljit_emit_simd_replicate(compiler, type, SLJIT_FR1, SLJIT_FR2, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR1, SLJIT_FR2, 0);
 	/* buf[256] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 256);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 256);
 
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR4, 0, SLJIT_MEM1(SLJIT_S0), 20);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR4, SLJIT_FR4, 0);
 	/* buf[272] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 272);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 272);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_SP), 4, SLJIT_MEM1(SLJIT_S0), 12);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR0, SLJIT_MEM1(SLJIT_SP), 4);
 	/* buf[288] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 288);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR0, SLJIT_MEM1(SLJIT_S0), 288);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_ELEM_64;
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_S0), 16);
-	supported[5] = sljit_emit_simd_replicate(compiler, type, SLJIT_FR2, SLJIT_FR0, 0) != SLJIT_ERR_UNSUPPORTED;
+	sljit_emit_simd_replicate(compiler, type, SLJIT_FR2, SLJIT_FR0, 0);
 	/* buf[304] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 304);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR2, SLJIT_MEM1(SLJIT_S0), 304);
 
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR5, 0, SLJIT_MEM1(SLJIT_S0), 0);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR5, SLJIT_FR5, 0);
 	/* buf[320] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 320);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 320);
 
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 32);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR1, SLJIT_MEM1(SLJIT_S0), 32);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R2, 0, SLJIT_S0, 0, SLJIT_IMM, 10000 + 8);
 	sljit_emit_simd_replicate(compiler, type, SLJIT_FR5, SLJIT_MEM1(SLJIT_R2), -10000);
 	/* buf[336] */
-	sljit_emit_simd_mem(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 336);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR5, SLJIT_MEM1(SLJIT_S0), 336);
 
 	sljit_emit_return_void(compiler);
 
@@ -12839,37 +12848,29 @@ static void test98(void)
 
 	code.func1((sljit_sw)buf);
 
-	if (supported[0]) {
-		FAILED(!check_simd_replicate(buf + 48, 16, 1, 78), "test98 case 1 failed\n");
-		FAILED(!check_simd_replicate(buf + 64, 16, 1, 253), "test98 case 2 failed\n");
-		FAILED(!check_simd_replicate(buf + 80, 16, 1, 42), "test98 case 3 failed\n");
-		FAILED(!check_simd_replicate(buf + 96, 16, 1, 215), "test98 case 4 failed\n");
-	}
-	if (supported[1]) {
-		FAILED(!check_simd_replicate(buf + 112, 16, 2, 224), "test98 case 5 failed\n");
-		FAILED(!check_simd_replicate(buf + 128, 16, 2, 210), "test98 case 6 failed\n");
-		FAILED(!check_simd_replicate(buf + 144, 16, 2, 220), "test98 case 7 failed\n");
-	}
-	if (supported[2]) {
-		FAILED(!check_simd_replicate(buf + 160, 16, 4, 228), "test98 case 8 failed\n");
-		FAILED(!check_simd_replicate(buf + 176, 16, 4, 212), "test98 case 9 failed\n");
-		FAILED(!check_simd_replicate(buf + 192, 16, 4, 224), "test98 case 10 failed\n");
-	}
-	if (supported[3]) {
-		FAILED(!check_simd_replicate(buf + 208, 16, 8, 208), "test98 case 11 failed\n");
-		FAILED(!check_simd_replicate(buf + 224, 16, 8, 224), "test98 case 12 failed\n");
-		FAILED(!check_simd_replicate(buf + 240, 16, 8, 200), "test98 case 13 failed\n");
-	}
-	if (supported[4]) {
-		FAILED(!check_simd_replicate(buf + 256, 16, 4, 204), "test98 case 14 failed\n");
-		FAILED(!check_simd_replicate(buf + 272, 16, 4, 220), "test98 case 15 failed\n");
-		FAILED(!check_simd_replicate(buf + 288, 16, 4, 212), "test98 case 16 failed\n");
-	}
-	if (supported[5]) {
-		FAILED(!check_simd_replicate(buf + 304, 16, 8, 216), "test98 case 17 failed\n");
-		FAILED(!check_simd_replicate(buf + 320, 16, 8, 200), "test98 case 18 failed\n");
-		FAILED(!check_simd_replicate(buf + 336, 16, 8, 208), "test98 case 19 failed\n");
-	}
+#if IS_X86 || IS_ARM
+	FAILED(!check_simd_replicate(buf + 48, 16, 1, 78), "test98 case 1 failed\n");
+	FAILED(!check_simd_replicate(buf + 64, 16, 1, 253), "test98 case 2 failed\n");
+	FAILED(!check_simd_replicate(buf + 80, 16, 1, 42), "test98 case 3 failed\n");
+	FAILED(!check_simd_replicate(buf + 96, 16, 1, 215), "test98 case 4 failed\n");
+	FAILED(!check_simd_replicate(buf + 112, 16, 2, 224), "test98 case 5 failed\n");
+	FAILED(!check_simd_replicate(buf + 128, 16, 2, 210), "test98 case 6 failed\n");
+	FAILED(!check_simd_replicate(buf + 144, 16, 2, 220), "test98 case 7 failed\n");
+	FAILED(!check_simd_replicate(buf + 160, 16, 4, 228), "test98 case 8 failed\n");
+	FAILED(!check_simd_replicate(buf + 176, 16, 4, 212), "test98 case 9 failed\n");
+	FAILED(!check_simd_replicate(buf + 192, 16, 4, 224), "test98 case 10 failed\n");
+#if IS_64BIT
+	FAILED(!check_simd_replicate(buf + 208, 16, 8, 208), "test98 case 11 failed\n");
+	FAILED(!check_simd_replicate(buf + 224, 16, 8, 224), "test98 case 12 failed\n");
+	FAILED(!check_simd_replicate(buf + 240, 16, 8, 200), "test98 case 13 failed\n");
+#endif /* IS_64BIT */
+	FAILED(!check_simd_replicate(buf + 256, 16, 4, 204), "test98 case 14 failed\n");
+	FAILED(!check_simd_replicate(buf + 272, 16, 4, 220), "test98 case 15 failed\n");
+	FAILED(!check_simd_replicate(buf + 288, 16, 4, 212), "test98 case 16 failed\n");
+	FAILED(!check_simd_replicate(buf + 304, 16, 8, 216), "test98 case 17 failed\n");
+	FAILED(!check_simd_replicate(buf + 320, 16, 8, 200), "test98 case 18 failed\n");
+	FAILED(!check_simd_replicate(buf + 336, 16, 8, 208), "test98 case 19 failed\n");
+#endif /* IS_X86 || IS_ARM */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;

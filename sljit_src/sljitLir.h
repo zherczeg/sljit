@@ -1865,7 +1865,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
      SLJIT_SIMD_MEM_* flags
    freg is the source or destination simd register
      of the operation
-   mem must be a memory operand
+   srcdst must be a memory operand or a simd register
 
    Note:
        The alignment and element size must be
@@ -1873,9 +1873,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 
    Flags: - (does not modify flags) */
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *compiler, sljit_s32 type,
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
-	sljit_s32 mem, sljit_sw memw);
+	sljit_s32 srcdst, sljit_sw srcdstw);
 
 /* Replicates a scalar value to all lanes of a simd
    register.

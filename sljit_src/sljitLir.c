@@ -2536,23 +2536,23 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fmem_update(struct sljit_
 	CHECK_RETURN_OK;
 }
 
-static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_mem(struct sljit_compiler *compiler, sljit_s32 type,
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_mov(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
-	sljit_s32 mem, sljit_sw memw)
+	sljit_s32 srcdst, sljit_sw srcdstw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT((type & (sljit_s32)(0xc0000fff - (SLJIT_SIMD_STORE | SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST))) == 0);
 	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) <= SLJIT_SIMD_GET_REG_SIZE(type));
-	CHECK_ARGUMENT(SLJIT_SIMD_GET_ALIGNMENT(type) <= SLJIT_SIMD_GET_REG_SIZE(type));
-	FUNCTION_CHECK_SRC_MEM(mem, memw);
+	CHECK_ARGUMENT(SLJIT_SIMD_GET_ALIGNMENT(type) <= (srcdst & SLJIT_MEM) ? SLJIT_SIMD_GET_REG_SIZE(type) : 0);
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	FUNCTION_FCHECK(srcdst, srcdstw);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		if (type & SLJIT_SIMD_TEST)
 			CHECK_RETURN_OK;
-		if (sljit_emit_simd_mem(compiler, type | SLJIT_SIMD_TEST, freg, mem, memw) == SLJIT_ERR_UNSUPPORTED) {
+		if (sljit_emit_simd_mov(compiler, type | SLJIT_SIMD_TEST, freg, srcdst, srcdstw) == SLJIT_ERR_UNSUPPORTED) {
 			fprintf(compiler->verbose, "    # simd_mem: unsupported form, no instructions are emitted\n");
 			CHECK_RETURN_OK;
 		}
@@ -2570,7 +2570,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_mem(struct sljit_com
 
 		sljit_verbose_freg(compiler, freg);
 		fprintf(compiler->verbose, ", ");
-		sljit_verbose_param(compiler, mem, memw);
+		sljit_verbose_fparam(compiler, srcdst, srcdstw);
 		fprintf(compiler->verbose, "\n");
 	}
 #endif
@@ -3060,12 +3060,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 	&& !(defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *compiler, sljit_s32 type,
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
-	sljit_s32 mem, sljit_sw memw)
+	sljit_s32 srcdst, sljit_sw srcdstw)
 {
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_mem(compiler, type, freg, mem, memw));
+	CHECK(check_sljit_emit_simd_mov(compiler, type, freg, srcdst, srcdstw));
 
 	return SLJIT_ERR_UNSUPPORTED;
 }

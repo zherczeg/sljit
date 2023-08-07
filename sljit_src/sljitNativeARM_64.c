@@ -130,6 +130,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define NOP 0xd503201f
 #define ORN 0xaa200000
 #define ORR 0xaa000000
+#define ORR_v 0x0ea01c00
 #define ORRI 0xb2000000
 #define RBIT 0xdac00000
 #define RET 0xd65f0000
@@ -2586,18 +2587,18 @@ static sljit_s32 sljit_emit_simd_mem_offset(struct sljit_compiler *compiler, slj
 	return push_inst(compiler, ins | RD(TMP_REG1) | RN(mem) | ((sljit_ins)memw << 10));
 }
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *compiler, sljit_s32 type,
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
-	sljit_s32 mem, sljit_sw memw)
+	sljit_s32 srcdst, sljit_sw srcdstw)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
 	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
 	sljit_ins ins;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_mem(compiler, type, freg, mem, memw));
+	CHECK(check_sljit_emit_simd_mov(compiler, type, freg, srcdst, srcdstw));
 
-	ADJUST_LOCAL_OFFSET(mem, memw);
+	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
 	if (reg_size != 3 && reg_size != 4)
 		return SLJIT_ERR_UNSUPPORTED;
@@ -2608,7 +2609,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 	if (type & SLJIT_SIMD_TEST)
 		return SLJIT_SUCCESS;
 
-	FAIL_IF(sljit_emit_simd_mem_offset(compiler, &mem, memw));
+	if (!(srcdst & SLJIT_MEM)) {
+		if (type & SLJIT_SIMD_STORE)
+			ins = VD(srcdst) | VN(freg) | VM(freg);
+		else
+			ins = VD(freg) | VN(srcdst) | VM(srcdst);
+
+		if (reg_size == 4)
+			ins |= (1 << 30);
+
+		return push_inst(compiler, ORR_v | ins);
+	}
+
+	FAIL_IF(sljit_emit_simd_mem_offset(compiler, &srcdst, srcdstw));
 
 	if (elem_size > 3)
 		elem_size = 3;
@@ -2618,7 +2631,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mem(struct sljit_compiler *co
 	if (reg_size == 4)
 		ins |= (1 << 30);
 
-	return push_inst(compiler, ins | ((sljit_ins)elem_size << 10) | RN(mem) | VT(freg));
+	return push_inst(compiler, ins | ((sljit_ins)elem_size << 10) | RN(srcdst) | VT(freg));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compiler *compiler, sljit_s32 type,
