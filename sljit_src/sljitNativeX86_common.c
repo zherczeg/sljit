@@ -266,6 +266,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define PSHUFB_x_xm	0x00
 #define PSHUFD_x_xm	0x70
 #define PSHUFLW_x_xm	0x70
+#define PSRLDQ_x	0x73
 #define PUSH_i32	0x68
 #define PUSH_r		0x50
 #define PUSH_rm		(/* GROUP_FF */ 6 << 3)
@@ -3911,6 +3912,162 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 			inst[1] = opcode;
 
 		return emit_byte(compiler, U8(lane_index));
+	}
+
+	/* TODO: Support VEX prefix and longer reg types. */
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_s32 src_lane_index)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_u8 *inst;
+	sljit_uw pref;
+	sljit_u8 byte;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_lane_replicate(compiler, type, freg, src, src_lane_index));
+
+	if (reg_size == 4) {
+		if (type & SLJIT_SIMD_FLOAT) {
+			pref = 0;
+
+			if (elem_size == 3) {
+				if (type & SLJIT_SIMD_TEST)
+					return SLJIT_SUCCESS;
+
+				if (src_lane_index == 0) {
+					inst = emit_x86_instruction(compiler, 2 | EX86_PREF_F2 | EX86_SSE2, freg, 0, src, 0);
+					FAIL_IF(!inst);
+					inst[0] = GROUP_0F;
+					inst[1] = MOVDDUP_x_xm;
+					return SLJIT_SUCCESS;
+				}
+
+				pref = EX86_PREF_66;
+			} else if (elem_size != 2)
+				return SLJIT_ERR_UNSUPPORTED;
+			else if (type & SLJIT_SIMD_TEST)
+				return SLJIT_SUCCESS;
+
+			if (freg != src) {
+				inst = emit_x86_instruction(compiler, 2 | pref | EX86_SSE2, freg, 0, src, 0);
+				FAIL_IF(!inst);
+				inst[0] = GROUP_0F;
+				inst[1] = MOVAPS_x_xm;
+			}
+
+			inst = emit_x86_instruction(compiler, 2 | pref | EX86_SSE2, freg, 0, freg, 0);
+			FAIL_IF(!inst);
+			inst[0] = GROUP_0F;
+			inst[1] = SHUFPS_x_xm;
+
+			byte = U8(src_lane_index);
+
+			if (elem_size == 2) {
+				byte = U8(byte | (byte << 2));
+				byte = U8(byte | (byte << 4));
+			} else
+				byte = U8(byte | (byte << 1));
+
+			return emit_byte(compiler, U8(byte));
+		}
+
+		if (type & SLJIT_SIMD_TEST)
+			return SLJIT_SUCCESS;
+
+		if (elem_size >= 1) {
+			if (elem_size == 1) {
+				if (src_lane_index >= 4) {
+					byte = U8(src_lane_index - 4);
+					src_lane_index = 2;
+					pref = EX86_PREF_F3;
+				} else {
+					byte = U8(src_lane_index);
+					src_lane_index = 0;
+					pref = EX86_PREF_F2;
+				}
+
+				inst = emit_x86_instruction(compiler, 2 | pref | EX86_SSE2, freg, 0, src, 0);
+				FAIL_IF(!inst);
+				inst[0] = GROUP_0F;
+				inst[1] = PSHUFLW_x_xm;
+
+				byte = U8(byte | (byte << 2));
+				FAIL_IF(emit_byte(compiler, U8(byte | (byte << 4))));
+
+				src = freg;
+			}
+
+			if (elem_size == 3)
+				src_lane_index <<= 1;
+
+			byte = U8(src_lane_index);
+			byte = U8(byte | (byte << 2));
+
+			if (elem_size == 3)
+				byte |= 0x4;
+
+			inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2, freg, 0, src, 0);
+			FAIL_IF(!inst);
+			inst[0] = GROUP_0F;
+			inst[1] = PSHUFD_x_xm;
+			return emit_byte(compiler, U8(byte | (byte << 4)));
+		}
+
+		if (freg != src || src_lane_index != 0) {
+			pref = 0;
+
+			if ((src_lane_index & 0x3) == 0) {
+				pref = EX86_PREF_66;
+				byte = U8(src_lane_index >> 2);
+			} else if (src_lane_index < 8 && (src_lane_index & 0x1) == 0) {
+				pref = EX86_PREF_F2;
+				byte = U8(src_lane_index >> 1);
+			} else {
+				if (freg != src) {
+					inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2, freg, 0, src, 0);
+					FAIL_IF(!inst);
+					inst[0] = GROUP_0F;
+					inst[1] = MOVDQA_x_xm;
+				}
+
+				inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP2, 0, 0, freg, 0);
+				FAIL_IF(!inst);
+				inst[0] = GROUP_0F;
+				inst[1] = PSRLDQ_x;
+				inst[2] |= (0x3 << 3);
+
+				FAIL_IF(emit_byte(compiler, U8(src_lane_index)));
+			}
+
+			if (pref != 0) {
+				inst = emit_x86_instruction(compiler, 2 | pref | EX86_SSE2, freg, 0, src, 0);
+				FAIL_IF(!inst);
+				inst[0] = GROUP_0F;
+				inst[1] = PSHUFLW_x_xm;
+
+				byte = U8(byte | (byte << 2));
+				FAIL_IF(emit_byte(compiler, U8(byte | (byte << 4))));
+			}
+
+			src = freg;
+		}
+
+		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2, TMP_FREG, 0, TMP_FREG, 0);
+		FAIL_IF(!inst);
+		inst[0] = GROUP_0F;
+		inst[1] = PXOR_x_xm;
+
+		inst = emit_x86_instruction(compiler, 3 | EX86_PREF_66 | EX86_SSE2, freg, 0, TMP_FREG, 0);
+		FAIL_IF(!inst);
+		inst[0] = GROUP_0F;
+		inst[1] = 0x38;
+		inst[2] = PSHUFB_x_xm;
+		return SLJIT_SUCCESS;
 	}
 
 	/* TODO: Support VEX prefix and longer reg types. */

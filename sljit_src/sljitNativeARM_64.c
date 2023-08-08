@@ -2769,7 +2769,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 		return push_inst(compiler, LD1R | ins | RN(src) | VT(freg));
 	}
 
-	ins = 1 << (16 + elem_size);
+	ins = (sljit_ins)1 << (16 + elem_size);
 
 	if (reg_size == 4)
 		ins |= (sljit_ins)1 << 30;
@@ -2864,6 +2864,34 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 		ins |= (sljit_ins)1 << 30;
 
 	return push_inst(compiler, ins | ((((sljit_ins)lane_index << 1) | 1) << (16 + elem_size)));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_s32 src_lane_index)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_ins ins;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_lane_replicate(compiler, type, freg, src, src_lane_index));
+
+	if (reg_size != 3 && reg_size != 4)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if ((type & SLJIT_SIMD_FLOAT) && (elem_size < 2 || elem_size > 3))
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_SIMD_TEST)
+		return SLJIT_SUCCESS;
+
+	ins = (((sljit_ins)src_lane_index << 1) | 1) << (16 + elem_size);
+
+	if (reg_size == 4)
+		ins |= (sljit_ins)1 << 30;
+
+	return push_inst(compiler, DUP_e | ins | VD(freg) | VN(src));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,

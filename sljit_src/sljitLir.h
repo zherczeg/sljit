@@ -1887,7 +1887,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
    type must be a combination of SLJIT_SIMD_* flags except
      SLJIT_SIMD_STORE.
    freg is the destination simd register of the operation
-   src is the input value for the duplication
+   src is the value which is replicated
 
    Note:
        When SLJIT_SIMD_FLOAT is specified, the
@@ -1923,6 +1923,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg, sljit_s32 lane_index,
 	sljit_s32 srcdst, sljit_sw srcdstw);
+
+/* Replicates a scalar value from a lane to all lanes
+   of a simd register.
+
+   If the operation is not supported, it returns with
+   SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
+   it does not emit any instructions.
+
+   type must be a combination of SLJIT_SIMD_* flags except
+     SLJIT_SIMD_STORE.
+   freg is the destination simd register of the operation
+   src is the simd register which lane is replicated
+   src_lane_index is the lane index of the src register
+
+   Flags: - (does not modify flags) */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_s32 src_lane_index);
 
 /* The sljit_emit_atomic_load and sljit_emit_atomic_store operation pair
    can perform an atomic read-modify-write operation. First, an unsigned
