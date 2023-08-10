@@ -3109,6 +3109,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
 {
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_mov(compiler, type, freg, srcdst, srcdstw));
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(freg);
+	SLJIT_UNUSED_ARG(srcdst);
+	SLJIT_UNUSED_ARG(srcdstw);
 
 	return SLJIT_ERR_UNSUPPORTED;
 }
@@ -3119,6 +3124,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 {
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_replicate(compiler, type, freg, src, srcw));
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(freg);
+	SLJIT_UNUSED_ARG(src);
+	SLJIT_UNUSED_ARG(srcw);
 
 	return SLJIT_ERR_UNSUPPORTED;
 }
@@ -3129,6 +3139,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 {
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_lane_mov(compiler, type, freg, lane_index, srcdst, srcdstw));
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(freg);
+	SLJIT_UNUSED_ARG(lane_index);
+	SLJIT_UNUSED_ARG(srcdst);
+	SLJIT_UNUSED_ARG(srcdstw);
 
 	return SLJIT_ERR_UNSUPPORTED;
 }
@@ -3139,6 +3155,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 {
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_lane_replicate(compiler, type, freg, src, src_lane_index));
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(freg);
+	SLJIT_UNUSED_ARG(src);
+	SLJIT_UNUSED_ARG(src_lane_index);
 
 	return SLJIT_ERR_UNSUPPORTED;
 }
