@@ -143,6 +143,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SCVTF 0x9e620000
 #define SDIV 0x9ac00c00
 #define SMADDL 0x9b200000
+#define SMOV 0x0e002c00
 #define SMULH 0x9b403c00
 #define ST1 0x0c007000
 #define ST1_s 0x0d000000
@@ -2855,9 +2856,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 		srcdst = TMP_REG1;
 	}
 
-	if (type & SLJIT_SIMD_STORE)
-		ins = UMOV | RD(srcdst) | VN(freg);
-	else
+	if (type & SLJIT_SIMD_STORE) {
+		ins = RD(srcdst) | VN(freg);
+
+		if ((type & SLJIT_SIMD_LANE_SIGNED) && (elem_size < 2 || (elem_size == 2 && !(type & SLJIT_32)))) {
+			ins |= SMOV;
+
+			if (!(type & SLJIT_32))
+				ins |= (sljit_ins)1 << 30;
+		} else
+			ins |= UMOV;
+	} else
 		ins = INS | VD(freg) | RN(srcdst);
 
 	if (elem_size == 3)

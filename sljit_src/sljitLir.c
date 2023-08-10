@@ -2628,9 +2628,12 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_lane_mov(struct slji
 	sljit_s32 srcdst, sljit_sw srcdstw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT((type & (sljit_s32)(0xff000fff - (SLJIT_SIMD_STORE | SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST))) == 0);
+	CHECK_ARGUMENT((type & (sljit_s32)(0xff000fff - (SLJIT_SIMD_STORE | SLJIT_SIMD_LANE_SIGNED | SLJIT_32 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST))) == 0);
+	CHECK_ARGUMENT((type & (SLJIT_SIMD_STORE | SLJIT_SIMD_LANE_SIGNED)) != SLJIT_SIMD_LANE_SIGNED);
+	CHECK_ARGUMENT(!(type & SLJIT_SIMD_FLOAT) || !(type & (SLJIT_SIMD_LANE_SIGNED | SLJIT_32)));
 	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
+	CHECK_ARGUMENT(!(type & SLJIT_32) || SLJIT_SIMD_GET_ELEM_SIZE(type) <= 2);
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
 	CHECK_ARGUMENT(lane_index >= 0 && lane_index < (1 << (SLJIT_SIMD_GET_REG_SIZE(type) - SLJIT_SIMD_GET_ELEM_SIZE(type))));
 
@@ -2649,8 +2652,10 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_lane_mov(struct slji
 			CHECK_RETURN_OK;
 		}
 
-		fprintf(compiler->verbose, "  simd_%s_lane.%d.%s%d ",
+		fprintf(compiler->verbose, "  simd_%s_lane%s%s.%d.%s%d ",
 			(type & SLJIT_SIMD_STORE) ? "store" : "load",
+			(type & SLJIT_32) ? "32" : "",
+			(type & SLJIT_SIMD_LANE_SIGNED) ? "_s" : "",
 			(8 << SLJIT_SIMD_GET_REG_SIZE(type)),
 			(type & SLJIT_SIMD_FLOAT) ? "f" : "",
 			(8 << SLJIT_SIMD_GET_ELEM_SIZE(type)));

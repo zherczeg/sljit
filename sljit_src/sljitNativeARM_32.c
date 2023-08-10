@@ -4015,7 +4015,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 	if (type & SLJIT_SIMD_STORE) {
 		ins |= 0x100000;
 
-		if (elem_size < 2)
+		if (elem_size < 2 && !(type & SLJIT_SIMD_LANE_SIGNED))
 			ins |= 0x800000;
 	}
 

@@ -964,7 +964,11 @@ static SLJIT_INLINE sljit_s32 emit_rdssp(struct sljit_compiler *compiler, sljit_
 #endif
 	inst[0] = GROUP_0F;
 	inst[1] = 0x1e;
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	inst[2] = U8(MOD_REG | (0x1 << 3) | reg_lmap[reg]);
+#else
+	inst[2] = U8(MOD_REG | (0x1 << 3) | reg_map[reg]);
+#endif
 	return SLJIT_SUCCESS;
 }
 
@@ -1312,42 +1316,24 @@ static sljit_s32 emit_mov_byte(struct sljit_compiler *compiler, sljit_s32 sign,
 #else
 		dst_r = src;
 #endif
-	}
+	} else {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	else if (FAST_IS_REG(src) && reg_map[src] >= 4) {
-		/* src, dst are registers. */
-		SLJIT_ASSERT(FAST_IS_REG(dst));
-		if (reg_map[dst] < 4) {
-			if (dst != src)
-				EMIT_MOV(compiler, dst, 0, src, 0);
-			inst = emit_x86_instruction(compiler, 2, dst, 0, dst, 0);
-			FAIL_IF(!inst);
-			inst[0] = GROUP_0F;
-			inst[1] = sign ? MOVSX_r_rm8 : MOVZX_r_rm8;
-		}
-		else {
-			if (dst != src)
-				EMIT_MOV(compiler, dst, 0, src, 0);
-			if (sign) {
-				/* shl reg, 24 */
-				inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 24, dst, 0);
-				FAIL_IF(!inst);
-				*inst |= SHL;
-				/* sar reg, 24 */
-				inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 24, dst, 0);
-				FAIL_IF(!inst);
-				*inst |= SAR;
-			}
-			else {
+		if (FAST_IS_REG(src) && reg_map[src] >= 4) {
+			/* Both src and dst are registers. */
+			SLJIT_ASSERT(FAST_IS_REG(dst));
+
+			if (src == dst && !sign) {
 				inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, 0xff, dst, 0);
 				FAIL_IF(!inst);
 				*(inst + 1) |= AND;
+				return SLJIT_SUCCESS;
 			}
+
+			EMIT_MOV(compiler, TMP_REG1, 0, src, 0);
+			src = TMP_REG1;
+			srcw = 0;
 		}
-		return SLJIT_SUCCESS;
-	}
-#endif
-	else {
+#endif /* !SLJIT_CONFIG_X86_32 */
 		/* src can be memory addr or reg_map[src] < 4 on x86_32 architectures. */
 		inst = emit_x86_instruction(compiler, 2, dst_r, 0, src, srcw);
 		FAIL_IF(!inst);
@@ -3760,15 +3746,30 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 	sljit_u8 *inst;
 	sljit_u8 opcode = 0;
 	sljit_uw size;
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+	sljit_s32 srcdst_is_ereg = 0;
+	sljit_s32 srcdst_orig = 0;
+	sljit_sw srcdstw_orig = 0;
+#endif /* SLJIT_CONFIG_X86_32 */
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_lane_mov(compiler, type, freg, lane_index, srcdst, srcdstw));
 
 	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
-	CHECK_EXTRA_REGS(srcdst, srcdstw, (void)0);
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	compiler->mode32 = 1;
+#else /* !SLJIT_CONFIG_X86_64 */
+	if (!(type & SLJIT_SIMD_FLOAT)) {
+		CHECK_EXTRA_REGS(srcdst, srcdstw, srcdst_is_ereg = 1);
+
+		if ((type & SLJIT_SIMD_STORE) && ((srcdst_is_ereg && elem_size < 2) || (elem_size == 0 && (type & SLJIT_SIMD_LANE_SIGNED) && FAST_IS_REG(srcdst) && reg_map[srcdst] >= 4))) {
+			srcdst_orig = srcdst;
+			srcdstw_orig = srcdstw;
+			srcdst = TMP_REG1;
+			srcdstw = 0;
+		}
+	}
 #endif /* SLJIT_CONFIG_X86_64 */
 
 	if (reg_size == 4) {
@@ -3911,7 +3912,56 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 		} else
 			inst[1] = opcode;
 
-		return emit_byte(compiler, U8(lane_index));
+		FAIL_IF(emit_byte(compiler, U8(lane_index)));
+
+		if (!(type & SLJIT_SIMD_LANE_SIGNED) || (srcdst & SLJIT_MEM)) {
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+			if (srcdst_orig & SLJIT_MEM)
+				return emit_mov(compiler, srcdst_orig, srcdstw_orig, TMP_REG1, 0);
+#endif /* SLJIT_CONFIG_X86_32 */
+			return SLJIT_SUCCESS;
+		}
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		if (elem_size >= 3)
+			return SLJIT_SUCCESS;
+
+		compiler->mode32 = (type & SLJIT_32);
+
+		size = 2;
+
+		if (elem_size == 0)
+			size |= EX86_REX;
+
+		if (elem_size == 2) {
+			if (type & SLJIT_32)
+				return SLJIT_SUCCESS;
+
+			SLJIT_ASSERT(!(compiler->mode32));
+			size = 1;
+		}
+
+		inst = emit_x86_instruction(compiler, size, srcdst, 0, srcdst, 0);
+		FAIL_IF(!inst);
+
+		if (size != 1) {
+			inst[0] = GROUP_0F;
+			inst[1] = U8((elem_size == 0) ? MOVSX_r_rm8 : MOVSX_r_rm16);
+		} else
+			inst[0] = MOVSXD_r_rm;
+#else /* !SLJIT_CONFIG_X86_64 */
+		if (elem_size >= 2)
+			return SLJIT_SUCCESS;
+
+		inst = emit_x86_instruction(compiler, 2, (srcdst_orig != 0 && FAST_IS_REG(srcdst_orig)) ? srcdst_orig : srcdst, 0, srcdst, 0);
+		FAIL_IF(!inst);
+		inst[0] = GROUP_0F;
+		inst[1] = U8((elem_size == 0) ? MOVSX_r_rm8 : MOVSX_r_rm16);
+
+		if (srcdst_orig & SLJIT_MEM)
+			return emit_mov(compiler, srcdst_orig, srcdstw_orig, TMP_REG1, 0);
+#endif /* SLJIT_CONFIG_X86_64 */
+		return SLJIT_SUCCESS;
 	}
 
 	/* TODO: Support VEX prefix and longer reg types. */

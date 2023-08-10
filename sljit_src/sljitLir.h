@@ -1899,6 +1899,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 	sljit_s32 freg,
 	sljit_s32 src, sljit_sw srcw);
 
+/* The following flags are used by sljit_emit_simd_lane_mov(). */
+
+/* Sign extend the integer value stored from the lane. */
+#define SLJIT_SIMD_LANE_SIGNED		0x000002
+
 /* Moves data between a simd register lane and a register or
    memory. If the srcdst argument is a register, it must be
    a floating point register when SLJIT_SIMD_FLOAT is specified,
@@ -1908,7 +1913,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
    SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
    it does not emit any instructions.
 
-   type must be a combination of SLJIT_SIMD_* flags
+   type must be a combination of SLJIT_SIMD_* flags.
+     When SLJIT_SIMD_FLOAT is not specified, SLJIT_32
+     can also be used. When SLJIT_SIMD_FLOAT is not
+     specified, and the operation is SLJIT_SIMD_STORE,
+     the SLJIT_SIMD_LANE_SIGNED can also be used.
    freg is the source or destination simd register
      of the operation
    lane_index is the index of the lane
