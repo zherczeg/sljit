@@ -2805,7 +2805,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 type, slji
 {
 	CHECK_REG_INDEX(check_sljit_get_register_index(type, reg));
 
-	if (type == SLJIT_INT_REGISTER) {
+	if (type == SLJIT_GP_REGISTER) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		if (reg >= SLJIT_R3 && reg <= SLJIT_R8)
 			return -1;

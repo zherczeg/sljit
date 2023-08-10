@@ -1660,7 +1660,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_register_index(sljit_s32 t
 	SLJIT_UNUSED_ARG(type);
 	SLJIT_UNUSED_ARG(reg);
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	if (type == SLJIT_INT_REGISTER) {
+	if (type == SLJIT_GP_REGISTER) {
 		CHECK_ARGUMENT(reg > 0 && reg <= SLJIT_NUMBER_OF_REGISTERS);
 	} else {
 		CHECK_ARGUMENT(type == SLJIT_FLOAT_REGISTER || ((type >> 12) == 0 || ((type >> 12) >= 3 && (type >> 12) <= 6)));

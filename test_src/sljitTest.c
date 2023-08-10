@@ -4088,12 +4088,12 @@ static void test41(void)
 	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		if (SLJIT_R(i) >= SLJIT_R3 && SLJIT_R(i) <= SLJIT_R8) {
-			SLJIT_ASSERT(sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_R(i)) == -1);
+			SLJIT_ASSERT(sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_R(i)) == -1);
 			continue;
 		}
 #endif
-		SLJIT_ASSERT(sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_R(i)) >= 0
-			&& sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_R(i)) < 64);
+		SLJIT_ASSERT(sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_R(i)) >= 0
+			&& sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_R(i)) < 64);
 	}
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -4104,81 +4104,81 @@ static void test41(void)
 	/* lea SLJIT_RETURN_REG, [SLJIT_S0, SLJIT_S1] */
 	inst[0] = 0x48;
 	inst[1] = 0x8d;
-	inst[2] = (sljit_u8)(0x04 | ((sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG) & 0x7) << 3));
-	inst[3] = (sljit_u8)((sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0) & 0x7)
-		| ((sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1) & 0x7) << 3));
+	inst[2] = (sljit_u8)(0x04 | ((sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG) & 0x7) << 3));
+	inst[3] = (sljit_u8)((sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) & 0x7)
+		| ((sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) & 0x7) << 3));
 	sljit_emit_op_custom(compiler, inst, 4);
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	/* lea SLJIT_RETURN_REG, [SLJIT_S0, SLJIT_S1] */
 	inst[0] = 0x48; /* REX_W */
 	inst[1] = 0x8d;
-	reg = sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG);
+	reg = sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG);
 	inst[2] = (sljit_u8)(0x04 | ((reg & 0x7) << 3));
 	if (reg > 7)
 		inst[0] |= 0x04; /* REX_R */
-	reg = sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0);
+	reg = sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0);
 	inst[3] = (sljit_u8)(reg & 0x7);
 	if (reg > 7)
 		inst[0] |= 0x01; /* REX_B */
-	reg = sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1);
+	reg = sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1);
 	inst[3] = (sljit_u8)(inst[3] | ((reg & 0x7) << 3));
 	if (reg > 7)
 		inst[0] |= 0x02; /* REX_X */
 	sljit_emit_op_custom(compiler, inst, 4);
 #elif (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 	/* add rd, rn, rm */
-	inst = 0xe0800000 | ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG) << 12)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0) << 16)
-		| (sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1);
+	inst = 0xe0800000 | ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG) << 12)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 16)
+		| (sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
 	/* add rd, rn, rm */
-	inst = 0xeb000000 | ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG) << 8)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0) << 16)
-		| (sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1);
+	inst = 0xeb000000 | ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG) << 8)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 16)
+		| (sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
 	/* add rd, rn, rm */
-	inst = 0x8b000000 | (sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0) << 5)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1) << 16);
+	inst = 0x8b000000 | (sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 5)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) << 16);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 	/* add rD, rA, rB */
-	inst = (31 << 26) | (266 << 1) | ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG) << 21)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0) << 16)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1) << 11);
+	inst = (31 << 26) | (266 << 1) | ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG) << 21)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 16)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) << 11);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 	/* addu rd, rs, rt */
-	inst = 33 | ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG) << 11)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0) << 21)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1) << 16);
+	inst = 33 | ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG) << 11)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 21)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) << 16);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 	/* daddu rd, rs, rt */
-	inst = 45 | ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG) << 11)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0) << 21)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1) << 16);
+	inst = 45 | ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG) << 11)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 21)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) << 16);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 	/* add rd, rs1, rs2 */
-	inst = 0x33 | (0 << 12) | (0 << 25) | ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG) << 7)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0) << 15)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1) << 20);
+	inst = 0x33 | (0 << 12) | (0 << 25) | ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG) << 7)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 15)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) << 20);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	/* agrk rd, rs1, rs2 */
 	inst = (0xb9e8u << 16)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG) << 4)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0) << 12)
-		| (sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1);
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG) << 4)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 12)
+		| (sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1);
 	sljit_emit_op_custom(compiler, &inst, sizeof(inst));
 #elif (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 	/* add.d rd, rs1, rs2 */
-	inst = (0x21u << 15) | (sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_RETURN_REG)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S0) << 5)
-		| ((sljit_u32)sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_S1) << 10);
+	inst = (0x21u << 15) | (sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 5)
+		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) << 10);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #else
 	inst = 0;
@@ -5358,7 +5358,7 @@ static void test51(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 0);
 
 	for (i = 2; i < SLJIT_NUMBER_OF_REGISTERS; i++) {
-		if (sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_R(i)) >= 0) {
+		if (sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_R(i)) >= 0) {
 			sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_R0, 0);
 			sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_MEM1(SLJIT_R(i)), 0);
 		} else
@@ -5367,7 +5367,7 @@ static void test51(void)
 
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 32);
 	for (i = 2; i < SLJIT_NUMBER_OF_REGISTERS; i++) {
-		if (sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_R(i)) >= 0) {
+		if (sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_R(i)) >= 0) {
 			sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_R0, 0);
 			sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_MEM1(SLJIT_R(i)), 32);
 		} else
@@ -5375,7 +5375,7 @@ static void test51(void)
 	}
 
 	for (i = 2; i < SLJIT_NUMBER_OF_REGISTERS; i++) {
-		if (sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_R(i)) >= 0) {
+		if (sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_R(i)) >= 0) {
 			sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, 32);
 			sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_MEM2(SLJIT_R(i), SLJIT_R0), 0);
 			sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_MEM2(SLJIT_R0, SLJIT_R(i)), 0);
@@ -5589,7 +5589,7 @@ static void test53(void)
 
 	addr /= 3;
 	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++, addr++) {
-		if (sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_R(i)) == -1)
+		if (sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_R(i)) == -1)
 			continue;
 		/* buf_start[i * 3] */
 		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, (sljit_sw)addr);
@@ -5613,7 +5613,7 @@ static void test53(void)
 	code.func0();
 
 	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS; i++) {
-		if (sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_R(i)) == -1)
+		if (sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_R(i)) == -1)
 			continue;
 
 		FAILED(buf_start[i * 3] != 88 + i, "test78 case 1 failed\n");
@@ -5694,7 +5694,7 @@ static void test54(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_sw), SLJIT_R0, 0);
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	SLJIT_ASSERT(sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_R3) == -1 && sljit_get_register_index(SLJIT_INT_REGISTER, SLJIT_R4) == -1);
+	SLJIT_ASSERT(sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_R3) == -1 && sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_R4) == -1);
 #endif
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 7);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R3, 0, SLJIT_IMM, -45);

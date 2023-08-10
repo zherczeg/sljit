@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+10.8.2023 - Non-backward compatible
+    Rename SLJIT_INT_REGISTER to SLJIT_GP_REGISTER.
+
 01.08.2023 - Non-backward compatible
     A type argument is added to sljit_get_register_index
     and sljit_get_float_register_index is removed.

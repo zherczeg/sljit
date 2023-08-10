@@ -2048,15 +2048,15 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 
 /* Types for sljit_get_register_index */
 
-/* Integer registers. */
-#define SLJIT_INT_REGISTER 0
+/* General purpose (integer) registers. */
+#define SLJIT_GP_REGISTER 0
 /* Floating point registers. */
 #define SLJIT_FLOAT_REGISTER 1
 
 /* The following function is a helper function for sljit_emit_op_custom.
    It returns with the real machine register index ( >=0 ) of any registers.
 
-   When type is SLJIT_INT_REGISTER:
+   When type is SLJIT_GP_REGISTER:
       reg must be an SLJIT_R(i), SLJIT_S(i), or SLJIT_SP register
 
    When type is SLJIT_FLOAT_REGISTER:
