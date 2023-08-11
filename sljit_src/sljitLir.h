@@ -1890,8 +1890,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
    src is the value which is replicated
 
    Note:
-       When SLJIT_SIMD_FLOAT is specified, the
-       SLJIT_IMM, 0 can be passed as src/srcw arguments.
+       The src == SLJIT_IMM and srcw == 0 can be used to
+       clear a register even when SLJIT_SIMD_FLOAT is set.
 
    Flags: - (does not modify flags) */
 
@@ -1901,8 +1901,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 
 /* The following flags are used by sljit_emit_simd_lane_mov(). */
 
+/* Clear all bits of the simd register before loading the lane. */
+#define SLJIT_SIMD_LANE_ZERO		0x000002
 /* Sign extend the integer value stored from the lane. */
-#define SLJIT_SIMD_LANE_SIGNED		0x000002
+#define SLJIT_SIMD_LANE_SIGNED		0x000004
 
 /* Moves data between a simd register lane and a register or
    memory. If the srcdst argument is a register, it must be
@@ -1914,10 +1916,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
    it does not emit any instructions.
 
    type must be a combination of SLJIT_SIMD_* flags.
-     When SLJIT_SIMD_FLOAT is not specified, SLJIT_32
-     can also be used. When SLJIT_SIMD_FLOAT is not
-     specified, and the operation is SLJIT_SIMD_STORE,
-     the SLJIT_SIMD_LANE_SIGNED can also be used.
+     Further allowed flags:
+       SLJIT_32 - when SLJIT_SIMD_FLOAT is not set
+       SLJIT_SIMD_LANE_SIGNED - when SLJIT_SIMD_STORE
+           is set and SLJIT_SIMD_FLOAT is not set
+       SLJIT_SIMD_LANE_ZERO - when SLJIT_SIMD_LOAD
+           is specified
    freg is the source or destination simd register
      of the operation
    lane_index is the index of the lane
