@@ -241,7 +241,9 @@ extern "C" {
 /* Not required to implement on archs with unified caches. */
 #define SLJIT_CACHE_FLUSH(from, to)
 
-#elif defined __APPLE__
+#elif defined __APPLE__ && \
+      defined __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ && \
+      __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 1050
 
 /* Supported by all macs since Mac OS 10.5.
    However, it does not work on non-jailbroken iOS devices,
