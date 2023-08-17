@@ -191,6 +191,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define CMPXCHG_rm_r	0xb1
 #define CMPXCHG_rm8_r	0xb0
 #define CVTPD2PS_x_xm	0x5a
+#define CVTPS2PD_x_xm	0x5a
 #define CVTSI2SD_x_rm	0x2a
 #define CVTTSD2SI_r_xm	0x2c
 #define DIV		(/* GROUP_F7 */ 6 << 3)
@@ -263,6 +264,18 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define PEXTRB_rm_x_i8	0x14
 #define PEXTRW_rm_x_i8	0x15
 #define PEXTRD_rm_x_i8	0x16
+#define PMOVSXBD_x_xm	0x21
+#define PMOVSXBQ_x_xm	0x22
+#define PMOVSXBW_x_xm	0x20
+#define PMOVSXDQ_x_xm	0x25
+#define PMOVSXWD_x_xm	0x23
+#define PMOVSXWQ_x_xm	0x24
+#define PMOVZXBD_x_xm	0x31
+#define PMOVZXBQ_x_xm	0x32
+#define PMOVZXBW_x_xm	0x30
+#define PMOVZXDQ_x_xm	0x35
+#define PMOVZXWD_x_xm	0x33
+#define PMOVZXWQ_x_xm	0x34
 #define POP_r		0x58
 #define POP_rm		0x8f
 #define POPF		0x9d
@@ -4025,6 +4038,74 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 
 		FAIL_IF(emit_groupf(compiler, PXOR_x_xm, EX86_PREF_66 | EX86_SSE2, TMP_FREG, TMP_FREG, 0));
 		return emit_groupf_3(compiler, 0x38, PSHUFB_x_xm, EX86_PREF_66 | EX86_SSE2, freg, TMP_FREG, 0);
+	}
+
+	/* TODO: Support VEX prefix and longer reg types. */
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_sw srcw)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_s32 elem2_size = SLJIT_SIMD_GET_ELEM2_SIZE(type);
+	sljit_u8 opcode;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_extend(compiler, type, freg, src, srcw));
+
+	ADJUST_LOCAL_OFFSET(src, srcw);
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	compiler->mode32 = 1;
+#endif /* SLJIT_CONFIG_X86_64 */
+
+	if (reg_size == 4) {
+		if (type & SLJIT_SIMD_FLOAT) {
+			if (elem_size != 2 || elem2_size != 3)
+				return SLJIT_ERR_UNSUPPORTED;
+
+			if (type & SLJIT_SIMD_TEST)
+				return SLJIT_SUCCESS;
+
+			return emit_groupf(compiler, CVTPS2PD_x_xm, EX86_SSE2, freg, src, srcw);
+		}
+
+		switch (elem_size) {
+		case 0:
+			if (elem2_size == 1)
+				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXBW_x_xm : PMOVZXBW_x_xm;
+			else if (elem2_size == 2)
+				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXBD_x_xm : PMOVZXBD_x_xm;
+			else if (elem2_size == 3)
+				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXBQ_x_xm : PMOVZXBQ_x_xm;
+			else
+				return SLJIT_ERR_UNSUPPORTED;
+			break;
+		case 1:
+			if (elem2_size == 2)
+				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXWD_x_xm : PMOVZXWD_x_xm;
+			else if (elem2_size == 3)
+				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXWQ_x_xm : PMOVZXWQ_x_xm;
+			else
+				return SLJIT_ERR_UNSUPPORTED;
+			break;
+		case 2:
+			if (elem2_size == 3)
+				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXDQ_x_xm : PMOVZXDQ_x_xm;
+			else
+				return SLJIT_ERR_UNSUPPORTED;
+			break;
+		default:
+			return SLJIT_ERR_UNSUPPORTED;
+		}
+
+		if (type & SLJIT_SIMD_TEST)
+			return SLJIT_SUCCESS;
+
+		return emit_groupf_3(compiler, 0x38, opcode, EX86_PREF_66 | EX86_SSE2, freg, src, srcw);
 	}
 
 	/* TODO: Support VEX prefix and longer reg types. */

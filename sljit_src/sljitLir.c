@@ -143,9 +143,10 @@
 #define SLJIT_KEPT_SAVEDS_COUNT(options) ((options) & 0x3)
 
 /* Getters for simd operations, which returns with log2(size). */
-#define SLJIT_SIMD_GET_REG_SIZE(type) (((type) >> 12) & 0x3f)
-#define SLJIT_SIMD_GET_ELEM_SIZE(type) (((type) >> 18) & 0x3f)
-#define SLJIT_SIMD_GET_ALIGNMENT(type) (((type) >> 24) & 0x3f)
+#define SLJIT_SIMD_GET_REG_SIZE(type)		(((type) >> 12) & 0x3f)
+#define SLJIT_SIMD_GET_ELEM_SIZE(type)		(((type) >> 18) & 0x3f)
+#define SLJIT_SIMD_GET_ALIGNMENT(type)		(((type) >> 24) & 0x3f)
+#define SLJIT_SIMD_GET_ELEM2_SIZE(type)		(((type) >> 24) & 0x3f)
 
 /* Jump flags. */
 #define JUMP_LABEL	0x1
@@ -2709,6 +2710,45 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_lane_replicate(struc
 	CHECK_RETURN_OK;
 }
 
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_extend(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_sw srcw)
+{
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT((type & (sljit_s32)(0xc0000fff - (SLJIT_SIMD_EXTEND_SIGNED | SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST))) == 0);
+	CHECK_ARGUMENT((type & (SLJIT_SIMD_EXTEND_SIGNED | SLJIT_SIMD_FLOAT)) != (SLJIT_SIMD_EXTEND_SIGNED | SLJIT_SIMD_FLOAT));
+	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
+	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM2_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
+	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_ELEM2_SIZE(type));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	FUNCTION_FCHECK(src, srcw);
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		if (type & SLJIT_SIMD_TEST)
+			CHECK_RETURN_OK;
+		if (sljit_emit_simd_extend(compiler, type | SLJIT_SIMD_TEST, freg, src, srcw) == SLJIT_ERR_UNSUPPORTED) {
+			fprintf(compiler->verbose, "    # simd_extend: unsupported form, no instructions are emitted\n");
+			CHECK_RETURN_OK;
+		}
+
+		fprintf(compiler->verbose, "  simd_load_extend%s.%d.%s%d.%s%d ",
+			(type & SLJIT_SIMD_EXTEND_SIGNED) ? "_s" : "",
+			(8 << SLJIT_SIMD_GET_REG_SIZE(type)),
+			(type & SLJIT_SIMD_FLOAT) ? "f" : "",
+			(8 << SLJIT_SIMD_GET_ELEM2_SIZE(type)),
+			(type & SLJIT_SIMD_FLOAT) ? "f" : "",
+			(8 << SLJIT_SIMD_GET_ELEM_SIZE(type)));
+
+		sljit_verbose_freg(compiler, freg);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_fparam(compiler, src, srcw);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+	CHECK_RETURN_OK;
+}
+
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_local_base(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw offset)
 {
 	/* Any offset is allowed. */
@@ -3162,6 +3202,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 	SLJIT_UNUSED_ARG(freg);
 	SLJIT_UNUSED_ARG(src);
 	SLJIT_UNUSED_ARG(src_lane_index);
+
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_sw srcw)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_extend(compiler, type, freg, src, srcw));
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(type);
+	SLJIT_UNUSED_ARG(freg);
+	SLJIT_UNUSED_ARG(src);
+	SLJIT_UNUSED_ARG(srcw);
 
 	return SLJIT_ERR_UNSUPPORTED;
 }

@@ -1813,7 +1813,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 	sljit_s32 freg,
 	sljit_s32 mem, sljit_sw memw);
 
-/* The following flags are used by several simd operations. */
+/* The following options are used by several simd operations. */
 
 /* Load data into a simd register, this is the default */
 #define SLJIT_SIMD_LOAD			0x000000
@@ -1842,7 +1842,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 /* Element size is 128 bit long */
 #define SLJIT_SIMD_ELEM_128		(4 << 18)
 
-/* The following flags are used by sljit_emit_simd_mem(). */
+/* The following options are used by sljit_emit_simd_mov(). */
 
 /* Memory address is unaligned (this is the default) */
 #define SLJIT_SIMD_MEM_UNALIGNED	(0 << 24)
@@ -1862,7 +1862,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
    it does not emit any instructions.
 
    type must be a combination of SLJIT_SIMD_* and
-     SLJIT_SIMD_MEM_* flags
+     SLJIT_SIMD_MEM_* options
    freg is the source or destination simd register
      of the operation
    srcdst must be a memory operand or a simd register
@@ -1884,8 +1884,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
    SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
    it does not emit any instructions.
 
-   type must be a combination of SLJIT_SIMD_* flags except
-     SLJIT_SIMD_STORE.
+   type must be a combination of SLJIT_SIMD_* options
+     except SLJIT_SIMD_STORE.
    freg is the destination simd register of the operation
    src is the value which is replicated
 
@@ -1899,7 +1899,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 	sljit_s32 freg,
 	sljit_s32 src, sljit_sw srcw);
 
-/* The following flags are used by sljit_emit_simd_lane_mov(). */
+/* The following options are used by sljit_emit_simd_lane_mov(). */
 
 /* Clear all bits of the simd register before loading the lane. */
 #define SLJIT_SIMD_LANE_ZERO		0x000002
@@ -1915,8 +1915,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
    SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
    it does not emit any instructions.
 
-   type must be a combination of SLJIT_SIMD_* flags.
-     Further allowed flags:
+   type must be a combination of SLJIT_SIMD_* options
+     Further options:
        SLJIT_32 - when SLJIT_SIMD_FLOAT is not set
        SLJIT_SIMD_LANE_SIGNED - when SLJIT_SIMD_STORE
            is set and SLJIT_SIMD_FLOAT is not set
@@ -1944,8 +1944,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
    SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
    it does not emit any instructions.
 
-   type must be a combination of SLJIT_SIMD_* flags except
-     SLJIT_SIMD_STORE.
+   type must be a combination of SLJIT_SIMD_* options
+     except SLJIT_SIMD_STORE.
    freg is the destination simd register of the operation
    src is the simd register which lane is replicated
    src_lane_index is the lane index of the src register
@@ -1955,6 +1955,39 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
 	sljit_s32 src, sljit_s32 src_lane_index);
+
+/* The following options are used by sljit_emit_simd_load_extend(). */
+
+/* Sign extend the integer elements */
+#define SLJIT_SIMD_EXTEND_SIGNED	0x000002
+/* Extend data to 16 bit */
+#define SLJIT_SIMD_EXTEND_16		(1 << 24)
+/* Extend data to 32 bit */
+#define SLJIT_SIMD_EXTEND_32		(2 << 24)
+/* Extend data to 64 bit */
+#define SLJIT_SIMD_EXTEND_64		(3 << 24)
+
+/* Extend elements and stores them in a simd register.
+   The extension operation increases the size of the
+   elements (e.g. from 16 bit to 64 bit). For integer
+   values, the extension can be signed or unsigned.
+
+   If the operation is not supported, it returns with
+   SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
+   it does not emit any instructions.
+
+   type must be a combination of SLJIT_SIMD_*, and
+     SLJIT_SIMD_EXTEND_* options except SLJIT_SIMD_STORE
+   freg is the destination simd register of the operation
+   src must be a memory operand or a simd register.
+     In the latter case, the  is stored in the lower half
+     of the register.
+
+   Flags: - (does not modify flags) */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_sw srcw);
 
 /* The sljit_emit_atomic_load and sljit_emit_atomic_store operation pair
    can perform an atomic read-modify-write operation. First, an unsigned

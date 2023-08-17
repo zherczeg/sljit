@@ -98,6 +98,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define FCMP 0x1e602000
 #define FCSEL 0x1e600c00
 #define FCVT 0x1e224000
+#define FCVTL 0x0e217800
 #define FCVTZS 0x9e780000
 #define FDIV 0x1e601800
 #define FMOV 0x1e604000
@@ -145,6 +146,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SMADDL 0x9b200000
 #define SMOV 0x0e002c00
 #define SMULH 0x9b403c00
+#define SSHLL 0x0f00a400
 #define ST1 0x0c007000
 #define ST1_s 0x0d000000
 #define STP 0xa9000000
@@ -170,6 +172,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define UDIV 0x9ac00800
 #define UMOV 0x0e003c00
 #define UMULH 0x9bc03c00
+#define USHLL 0x2f00a400
 
 #define CSET (CSINC | RM(TMP_ZERO) | RN(TMP_ZERO))
 #define LDR (STRI | (1 << 22))
@@ -2913,6 +2916,50 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 		ins |= (sljit_ins)1 << 30;
 
 	return push_inst(compiler, DUP_e | ins | VD(freg) | VN(src));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_sw srcw)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_s32 elem2_size = SLJIT_SIMD_GET_ELEM2_SIZE(type);
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_extend(compiler, type, freg, src, srcw));
+
+	ADJUST_LOCAL_OFFSET(src, srcw);
+
+	if (reg_size != 4)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if ((type & SLJIT_SIMD_FLOAT) && (elem_size != 2 || elem2_size != 3))
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_SIMD_TEST)
+		return SLJIT_SUCCESS;
+
+	if (src & SLJIT_MEM) {
+		FAIL_IF(sljit_emit_simd_mem_offset(compiler, &src, srcw));
+
+		if (elem2_size - elem_size == 1)
+			FAIL_IF(push_inst(compiler, LD1 | ((sljit_ins)elem_size << 10) | RN(src) | VT(freg)));
+		else
+			FAIL_IF(push_inst(compiler, LD1_s | ((sljit_ins)0x2000 << (4 - elem2_size + elem_size)) | RN(src) | VT(freg)));
+		src = freg;
+	}
+
+	if (type & SLJIT_SIMD_FLOAT)
+		return push_inst(compiler, FCVTL | (1 << 22) | VD(freg) | VN(src));
+
+	do {
+		FAIL_IF(push_inst(compiler, ((type & SLJIT_SIMD_EXTEND_SIGNED) ? SSHLL : USHLL)
+			| ((sljit_ins)1 << (19 + elem_size)) | VD(freg) | VN(src)));
+		src = freg;
+	} while (++elem_size < elem2_size);
+
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,

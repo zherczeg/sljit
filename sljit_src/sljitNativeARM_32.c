@@ -158,6 +158,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define VORR		0xf2200110
 #define VPOP		0xecbd0b00
 #define VPUSH		0xed2d0b00
+#define VSHLL		0xf2800a10
 #define VST1		0xf4000000
 #define VST1_s		0xf4800000
 #define VSTR_F32	0xed000a00
@@ -4110,6 +4111,63 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 		ins |= 1 << 6;
 
 	return push_inst(compiler, VDUP_s | ins | VD(freg) | VM(src));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 src, sljit_sw srcw)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_s32 elem2_size = SLJIT_SIMD_GET_ELEM2_SIZE(type);
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_extend(compiler, type, freg, src, srcw));
+
+	ADJUST_LOCAL_OFFSET(src, srcw);
+
+	if (reg_size != 4)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if ((type & SLJIT_SIMD_FLOAT) && (elem_size != 2 || elem2_size != 3))
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_SIMD_TEST)
+		return SLJIT_SUCCESS;
+
+	freg = simd_get_quad_reg_index(freg);
+
+	if (src & SLJIT_MEM) {
+		FAIL_IF(sljit_emit_simd_mem_offset(compiler, &src, srcw));
+		if (elem2_size - elem_size == 1)
+			FAIL_IF(push_inst(compiler, VLD1 | (0x7 << 8) | VD(freg) | RN(src) | 0xf));
+		else
+			FAIL_IF(push_inst(compiler, VLD1_s | (sljit_ins)((4 - elem2_size + elem_size) << 10) | VD(freg) | RN(src) | 0xf));
+		src = freg;
+	} else
+		src = simd_get_quad_reg_index(src);
+
+	if (!(type & SLJIT_SIMD_FLOAT)) {
+		do {
+			FAIL_IF(push_inst(compiler, VSHLL | ((type & SLJIT_SIMD_EXTEND_SIGNED) ? 0 : (1 << 24))
+				| ((sljit_ins)1 << (19 + elem_size)) | VD(freg) | VM(src)));
+			src = freg;
+		} while (++elem_size < elem2_size);
+
+		return SLJIT_SUCCESS;
+	}
+
+	/* No SIMD variant, must use VFP instead. */
+	if (freg == src) {
+		freg += SLJIT_QUAD_OTHER_HALF(freg);
+		FAIL_IF(push_inst(compiler, VCVT_F64_F32 | VD(freg) | VM(src) | 0x20));
+		freg += SLJIT_QUAD_OTHER_HALF(freg);
+		return push_inst(compiler, VCVT_F64_F32 | VD(freg) | VM(src));
+	}
+
+	FAIL_IF(push_inst(compiler, VCVT_F64_F32 | VD(freg) | VM(src)));
+	freg += SLJIT_QUAD_OTHER_HALF(freg);
+	return push_inst(compiler, VCVT_F64_F32 | VD(freg) | VM(src) | 0x20);
 }
 
 #undef FPU_LOAD
