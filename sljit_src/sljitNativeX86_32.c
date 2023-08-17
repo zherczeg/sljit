@@ -1449,7 +1449,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 
 		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, u.imm[1]);
 
-		if (cpu_feature_list && CPU_FEATURE_SSE41) {
+		if (cpu_feature_list & CPU_FEATURE_SSE41) {
 			FAIL_IF(emit_groupf_3(compiler, 0x3a, PINSRD_x_rm_i8, EX86_PREF_66 | EX86_SSE2_OP1, freg, TMP_REG1, 0));
 			return emit_byte(compiler, 1);
 		}
@@ -1484,7 +1484,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 
 	SLJIT_ASSERT(cpu_feature_list != 0);
 
-	if (!(op & SLJIT_32) && (cpu_feature_list && CPU_FEATURE_SSE41)) {
+	if (!(op & SLJIT_32) && (cpu_feature_list & CPU_FEATURE_SSE41)) {
 		if (reg & REG_PAIR_MASK) {
 			reg2 = REG_PAIR_FIRST(reg);
 			reg = REG_PAIR_SECOND(reg);
