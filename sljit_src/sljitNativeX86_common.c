@@ -446,7 +446,7 @@ static void get_cpu_features(void)
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		"pop %%ebx\n"
 #endif
-		"movl %%edx, %0\n"
+		"movl %%ecx, %0\n"
 		"movl %%edx, %1\n"
 		: "=g" (value_ecx), "=g" (value_edx)
 		:
@@ -457,7 +457,7 @@ static void get_cpu_features(void)
 #endif
 	);
 
-#else /* _MSC_VER && _MSC_VER >= 1400 */
+#else /* _MSC_VER < 1400 */
 
 	/* Intel syntax. */
 	__asm {
