@@ -12110,7 +12110,7 @@ static void test95(void)
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
-			printf("no fpu available, test95 skipped\n");
+			printf("no FPU available, test95 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -12248,9 +12248,9 @@ static void test96(void)
 	sljit_u8 data[63 + 680];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test96 skipped\n");
+			printf("no SIMD available, test96 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -12377,7 +12377,6 @@ static void test96(void)
 	code.func1((sljit_sw)buf);
 
 #if IS_X86 || IS_ARM
-	SLJIT_ASSERT(sljit_has_cpu_feature(SLJIT_HAS_SIMD));
 	FAILED(!check_simd_mov(buf + 32, 81, 16), "test96 case 1 failed\n");
 	FAILED(!check_simd_mov(buf + 82, 213, 16), "test96 case 2 failed\n");
 	FAILED(!check_simd_mov(buf + 136, 33, 16), "test96 case 3 failed\n");
@@ -12454,9 +12453,9 @@ static void test97(void)
 	sljit_s32 result32[5];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test97 skipped\n");
+			printf("no SIMD available, test97 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -12792,9 +12791,9 @@ static void test98(void)
 	sljit_u8 data[63 + 544];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test98 skipped\n");
+			printf("no SIMD available, test98 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -13041,9 +13040,9 @@ static void test99(void)
 	sljit_u8 data[63 + 464];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test99 skipped\n");
+			printf("no SIMD available, test99 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -13262,9 +13261,9 @@ static void test100(void)
 	sljit_u8 data[63 + 368];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test100 skipped\n");
+			printf("no SIMD available, test100 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -13555,9 +13554,9 @@ static void test101(void)
 	sljit_u8 data[63 + 544];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test101 skipped\n");
+			printf("no SIMD available, test101 skipped\n");
 		successful_tests++;
 		return;
 	}

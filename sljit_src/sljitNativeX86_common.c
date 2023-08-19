@@ -838,7 +838,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 1;
 
 	case SLJIT_HAS_SSE2:
-	case SLJIT_HAS_SIMD:
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
 		if (cpu_feature_list == 0)
 			get_cpu_features();
@@ -846,6 +845,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #else /* !SLJIT_DETECT_SSE2 */
 		return 1;
 #endif /* SLJIT_DETECT_SSE2 */
+	case SLJIT_HAS_SIMD:
+#if defined(SLJIT_IS_FPU_AVAILABLE) && SLJIT_IS_FPU_AVAILABLE == 0
+		return 0;
+#else
+		if (cpu_feature_list == 0)
+			get_cpu_features();
+		return (cpu_feature_list & CPU_FEATURE_SSE41) != 0;
+#endif /* !SLJIT_IS_FPU_AVAILABLE */
 
 	default:
 		return 0;
