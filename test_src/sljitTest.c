@@ -11276,7 +11276,7 @@ static void test90(void)
 	sljit_s32 i;
 
 	if (verbose)
-		printf("Run test89\n");
+		printf("Run test90\n");
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -11378,7 +11378,7 @@ static void test91(void)
 	sljit_s32 i;
 
 	if (verbose)
-		printf("Run test13\n");
+		printf("Run test91\n");
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		if (verbose)
@@ -12244,6 +12244,9 @@ static void test96(void)
 	sljit_u8 data[63 + 680];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
+	if (verbose)
+		printf("Run test96\n");
+
 	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
 			printf("no simd available, test96 skipped\n");
@@ -12441,6 +12444,9 @@ static void test97(void)
 	sljit_sw result[6];
 	sljit_s32 result32[5];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
+
+	if (verbose)
+		printf("Run test97\n");
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
@@ -12774,6 +12780,9 @@ static void test98(void)
 	sljit_u8 data[63 + 544];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
+	if (verbose)
+		printf("Run test98\n");
+
 	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
 			printf("no simd available, test98 skipped\n");
@@ -13021,6 +13030,9 @@ static void test99(void)
 	sljit_u8 data[63 + 464];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
+	if (verbose)
+		printf("Run test99\n");
+
 	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
 			printf("no simd available, test99 skipped\n");
@@ -13235,6 +13247,9 @@ static void test100(void)
 	sljit_u8* buf;
 	sljit_u8 data[63 + 368];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
+
+	if (verbose)
+		printf("Run test100\n");
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
@@ -13522,6 +13537,9 @@ static void test101(void)
 	sljit_u8* buf;
 	sljit_u8 data[63 + 544];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
+
+	if (verbose)
+		printf("Run test101\n");
 
 	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
@@ -13847,10 +13865,10 @@ int sljit_test(int argc, char* argv[])
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
-		printf("all tests are " COLOR_GREEN "PASSED" COLOR_DEFAULT " ");
+		printf("all tests " COLOR_GREEN "PASSED" COLOR_DEFAULT " ");
 	else
-		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests are " COLOR_RED "FAILED" COLOR_DEFAULT " ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / TEST_COUNT);
-	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "%s\n", sljit_get_platform_name(), sljit_has_cpu_feature(SLJIT_HAS_FPU) ? " (with fpu)" : " (without fpu)");
+		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests " COLOR_RED "FAILED" COLOR_DEFAULT " ", TEST_COUNT - successful_tests, (TEST_COUNT - successful_tests) * 100 / TEST_COUNT);
+	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT " (%s)\n", sljit_get_platform_name(), sljit_has_cpu_feature(SLJIT_HAS_SIMD) ? "with simd" : (sljit_has_cpu_feature(SLJIT_HAS_FPU) ? "with fpu" : "basic"));
 
 	return TEST_COUNT - successful_tests;
 

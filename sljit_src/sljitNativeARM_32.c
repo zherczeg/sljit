@@ -974,15 +974,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 {
 	switch (feature_type) {
 	case SLJIT_HAS_FPU:
-	case SLJIT_HAS_SIMD:
-	case SLJIT_SIMD_REGS_ARE_PAIRS:
 #ifdef SLJIT_IS_FPU_AVAILABLE
 		return SLJIT_IS_FPU_AVAILABLE;
 #else
 		/* Available by default. */
 		return 1;
-#endif
+#endif /* SLJIT_IS_FPU_AVAILABLE */
+	case SLJIT_HAS_SIMD:
+#ifdef SLJIT_IS_FPU_AVAILABLE
+		return SLJIT_IS_FPU_AVAILABLE;
+#else
+#if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
+		return 0;
+#else
+		/* Available by default. */
+		return 1;
+#endif /* SLJIT_CONFIG_ARM_V6 */
+#endif /* SLJIT_IS_FPU_AVAILABLE */
 
+	case SLJIT_SIMD_REGS_ARE_PAIRS:
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_CTZ:
 	case SLJIT_HAS_ROT:
