@@ -12216,8 +12216,6 @@ static void simd_set(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
 	} while (--length != 0);
 }
 
-#if IS_X86 || IS_ARM
-
 static sljit_s32 check_simd_mov(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
 {
 	if (buf[-1] != 0xaa || buf[length] != 0xaa)
@@ -12236,8 +12234,6 @@ static sljit_s32 check_simd_mov(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
 	return 1;
 }
 
-#endif /* IS_X86 || IS_ARM */
-
 static void test96(void)
 {
 	/* Test simd data transfer. */
@@ -12248,9 +12244,9 @@ static void test96(void)
 	sljit_u8 data[63 + 680];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test96 skipped\n");
+			printf("no simd available, test96 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -12376,7 +12372,6 @@ static void test96(void)
 
 	code.func1((sljit_sw)buf);
 
-#if IS_X86 || IS_ARM
 	SLJIT_ASSERT(sljit_has_cpu_feature(SLJIT_HAS_SIMD));
 	FAILED(!check_simd_mov(buf + 32, 81, 16), "test96 case 1 failed\n");
 	FAILED(!check_simd_mov(buf + 82, 213, 16), "test96 case 2 failed\n");
@@ -12385,16 +12380,13 @@ static void test96(void)
 	FAILED(!check_simd_mov(buf + 230, 7, 16), "test96 case 5 failed\n");
 	FAILED(!check_simd_mov(buf + 288, 239, 16), "test96 case 6 failed\n");
 	FAILED(!check_simd_mov(buf + 344, 176, 16), "test96 case 7 failed\n");
-#endif /* IS_X86 || IS_ARM */
 #if IS_ARM
 	FAILED(!check_simd_mov(buf + 384, 88, 8), "test96 case 8 failed\n");
 	FAILED(!check_simd_mov(buf + 402, 197, 8), "test96 case 9 failed\n");
 #endif /* IS_ARM */
-#if IS_X86 || IS_ARM
 	FAILED(!check_simd_mov(buf + 464, sljit_has_cpu_feature(SLJIT_SIMD_REGS_ARE_PAIRS) ? 203 : 58, 16), "test96 case 10 failed\n");
 	FAILED(!check_simd_mov(buf + 528, 105, 16), "test96 case 11 failed\n");
 	FAILED(!check_simd_mov(buf + 592, 19, 16), "test96 case 12 failed\n");
-#endif /* IS_X86 || IS_ARM */
 #if IS_ARM
 	FAILED(!check_simd_mov(buf + 632, 202, 8), "test96 case 13 failed\n");
 	FAILED(!check_simd_mov(buf + 664, 123, 8), "test96 case 14 failed\n");
@@ -12403,8 +12395,6 @@ static void test96(void)
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
-
-#if IS_X86 || IS_ARM
 
 static sljit_s32 check_simd_lane_mov(sljit_u8* buf, sljit_s32 length, sljit_s32 elem_size, sljit_s32 is_odd)
 {
@@ -12438,8 +12428,6 @@ static sljit_s32 check_simd_lane_mov(sljit_u8* buf, sljit_s32 length, sljit_s32 
 	return 1;
 }
 
-#endif /* IS_X86 || IS_ARM */
-
 static void test97(void)
 {
 	/* Test simd lane data transfer. */
@@ -12454,9 +12442,9 @@ static void test97(void)
 	sljit_s32 result32[5];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test97 skipped\n");
+			printf("no simd available, test97 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -12706,7 +12694,6 @@ static void test97(void)
 
 	code.func1((sljit_sw)buf);
 
-#if IS_X86 || IS_ARM
 	FAILED(!check_simd_lane_mov(buf + 32, 16, 1, 0), "test97 case 1 failed\n");
 	FAILED(!check_simd_lane_mov(buf + 48, 16, 1, 1), "test97 case 2 failed\n");
 	FAILED(!check_simd_lane_mov(buf + 64, 16, 2, 0), "test97 case 3 failed\n");
@@ -12737,13 +12724,10 @@ static void test97(void)
 	FAILED(result32[2] != 51656, "test97 case 26 failed\n");
 	FAILED(result32[3] != -12338, "test97 case 27 failed\n");
 	FAILED(result32[4] != -875902520, "test97 case 28 failed\n");
-#endif /* IS_X86 || IS_ARM */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
-
-#if IS_X86 || IS_ARM
 
 static sljit_s32 check_simd_replicate(sljit_u8* buf, sljit_s32 length, sljit_s32 elem_size, sljit_s32 value)
 {
@@ -12780,8 +12764,6 @@ static sljit_s32 check_simd_replicate_u32(sljit_u8* buf, sljit_s32 length, sljit
 	return 1;
 }
 
-#endif /* IS_X86 || IS_ARM */
-
 static void test98(void)
 {
 	/* Test simd replicate scalar to all lanes. */
@@ -12792,9 +12774,9 @@ static void test98(void)
 	sljit_u8 data[63 + 544];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test98 skipped\n");
+			printf("no simd available, test98 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -12991,7 +12973,6 @@ static void test98(void)
 
 	code.func1((sljit_sw)buf);
 
-#if IS_X86 || IS_ARM
 	FAILED(!check_simd_replicate(buf + 48, 16, 1, 78), "test98 case 1 failed\n");
 	FAILED(!check_simd_replicate(buf + 64, 16, 1, 253), "test98 case 2 failed\n");
 	FAILED(!check_simd_replicate(buf + 80, 16, 1, 42), "test98 case 3 failed\n");
@@ -13025,7 +13006,6 @@ static void test98(void)
 	FAILED(!check_simd_replicate_u32(buf + 496, 16, 0x71ffffff), "test98 case 29 failed\n");
 	FAILED(!check_simd_replicate_u32(buf + 512, 16, 0x9eff), "test98 case 30 failed\n");
 	FAILED(!check_simd_replicate_u32(buf + 528, 16, 0xff070000), "test98 case 31 failed\n");
-#endif /* IS_X86 || IS_ARM */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -13041,9 +13021,9 @@ static void test99(void)
 	sljit_u8 data[63 + 464];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test99 skipped\n");
+			printf("no simd available, test99 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -13196,7 +13176,6 @@ static void test99(void)
 
 	code.func1((sljit_sw)buf);
 
-#if IS_X86 || IS_ARM
 	FAILED(!check_simd_replicate(buf + 48, 16, 1, 100), "test99 case 1 failed\n");
 	FAILED(!check_simd_replicate(buf + 64, 16, 1, 128), "test99 case 2 failed\n");
 	FAILED(!check_simd_replicate(buf + 80, 16, 1, 106), "test99 case 3 failed\n");
@@ -13223,13 +13202,10 @@ static void test99(void)
 	FAILED(!check_simd_replicate(buf + 416, 16, 8, 108), "test99 case 24 failed\n");
 	FAILED(!check_simd_replicate(buf + 432, 16, 8, 124), "test99 case 25 failed\n");
 	FAILED(!check_simd_replicate(buf + 448, 16, 16, 116), "test99 case 26 failed\n");
-#endif /* IS_X86 || IS_ARM */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
-
-#if IS_X86 || IS_ARM
 
 static sljit_s32 check_simd_lane_mov_zero(sljit_u8* buf, sljit_s32 length, sljit_s32 elem_size, sljit_s32 start, sljit_s32 value)
 {
@@ -13250,8 +13226,6 @@ static sljit_s32 check_simd_lane_mov_zero(sljit_u8* buf, sljit_s32 length, sljit
 	return 1;
 }
 
-#endif /* IS_X86 || IS_ARM */
-
 static void test100(void)
 {
 	/* Test simd zero register before move to lane. */
@@ -13262,9 +13236,9 @@ static void test100(void)
 	sljit_u8 data[63 + 368];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test100 skipped\n");
+			printf("no simd available, test100 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -13423,7 +13397,6 @@ static void test100(void)
 
 	code.func1((sljit_sw)buf);
 
-#if IS_X86 || IS_ARM
 	FAILED(!check_simd_lane_mov_zero(buf + 16, 16, 1, 0, 85), "test100 case 1 failed\n");
 	FAILED(!check_simd_lane_mov_zero(buf + 32, 16, 1, 0, 18), "test100 case 2 failed\n");
 	FAILED(!check_simd_lane_mov_zero(buf + 48, 16, 1, 5, 170), "test100 case 3 failed\n");
@@ -13448,7 +13421,6 @@ static void test100(void)
 	FAILED(!check_simd_lane_mov_zero(buf + 320, 16, 8, 0, 100), "test100 case 20 failed\n");
 	FAILED(!check_simd_lane_mov_zero(buf + 336, 16, 8, 0, 108), "test100 case 21 failed\n");
 	FAILED(!check_simd_lane_mov_zero(buf + 352, 16, 8, 8, 100), "test100 case 22 failed\n");
-#endif /* IS_X86 || IS_ARM */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -13472,8 +13444,6 @@ static void init_simd_extend(sljit_u8* buf, sljit_s32 length, sljit_s32 elem_siz
 		data++;
 	} while (buf < end);
 }
-
-#if IS_X86 || IS_ARM
 
 static sljit_s32 check_simd_extend_unsigned(sljit_u8* buf, sljit_s32 length, sljit_s32 elem_size, sljit_u32 mask)
 {
@@ -13543,8 +13513,6 @@ static sljit_s32 check_simd_extend_signed(sljit_u8* buf, sljit_s32 length, sljit
 	return 1;
 }
 
-#endif /* IS_X86 || IS_ARM */
-
 static void test101(void)
 {
 	/* Test simd extension operation. */
@@ -13555,9 +13523,9 @@ static void test101(void)
 	sljit_u8 data[63 + 544];
 	sljit_s32 fs0 = SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? SLJIT_FS0 : SLJIT_FR5;
 
-	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+	if (!sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
 		if (verbose)
-			printf("no fpu available, test101 skipped\n");
+			printf("no simd available, test101 skipped\n");
 		successful_tests++;
 		return;
 	}
@@ -13724,7 +13692,6 @@ static void test101(void)
 
 	code.func1((sljit_sw)buf);
 
-#if IS_X86 || IS_ARM
 	FAILED(!check_simd_extend_unsigned(buf + 64, 16, 1, 0xff), "test101 case 1 failed\n");
 	FAILED(!check_simd_extend_signed(buf + 80, 16, 1, 0), "test101 case 2 failed\n");
 	FAILED(!check_simd_extend_unsigned(buf + 96, 16, 1, 0xff), "test101 case 3 failed\n");
@@ -13752,7 +13719,6 @@ static void test101(void)
 	FAILED(!check_simd_extend_signed(buf + 496, 16, 3, 0), "test101 case 25 failed\n");
 	FAILED(!check_simd_extend_unsigned(buf + 512, 16, 3, 0xffff), "test101 case 26 failed\n");
 	FAILED(!check_simd_extend_signed(buf + 528, 16, 3, 0), "test101 case 27 failed\n");
-#endif /* IS_X86 || IS_ARM */
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;

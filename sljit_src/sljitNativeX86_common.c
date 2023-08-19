@@ -838,7 +838,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 1;
 
 	case SLJIT_HAS_SSE2:
-	case SLJIT_HAS_SIMD:
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
 		if (cpu_feature_list == 0)
 			get_cpu_features();
@@ -846,7 +845,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #else /* !SLJIT_DETECT_SSE2 */
 		return 1;
 #endif /* SLJIT_DETECT_SSE2 */
-
+#if !(defined SLJIT_IS_FPU_AVAILABLE) || SLJIT_IS_FPU_AVAILABLE
+	case SLJIT_HAS_SIMD:
+		if (cpu_feature_list == 0)
+			get_cpu_features();
+		return (cpu_feature_list & CPU_FEATURE_SSE41) != 0;
+#endif /* SLJIT_IS_FPU_AVAILABLE */
 	default:
 		return 0;
 	}
@@ -3489,6 +3493,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_mov(compiler, type, freg, srcdst, srcdstw));
 
+	/* SIMD is currently unsupported if SSE4.1 is not supported. */
+	SLJIT_ASSERT(cpu_feature_list != 0);
+	if (!(cpu_feature_list & CPU_FEATURE_SSE41))
+		return SLJIT_ERR_UNSUPPORTED;
+
 	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -3539,6 +3548,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_replicate(compiler, type, freg, src, srcw));
+
+	/* SIMD is currently unsupported if SSE4.1 is not supported. */
+	SLJIT_ASSERT(cpu_feature_list != 0);
+	if (!(cpu_feature_list & CPU_FEATURE_SSE41))
+		return SLJIT_ERR_UNSUPPORTED;
 
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
@@ -3693,6 +3707,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_lane_mov(compiler, type, freg, lane_index, srcdst, srcdstw));
+
+	/* SIMD is currently unsupported if SSE4.1 is not supported. */
+	SLJIT_ASSERT(cpu_feature_list != 0);
+	if (!(cpu_feature_list & CPU_FEATURE_SSE41))
+		return SLJIT_ERR_UNSUPPORTED;
 
 	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
@@ -3937,6 +3956,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_lane_replicate(compiler, type, freg, src, src_lane_index));
 
+	/* SIMD is currently unsupported if SSE4.1 is not supported. */
+	SLJIT_ASSERT(cpu_feature_list != 0);
+	if (!(cpu_feature_list & CPU_FEATURE_SSE41))
+		return SLJIT_ERR_UNSUPPORTED;
+
 	if (reg_size == 4) {
 		if (type & SLJIT_SIMD_FLOAT) {
 			pref = 0;
@@ -4055,6 +4079,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_extend(compiler, type, freg, src, srcw));
+
+	/* SIMD is currently unsupported if SSE4.1 is not supported. */
+	SLJIT_ASSERT(cpu_feature_list != 0);
+	if (!(cpu_feature_list & CPU_FEATURE_SSE41))
+		return SLJIT_ERR_UNSUPPORTED;
 
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
