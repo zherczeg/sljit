@@ -981,16 +981,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 1;
 #endif /* SLJIT_IS_FPU_AVAILABLE */
 	case SLJIT_HAS_SIMD:
-#ifdef SLJIT_IS_FPU_AVAILABLE
-		return SLJIT_IS_FPU_AVAILABLE;
-#else
 #if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
 		return 0;
 #else
+#ifdef SLJIT_IS_FPU_AVAILABLE
+		return SLJIT_IS_FPU_AVAILABLE;
+#else
 		/* Available by default. */
 		return 1;
-#endif /* SLJIT_CONFIG_ARM_V6 */
 #endif /* SLJIT_IS_FPU_AVAILABLE */
+#endif /* SLJIT_CONFIG_ARM_V6 */
 
 	case SLJIT_SIMD_REGS_ARE_PAIRS:
 	case SLJIT_HAS_CLZ:
@@ -4213,6 +4213,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 {
 	sljit_u32 ins;
 
+	/* temp_reg == mem_reg is undefined so use another temp register */
+	SLJIT_UNUSED_ARG(temp_reg);
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
 
@@ -4229,7 +4232,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	}
 
 	FAIL_IF(push_inst(compiler, ins | RN(mem_reg) | RD(TMP_REG1) | RM(src_reg)));
-	return push_inst(compiler, CMP | SET_FLAGS | SRC2_IMM | RN(TMP_REG1) | 0);
+	if (op & SLJIT_SET_ATOMIC_STORED)
+		return push_inst(compiler, CMP | SET_FLAGS | SRC2_IMM | RN(TMP_REG1));
+
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
