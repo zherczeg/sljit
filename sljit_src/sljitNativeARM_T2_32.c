@@ -128,12 +128,12 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define EORS		0x4040
 #define EOR_W		0xea800000
 #define IT		0xbf00
-#define LDAEX		0xe8d00fef
-#define LDAEXB		0xe8d00fcf
-#define LDAEXH		0xe8d00fdf
 #define LDR		0xf8d00000
 #define LDR_SP		0x9800
 #define LDRD		0xe9500000
+#define LDREX		0xe8500f00
+#define LDREXB		0xe8d00f4f
+#define LDREXH		0xe8d00f5f
 #define LDRI		0xf8500800
 #define LSLS		0x4080
 #define LSLSI		0x0000
@@ -180,9 +180,9 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SMULL		0xfb800000
 #define STR_SP		0x9000
 #define STRD		0xe9400000
-#define STREX		0xe8c00fe0
-#define STREXB		0xe8c00fc0
-#define STREXH		0xe8c00fd0
+#define STREX		0xe8400000
+#define STREXB		0xe8c00f40
+#define STREXH		0xe8c00f50
 #define SUBS		0x1a00
 #define SUBSI3		0x1e00
 #define SUBSI8		0x3800
@@ -3847,20 +3847,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	sljit_s32 dst_reg,
 	sljit_s32 mem_reg)
 {
-	sljit_ins ins = 0;
+	sljit_ins ins;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV_U8:
-		ins = LDAEXB;
+		ins = LDREXB;
 		break;
 	case SLJIT_MOV_U16:
-		ins = LDAEXH;
+		ins = LDREXH;
 		break;
 	default:
-		ins = LDAEX;
+		ins = LDREX;
 		break;
 	}
 
@@ -3872,25 +3872,31 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	sljit_s32 mem_reg,
 	sljit_s32 temp_reg)
 {
-	sljit_ins ins = 0;
+	sljit_ins ins;
+
+	/* temp_reg == mem_reg is undefined so use another temp register */
+	SLJIT_UNUSED_ARG(temp_reg);
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV_U8:
-		ins = STREXB;
+		ins = STREXB | RM4(TMP_REG1);
 		break;
 	case SLJIT_MOV_U16:
-		ins = STREXH;
+		ins = STREXH | RM4(TMP_REG1);
 		break;
 	default:
-		ins = STREX;
+		ins = STREX | RD4(TMP_REG1);
 		break;
 	}
 
-	FAIL_IF(push_inst32(compiler, ins | RN4(mem_reg) | RT4(src_reg)| RM4(TMP_REG1)));
-	return push_inst32(compiler, CMPI_W | RN4(TMP_REG1) | 0);
+	FAIL_IF(push_inst32(compiler, ins | RN4(mem_reg) | RT4(src_reg)));
+	if (op & SLJIT_SET_ATOMIC_STORED)
+		return push_inst32(compiler, CMPI_W | RN4(TMP_REG1));
+
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
