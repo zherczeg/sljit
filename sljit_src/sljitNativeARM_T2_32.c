@@ -2260,8 +2260,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *compiler,
 	sljit_s32 freg, sljit_f32 value)
 {
+#if defined(__ARM_NEON) && __ARM_NEON
 	sljit_u32 exp;
 	sljit_ins ins;
+#endif /* NEON */
 	union {
 		sljit_u32 imm;
 		sljit_f32 value;
@@ -2272,6 +2274,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *comp
 
 	u.value = value;
 
+#if defined(__ARM_NEON) && __ARM_NEON
 	if ((u.imm << (32 - 19)) == 0) {
 		exp = (u.imm >> (23 + 2)) & 0x3f;
 
@@ -2280,6 +2283,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *comp
 			return push_inst32(compiler, (VMOV_F32 ^ (1 << 6)) | ((ins & 0xf0) << 12) | VD4(freg) | (ins & 0xf));
 		}
 	}
+#endif /* NEON */
 
 	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm));
 	return push_inst32(compiler, VMOV | VN4(freg) | RT4(TMP_REG1));
@@ -2288,8 +2292,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *comp
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *compiler,
 	sljit_s32 freg, sljit_f64 value)
 {
+#if defined(__ARM_NEON) && __ARM_NEON
 	sljit_u32 exp;
 	sljit_ins ins;
+#endif /* NEON */
 	union {
 		sljit_u32 imm[2];
 		sljit_f64 value;
@@ -2300,6 +2306,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 
 	u.value = value;
 
+#if defined(__ARM_NEON) && __ARM_NEON
 	if (u.imm[0] == 0 && (u.imm[1] << (64 - 48)) == 0) {
 		exp = (u.imm[1] >> ((52 - 32) + 2)) & 0x1ff;
 
@@ -2308,6 +2315,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 			return push_inst32(compiler, (VMOV_F32 ^ (1 << 6)) | (1 << 8) | ((ins & 0xf0) << 12) | VD4(freg) | (ins & 0xf));
 		}
 	}
+#endif /* NEON */
 
 	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm[0]));
 	if (u.imm[0] == u.imm[1])
