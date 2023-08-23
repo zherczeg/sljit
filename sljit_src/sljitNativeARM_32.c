@@ -95,13 +95,13 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define AND		0xe0000000
 #define B		0xea000000
 #define BIC		0xe1c00000
+#define BKPT		0xe1200070
 #define BL		0xeb000000
 #define BLX		0xe12fff30
 #define BX		0xe12fff10
 #define CLZ		0xe16f0f10
 #define CMN		0xe1600000
 #define CMP		0xe1400000
-#define BKPT		0xe1200070
 #define EOR		0xe0200000
 #define LDR		0xe5100000
 #define LDR_POST	0xe4100000
@@ -115,7 +115,6 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define ORR		0xe1800000
 #define PUSH		0xe92d0000
 #define POP		0xe8bd0000
-#define RBIT		0xe6ff0f30
 #define REV		0xe6bf0f30
 #define REV16		0xe6bf0fb0
 #define RSB		0xe0600000
@@ -168,6 +167,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 /* Arm v7 specific instructions. */
 #define MOVT		0xe3400000
 #define MOVW		0xe3000000
+#define RBIT		0xe6ff0f30
 #endif
 
 #if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
@@ -994,7 +994,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 
 	case SLJIT_SIMD_REGS_ARE_PAIRS:
 	case SLJIT_HAS_CLZ:
-	case SLJIT_HAS_CTZ:
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_CMOV:
 	case SLJIT_HAS_REV:
@@ -1002,6 +1001,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_COPY_F32:
 	case SLJIT_HAS_COPY_F64:
 		return 1;
+
+	case SLJIT_HAS_CTZ:
+#if defined(SLJIT_CONFIG_ARM_V6) && SLJIT_CONFIG_ARM_V6
+		return 2;
+#else
+		return 1;
+#endif /* SLJIT_CONFIG_ARM_V6 */
 
 	default:
 		return 0;
@@ -1502,8 +1508,16 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_CTZ:
 		SLJIT_ASSERT(!(flags & INV_IMM) && !(src2 & SRC2_IMM));
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
+#if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
+		FAIL_IF(push_inst(compiler, RSB | SRC2_IMM | RD(TMP_REG1) | RN(src2) | 0));
+		FAIL_IF(push_inst(compiler, AND | RD(TMP_REG2) | RN(src2) | RM(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, CLZ | RD(dst) | RM(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, CMP | SET_FLAGS | SRC2_IMM | RN(dst) | 32));
+		return push_inst(compiler, (EOR ^ 0xf0000000) | SRC2_IMM | RD(dst) | RN(dst) | 0x1f);
+#else /* !SLJIT_CONFIG_ARM_V6 */
 		FAIL_IF(push_inst(compiler, RBIT | RD(dst) | RM(src2)));
 		return push_inst(compiler, CLZ | RD(dst) | RM(dst));
+#endif /* SLJIT_CONFIG_ARM_V6 */
 
 	case SLJIT_REV:
 	case SLJIT_REV_U32:
