@@ -1980,14 +1980,32 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
      SLJIT_SIMD_EXTEND_* options except SLJIT_SIMD_STORE
    freg is the destination simd register of the operation
    src must be a memory operand or a simd register.
-     In the latter case, the  is stored in the lower half
-     of the register.
+     In the latter case, the source elements are stored
+     in the lower half of the register.
 
    Flags: - (does not modify flags) */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 freg,
 	sljit_s32 src, sljit_sw srcw);
+
+/* Extract the highest bit (usually the sign bit) from
+   each elements of a vector.
+
+   If the operation is not supported, it returns with
+   SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
+   it does not emit any instructions.
+
+   type must be a combination of SLJIT_SIMD_* and SLJIT_32
+     options except SLJIT_SIMD_LOAD
+   freg is the source simd register of the operation
+   dst is the destination operand
+
+   Flags: - (does not modify flags) */
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 dst, sljit_sw dstw);
 
 /* The sljit_emit_atomic_load and sljit_emit_atomic_store operation pair
    can perform an atomic read-modify-write operation. First, an unsigned

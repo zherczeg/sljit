@@ -173,6 +173,9 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define UMOV 0x0e003c00
 #define UMULH 0x9bc03c00
 #define USHLL 0x2f00a400
+#define USHR 0x2f000400
+#define USRA 0x2f001400
+#define XTN 0x0e212800
 
 #define CSET (CSINC | RM(TMP_ZERO) | RN(TMP_ZERO))
 #define LDR (STRI | (1 << 22))
@@ -2958,6 +2961,83 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 			| ((sljit_ins)1 << (19 + elem_size)) | VD(freg) | VN(src)));
 		src = freg;
 	} while (++elem_size < elem2_size);
+
+	return SLJIT_SUCCESS;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 dst, sljit_sw dstw)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_ins ins, imms;
+	sljit_s32 dst_r;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_sign(compiler, type, freg, dst, dstw));
+
+	ADJUST_LOCAL_OFFSET(dst, dstw);
+
+	if (reg_size != 3 && reg_size != 4)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if ((type & SLJIT_SIMD_FLOAT) && (elem_size < 2 || elem_size > 3))
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_SIMD_TEST)
+		return SLJIT_SUCCESS;
+
+	switch (elem_size) {
+	case 0:
+		imms = 0x643219;
+		ins = USHR | (0x9 << 16);
+		break;
+	case 1:
+		imms = (reg_size == 4) ? 0x643219 : 0x6231;
+		ins = USHR | (0x11 << 16);
+		break;
+	case 2:
+		imms = (reg_size == 4) ? 0x6231 : 0x61;
+		ins = USHR | (0x21 << 16);
+		break;
+	default:
+		imms = 0x61;
+		ins = USHR | (0x41 << 16);
+		break;
+	}
+
+	if (reg_size == 4)
+		ins |= (1 << 30);
+
+	FAIL_IF(push_inst(compiler, ins | VD(TMP_FREG1) | VN(freg)));
+
+	if (reg_size == 4 && elem_size > 0)
+		FAIL_IF(push_inst(compiler, XTN | ((sljit_ins)(elem_size - 1) << 22) | VD(TMP_FREG1) | VN(TMP_FREG1)));
+
+	if (imms >= 0x100) {
+		ins = (reg_size == 4 && elem_size == 0) ? (1 << 30) : 0;
+
+		do {
+			FAIL_IF(push_inst(compiler, USRA | ins | ((imms & 0xff) << 16) | VD(TMP_FREG1) | VN(TMP_FREG1)));
+			imms >>= 8;
+		} while (imms >= 0x100);
+	}
+
+	FAIL_IF(push_inst(compiler, USRA | (1 << 30) | (imms << 16) | VD(TMP_FREG1) | VN(TMP_FREG1)));
+
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
+	ins = (0x1 << 16);
+
+	if (reg_size == 4 && elem_size == 0) {
+		FAIL_IF(push_inst(compiler, INS_e | (0x3 << 16) | (0x8 << 11) | VD(TMP_FREG1) | VN(TMP_FREG1)));
+		ins = (0x2 << 16);
+	}
+
+	FAIL_IF(push_inst(compiler, UMOV | ins | RD(dst_r) | VN(TMP_FREG1)));
+
+	if (dst_r == TMP_REG1)
+		return emit_op_mem(compiler, STORE | ((type & SLJIT_32) ? INT_SIZE : WORD_SIZE), TMP_REG1, dst, dstw, TMP_REG2);
 
 	return SLJIT_SUCCESS;
 }

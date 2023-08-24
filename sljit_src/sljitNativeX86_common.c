@@ -237,6 +237,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define MOVLHPS_x_x	0x16
 #define MOVLPD_m_x	0x13
 #define MOVLPD_x_m	0x12
+#define MOVMSKPS_r_x	(/* GROUP_0F */ 0x50)
 #define MOVQ_x_xm	(/* GROUP_0F */ 0x7e)
 #define MOVSD_x_xm	0x10
 #define MOVSD_xm_x	0x11
@@ -257,6 +258,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define OR_EAX_i32	0x0d
 #define OR_rm_r		0x09
 #define OR_rm8_r8	0x08
+#define PACKSSWB_x_xm	(/* GROUP_0F */ 0x63)
 #define PCMPEQB_x_xm	0x74
 #define PINSRB_x_rm_i8	0x20
 #define PINSRW_x_rm_i8	0xc4
@@ -264,6 +266,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define PEXTRB_rm_x_i8	0x14
 #define PEXTRW_rm_x_i8	0x15
 #define PEXTRD_rm_x_i8	0x16
+#define PMOVMSKB_r_x	(/* GROUP_0F */ 0xd7)
 #define PMOVSXBD_x_xm	0x21
 #define PMOVSXBQ_x_xm	0x22
 #define PMOVSXBW_x_xm	0x20
@@ -3493,11 +3496,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_mov(compiler, type, freg, srcdst, srcdstw));
 
-	/* SIMD is currently unsupported if SSE4.1 is not supported. */
-	SLJIT_ASSERT(cpu_feature_list != 0);
-	if (!(cpu_feature_list & CPU_FEATURE_SSE41))
-		return SLJIT_ERR_UNSUPPORTED;
-
 	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -3548,11 +3546,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_replicate(compiler, type, freg, src, srcw));
-
-	/* SIMD is currently unsupported if SSE4.1 is not supported. */
-	SLJIT_ASSERT(cpu_feature_list != 0);
-	if (!(cpu_feature_list & CPU_FEATURE_SSE41))
-		return SLJIT_ERR_UNSUPPORTED;
 
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
@@ -3707,11 +3700,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_lane_mov(compiler, type, freg, lane_index, srcdst, srcdstw));
-
-	/* SIMD is currently unsupported if SSE4.1 is not supported. */
-	SLJIT_ASSERT(cpu_feature_list != 0);
-	if (!(cpu_feature_list & CPU_FEATURE_SSE41))
-		return SLJIT_ERR_UNSUPPORTED;
 
 	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
@@ -3956,11 +3944,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_lane_replicate(compiler, type, freg, src, src_lane_index));
 
-	/* SIMD is currently unsupported if SSE4.1 is not supported. */
-	SLJIT_ASSERT(cpu_feature_list != 0);
-	if (!(cpu_feature_list & CPU_FEATURE_SSE41))
-		return SLJIT_ERR_UNSUPPORTED;
-
 	if (reg_size == 4) {
 		if (type & SLJIT_SIMD_FLOAT) {
 			pref = 0;
@@ -4080,11 +4063,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_extend(compiler, type, freg, src, srcw));
 
-	/* SIMD is currently unsupported if SSE4.1 is not supported. */
-	SLJIT_ASSERT(cpu_feature_list != 0);
-	if (!(cpu_feature_list & CPU_FEATURE_SSE41))
-		return SLJIT_ERR_UNSUPPORTED;
-
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
@@ -4135,6 +4113,68 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 			return SLJIT_SUCCESS;
 
 		return emit_groupf_3(compiler, 0x38, opcode, EX86_PREF_66 | EX86_SSE2, freg, src, srcw);
+	}
+
+	/* TODO: Support VEX prefix and longer reg types. */
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 dst, sljit_sw dstw)
+{
+	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
+	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
+	sljit_s32 dst_r;
+	sljit_uw pref;
+	sljit_u8 *inst;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_simd_sign(compiler, type, freg, dst, dstw));
+
+	ADJUST_LOCAL_OFFSET(dst, dstw);
+
+	CHECK_EXTRA_REGS(dst, dstw, (void)0);
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	compiler->mode32 = 1;
+#endif /* SLJIT_CONFIG_X86_64 */
+
+	if (reg_size == 4) {
+		if ((type & SLJIT_SIMD_FLOAT) && elem_size < 2)
+			return SLJIT_ERR_UNSUPPORTED;
+
+		if (type & SLJIT_SIMD_TEST)
+			return SLJIT_SUCCESS;
+
+		pref = EX86_PREF_66 | EX86_SSE2_OP2;
+
+		switch (elem_size) {
+		case 1:
+			FAIL_IF(emit_groupf(compiler, PACKSSWB_x_xm, EX86_PREF_66 | EX86_SSE2, TMP_FREG, freg, 0));
+			freg = TMP_FREG;
+			break;
+		case 2:
+			pref = EX86_SSE2_OP2;
+			break;
+		}
+
+		dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
+		FAIL_IF(emit_groupf(compiler, elem_size < 2 ? PMOVMSKB_r_x : MOVMSKPS_r_x, pref, dst_r, freg, 0));
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		compiler->mode32 = type & SLJIT_32;
+#endif /* SLJIT_CONFIG_X86_64 */
+
+		if (elem_size == 1) {
+			inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 8, dst_r, 0);
+			FAIL_IF(!inst);
+			*inst |= SHR;
+		}
+
+		if (dst_r == TMP_REG1)
+			return emit_mov(compiler, dst, dstw, TMP_REG1, 0);
+
+		return SLJIT_SUCCESS;
 	}
 
 	/* TODO: Support VEX prefix and longer reg types. */
