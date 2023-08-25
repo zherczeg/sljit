@@ -3027,7 +3027,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 				imm = get_imm((sljit_uw)(memw & ~0xfff));
 
 				if (imm != INVALID_IMM)
-					memw &= 0xff;
+					memw &= 0xfff;
 			}
 
 			if (imm == INVALID_IMM) {
