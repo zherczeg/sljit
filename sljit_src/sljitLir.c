@@ -2386,14 +2386,16 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 	sljit_s32 reg,
 	sljit_s32 mem, sljit_sw memw)
 {
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	sljit_s32 allowed_flags;
+#endif /* SLJIT_ARGUMENT_CHECKS */
+
 	if (SLJIT_UNLIKELY(compiler->skip_checks)) {
 		compiler->skip_checks = 0;
 		CHECK_RETURN_OK;
 	}
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	sljit_s32 allowed_flags;
-
 	if (type & SLJIT_MEM_UNALIGNED) {
 		CHECK_ARGUMENT(!(type & (SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)));
 	} else if (type & SLJIT_MEM_ALIGNED_16) {
@@ -2405,14 +2407,14 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 	allowed_flags = SLJIT_MEM_UNALIGNED;
 
 	switch (type & 0xff) {
+	case SLJIT_MOV_P:
+	case SLJIT_MOV:
+		allowed_flags |= SLJIT_MEM_ALIGNED_32;
+		/* fallthrough */
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV_S32:
 	case SLJIT_MOV32:
-		allowed_flags = SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16;
-		break;
-	case SLJIT_MOV:
-	case SLJIT_MOV_P:
-		allowed_flags = SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32;
+		allowed_flags |= SLJIT_MEM_ALIGNED_16;
 		break;
 	}
 

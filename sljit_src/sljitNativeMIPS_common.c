@@ -2841,6 +2841,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 type, slji
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
 	void *instruction, sljit_u32 size)
 {
+	SLJIT_UNUSED_ARG(size);
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_custom(compiler, instruction, size));
 
