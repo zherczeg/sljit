@@ -150,6 +150,9 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define BCx		(HI(16))
 #define BCCTR		(HI(19) | LO(528) | (3 << 11))
 #define BLR		(HI(19) | LO(16) | (0x14 << 21))
+#if defined(_ARCH_PWR10) && _ARCH_PWR10
+#define BRD		(HI(31) | LO(187))
+#endif /* POWER10 */
 #define CNTLZD		(HI(31) | LO(58))
 #define CNTLZW		(HI(31) | LO(26))
 #define CMP		(HI(31) | LO(0))
@@ -184,6 +187,9 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define LD		(HI(58) | 0)
 #define LFD		(HI(50))
 #define LFS		(HI(48))
+#if defined(_ARCH_PWR7) && _ARCH_PWR7
+#define LDBRX		(HI(31) | LO(532))
+#endif /* POWER7 */
 #define LHBRX		(HI(31) | LO(790))
 #define LWBRX		(HI(31) | LO(534))
 #define LWZ		(HI(32))
@@ -222,6 +228,9 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SRD		(HI(31) | LO(539))
 #define SRW		(HI(31) | LO(536))
 #define STD		(HI(62) | 0)
+#if defined(_ARCH_PWR7) && _ARCH_PWR7
+#define STDBRX		(HI(31) | LO(660))
+#endif /* POWER7 */
 #define STDU		(HI(62) | 1)
 #define STDUX		(HI(31) | LO(181))
 #define STFD		(HI(54))
@@ -266,11 +275,15 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #endif /* SLJIT_CONFIG_PPC_32 */
 
 #if (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
-#define TMP_MEM_OFFSET_LOW TMP_MEM_OFFSET
-#define TMP_MEM_OFFSET_HI (TMP_MEM_OFFSET + sizeof(sljit_s32))
+#define TMP_MEM_OFFSET_LO	(TMP_MEM_OFFSET)
+#define TMP_MEM_OFFSET_HI	(TMP_MEM_OFFSET + sizeof(sljit_s32))
+#define LWBRX_FIRST_REG		S(TMP_REG1)
+#define LWBRX_SECOND_REG	S(dst)
 #else /* !SLJIT_LITTLE_ENDIAN */
-#define TMP_MEM_OFFSET_LOW (TMP_MEM_OFFSET + sizeof(sljit_s32))
-#define TMP_MEM_OFFSET_HI TMP_MEM_OFFSET
+#define TMP_MEM_OFFSET_LO	(TMP_MEM_OFFSET + sizeof(sljit_s32))
+#define TMP_MEM_OFFSET_HI	(TMP_MEM_OFFSET)
+#define LWBRX_FIRST_REG		S(dst)
+#define LWBRX_SECOND_REG	S(TMP_REG1)
 #endif /* SLJIT_LITTLE_ENDIAN */
 
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
@@ -673,7 +686,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		/* Available by default. */
 		return 1;
 #endif
-
+	case SLJIT_HAS_REV:
+#if defined(_ARCH_PWR10) && _ARCH_PWR10
+		return 1;
+#else /* !POWER10 */
+		return 2;
+#endif /* POWER10 */
 	/* A saved register is set to a zero value. */
 	case SLJIT_HAS_ZERO_REGISTER:
 	case SLJIT_HAS_CLZ:
@@ -682,7 +700,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 1;
 
 	case SLJIT_HAS_CTZ:
-	case SLJIT_HAS_REV:
 		return 2;
 
 	default:
@@ -1371,12 +1388,16 @@ static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op,
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		if (!is_32) {
+#if defined(_ARCH_PWR10) && _ARCH_PWR10
+			return push_inst(compiler, BRD | S(src) | A(dst));
+#else /* !POWER10 */
 			FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG2) | A(0) | IMM(TMP_MEM_OFFSET_HI)));
 			FAIL_IF(push_inst(compiler, RLDICL | S(src) | A(TMP_REG1) | RLDI_SH(32) | RLDI_MB(32)));
 			FAIL_IF(push_inst(compiler, STWBRX | S(src) | A(SLJIT_SP) | B(TMP_REG2)));
-			FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG2) | A(0) | IMM(TMP_MEM_OFFSET_LOW)));
+			FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG2) | A(0) | IMM(TMP_MEM_OFFSET_LO)));
 			FAIL_IF(push_inst(compiler, STWBRX | S(TMP_REG1) | A(SLJIT_SP) | B(TMP_REG2)));
 			return push_inst(compiler, LD | D(dst) | A(SLJIT_SP) | TMP_MEM_OFFSET);
+#endif /* POWER10 */
 		}
 #endif /* SLJIT_CONFIG_PPC_64 */
 
@@ -1452,16 +1473,30 @@ static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op,
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (!is_32) {
 		if (dst & SLJIT_MEM) {
+#if defined(_ARCH_PWR7) && _ARCH_PWR7
+			return push_inst(compiler, STDBRX | S(src) | A(mem) | B(offs_reg));
+#else /* !POWER7 */
+#if defined(SLJIT_LITTLE_ENDIAN) && SLJIT_LITTLE_ENDIAN
+			FAIL_IF(push_inst(compiler, RLDICL | S(src) | A(TMP_REG1) | RLDI_SH(32) | RLDI_MB(32)));
+			FAIL_IF(push_inst(compiler, STWBRX | S(TMP_REG1) | A(mem) | B(offs_reg)));
+			FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG2) | A(offs_reg) | IMM(SSIZE_OF(s32))));
+			return push_inst(compiler, STWBRX | S(src) | A(mem) | B(TMP_REG2));
+#else /* !SLJIT_LITTLE_ENDIAN */
 			FAIL_IF(push_inst(compiler, STWBRX | S(src) | A(mem) | B(offs_reg)));
 			FAIL_IF(push_inst(compiler, RLDICL | S(src) | A(TMP_REG1) | RLDI_SH(32) | RLDI_MB(32)));
 			FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG2) | A(offs_reg) | IMM(SSIZE_OF(s32))));
 			return push_inst(compiler, STWBRX | S(TMP_REG1) | A(mem) | B(TMP_REG2));
+#endif /* SLJIT_LITTLE_ENDIAN */
+#endif /* POWER7 */
 		}
-
-		FAIL_IF(push_inst(compiler, LWBRX | S(dst) | A(mem) | B(offs_reg)));
+#if defined(_ARCH_PWR7) && _ARCH_PWR7
+		return push_inst(compiler, LDBRX | S(dst) | A(mem) | B(offs_reg));
+#else /* !POWER7 */
+		FAIL_IF(push_inst(compiler, LWBRX | LWBRX_FIRST_REG | A(mem) | B(offs_reg)));
 		FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG2) | A(offs_reg) | IMM(SSIZE_OF(s32))));
-		FAIL_IF(push_inst(compiler, LWBRX | S(TMP_REG1) | A(mem) | B(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, LWBRX | LWBRX_SECOND_REG | A(mem) | B(TMP_REG2)));
 		return push_inst(compiler, RLDIMI | S(TMP_REG1) | A(dst) | RLDI_SH(32) | RLDI_MB(0));
+#endif /* POWER7 */
 	}
 #endif /* SLJIT_CONFIG_PPC_64 */
 
