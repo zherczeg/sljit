@@ -397,9 +397,10 @@ typedef double sljit_f64;
 /* Auto detecting mips revision. */
 #if (defined __mips_isa_rev) && (__mips_isa_rev >= 6)
 #define SLJIT_MIPS_REV 6
-#elif (defined __mips_isa_rev && __mips_isa_rev >= 1) \
-	|| (defined __clang__ && defined _MIPS_ARCH_OCTEON) \
-	|| (defined __clang__ && defined _MIPS_ARCH_P5600)
+#elif defined(__mips_isa_rev) && __mips_isa_rev >= 1
+#define SLJIT_MIPS_REV __mips_isa_rev
+#elif defined(__clang__) \
+	&& (defined(_MIPS_ARCH_OCTEON) || defined(_MIPS_ARCH_P5600))
 /* clang either forgets to define (clang-7) __mips_isa_rev at all
  * or sets it to zero (clang-8,-9) for -march=octeon (MIPS64 R2+)
  * and -march=p5600 (MIPS32 R5).

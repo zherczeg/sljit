@@ -35,7 +35,12 @@ static sljit_s32 emit_copysign(struct sljit_compiler *compiler, sljit_s32 op,
 	FAIL_IF(push_inst(compiler, SELECT_OP(DSRL32, SRL) | T(TMP_REG2) | D(TMP_REG2) | SH_IMM(31), DR(TMP_REG2)));
 	FAIL_IF(push_inst(compiler, SELECT_OP(DSLL32, SLL) | T(TMP_REG2) | D(TMP_REG2) | SH_IMM(31), DR(TMP_REG2)));
 	FAIL_IF(push_inst(compiler, XOR | S(TMP_REG1) | T(TMP_REG2) | D(TMP_REG1), DR(TMP_REG1)));
-	return push_inst(compiler, SELECT_OP(DMTC1, MTC1) | T(TMP_REG1) | FS(dst), MOVABLE_INS);
+	FAIL_IF(push_inst(compiler, SELECT_OP(DMTC1, MTC1) | T(TMP_REG1) | FS(dst), MOVABLE_INS));
+#if !defined(SLJIT_MIPS_REV) || SLJIT_MIPS_REV <= 1
+	if (!(op & SLJIT_32))
+		return push_inst(compiler, NOP, UNMOVABLE_INS);
+#endif /* MIPS III */
+	return SLJIT_SUCCESS;
 }
 
 static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_ar, sljit_sw imm)
@@ -153,11 +158,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 
 	u.value = value;
 
-	if (u.imm == 0)
-		return push_inst(compiler, DMTC1 | TA(0) | FS(freg), MOVABLE_INS);
+	if (u.imm == 0) {
+		FAIL_IF(push_inst(compiler, DMTC1 | TA(0) | FS(freg), MOVABLE_INS));
+#if !defined(SLJIT_MIPS_REV) || SLJIT_MIPS_REV <= 1
+		FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
+#endif /* MIPS III */
+		return SLJIT_SUCCESS;
+	}
 
 	FAIL_IF(load_immediate(compiler, DR(TMP_REG1), u.imm));
-	return push_inst(compiler, DMTC1 | T(TMP_REG1) | FS(freg), MOVABLE_INS);
+	FAIL_IF(push_inst(compiler, DMTC1 | T(TMP_REG1) | FS(freg), MOVABLE_INS));
+#if !defined(SLJIT_MIPS_REV) || SLJIT_MIPS_REV <= 1
+	FAIL_IF(push_inst(compiler, NOP, UNMOVABLE_INS));
+#endif /* MIPS III */
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
@@ -171,9 +185,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 	inst = T(reg) | FS(freg);
 
 	if (GET_OPCODE(op) == SLJIT_COPY_TO_F64)
-		return push_inst(compiler, ((op & SLJIT_32) ? MTC1 : DMTC1) | inst, MOVABLE_INS);
+		FAIL_IF(push_inst(compiler, SELECT_OP(DMTC1, MTC1) | inst, MOVABLE_INS));
+	else
+		FAIL_IF(push_inst(compiler, SELECT_OP(DMFC1, MFC1) | inst, DR(reg)));
 
-	return push_inst(compiler, ((op & SLJIT_32) ? MFC1 : DMFC1) | inst, DR(reg));
+#if !defined(SLJIT_MIPS_REV) || SLJIT_MIPS_REV <= 1
+	if (!(op & SLJIT_32))
+		return push_inst(compiler, NOP, UNMOVABLE_INS);
+#endif /* MIPS III */
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset)
