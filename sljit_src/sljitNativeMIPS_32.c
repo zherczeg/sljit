@@ -62,8 +62,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 	if (u.imm[1] != 0)
 		FAIL_IF(load_immediate(compiler, DR(TMP_REG2), u.imm[1]));
 
+#if defined(SLJIT_LITTLE_ENDIAN) && SLJIT_LITTLE_ENDIAN
 	FAIL_IF(push_inst(compiler, MTC1 | (u.imm[0] != 0 ? T(TMP_REG1) : TA(0)) | FS(freg), MOVABLE_INS));
 	return push_inst(compiler, MTC1 | (u.imm[1] != 0 ? T(TMP_REG2) : TA(0)) | FS(freg) | (1 << 11), MOVABLE_INS);
+#else
+	FAIL_IF(push_inst(compiler, MTC1 | (u.imm[1] != 0 ? T(TMP_REG2) : TA(0)) | FS(freg), MOVABLE_INS));
+	return push_inst(compiler, MTC1 | (u.imm[0] != 0 ? T(TMP_REG1) : TA(0)) | FS(freg) | (1 << 11), MOVABLE_INS);
+#endif /* SLJIT_LITTLE_ENDIAN */
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
