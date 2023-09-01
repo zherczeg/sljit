@@ -11110,6 +11110,7 @@ static void test88(void)
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, (sljit_sw)0xc00c0000);
 	sljit_emit_fcopy(compiler, SLJIT_COPY_TO_F64, SLJIT_FR3, SLJIT_R2);
+	/* dbuf[3] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_f64), SLJIT_FR3, 0);
 #endif /* IS_64BIT */
 
