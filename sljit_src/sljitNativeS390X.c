@@ -454,7 +454,7 @@ static SLJIT_INLINE sljit_ins disp_s20(sljit_s32 d)
 	SLJIT_ASSERT(is_s20(d));
 
 	sljit_uw dh = (d >> 12) & 0xff;
-	sljit_uw dl = (d << 8) & 0xfff00;
+	sljit_uw dl = ((sljit_uw)d << 8) & 0xfff00;
 	return (dh | dl) << 8;
 }
 
@@ -3525,7 +3525,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *comp
 
 	u.value = value;
 
-	FAIL_IF(push_load_imm_inst(compiler, tmp1, (sljit_sw)u.imm << 32));
+	FAIL_IF(push_load_imm_inst(compiler, tmp1, (sljit_sw)(((sljit_uw)u.imm << 32))));
 	return push_inst(compiler, 0xb3c10000 /* ldgr */ | F4(freg) | R0A(tmp1));
 }
 
