@@ -74,27 +74,33 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 freg, sljit_s32 reg)
 {
-	sljit_s32 reg2;
-	sljit_ins inst;
+	sljit_s32 reg2 = 0;
+	sljit_ins inst = FS(freg);
+	int is_32 = (op & SLJIT_32);
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
 
+	op = GET_OPCODE(op);
 	if (reg & REG_PAIR_MASK) {
 		reg2 = REG_PAIR_SECOND(reg);
 		reg = REG_PAIR_FIRST(reg);
 
-		inst = T(reg2) | FS(freg) | (1 << 11);
+		inst |= T(reg2);
 
 		if (op == SLJIT_COPY_TO_F64)
 			FAIL_IF(push_inst(compiler, MTC1 | inst, MOVABLE_INS));
 		else
 			FAIL_IF(push_inst(compiler, MFC1 | inst, DR(reg2)));
+
+		inst = FS(freg) | (1 << 11);
 	}
 
-	inst = T(reg) | FS(freg);
+	inst |= T(reg);
+	if (!is_32 && !reg2)
+		inst |= (1 << 11);
 
-	if (GET_OPCODE(op) == SLJIT_COPY_TO_F64)
+	if (op == SLJIT_COPY_TO_F64)
 		return push_inst(compiler, MTC1 | inst, MOVABLE_INS);
 
 	return push_inst(compiler, MFC1 | inst, DR(reg));
