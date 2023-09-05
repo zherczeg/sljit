@@ -873,17 +873,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
 #define SLJIT_MEM0()		(SLJIT_MEM)
 #define SLJIT_MEM1(r1)		(SLJIT_MEM | (r1))
 #define SLJIT_MEM2(r1, r2)	(SLJIT_MEM | (r1) | ((r2) << 8))
-#define SLJIT_IMM		0x40
+#define SLJIT_IMM		0x7f
 #define SLJIT_REG_PAIR(r1, r2)	((r1) | ((r2) << 8))
 
 /* Macros for checking operand types (only for valid arguments). */
 #define SLJIT_IS_REG(arg)	((arg) > 0 && (arg) < SLJIT_IMM)
 #define SLJIT_IS_MEM(arg)	((arg) & SLJIT_MEM)
 #define SLJIT_IS_MEM0(arg)	((arg) == SLJIT_MEM)
-#define SLJIT_IS_MEM1(arg)	((arg) > SLJIT_MEM && (arg) < (SLJIT_MEM + SLJIT_IMM))
+#define SLJIT_IS_MEM1(arg)	((arg) > SLJIT_MEM && (arg) < (SLJIT_MEM << 1))
 #define SLJIT_IS_MEM2(arg)	(((arg) & SLJIT_MEM) && (arg) >= (SLJIT_MEM << 1))
 #define SLJIT_IS_IMM(arg)	((arg) == SLJIT_IMM)
-#define SLJIT_IS_REG_PAIR(arg)	(((arg) >> 8) != 0)
+#define SLJIT_IS_REG_PAIR(arg)	(!((arg) & SLJIT_MEM) && (arg) >= (SLJIT_MEM << 1))
 
 /* Sets 32 bit operation mode on 64 bit CPUs. This option is ignored on
    32 bit CPUs. When this option is set for an arithmetic operation, only

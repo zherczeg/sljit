@@ -123,20 +123,20 @@
 #endif
 
 /* Parameter parsing. */
-#define REG_MASK		0x3f
+#define REG_MASK		0x7f
 #define OFFS_REG(reg)		(((reg) >> 8) & REG_MASK)
 #define OFFS_REG_MASK		(REG_MASK << 8)
 #define TO_OFFS_REG(reg)	((reg) << 8)
 /* When reg cannot be unused. */
-#define FAST_IS_REG(reg)	((reg) <= REG_MASK)
+#define FAST_IS_REG(reg)	((reg) < REG_MASK)
 
 /* Mask for argument types. */
 #define SLJIT_ARG_MASK		0x7
 #define SLJIT_ARG_FULL_MASK	(SLJIT_ARG_MASK | SLJIT_ARG_TYPE_SCRATCH_REG)
 
-/* Mask for sljit_emit_mem. */
-#define REG_PAIR_MASK		0xff00
-#define REG_PAIR_FIRST(reg)	((reg) & 0xff)
+/* Mask for register pairs. */
+#define REG_PAIR_MASK		0x7f00
+#define REG_PAIR_FIRST(reg)	((reg) & 0x7f)
 #define REG_PAIR_SECOND(reg)	((reg) >> 8)
 
 /* Mask for sljit_emit_enter. */
@@ -982,7 +982,7 @@ static void sljit_verbose_freg(struct sljit_compiler *compiler, sljit_s32 r)
 
 static void sljit_verbose_param(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i)
 {
-	if ((p) & SLJIT_IMM)
+	if ((p) == SLJIT_IMM)
 		fprintf(compiler->verbose, "#%" SLJIT_PRINT_D "d", (i));
 	else if ((p) & SLJIT_MEM) {
 		if ((p) & REG_MASK) {
@@ -2655,7 +2655,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_lane_mov(struct slji
 
 	if (type & SLJIT_SIMD_FLOAT) {
 		FUNCTION_FCHECK(srcdst, srcdstw);
-	} else if ((type & SLJIT_SIMD_STORE) || (srcdst != SLJIT_IMM)) {
+	} else if ((type & SLJIT_SIMD_STORE) || srcdst != SLJIT_IMM) {
 		FUNCTION_CHECK_DST(srcdst, srcdstw);
 	}
 #endif
@@ -3048,18 +3048,18 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 	condition = type & 0xff;
 #if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
 	if ((condition == SLJIT_EQUAL || condition == SLJIT_NOT_EQUAL)) {
-		if ((src1 & SLJIT_IMM) && !src1w) {
+		if (src1 == SLJIT_IMM && !src1w) {
 			src1 = src2;
 			src1w = src2w;
 			src2 = SLJIT_IMM;
 			src2w = 0;
 		}
-		if ((src2 & SLJIT_IMM) && !src2w)
+		if (src2 == SLJIT_IMM && !src2w)
 			return emit_cmp_to0(compiler, type, src1, src1w);
 	}
 #endif
 
-	if (SLJIT_UNLIKELY((src1 & SLJIT_IMM) && !(src2 & SLJIT_IMM))) {
+	if (SLJIT_UNLIKELY(src1 == SLJIT_IMM && src2 != SLJIT_IMM)) {
 		/* Immediate is preferred as second argument by most architectures. */
 		switch (condition) {
 		case SLJIT_LESS:

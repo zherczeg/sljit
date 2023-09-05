@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+05.9.2023 - Non-backward compatible
+    Turn SLJIT_IMM from a flag to a single value.
+
 10.8.2023 - Non-backward compatible
     Rename SLJIT_INT_REGISTER to SLJIT_GP_REGISTER.
 

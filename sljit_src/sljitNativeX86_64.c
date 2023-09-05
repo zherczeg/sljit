@@ -72,7 +72,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 	sljit_uw inst_size;
 
 	/* The immediate operand must be 32 bit. */
-	SLJIT_ASSERT(!(a & SLJIT_IMM) || compiler->mode32 || IS_HALFWORD(imma));
+	SLJIT_ASSERT(a != SLJIT_IMM || compiler->mode32 || IS_HALFWORD(imma));
 	/* Both cannot be switched on. */
 	SLJIT_ASSERT((flags & (EX86_BIN_INS | EX86_SHIFT_INS)) != (EX86_BIN_INS | EX86_SHIFT_INS));
 	/* Size flags not allowed for typed instructions. */
@@ -80,7 +80,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 	/* Both size flags cannot be switched on. */
 	SLJIT_ASSERT((flags & (EX86_BYTE_ARG | EX86_HALF_ARG)) != (EX86_BYTE_ARG | EX86_HALF_ARG));
 	/* SSE2 and immediate is not possible. */
-	SLJIT_ASSERT(!(a & SLJIT_IMM) || !(flags & EX86_SSE2));
+	SLJIT_ASSERT(a != SLJIT_IMM || !(flags & EX86_SSE2));
 	SLJIT_ASSERT((flags & (EX86_PREF_F2 | EX86_PREF_F3)) != (EX86_PREF_F2 | EX86_PREF_F3)
 		&& (flags & (EX86_PREF_F2 | EX86_PREF_66)) != (EX86_PREF_F2 | EX86_PREF_66)
 		&& (flags & (EX86_PREF_F3 | EX86_PREF_66)) != (EX86_PREF_F3 | EX86_PREF_66));
@@ -148,7 +148,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 	else if (freg_map[b] >= 8)
 		rex |= REX_B;
 
-	if (a & SLJIT_IMM) {
+	if (a == SLJIT_IMM) {
 		if (flags & EX86_BIN_INS) {
 			if (imma <= 127 && imma >= -128) {
 				inst_size += 1;
@@ -201,10 +201,10 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 
 	/* Encode mod/rm byte. */
 	if (!(flags & EX86_SHIFT_INS)) {
-		if ((flags & EX86_BIN_INS) && (a & SLJIT_IMM))
+		if ((flags & EX86_BIN_INS) && a == SLJIT_IMM)
 			*inst = (flags & EX86_BYTE_ARG) ? GROUP_BINARY_83 : GROUP_BINARY_81;
 
-		if (a & SLJIT_IMM)
+		if (a == SLJIT_IMM)
 			*buf_ptr = 0;
 		else if (!(flags & EX86_SSE2_OP1))
 			*buf_ptr = U8(reg_lmap[a] << 3);
@@ -212,7 +212,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 			*buf_ptr = U8(freg_lmap[a] << 3);
 	}
 	else {
-		if (a & SLJIT_IMM) {
+		if (a == SLJIT_IMM) {
 			if (imma == 1)
 				*inst = GROUP_SHIFT_1;
 			else
@@ -270,7 +270,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 		buf_ptr += sizeof(sljit_s32);
 	}
 
-	if (a & SLJIT_IMM) {
+	if (a == SLJIT_IMM) {
 		if (flags & EX86_BYTE_ARG)
 			*buf_ptr = U8(imma);
 		else if (flags & EX86_HALF_ARG)
@@ -1020,7 +1020,7 @@ static sljit_s32 emit_mov_int(struct sljit_compiler *compiler, sljit_s32 sign,
 
 	compiler->mode32 = 0;
 
-	if (src & SLJIT_IMM) {
+	if (src == SLJIT_IMM) {
 		if (FAST_IS_REG(dst)) {
 			if (!sign || ((sljit_u32)srcw <= 0x7fffffff))
 				return emit_do_imm32(compiler, reg_map[dst] <= 7 ? 0 : REX_B, U8(MOV_r_i32 | reg_lmap[dst]), srcw);
@@ -1076,7 +1076,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_uw(struct sljit_comp
 	compiler->mode32 = 0;
 
 	if (GET_OPCODE(op) == SLJIT_CONV_F64_FROM_U32) {
-		if (!(src & SLJIT_IMM)) {
+		if (src != SLJIT_IMM) {
 			compiler->mode32 = 1;
 			EMIT_MOV(compiler, TMP_REG1, 0, src, srcw);
 			compiler->mode32 = 0;
