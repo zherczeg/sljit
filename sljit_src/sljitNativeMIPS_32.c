@@ -26,6 +26,23 @@
 
 /* mips 32-bit arch dependent functions. */
 
+static sljit_s32 emit_copysign(struct sljit_compiler *compiler, sljit_s32 op,
+		sljit_sw src1, sljit_sw src2, sljit_sw dst)
+{
+	int is_32 = (op & SLJIT_32);
+	sljit_ins fr_pair = is_32 ? 0 : (1 << 11);
+
+	FAIL_IF(push_inst(compiler, MFC1 | T(TMP_REG2) | FS(src1) | fr_pair, DR(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, MFC1 | T(TMP_REG3) | FS(src2) | fr_pair, DR(TMP_REG3)));
+	if (!is_32 && src1 != dst)
+		FAIL_IF(push_inst(compiler, MOV_fmt(FMT_S) | FS(src1) | FD(dst), MOVABLE_INS));
+	FAIL_IF(push_inst(compiler, XOR | T(TMP_REG2) | D(TMP_REG3) | S(TMP_REG3), DR(TMP_REG3)));
+	FAIL_IF(push_inst(compiler, SRL | T(TMP_REG3) | D(TMP_REG3) | SH_IMM(31), DR(TMP_REG3)));
+	FAIL_IF(push_inst(compiler, SLL | T(TMP_REG3) | D(TMP_REG3) | SH_IMM(31), DR(TMP_REG3)));
+	FAIL_IF(push_inst(compiler, XOR | T(TMP_REG3) | D(TMP_REG2) | S(TMP_REG2), DR(TMP_REG2)));
+	return push_inst(compiler, MTC1 | T(TMP_REG2) | FS(dst) | fr_pair, MOVABLE_INS);
+}
+
 static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_ar, sljit_sw imm)
 {
 	if (!(imm & ~0xffff))
@@ -213,7 +230,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			} else if (*offsets_ptr < 254)
 				ins = SDC1 | S(SLJIT_SP) | FT(float_arg_count) | IMM(*offsets_ptr);
 			else if (*offsets_ptr == 254)
-				ins = MOV_S | FMT_D | FS(SLJIT_FR0) | FD(TMP_FREG1);
+				ins = MOV_fmt(FMT_D) | FS(SLJIT_FR0) | FD(TMP_FREG1);
 
 			float_arg_count--;
 			break;
@@ -223,7 +240,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 			else if (*offsets_ptr < 254)
 				ins = SWC1 | S(SLJIT_SP) | FT(float_arg_count) | IMM(*offsets_ptr);
 			else if (*offsets_ptr == 254)
-				ins = MOV_S | FMT_S | FS(SLJIT_FR0) | FD(TMP_FREG1);
+				ins = MOV_fmt(FMT_S) | FS(SLJIT_FR0) | FD(TMP_FREG1);
 
 			float_arg_count--;
 			break;

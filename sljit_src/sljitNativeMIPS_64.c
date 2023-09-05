@@ -26,6 +26,18 @@
 
 /* mips 64-bit arch dependent functions. */
 
+static sljit_s32 emit_copysign(struct sljit_compiler *compiler, sljit_s32 op,
+		sljit_s32 src1, sljit_s32 src2, sljit_s32 dst)
+{
+	FAIL_IF(push_inst(compiler, SELECT_OP(DMFC1, MFC1) | T(TMP_REG1) | FS(src1), DR(TMP_REG1)));
+	FAIL_IF(push_inst(compiler, SELECT_OP(DMFC1, MFC1) | T(TMP_REG2) | FS(src2), DR(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, XOR | S(TMP_REG2) | T(TMP_REG1) | D(TMP_REG2), DR(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, SELECT_OP(DSRL32, SRL) | T(TMP_REG2) | D(TMP_REG2) | SH_IMM(31), DR(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, SELECT_OP(DSLL32, SLL) | T(TMP_REG2) | D(TMP_REG2) | SH_IMM(31), DR(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, XOR | S(TMP_REG1) | T(TMP_REG2) | D(TMP_REG1), DR(TMP_REG1)));
+	return push_inst(compiler, SELECT_OP(DMTC1, MTC1) | T(TMP_REG1) | FS(dst), MOVABLE_INS);
+}
+
 static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_ar, sljit_sw imm)
 {
 	sljit_s32 shift = 32;
@@ -219,17 +231,17 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 		switch (types & SLJIT_ARG_MASK) {
 		case SLJIT_ARG_TYPE_F64:
 			if (arg_count != float_arg_count)
-				ins = MOV_S | FMT_D | FS(float_arg_count) | FD(arg_count);
+				ins = MOV_fmt(FMT_D) | FS(float_arg_count) | FD(arg_count);
 			else if (arg_count == 1)
-				ins = MOV_S | FMT_D | FS(SLJIT_FR0) | FD(TMP_FREG1);
+				ins = MOV_fmt(FMT_D) | FS(SLJIT_FR0) | FD(TMP_FREG1);
 			arg_count--;
 			float_arg_count--;
 			break;
 		case SLJIT_ARG_TYPE_F32:
 			if (arg_count != float_arg_count)
-				ins = MOV_S | FMT_S | FS(float_arg_count) | FD(arg_count);
+				ins = MOV_fmt(FMT_S) | FS(float_arg_count) | FD(arg_count);
 			else if (arg_count == 1)
-				ins = MOV_S | FMT_S | FS(SLJIT_FR0) | FD(TMP_FREG1);
+				ins = MOV_fmt(FMT_S) | FS(SLJIT_FR0) | FD(TMP_FREG1);
 			arg_count--;
 			float_arg_count--;
 			break;
