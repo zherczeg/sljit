@@ -127,7 +127,6 @@
 #define OFFS_REG(reg)		(((reg) >> 8) & REG_MASK)
 #define OFFS_REG_MASK		(REG_MASK << 8)
 #define TO_OFFS_REG(reg)	((reg) << 8)
-/* When reg cannot be unused. */
 #define FAST_IS_REG(reg)	((reg) < REG_MASK)
 
 /* Mask for argument types. */
@@ -847,10 +846,6 @@ static sljit_s32 function_check_arguments(sljit_s32 arg_types, sljit_s32 scratch
 	(((r) >= SLJIT_R0 && (r) < (SLJIT_R0 + compiler->scratches)) \
 	|| ((r) > (SLJIT_S0 - compiler->saveds) && (r) <= SLJIT_S0))
 
-#define FUNCTION_CHECK_IS_FREG(fr) \
-	(((fr) >= SLJIT_FR0 && (fr) < (SLJIT_FR0 + compiler->fscratches)) \
-	|| ((fr) > (SLJIT_FS0 - compiler->fsaveds) && (fr) <= SLJIT_FS0))
-
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 #define CHECK_IF_VIRTUAL_REGISTER(p) ((p) <= SLJIT_S3 && (p) >= SLJIT_S8)
 #else
@@ -859,7 +854,7 @@ static sljit_s32 function_check_arguments(sljit_s32 arg_types, sljit_s32 scratch
 
 static sljit_s32 function_check_src_mem(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i)
 {
-	if (compiler->scratches == -1 || compiler->saveds == -1)
+	if (compiler->scratches == -1)
 		return 0;
 
 	if (!(p & SLJIT_MEM))
@@ -896,7 +891,7 @@ static sljit_s32 function_check_src_mem(struct sljit_compiler *compiler, sljit_s
 
 static sljit_s32 function_check_src(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i)
 {
-	if (compiler->scratches == -1 || compiler->saveds == -1)
+	if (compiler->scratches == -1)
 		return 0;
 
 	if (FUNCTION_CHECK_IS_REG(p))
@@ -913,7 +908,7 @@ static sljit_s32 function_check_src(struct sljit_compiler *compiler, sljit_s32 p
 
 static sljit_s32 function_check_dst(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i)
 {
-	if (compiler->scratches == -1 || compiler->saveds == -1)
+	if (compiler->scratches == -1)
 		return 0;
 
 	if (FUNCTION_CHECK_IS_REG(p))
@@ -925,19 +920,57 @@ static sljit_s32 function_check_dst(struct sljit_compiler *compiler, sljit_s32 p
 #define FUNCTION_CHECK_DST(p, i) \
 	CHECK_ARGUMENT(function_check_dst(compiler, p, i));
 
-static sljit_s32 function_fcheck(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i)
+#if (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) \
+	|| (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+
+#define FUNCTION_CHECK_IS_FREG(fr, is_32) \
+	function_check_is_freg(compiler, (fr), (is_32))
+
+static sljit_s32 function_check_is_freg(struct sljit_compiler *compiler, sljit_s32 fr, sljit_s32 is_32);
+
+#define FUNCTION_FCHECK(p, i, is_32) \
+	CHECK_ARGUMENT(function_fcheck(compiler, (p), (i), (is_32)));
+
+static sljit_s32 function_fcheck(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i, sljit_s32 is_32)
 {
-	if (compiler->scratches == -1 || compiler->saveds == -1)
+	if (compiler->scratches == -1)
 		return 0;
 
-	if (FUNCTION_CHECK_IS_FREG(p))
+	if (FUNCTION_CHECK_IS_FREG(p, is_32))
 		return (i == 0);
 
 	return function_check_src_mem(compiler, p, i);
 }
 
-#define FUNCTION_FCHECK(p, i) \
-	CHECK_ARGUMENT(function_fcheck(compiler, p, i));
+#else /* !SLJIT_CONFIG_ARM_32 && !SLJIT_CONFIG_MIPS_32 */
+#define FUNCTION_CHECK_IS_FREG(fr, is_32) \
+	function_check_is_freg(compiler, (fr))
+
+static sljit_s32 function_check_is_freg(struct sljit_compiler *compiler, sljit_s32 fr)
+{
+	if (compiler->scratches == -1)
+		return 0;
+
+	return (fr >= SLJIT_FR0 && fr < (SLJIT_FR0 + compiler->fscratches))
+		|| (fr > (SLJIT_FS0 - compiler->fsaveds) && fr <= SLJIT_FS0);
+}
+
+#define FUNCTION_FCHECK(p, i, is_32) \
+	CHECK_ARGUMENT(function_fcheck(compiler, (p), (i)));
+
+static sljit_s32 function_fcheck(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i)
+{
+	if (compiler->scratches == -1)
+		return 0;
+
+	if ((p >= SLJIT_FR0 && p < (SLJIT_FR0 + compiler->fscratches))
+			|| (p > (SLJIT_FS0 - compiler->fsaveds) && p <= SLJIT_FS0))
+		return (i == 0);
+
+	return function_check_src_mem(compiler, p, i);
+}
+
+#endif /* SLJIT_CONFIG_ARM_32 || SLJIT_CONFIG_MIPS_32 */
 
 #endif /* SLJIT_ARGUMENT_CHECKS */
 
@@ -974,6 +1007,14 @@ static void sljit_verbose_reg(struct sljit_compiler *compiler, sljit_s32 r)
 
 static void sljit_verbose_freg(struct sljit_compiler *compiler, sljit_s32 r)
 {
+#if (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) \
+		|| (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	if (r >= (SLJIT_FS0 + SLJIT_FR0) && r <= (SLJIT_FS0 + SLJIT_FS0)) {
+		fprintf(compiler->verbose, "^");
+		r -= SLJIT_FS0;
+	}
+#endif /* SLJIT_CONFIG_ARM_32 || SLJIT_CONFIG_MIPS_32 */
+
 	if (r < (SLJIT_FR0 + compiler->fscratches))
 		fprintf(compiler->verbose, "fr%d", r - SLJIT_FR0);
 	else
@@ -1303,7 +1344,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_return(struct sljit_compi
 	if (GET_OPCODE(op) < SLJIT_MOV_F64) {
 		FUNCTION_CHECK_SRC(src, srcw);
 	} else {
-		FUNCTION_FCHECK(src, srcw);
+		FUNCTION_FCHECK(src, srcw, op & SLJIT_32);
 	}
 	compiler->last_flags = 0;
 #endif
@@ -1729,8 +1770,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1(struct sljit_compile
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
 	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV_F64 && GET_OPCODE(op) <= SLJIT_ABS_F64);
 	CHECK_ARGUMENT(!(op & (SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
-	FUNCTION_FCHECK(src, srcw);
-	FUNCTION_FCHECK(dst, dstw);
+	FUNCTION_FCHECK(src, srcw, op & SLJIT_32);
+	FUNCTION_FCHECK(dst, dstw, op & SLJIT_32);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1769,8 +1810,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_cmp(struct sljit_com
 	CHECK_ARGUMENT(!(op & SLJIT_SET_Z));
 	CHECK_ARGUMENT((op & VARIABLE_FLAG_MASK)
 		|| (GET_FLAG_TYPE(op) >= SLJIT_F_EQUAL && GET_FLAG_TYPE(op) <= SLJIT_ORDERED_LESS_EQUAL));
-	FUNCTION_FCHECK(src1, src1w);
-	FUNCTION_FCHECK(src2, src2w);
+	FUNCTION_FCHECK(src1, src1w, op & SLJIT_32);
+	FUNCTION_FCHECK(src2, src2w, op & SLJIT_32);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1800,7 +1841,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_conv_sw_from_f64(str
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
 	CHECK_ARGUMENT(!(op & (SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
-	FUNCTION_FCHECK(src, srcw);
+	FUNCTION_FCHECK(src, srcw, op & SLJIT_32);
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -1830,7 +1871,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1_conv_f64_from_w(stru
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
 	CHECK_ARGUMENT(!(op & (SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
 	FUNCTION_CHECK_SRC(src, srcw);
-	FUNCTION_FCHECK(dst, dstw);
+	FUNCTION_FCHECK(dst, dstw, op & SLJIT_32);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1860,9 +1901,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop2(struct sljit_compile
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
 	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_ADD_F64 && GET_OPCODE(op) <= SLJIT_DIV_F64);
 	CHECK_ARGUMENT(!(op & (SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
-	FUNCTION_FCHECK(src1, src1w);
-	FUNCTION_FCHECK(src2, src2w);
-	FUNCTION_FCHECK(dst, dstw);
+	FUNCTION_FCHECK(src1, src1w, op & SLJIT_32);
+	FUNCTION_FCHECK(src2, src2w, op & SLJIT_32);
+	FUNCTION_FCHECK(dst, dstw, op & SLJIT_32);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1886,9 +1927,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop2r(struct sljit_compil
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
 	CHECK_ARGUMENT(GET_OPCODE(op) == SLJIT_COPYSIGN_F64);
-	FUNCTION_FCHECK(src1, src1w);
-	FUNCTION_FCHECK(src2, src2w);
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(dst_freg));
+	FUNCTION_FCHECK(src1, src1w, op & SLJIT_32);
+	FUNCTION_FCHECK(src2, src2w, op & SLJIT_32);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(dst_freg, op & SLJIT_32));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1916,7 +1957,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fset32(struct sljit_compi
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, 1));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1940,7 +1981,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fset64(struct sljit_compi
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, 0));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -1959,7 +2000,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fcopy(struct sljit_compil
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
 	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_COPY_TO_F64 && GET_OPCODE(op) <= SLJIT_COPY_FROM_F64);
 	CHECK_ARGUMENT(!(op & (SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, op & SLJIT_32));
 
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(reg));
@@ -2144,8 +2185,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fcmp(struct sljit_compile
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_REWRITABLE_JUMP | SLJIT_32)));
 	CHECK_ARGUMENT((type & 0xff) >= SLJIT_F_EQUAL && (type & 0xff) <= SLJIT_ORDERED_LESS_EQUAL);
-	FUNCTION_FCHECK(src1, src1w);
-	FUNCTION_FCHECK(src2, src2w);
+	FUNCTION_FCHECK(src1, src1w, type & SLJIT_32);
+	FUNCTION_FCHECK(src2, src2w, type & SLJIT_32);
 	compiler->last_flags = 0;
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -2312,9 +2353,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fselect(struct sljit_comp
 	CHECK_ARGUMENT(cond >= SLJIT_EQUAL && cond <= SLJIT_ORDERED_LESS_EQUAL);
 
 	CHECK_ARGUMENT(compiler->fscratches != -1 && compiler->fsaveds != -1);
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(dst_freg));
-	FUNCTION_FCHECK(src1, src1w);
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(src2_freg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(dst_freg, type & SLJIT_32));
+	FUNCTION_FCHECK(src1, src1w, type & SLJIT_32);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(src2_freg, type & SLJIT_32));
 
 	if (cond <= SLJIT_NOT_ZERO)
 		CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
@@ -2488,7 +2529,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fmem(struct sljit_compile
 	}
 
 	CHECK_ARGUMENT(!(type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, type & SLJIT_32));
 	FUNCTION_CHECK_SRC_MEM(mem, memw);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -2523,7 +2564,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fmem_update(struct sljit_
 	CHECK_ARGUMENT((type & 0xff) == SLJIT_MOV_F64);
 	CHECK_ARGUMENT((type & ~(0xff | SLJIT_32 | SLJIT_MEM_STORE | SLJIT_MEM_SUPP | SLJIT_MEM_POST)) == 0);
 	FUNCTION_CHECK_SRC_MEM(mem, memw);
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, type & SLJIT_32));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -2558,8 +2599,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_mov(struct sljit_com
 	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) <= SLJIT_SIMD_GET_REG_SIZE(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ALIGNMENT(type) <= (srcdst & SLJIT_MEM) ? SLJIT_SIMD_GET_REG_SIZE(type) : 0);
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
-	FUNCTION_FCHECK(srcdst, srcdstw);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, 0));
+	FUNCTION_FCHECK(srcdst, srcdstw, 0);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -2599,13 +2640,13 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_replicate(struct slj
 	CHECK_ARGUMENT((type & (sljit_s32)(0xff000fff - (SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST))) == 0);
 	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, 0));
 
 	if (type & SLJIT_SIMD_FLOAT) {
 		if (src == SLJIT_IMM) {
 			CHECK_ARGUMENT(srcw == 0);
 		} else {
-			FUNCTION_FCHECK(src, srcw);
+			FUNCTION_FCHECK(src, srcw, SLJIT_SIMD_GET_ELEM_SIZE(type) == 2);
 		}
 	} else if (src != SLJIT_IMM) {
 		FUNCTION_CHECK_DST(src, srcw);
@@ -2650,11 +2691,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_lane_mov(struct slji
 	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
 	CHECK_ARGUMENT(!(type & SLJIT_32) || SLJIT_SIMD_GET_ELEM_SIZE(type) <= 2);
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, 0));
 	CHECK_ARGUMENT(lane_index >= 0 && lane_index < (1 << (SLJIT_SIMD_GET_REG_SIZE(type) - SLJIT_SIMD_GET_ELEM_SIZE(type))));
 
 	if (type & SLJIT_SIMD_FLOAT) {
-		FUNCTION_FCHECK(srcdst, srcdstw);
+		FUNCTION_FCHECK(srcdst, srcdstw, SLJIT_SIMD_GET_ELEM_SIZE(type) == 2);
 	} else if ((type & SLJIT_SIMD_STORE) || srcdst != SLJIT_IMM) {
 		FUNCTION_CHECK_DST(srcdst, srcdstw);
 	}
@@ -2698,8 +2739,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_lane_replicate(struc
 	CHECK_ARGUMENT((type & (sljit_s32)(0xff000fff - (SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST))) == 0);
 	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(src));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, 0));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(src, 0));
 	CHECK_ARGUMENT(src_lane_index >= 0 && src_lane_index < (1 << (SLJIT_SIMD_GET_REG_SIZE(type) - SLJIT_SIMD_GET_ELEM_SIZE(type))));
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -2736,8 +2777,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_extend(struct sljit_
 	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM2_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_ELEM2_SIZE(type));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
-	FUNCTION_FCHECK(src, srcw);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, 0));
+	FUNCTION_FCHECK(src, srcw, SLJIT_SIMD_GET_ELEM_SIZE(type) == 2);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -2774,7 +2815,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_sign(struct sljit_co
 	CHECK_ARGUMENT((type & (sljit_s32)(0xff000fff - (SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST | SLJIT_32))) == SLJIT_SIMD_STORE);
 	CHECK_ARGUMENT((type & 0x3f000) >= SLJIT_SIMD_REG_64 && (type & 0x3f000) <= SLJIT_SIMD_REG_512);
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_FREG(freg, 0));
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)

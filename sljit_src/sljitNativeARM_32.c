@@ -49,8 +49,8 @@ typedef sljit_u32 sljit_ins;
 #define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
 #define TMP_PC		(SLJIT_NUMBER_OF_REGISTERS + 4)
 
-#define TMP_FREG1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
-#define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
+#define TMP_FREG1	((SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 1)
+#define TMP_FREG2	((SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 2)
 
 /* In ARM instruction words.
    Cache lines are usually 32 byte aligned. */
@@ -67,8 +67,18 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 	0, 0, 1, 2, 3, 11, 10, 9, 8, 7, 6, 5, 4, 13, 12, 14, 15
 };
 
-static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
-	0, 0, 1, 2, 3, 4, 5, 15, 14, 13, 12, 11, 10, 9, 8, 6, 7
+static const sljit_u8 freg_map[(SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 3] = {
+	0,
+	0, 1, 2, 3, 4, 5, 15, 14, 13, 12, 11, 10, 9, 8,
+	0, 1, 2, 3, 4, 5, 15, 14, 13, 12, 11, 10, 9, 8,
+	6, 7
+};
+
+static const sljit_u8 freg_ebit_map[(SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 3] = {
+	0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	0, 0
 };
 
 #define RM(rm) ((sljit_ins)reg_map[rm])
@@ -76,9 +86,9 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define RD(rd) ((sljit_ins)reg_map[rd] << 12)
 #define RN(rn) ((sljit_ins)reg_map[rn] << 16)
 
-#define VM(rm) ((sljit_ins)freg_map[rm])
-#define VD(rd) ((sljit_ins)freg_map[rd] << 12)
-#define VN(rn) ((sljit_ins)freg_map[rn] << 16)
+#define VM(vm) (((sljit_ins)freg_map[vm]) | ((sljit_ins)freg_ebit_map[vm] << 5))
+#define VD(vd) (((sljit_ins)freg_map[vd] << 12) | ((sljit_ins)freg_ebit_map[vd] << 22))
+#define VN(vn) (((sljit_ins)freg_map[vn] << 16) | ((sljit_ins)freg_ebit_map[vn] << 7))
 
 /* --------------------------------------------------------------------- */
 /*  Instrucion forms                                                     */
@@ -172,6 +182,22 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define MOVW		0xe3000000
 #define RBIT		0xe6ff0f30
 #endif
+
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+
+static sljit_s32 function_check_is_freg(struct sljit_compiler *compiler, sljit_s32 fr, sljit_s32 is_32)
+{
+	if (compiler->scratches == -1)
+		return 0;
+
+	if (is_32 && fr >= (SLJIT_FS0 + SLJIT_FR0) && fr <= (SLJIT_FS0 + SLJIT_FS0))
+		fr -= SLJIT_FS0;
+
+	return (fr >= SLJIT_FR0 && fr < (SLJIT_FR0 + compiler->fscratches))
+		|| (fr > (SLJIT_FS0 - compiler->fsaveds) && fr <= SLJIT_FS0);
+}
+
+#endif /* SLJIT_ARGUMENT_CHECKS */
 
 #if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
 
@@ -977,6 +1003,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 {
 	switch (feature_type) {
 	case SLJIT_HAS_FPU:
+	case SLJIT_HAS_F64_AS_F32_PAIR:
 #ifdef SLJIT_IS_FPU_AVAILABLE
 		return SLJIT_IS_FPU_AVAILABLE;
 #else
@@ -3945,12 +3972,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 	}
 
 	if (type & SLJIT_SIMD_FLOAT) {
-		ins = ((sljit_ins)1 << (16 + elem_size));
+		SLJIT_ASSERT(elem_size == 2);
+		ins = ((sljit_ins)freg_ebit_map[src] << (16 + 2 + 1)) | ((sljit_ins)1 << (16 + 2));
 
 		if (reg_size == 4)
 			ins |= 1 << 6;
 
-		return push_inst(compiler, VDUP_s | ins | VD(freg) | VM(src));
+		return push_inst(compiler, VDUP_s | ins | VD(freg) | (sljit_ins)freg_map[src]);
 	}
 
 	if (src == SLJIT_IMM) {
@@ -4062,9 +4090,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 		}
 
 		if (type & SLJIT_SIMD_STORE) {
-			if (lane_index == 0)
-				return push_inst(compiler, VMOV_F32 | SLJIT_32 | VD(srcdst) | VM(freg));
-			return push_inst(compiler, VDUP_s | 0xc0000 | VD(srcdst) | VM(freg));
+			if (freg_ebit_map[freg] == 0) {
+				if (lane_index == 1)
+					freg = SLJIT_F64_SECOND(freg);
+
+				return push_inst(compiler, VMOV_F32 | VD(srcdst) | VM(freg));
+			}
+
+			FAIL_IF(push_inst(compiler, VMOV_s | (1 << 20) | ((sljit_ins)lane_index << 21) | VN(freg) | RD(TMP_REG1)));
+			return push_inst(compiler, VMOV | VN(srcdst) | RD(TMP_REG1));
 		}
 
 		FAIL_IF(push_inst(compiler, VMOV | (1 << 20) | VN(srcdst) | RD(TMP_REG1)));

@@ -667,13 +667,17 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_HAS_COPY_F32		9
 /* [Emulated] Copy from/to f64 operation is available (see sljit_emit_fcopy). */
 #define SLJIT_HAS_COPY_F64		10
+/* [Not emulated] The 64 bit floating point registers can be used as
+   two separate 32 bit floating point registers (e.g. ARM32). The
+   second 32 bit part can be accessed by SLJIT_F64_SECOND. */
+#define SLJIT_HAS_F64_AS_F32_PAIR	11
 /* [Not emulated] Some SIMD operations are supported by the compiler. */
-#define SLJIT_HAS_SIMD			11
+#define SLJIT_HAS_SIMD			12
 /* [Not emulated] SIMD registers are mapped to a pair of double precision
    floating point registers. E.g. passing either SLJIT_FR0 or SLJIT_FR1 to
    a simd operation represents the same 128 bit register, and both SLJIT_FR0
    and SLJIT_FR1 are overwritten. */
-#define SLJIT_SIMD_REGS_ARE_PAIRS	12
+#define SLJIT_SIMD_REGS_ARE_PAIRS	13
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] SSE2 support is available on x86. */

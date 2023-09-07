@@ -83,27 +83,34 @@ typedef sljit_u32 sljit_ins;
 #define EQUAL_FLAG	3
 #define OTHER_FLAG	1
 
-#define TMP_FREG1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
-#define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
-#define TMP_FREG3	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3)
-
 static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 	0, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 24, 23, 22, 21, 20, 19, 18, 17, 16, 29, 4, 25, 31
 };
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 
-static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
-	0, 0, 14, 2, 4, 6, 8, 18, 30, 28, 26, 24, 22, 20, 12, 10, 16
+#define TMP_FREG1	((SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 1)
+#define TMP_FREG2	((SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 2)
+#define TMP_FREG3	((SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 3)
+
+static const sljit_u8 freg_map[(SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 4] = {
+	0,
+	0, 14, 2, 4, 6, 8, 18, 30, 28, 26, 24, 22, 20,
+	1, 15, 3, 5, 7, 9, 19, 31, 29, 27, 25, 23, 21,
+	12, 10, 16,
 };
 
-#else
+#else /* !SLJIT_CONFIG_MIPS_32 */
+
+#define TMP_FREG1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
+#define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
+#define TMP_FREG3	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3)
 
 static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 	0, 0, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 1, 2, 3, 4, 5, 6, 7, 8, 9, 31, 30, 29, 28, 27, 26, 25, 24, 12, 11, 10
 };
 
-#endif
+#endif /* SLJIT_CONFIG_MIPS_32 */
 
 /* --------------------------------------------------------------------- */
 /*  Instrucion forms                                                     */
@@ -328,6 +335,23 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define SIMM_MAX	(0x7fff)
 #define SIMM_MIN	(-0x8000)
 #define UIMM_MAX	(0xffff)
+
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) \
+	&& (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+
+static sljit_s32 function_check_is_freg(struct sljit_compiler *compiler, sljit_s32 fr, sljit_s32 is_32)
+{
+	if (compiler->scratches == -1)
+		return 0;
+
+	if (is_32 && fr >= (SLJIT_FS0 + SLJIT_FR0) && fr <= (SLJIT_FS0 + SLJIT_FS0))
+		fr -= SLJIT_FS0;
+
+	return (fr >= SLJIT_FR0 && fr < (SLJIT_FR0 + compiler->fscratches))
+		|| (fr > (SLJIT_FS0 - compiler->fsaveds) && fr <= SLJIT_FS0);
+}
+
+#endif /* SLJIT_CONFIG_MIPS_32 && SLJIT_ARGUMENT_CHECKS */
 
 /* dest_reg is the absolute name of the register
    Useful for reordering instructions in the delay slot. */
@@ -728,6 +752,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 
 	switch (feature_type) {
 	case SLJIT_HAS_FPU:
+#if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+	case SLJIT_HAS_F64_AS_F32_PAIR:
+#endif /* SLJIT_CONFIG_MIPS_32 */
 #ifdef SLJIT_IS_FPU_AVAILABLE
 		return SLJIT_IS_FPU_AVAILABLE;
 #elif defined(__GNUC__)
@@ -735,7 +762,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return (fir >> 22) & 0x1;
 #else
 #error "FIR check is not implemented for this architecture"
-#endif
+#endif /* SLJIT_IS_FPU_AVAILABLE */
 	case SLJIT_HAS_ZERO_REGISTER:
 	case SLJIT_HAS_COPY_F32:
 	case SLJIT_HAS_COPY_F64:

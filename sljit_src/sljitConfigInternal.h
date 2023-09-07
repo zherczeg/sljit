@@ -85,6 +85,8 @@ extern "C" {
    Other macros:
      SLJIT_FUNC : calling convention attribute for both calling JIT from C and C calling back from JIT
      SLJIT_W(number) : defining 64 bit constants on 64 bit architectures (platform independent helper)
+     SLJIT_F64_SECOND(reg) : provides the register index of the second 32 bit part of a 64 bit
+                             floating point register when SLJIT_HAS_F64_AS_F32_PAIR returns non-zero
 */
 
 /***********************************************************/
@@ -677,6 +679,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 	|| (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 #define SLJIT_HAS_STATUS_FLAGS_STATE 1
 #endif
+
+/***************************************/
+/* Floating point register management. */
+/***************************************/
+
+#if (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) \
+	|| (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
+#define SLJIT_F64_SECOND(reg) \
+	((reg) + SLJIT_FS0)
+#else /* !SLJIT_CONFIG_ARM_32 && !SLJIT_CONFIG_MIPS_32 */
+#define SLJIT_F64_SECOND(reg) \
+	(reg)
+#endif /* SLJIT_CONFIG_ARM_32 || SLJIT_CONFIG_MIPS_32 */
 
 /*************************************/
 /* Debug and verbose related macros. */
