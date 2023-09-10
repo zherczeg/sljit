@@ -3053,7 +3053,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 }
 
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
-	&& !(defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+	&& !(defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
+	&& !(defined(SLJIT_CONFIG_LOONGARCH_64) && SLJIT_CONFIG_LOONGARCH_64)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2r(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst_freg,
@@ -3069,7 +3070,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2r(struct sljit_compiler *compi
 	return sljit_emit_fop2(compiler, op, dst_freg, 0, src1, src1w, src2, src2w);
 }
 
-#endif /* !SLJIT_CONFIG_X86 && !SLJIT_CONFIG_S390X */
+#endif /* !SLJIT_CONFIG_X86 && !SLJIT_CONFIG_S390X && !SLJIT_CONFIG_LOONGARCH_64 */
 
 #if !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
 	&& !(defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV) \

@@ -12097,9 +12097,14 @@ static void test95(void)
 	union {
 		sljit_f64 value;
 		struct {
-			sljit_u32 bits1;
-			sljit_u32 bits2;
-		} u;
+#if defined(SLJIT_LITTLE_ENDIAN) && SLJIT_LITTLE_ENDIAN
+			sljit_u32 lo;
+			sljit_u32 hi;
+#else /* !SLJIT_LITTLE_ENDIAN */
+			sljit_u32 hi;
+			sljit_u32 lo;
+#endif /* SLJIT_LITTLE_ENDIAN */
+		} bits;
 	} dbuf[8];
 	union {
 		sljit_f32 value;
@@ -12119,26 +12124,22 @@ static void test95(void)
 	compiler = sljit_create_compiler(NULL, NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < 8; i++)
 		dbuf[i].value = 123.0;
-		sbuf[i].value = 123.0;
-	}
+
+	for (i = 0; i < 8; i++)
+		sbuf[i].value = 123.0f;
 
 	dbuf[0].value = 1786.5;
 	dbuf[1].value = -8403.25;
-#if (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
-	dbuf[2].u.bits1 = 0;
-	dbuf[2].u.bits2 = 0x7fff0000;
-#else /* !SLJIT_LITTLE_ENDIAN */
-	dbuf[2].u.bits1 = 0x7fff0000;
-	dbuf[2].u.bits2 = 0;
-#endif /* SLJIT_LITTLE_ENDIAN */
+	dbuf[2].bits.lo = 0;
+	dbuf[2].bits.hi = 0x7fff0000;
 	dbuf[3].value = 9054;
 
-	sbuf[0].value = 6371.75;
-	sbuf[1].value = -2713.5;
+	sbuf[0].value = 6371.75f;
+	sbuf[1].value = -2713.5f;
 	sbuf[2].bits = 0xfff00000;
-	sbuf[3].value = -5791.25;
+	sbuf[3].value = -5791.25f;
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS2(VOID, P, P), 2, 2, 6, 0, 0);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_S0), 0);
@@ -12181,6 +12182,10 @@ static void test95(void)
 	/* dbuf[7] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 7 * sizeof(sljit_f64), SLJIT_FR5, 0);
 
+	sljit_emit_fop2r(compiler, SLJIT_COPYSIGN_F32, SLJIT_FR4, SLJIT_MEM1(SLJIT_S1), 0, SLJIT_MEM0(), (sljit_sw)(sbuf + 2));
+	/* sbuf[7] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S1), 7 * sizeof(sljit_f32), SLJIT_FR4, 0);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler);
@@ -12190,17 +12195,13 @@ static void test95(void)
 	code.func2((sljit_sw)&dbuf, (sljit_sw)&sbuf);
 	FAILED(dbuf[4].value != -1786.5, "test95 case 1 failed\n");
 	FAILED(sbuf[4].value != 2713.5, "test95 case 2 failed\n");
-#if (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
-	FAILED(dbuf[5].u.bits1 != 0, "test95 case 3 failed\n");
-	FAILED(dbuf[5].u.bits2 != 0xffff0000, "test95 case 4 failed\n");
-#else /* !SLJIT_LITTLE_ENDIAN */
-	FAILED(dbuf[5].u.bits1 != 0xffff0000, "test95 case 3 failed\n");
-	FAILED(dbuf[5].u.bits2 != 0, "test95 case 4 failed\n");
-#endif /* SLJIT_LITTLE_ENDIAN */
+	FAILED(dbuf[5].bits.lo != 0, "test95 case 3 failed\n");
+	FAILED(dbuf[5].bits.hi != 0xffff0000, "test95 case 4 failed\n");
 	FAILED(sbuf[5].bits != 0x7ff00000, "test95 case 5 failed\n");
 	FAILED(dbuf[6].value != 9054, "test95 case 6 failed\n");
 	FAILED(sbuf[6].value != -5791.25, "test95 case 7 failed\n");
 	FAILED(dbuf[7].value != 8403.25, "test95 case 8 failed\n");
+	FAILED(sbuf[7].value != -sbuf[0].value, "test95 case 9 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
