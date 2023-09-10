@@ -6173,11 +6173,11 @@ static void test58(void)
 	dbuf[5] = 0.0;
 	dbuf[6] = -18.0;
 
-	sbuf[0] = 6.75;
-	sbuf[1] = -3.5;
-	sbuf[2] = 1.5;
-	sbuf[3] = 0.0;
-	sbuf[4] = 0.0;
+	sbuf[0] = 6.75f;
+	sbuf[1] = -3.5f;
+	sbuf[2] = 1.5f;
+	sbuf[3] = 0.0f;
+	sbuf[4] = 0.0f;
 
 	wbuf[0] = 0;
 	wbuf[1] = 0;
@@ -6387,8 +6387,8 @@ static void test59(void)
 
 	if (sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
 		FAILED(wbuf[4] != -88, "test59 case 4 failed\n");
-		FAILED(sbuf[2] != 79.75, "test59 case 5 failed\n");
-		FAILED(sbuf[3] != 8.625, "test59 case 6 failed\n");
+		FAILED(sbuf[2] != 79.75f, "test59 case 5 failed\n");
+		FAILED(sbuf[3] != 8.625f, "test59 case 6 failed\n");
 	}
 
 	sljit_free_code(code.code, NULL);
