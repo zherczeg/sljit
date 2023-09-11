@@ -219,6 +219,11 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	sljit_ins ins = NOP;
 	sljit_u8 offsets[4];
 	sljit_u8 *offsets_ptr = offsets;
+#if defined(SLJIT_LITTLE_ENDIAN) && SLJIT_LITTLE_ENDIAN
+	sljit_ins f64_hi = TA(7), f64_lo = TA(6);
+#else
+	sljit_ins f64_hi = TA(6), f64_lo = TA(7);
+#endif /* SLJIT_LITTLE_ENDIAN */
 
 	SLJIT_ASSERT(reg_map[TMP_REG1] == 4 && freg_map[TMP_FREG1] == 12);
 
@@ -293,14 +298,14 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 				switch (cpu_feature_list & CPU_FEATURE_FR) {
 #if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 				case CPU_FEATURE_FR:
-					prev_ins = MFHC1 | TA(6) | FS(float_arg_count);
+					prev_ins = MFHC1 | f64_hi | FS(float_arg_count);
 					break;
 #endif /* SLJIT_MIPS_REV >= 2 */
 				default:
-					prev_ins = MFC1 | TA(6) | FS(float_arg_count) | (1 << 11);
+					prev_ins = MFC1 | f64_hi | FS(float_arg_count) | (1 << 11);
 					break;
 				}
-				ins = MFC1 | TA(7) | FS(float_arg_count);
+				ins = MFC1 | f64_lo | FS(float_arg_count);
 			} else if (*offsets_ptr < 254)
 				ins = SDC1 | S(SLJIT_SP) | FT(float_arg_count) | IMM(*offsets_ptr);
 			else if (*offsets_ptr == 254)
