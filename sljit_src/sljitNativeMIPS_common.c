@@ -218,12 +218,18 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define DMULTU		(HI(0) | LO(29))
 #endif /* SLJIT_MIPS_REV >= 6 */
 #define DIV_S		(HI(17) | FMT_S | LO(3))
+#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 #define DINSU		(HI(31) | LO(6))
+#endif /* SLJIT_MIPS_REV >= 2 */
 #define DMFC1		(HI(17) | (1 << 21))
 #define DMTC1		(HI(17) | (5 << 21))
+#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 #define DROTR		(HI(0) | (1 << 21) | LO(58))
 #define DROTR32		(HI(0) | (1 << 21) | LO(62))
 #define DROTRV		(HI(0) | (1 << 6) | LO(22))
+#define DSBH		(HI(31) | (2 << 6) | LO(36))
+#define DSHD		(HI(31) | (5 << 6) | LO(36))
+#endif /* SLJIT_MIPS_REV >= 2 */
 #define DSLL		(HI(0) | LO(56))
 #define DSLL32		(HI(0) | LO(60))
 #define DSLLV		(HI(0) | LO(20))
@@ -281,8 +287,10 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define NOR		(HI(0) | LO(39))
 #define OR		(HI(0) | LO(37))
 #define ORI		(HI(13))
+#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 #define ROTR		(HI(0) | (1 << 21) | LO(2))
 #define ROTRV		(HI(0) | (1 << 6) | LO(6))
+#endif /* SLJIT_MIPS_REV >= 2 */
 #define SD		(HI(63))
 #define SDL		(HI(44))
 #define SDR		(HI(45))
@@ -304,6 +312,9 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define SWR		(HI(46))
 #define SWC1		(HI(57))
 #define TRUNC_W_S	(HI(17) | FMT_S | LO(13))
+#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
+#define WSBH		(HI(31) | (2 << 6) | LO(32))
+#endif /* SLJIT_MIPS_REV >= 2 */
 #define XOR		(HI(0) | LO(38))
 #define XORI		(HI(14))
 
@@ -325,8 +336,10 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #endif /* SLJIT_MIPS_REV >= 6 */
 #define PREF		(HI(51))
 #define PREFX		(HI(19) | LO(15))
+#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 #define SEB		(HI(31) | (16 << 6) | LO(32))
 #define SEH		(HI(31) | (24 << 6) | LO(32))
+#endif /* SLJIT_MIPS_REV >= 2 */
 #endif /* SLJIT_MIPS_REV >= 1 */
 
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
@@ -882,6 +895,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 2;
 #endif /* SLJIT_MIPS_REV >= 1 */
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
+	case SLJIT_HAS_REV:
 	case SLJIT_HAS_ROT:
 		return 1;
 #endif /* SLJIT_MIPS_REV >= 2 */
@@ -1614,21 +1628,36 @@ static sljit_s32 emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 op, slj
 
 static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 dst, sljit_sw src)
 {
-	SLJIT_UNUSED_ARG(op);
+#if defined(SLJIT_CONFIG_MIPS_64) && SLJIT_CONFIG_MIPS_64
+	int is_32 = (op & SLJIT_32);
+#endif /* SLJIT_CONFIG_MIPS_64 */
 
-#if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
-	if (!(op & SLJIT_32)) {
-#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
-		FAIL_IF(push_inst(compiler, ORI | SA(0) | TA(OTHER_FLAG) | 0xffff, OTHER_FLAG));
-		FAIL_IF(push_inst(compiler, DROTR32 | T(src) | D(dst) | SH_IMM(0), DR(dst)));
-		FAIL_IF(push_inst(compiler, DSLL32 | TA(OTHER_FLAG) | DA(OTHER_FLAG) | SH_IMM(0), OTHER_FLAG));
+	op = GET_OPCODE(op);
+#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
+#if defined(SLJIT_CONFIG_MIPS_64) && SLJIT_CONFIG_MIPS_64
+	if (!is_32 && (op == SLJIT_REV)) {
+		FAIL_IF(push_inst(compiler, DSBH | T(src) | D(dst), DR(dst)));
+		return push_inst(compiler, DSHD | T(dst) | D(dst), DR(dst));
+	}
+	if (op != SLJIT_REV && src != TMP_REG2) {
+		FAIL_IF(push_inst(compiler, SLL | T(src) | D(TMP_REG1), DR(TMP_REG1)));
+		src = TMP_REG1;
+	}
+#endif /* SLJIT_CONFIG_MIPS_64 */
+	FAIL_IF(push_inst(compiler, WSBH | T(src) | D(dst), DR(dst)));
+	FAIL_IF(push_inst(compiler, ROTR | T(dst) | D(dst) | SH_IMM(16), DR(dst)));
+#if defined(SLJIT_CONFIG_MIPS_64) && SLJIT_CONFIG_MIPS_64
+	if (op == SLJIT_REV_U32 && dst != TMP_REG2 && dst != TMP_REG3)
+		FAIL_IF(push_inst(compiler, DINSU | T(dst) | SA(0) | (31 << 11), DR(dst)));
+#endif /* SLJIT_CONFIG_MIPS_64 */
 #else /* SLJIT_MIPS_REV < 2 */
+#if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+	if (!is_32) {
 		FAIL_IF(push_inst(compiler, DSRL32 | T(src) | D(TMP_REG1) | SH_IMM(0), DR(TMP_REG1)));
 		FAIL_IF(push_inst(compiler, ORI | SA(0) | TA(OTHER_FLAG) | 0xffff, OTHER_FLAG));
 		FAIL_IF(push_inst(compiler, DSLL32 | T(src) | D(dst) | SH_IMM(0), DR(dst)));
 		FAIL_IF(push_inst(compiler, DSLL32 | TA(OTHER_FLAG) | DA(OTHER_FLAG) | SH_IMM(0), OTHER_FLAG));
 		FAIL_IF(push_inst(compiler, OR | S(dst) | T(TMP_REG1) | D(dst), DR(dst)));
-#endif /* SLJIT_MIPS_REV >= 2 */
 
 		FAIL_IF(push_inst(compiler, DSRL | T(dst) | D(TMP_REG1) | SH_IMM(16), DR(TMP_REG1)));
 		FAIL_IF(push_inst(compiler, ORI | SA(OTHER_FLAG) | TA(OTHER_FLAG) | 0xffff, OTHER_FLAG));
@@ -1646,23 +1675,17 @@ static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op, sljit_s
 		return push_inst(compiler, OR | S(dst) | T(TMP_REG1) | D(dst), DR(dst));
 	}
 
-	if (GET_OPCODE(op) != SLJIT_REV && src != TMP_REG2) {
+	if (op != SLJIT_REV && src != TMP_REG2) {
 		FAIL_IF(push_inst(compiler, SLL | T(src) | D(TMP_REG2) | SH_IMM(0), DR(TMP_REG2)));
 		src = TMP_REG2;
 	}
 #endif /* SLJIT_CONFIG_MIPS_64 */
 
-#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
-	FAIL_IF(push_inst(compiler, LUI | TA(OTHER_FLAG) | 0xff, OTHER_FLAG));
-	FAIL_IF(push_inst(compiler, ROTR | T(src) | D(dst) | SH_IMM(16), DR(dst)));
-	FAIL_IF(push_inst(compiler, ORI | SA(OTHER_FLAG) | TA(OTHER_FLAG) | 0xff, OTHER_FLAG));
-#else /* SLJIT_MIPS_REV < 2 */
 	FAIL_IF(push_inst(compiler, SRL | T(src) | D(TMP_REG1) | SH_IMM(16), DR(TMP_REG1)));
 	FAIL_IF(push_inst(compiler, LUI | TA(OTHER_FLAG) | 0xff, OTHER_FLAG));
 	FAIL_IF(push_inst(compiler, SLL | T(src) | D(dst) | SH_IMM(16), DR(dst)));
 	FAIL_IF(push_inst(compiler, ORI | SA(OTHER_FLAG) | TA(OTHER_FLAG) | 0xff, OTHER_FLAG));
 	FAIL_IF(push_inst(compiler, OR | S(dst) | T(TMP_REG1) | D(dst), DR(dst)));
-#endif /* SLJIT_MIPS_REV >= 2 */
 
 	FAIL_IF(push_inst(compiler, SRL | T(dst) | D(TMP_REG1) | SH_IMM(8), DR(TMP_REG1)));
 	FAIL_IF(push_inst(compiler, AND | S(dst) | TA(OTHER_FLAG) | D(dst), DR(dst)));
@@ -1671,25 +1694,34 @@ static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op, sljit_s
 	FAIL_IF(push_inst(compiler, OR | S(dst) | T(TMP_REG1) | D(dst), DR(dst)));
 
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
-	if (GET_OPCODE(op) == SLJIT_REV_U32 && dst != TMP_REG2) {
-#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
-		return push_inst(compiler, DINSU | T(dst) | SA(0) | (31 << 11) | (0 << 6), DR(dst));
-#else /* SLJIT_MIPS_REV < 2 */
+	if (op == SLJIT_REV_U32 && dst != TMP_REG2 && dst != TMP_REG3) {
 		FAIL_IF(push_inst(compiler, DSLL32 | T(dst) | D(dst) | SH_IMM(0), DR(dst)));
-		return push_inst(compiler, DSRL32 | T(dst) | D(dst) | SH_IMM(0), DR(dst));
-#endif /* SLJIT_MIPS_REV >= 2 */
+		FAIL_IF(push_inst(compiler, DSRL32 | T(dst) | D(dst) | SH_IMM(0), DR(dst)));
 	}
 #endif /* SLJIT_CONFIG_MIPS_64 */
+#endif /* SLJIT_MIPR_REV >= 2 */
 	return SLJIT_SUCCESS;
 }
 
 static sljit_s32 emit_rev16(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 dst, sljit_sw src)
 {
+#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
+#if defined(SLJIT_CONFIG_MIPS_32) && SLJIT_CONFIG_MIPS_32
+	FAIL_IF(push_inst(compiler, WSBH | T(src) | D(dst), DR(dst)));
+#else /* !SLJIT_CONFIG_MIPS_32 */
+	FAIL_IF(push_inst(compiler, DSBH | T(src) | D(dst), DR(dst)));
+#endif /* SLJIT_CONFIG_MIPS_32 */
+	if (GET_OPCODE(op) == SLJIT_REV_U16)
+		return push_inst(compiler, ANDI | S(dst) | T(dst) | 0xffff, DR(dst));
+	else
+		return push_inst(compiler, SEH | T(dst) | D(dst), DR(dst));
+#else /* SLJIT_MIPS_REV < 2 */
 	FAIL_IF(push_inst(compiler, SELECT_OP(DSRL, SRL) | T(src) | D(TMP_REG1) | SH_IMM(8), DR(TMP_REG1)));
 	FAIL_IF(push_inst(compiler, SELECT_OP(DSLL32, SLL) | T(src) | D(dst) | SH_IMM(24), DR(dst)));
 	FAIL_IF(push_inst(compiler, ANDI | S(TMP_REG1) | T(TMP_REG1) | 0xff, DR(TMP_REG1)));
 	FAIL_IF(push_inst(compiler, (GET_OPCODE(op) == SLJIT_REV_U16 ? SELECT_OP(DSRL32, SRL) : SELECT_OP(DSRA32, SRA)) | T(dst) | D(dst) | SH_IMM(16), DR(dst)));
 	return push_inst(compiler, OR | S(dst) | T(TMP_REG1) | D(dst), DR(dst));
+#endif /* SLJIT_MIPS_REV >= 2 */
 }
 
 static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 flags,
@@ -1719,17 +1751,17 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1)
+#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
 			return push_inst(compiler, SEB | T(src2) | D(dst), DR(dst));
-#else /* SLJIT_MIPS_REV < 1 */
+#else /* SLJIT_MIPS_REV < 2 */
 			FAIL_IF(push_inst(compiler, SLL | T(src2) | D(dst) | SH_IMM(24), DR(dst)));
 			return push_inst(compiler, SRA | T(dst) | D(dst) | SH_IMM(24), DR(dst));
-#endif /* SLJIT_MIPS_REV >= 1 */
+#endif /* SLJIT_MIPS_REV >= 2 */
 #else /* !SLJIT_CONFIG_MIPS_32 */
-#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1)
+#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
 			if (op & SLJIT_32)
 				return push_inst(compiler, SEB | T(src2) | D(dst), DR(dst));
-#endif /* SLJIT_MIPS_REV >= 1 */
+#endif /* SLJIT_MIPS_REV >= 2 */
 			FAIL_IF(push_inst(compiler, DSLL32 | T(src2) | D(dst) | SH_IMM(24), DR(dst)));
 			return push_inst(compiler, DSRA32 | T(dst) | D(dst) | SH_IMM(24), DR(dst));
 #endif /* SLJIT_CONFIG_MIPS_32 */
@@ -1748,17 +1780,17 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1)
+#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
 			return push_inst(compiler, SEH | T(src2) | D(dst), DR(dst));
-#else /* SLJIT_MIPS_REV < 1 */
+#else /* SLJIT_MIPS_REV < 2 */
 			FAIL_IF(push_inst(compiler, SLL | T(src2) | D(dst) | SH_IMM(16), DR(dst)));
 			return push_inst(compiler, SRA | T(dst) | D(dst) | SH_IMM(16), DR(dst));
-#endif /* SLJIT_MIPS_REV >= 1 */
+#endif /* SLJIT_MIPS_REV >= 2 */
 #else /* !SLJIT_CONFIG_MIPS_32 */
-#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1)
+#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
 			if (op & SLJIT_32)
 				return push_inst(compiler, SEH | T(src2) | D(dst), DR(dst));
-#endif /* SLJIT_MIPS_REV >= 1 */
+#endif /* SLJIT_MIPS_REV >= 2 */
 			FAIL_IF(push_inst(compiler, DSLL32 | T(src2) | D(dst) | SH_IMM(16), DR(dst)));
 			return push_inst(compiler, DSRA32 | T(dst) | D(dst) | SH_IMM(16), DR(dst));
 #endif /* SLJIT_CONFIG_MIPS_32 */
@@ -1772,7 +1804,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
 			if (dst == src2)
-				return push_inst(compiler, DINSU | T(src2) | SA(0) | (31 << 11) | (0 << 11), DR(dst));
+				return push_inst(compiler, DINSU | T(src2) | SA(0) | (31 << 11), DR(dst));
 #endif /* SLJIT_MIPS_REV >= 2 */
 			FAIL_IF(push_inst(compiler, DSLL32 | T(src2) | D(dst) | SH_IMM(0), DR(dst)));
 			return push_inst(compiler, DSRL32 | T(dst) | D(dst) | SH_IMM(0), DR(dst));
