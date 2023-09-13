@@ -26,9 +26,12 @@
 
 /* Latest MIPS architecture. */
 
-#ifndef __mips_hard_float
+#ifdef HAVE_PRCTL
+#include <sys/prctl.h>
+#endif
+
+#if !defined(__mips_hard_float) || defined(__mips_single_float)
 /* Disable automatic detection, covers both -msoft-float and -mno-float */
-#undef SLJIT_IS_FPU_AVAILABLE
 #define SLJIT_IS_FPU_AVAILABLE 0
 #endif
 
@@ -374,27 +377,27 @@ static sljit_s32 function_check_is_freg(struct sljit_compiler *compiler, sljit_s
 
 #endif /* SLJIT_CONFIG_MIPS_32 && SLJIT_ARGUMENT_CHECKS */
 
+#if !defined(SLJIT_IS_FPU_AVAILABLE) || SLJIT_IS_FPU_AVAILABLE
 static void get_cpu_features(void)
 {
 #if defined(__GNUC__)
-#if !defined(SLJIT_IS_FPU_AVAILABLE)
-	sljit_u32 fir;
-#endif
+	sljit_u32 fir = 0;
 #if defined(SLJIT_CONFIG_MIPS_32) && SLJIT_CONFIG_MIPS_32
-#if (!defined(SLJIT_DETECT_FR) || (defined(SLJIT_DETECT_FR) && SLJIT_DETECT_FR == 1)) \
-	&& (!defined(SLJIT_DETECT_FR) || SLJIT_DETECT_FR == 1) \
+#if (!defined(SLJIT_DETECT_FR) || SLJIT_DETECT_FR >= 1) \
 	&& (!defined(SLJIT_MIPS_REV) || (defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV < 6))
-	sljit_sw flag = -1;
+	sljit_s32 flag = -1;
 #endif
 #endif /* SLJIT_CONFIG_MIPS_32 */
 #endif /* __GNUC__ */
 	sljit_u32 feature_list = CPU_FEATURE_DETECTED;
 
-#if defined(__GNUC__) && !defined(SLJIT_IS_FPU_AVAILABLE)
+#if defined(__GNUC__) || !defined(SLJIT_IS_FPU_AVAILABLE)
 	__asm__ ("cfc1 %0, $0" : "=r"(fir));
-#endif
-	if ((fir & (1 << 22)) != 0)
+	if ((fir & (1 << 22)))
 		feature_list |= CPU_FEATURE_FPU;
+#else /* SLJIT_IS_FPU_AVAILABLE */
+	feature_list |= CPU_FEATURE_FPU;
+#endif
 
 	if (!(feature_list & CPU_FEATURE_FPU) && (fir & (1 << 17)) && (fir & (1 << 21)))
 		feature_list |= CPU_FEATURE_FP32;
@@ -407,25 +410,39 @@ static void get_cpu_features(void)
 #if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 5
 		feature_list |= CPU_FEATURE_FR;
 #endif /* SLJIT_MIPS_REV >= 5 */
-#elif defined(__GNUC__) && (defined(__mips) && __mips >= 2)
-		SLJIT_ASSERT(freg_map[TMP_FREG3] == 16);
-		__asm__ (".data\n"
-			 "0:\n"
-			 "	.quad 0\n"
-			 ".text\n"
-			 ".set oddspreg\n"
-			 "	mtc1 %0, $f17\n"
-			 "	ldc1 $f16, 0b\n"
-			 "	nop\n"
-			 "	mfc1 %0, $f17\n" : "+r"(flag) : : "$f16", "$f17");
-		if (flag)
+#else
+#ifdef PR_GET_FP_MODE
+		flag = prctl(PR_GET_FP_MODE);
+		if (flag > 0)
 			feature_list |= CPU_FEATURE_FR;
+#endif /* FP_GET_PR_MODE */
+#if ((defined(SLJIT_DETECT_FR) && SLJIT_DETECT_FR == 2) \
+	|| (!defined(PR_GET_FP_MODE) && (!defined(SLJIT_DETECT_FR) || SLJIT_DETECT_FR >= 1))) \
+	&& (defined(__GNUC__) && (defined(__mips) && __mips >= 2))
+		if (flag < 0) {
+			SLJIT_ASSERT(freg_map[TMP_FREG3] == 16);
+			__asm__ (
+				".data\n"
+				"0:\n"
+				"	.quad 0\n"
+				".text\n"
+				".set oddspreg\n"
+				"	mtc1 %0, $f17\n"
+				"	ldc1 $f16, 0b\n"
+				"	nop\n"
+				"	mfc1 %0, $f17\n"
+			: "+r" (flag) : : "$f16", "$f17");
+			if (flag)
+				feature_list |= CPU_FEATURE_FR;
+		}
+#endif /* (!PR_GET_FP_MODE || (PR_GET_FP_MODE && SLJIT_DETECT_FR == 2)) && __GNUC__ */
 #endif /* SLJIT_MIPS_REV >= 6 */
 	}
 #endif /* SLJIT_CONFIG_MIPS_32 */
 
 	cpu_feature_list = feature_list;
 }
+#endif /* SLJIT_IS_FPU_AVAILABLE */
 
 /* dest_reg is the absolute name of the register
    Useful for reordering instructions in the delay slot. */
@@ -835,6 +852,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #endif /* SLJIT_CONFIG_MIPS_32 && SLJIT_IS_FPU_AVAILABLE */
 	case SLJIT_HAS_FPU:
 #ifdef SLJIT_IS_FPU_AVAILABLE
+#if SLJIT_IS_FPU_AVAILABLE
+		if (!cpu_feature_list)
+			get_cpu_features();
+#endif /* SLJIT_IS_FPU_AVAILABLE */
 		return SLJIT_IS_FPU_AVAILABLE;
 #else
 		if (!cpu_feature_list)
