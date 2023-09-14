@@ -140,20 +140,26 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 
 #define U8(v)			((sljit_u8)(v))
 
-
 /* Size flags for emit_x86_instruction: */
-#define EX86_BIN_INS		((sljit_uw)0x0010)
-#define EX86_SHIFT_INS		((sljit_uw)0x0020)
-#define EX86_REX		((sljit_uw)0x0040)
-#define EX86_NO_REXW		((sljit_uw)0x0080)
-#define EX86_BYTE_ARG		((sljit_uw)0x0100)
-#define EX86_HALF_ARG		((sljit_uw)0x0200)
-#define EX86_PREF_66		((sljit_uw)0x0400)
-#define EX86_PREF_F2		((sljit_uw)0x0800)
-#define EX86_PREF_F3		((sljit_uw)0x1000)
-#define EX86_SSE2_OP1		((sljit_uw)0x2000)
-#define EX86_SSE2_OP2		((sljit_uw)0x4000)
+#define EX86_BIN_INS		((sljit_uw)0x000010)
+#define EX86_SHIFT_INS		((sljit_uw)0x000020)
+#define EX86_BYTE_ARG		((sljit_uw)0x000040)
+#define EX86_HALF_ARG		((sljit_uw)0x000080)
+/* Size flags for both emit_x86_instruction and emit_vex_instruction: */
+#define EX86_REX		((sljit_uw)0x000100)
+#define EX86_NO_REXW		((sljit_uw)0x000200)
+#define EX86_PREF_66		((sljit_uw)0x000400)
+#define EX86_PREF_F2		((sljit_uw)0x000800)
+#define EX86_PREF_F3		((sljit_uw)0x001000)
+#define EX86_SSE2_OP1		((sljit_uw)0x002000)
+#define EX86_SSE2_OP2		((sljit_uw)0x004000)
 #define EX86_SSE2		(EX86_SSE2_OP1 | EX86_SSE2_OP2)
+#define EX86_VEX_EXT		((sljit_uw)0x008000)
+/* Op flags for emit_vex_instruction: */
+#define VEX_OP_0F38		((sljit_uw)0x010000)
+#define VEX_OP_0F3A		((sljit_uw)0x020000)
+#define VEX_SSE2_OPV		((sljit_uw)0x040000)
+#define VEX_256			((sljit_uw)0x080000)
 
 #define EX86_SELECT_66(op)	(((op) & SLJIT_32) ? 0 : EX86_PREF_66)
 #define EX86_SELECT_F2_F3(op)	(((op) & SLJIT_32) ? EX86_PREF_F3 : EX86_PREF_F2)
@@ -358,6 +364,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define CPU_FEATURE_LZCNT		0x008
 #define CPU_FEATURE_TZCNT		0x010
 #define CPU_FEATURE_CMOV		0x020
+#define CPU_FEATURE_AVX			0x040
 
 static sljit_u32 cpu_feature_list = 0;
 
@@ -513,6 +520,8 @@ static void get_cpu_features(void)
 		feature_list |= CPU_FEATURE_SSE41;
 	if (value_edx & 0x8000)
 		feature_list |= CPU_FEATURE_CMOV;
+	if (value_ecx & 0x10000000)
+		feature_list |= CPU_FEATURE_AVX;
 
 	cpu_feature_list = feature_list;
 }
@@ -3492,7 +3501,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
 	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
 	sljit_s32 alignment = SLJIT_SIMD_GET_ALIGNMENT(type);
 	sljit_u8 opcode = 0;
-	sljit_uw pref = 2 | EX86_SSE2;
+	sljit_uw pref;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_mov(compiler, type, freg, srcdst, srcdstw));
@@ -3503,36 +3512,47 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
 	compiler->mode32 = 1;
 #endif /* SLJIT_CONFIG_X86_64 */
 
-	if (reg_size == 4) {
-		if (!(srcdst & SLJIT_MEM))
-			alignment = 4;
-
-		if (type & SLJIT_SIMD_FLOAT) {
-			if (elem_size == 2 || elem_size == 3) {
-				opcode = alignment >= 4 ? MOVAPS_x_xm : MOVUPS_x_xm;
-
-				if (elem_size == 3)
-					pref |= EX86_PREF_66;
-
-				if (type & SLJIT_SIMD_STORE)
-					opcode = U8(opcode + 1);
-			}
-		} else {
-			opcode = (type & SLJIT_SIMD_STORE) ? MOVDQA_xm_x : MOVDQA_x_xm;
-			pref |= alignment >= 4 ? EX86_PREF_66 : EX86_PREF_F3;
-		}
-
-		if (opcode == 0)
+	switch (reg_size) {
+	case 4:
+		pref = 2 | EX86_SSE2;
+		break;
+	case 5:
+		if (!(cpu_feature_list & CPU_FEATURE_AVX))
 			return SLJIT_ERR_UNSUPPORTED;
-
-		if (type & SLJIT_SIMD_TEST)
-			return SLJIT_SUCCESS;
-
-		return emit_groupf(compiler, opcode, pref, freg, srcdst, srcdstw);
+		pref = EX86_SSE2 | VEX_256;
+		break;
+	default:
+		return SLJIT_ERR_UNSUPPORTED;
 	}
 
-	/* TODO: Support VEX prefix and longer reg types. */
-	return SLJIT_ERR_UNSUPPORTED;
+	if (!(srcdst & SLJIT_MEM))
+		alignment = reg_size;
+
+	if (type & SLJIT_SIMD_FLOAT) {
+		if (elem_size == 2 || elem_size == 3) {
+			opcode = alignment >= reg_size ? MOVAPS_x_xm : MOVUPS_x_xm;
+
+			if (elem_size == 3)
+				pref |= EX86_PREF_66;
+
+			if (type & SLJIT_SIMD_STORE)
+				opcode = U8(opcode + 1);
+		}
+	} else {
+		opcode = (type & SLJIT_SIMD_STORE) ? MOVDQA_xm_x : MOVDQA_x_xm;
+		pref |= alignment >= reg_size ? EX86_PREF_66 : EX86_PREF_F3;
+	}
+
+	if (opcode == 0)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_SIMD_TEST)
+		return SLJIT_SUCCESS;
+
+	if (pref & VEX_256)
+		return emit_vex_instruction(compiler, opcode | pref, freg, 0, srcdst, srcdstw);
+
+	return emit_groupf(compiler, opcode, pref, freg, srcdst, srcdstw);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compiler *compiler, sljit_s32 type,

@@ -81,25 +81,23 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 	SLJIT_ASSERT((flags & (EX86_BYTE_ARG | EX86_HALF_ARG)) != (EX86_BYTE_ARG | EX86_HALF_ARG));
 	/* SSE2 and immediate is not possible. */
 	SLJIT_ASSERT(a != SLJIT_IMM || !(flags & EX86_SSE2));
-	SLJIT_ASSERT((flags & (EX86_PREF_F2 | EX86_PREF_F3)) != (EX86_PREF_F2 | EX86_PREF_F3)
-		&& (flags & (EX86_PREF_F2 | EX86_PREF_66)) != (EX86_PREF_F2 | EX86_PREF_66)
-		&& (flags & (EX86_PREF_F3 | EX86_PREF_66)) != (EX86_PREF_F3 | EX86_PREF_66));
+	SLJIT_ASSERT(((flags & (EX86_PREF_F2 | EX86_PREF_F3 | EX86_PREF_66))
+			& ((flags & (EX86_PREF_F2 | EX86_PREF_F3 | EX86_PREF_66)) - 1)) == 0);
+	SLJIT_ASSERT((flags & (EX86_VEX_EXT | EX86_REX)) != EX86_VEX_EXT);
 
 	size &= 0xf;
-	inst_size = size;
+	/* The mod r/m byte is always present. */
+	inst_size = size + 1;
 
 	if (!compiler->mode32 && !(flags & EX86_NO_REXW))
 		rex |= REX_W;
 	else if (flags & EX86_REX)
 		rex |= REX;
 
-	if (flags & (EX86_PREF_F2 | EX86_PREF_F3))
-		inst_size++;
-	if (flags & EX86_PREF_66)
+	if (flags & (EX86_PREF_F2 | EX86_PREF_F3 | EX86_PREF_66))
 		inst_size++;
 
 	/* Calculate size of b. */
-	inst_size += 1; /* mod r/m byte. */
 	if (b & SLJIT_MEM) {
 		if (!(b & OFFS_REG_MASK) && NOT_HALFWORD(immb)) {
 			PTR_FAIL_IF(emit_load_imm64(compiler, TMP_REG2, immb));
@@ -119,8 +117,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 					inst_size += sizeof(sljit_s8);
 				else
 					inst_size += sizeof(sljit_s32);
-			}
-			else if (reg_lmap[b & REG_MASK] == 5) {
+			} else if (reg_lmap[b & REG_MASK] == 5) {
 				/* Swap registers if possible. */
 				if ((b & OFFS_REG_MASK) && (immb & 0x3) == 0 && reg_lmap[OFFS_REG(b)] != 5)
 					b = SLJIT_MEM | OFFS_REG(b) | TO_OFFS_REG(b & REG_MASK);
@@ -140,13 +137,16 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 					rex |= REX_X;
 			}
 		}
-	}
-	else if (!(flags & EX86_SSE2_OP2)) {
+	} else if (!(flags & EX86_SSE2_OP2)) {
 		if (reg_map[b] >= 8)
 			rex |= REX_B;
-	}
-	else if (freg_map[b] >= 8)
+	} else if (freg_map[b] >= 8)
 		rex |= REX_B;
+
+	if ((flags & EX86_VEX_EXT) && (rex & 0x3)) {
+		size++;
+		inst_size++;
+	}
 
 	if (a == SLJIT_IMM) {
 		if (flags & EX86_BIN_INS) {
@@ -155,8 +155,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 				flags |= EX86_BYTE_ARG;
 			} else
 				inst_size += 4;
-		}
-		else if (flags & EX86_SHIFT_INS) {
+		} else if (flags & EX86_SHIFT_INS) {
 			SLJIT_ASSERT(imma <= (compiler->mode32 ? 0x1f : 0x3f));
 			if (imma != 1) {
 				inst_size++;
@@ -168,8 +167,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 			inst_size += sizeof(short);
 		else
 			inst_size += sizeof(sljit_s32);
-	}
-	else {
+	} else {
 		SLJIT_ASSERT(!(flags & EX86_SHIFT_INS) || a == SLJIT_PREF_SHIFT_REG);
 		/* reg_map[SLJIT_PREF_SHIFT_REG] is less than 8. */
 		if (!(flags & EX86_SSE2_OP1)) {
@@ -186,14 +184,16 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + inst_size);
 	PTR_FAIL_IF(!inst);
 
-	/* Encoding the byte. */
+	/* Encoding prefixes. */
 	INC_SIZE(inst_size);
 	if (flags & EX86_PREF_F2)
 		*inst++ = 0xf2;
-	if (flags & EX86_PREF_F3)
+	else if (flags & EX86_PREF_F3)
 		*inst++ = 0xf3;
-	if (flags & EX86_PREF_66)
+	else if (flags & EX86_PREF_66)
 		*inst++ = 0x66;
+
+	/* Rex is always the last prefix. */
 	if (rex)
 		*inst++ = rex;
 
@@ -210,8 +210,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 			*buf_ptr = U8(reg_lmap[a] << 3);
 		else
 			*buf_ptr = U8(freg_lmap[a] << 3);
-	}
-	else {
+	} else {
 		if (a == SLJIT_IMM) {
 			if (imma == 1)
 				*inst = GROUP_SHIFT_1;
@@ -239,8 +238,9 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 			if (!(b & OFFS_REG_MASK))
 				*buf_ptr++ |= reg_lmap_b;
 			else {
-				*buf_ptr++ |= 0x04;
-				*buf_ptr++ = U8(reg_lmap_b | (reg_lmap[OFFS_REG(b)] << 3));
+				buf_ptr[0] |= 0x04;
+				buf_ptr[1] = U8(reg_lmap_b | (reg_lmap[OFFS_REG(b)] << 3));
+				buf_ptr += 2;
 			}
 
 			if (immb != 0 || reg_lmap_b == 5) {
@@ -251,21 +251,21 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 					buf_ptr += sizeof(sljit_s32);
 				}
 			}
-		}
-		else {
+		} else {
 			if (reg_lmap_b == 5)
 				*buf_ptr |= 0x40;
 
-			*buf_ptr++ |= 0x04;
-			*buf_ptr++ = U8(reg_lmap_b | (reg_lmap[OFFS_REG(b)] << 3) | (immb << 6));
+			buf_ptr[0] |= 0x04;
+			buf_ptr[1] = U8(reg_lmap_b | (reg_lmap[OFFS_REG(b)] << 3) | (immb << 6));
+			buf_ptr += 2;
 
 			if (reg_lmap_b == 5)
 				*buf_ptr++ = 0;
 		}
-	}
-	else {
-		*buf_ptr++ |= 0x04;
-		*buf_ptr++ = 0x25;
+	} else {
+		buf_ptr[0] |= 0x04;
+		buf_ptr[1] = 0x25;
+		buf_ptr += 2;
 		sljit_unaligned_store_s32(buf_ptr, (sljit_s32)immb); /* 32 bit displacement. */
 		buf_ptr += sizeof(sljit_s32);
 	}
@@ -280,6 +280,72 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 	}
 
 	return !(flags & EX86_SHIFT_INS) ? inst : (inst + 1);
+}
+
+static sljit_s32 emit_vex_instruction(struct sljit_compiler *compiler, sljit_uw op,
+	/* The first and second register operand. */
+	sljit_s32 a, sljit_s32 v,
+	/* The general operand (not immediate). */
+	sljit_s32 b, sljit_sw immb)
+{
+	sljit_u8 *inst;
+	sljit_u8 vex = 0;
+	sljit_u8 vex_m = 0;
+	sljit_uw size;
+
+	SLJIT_ASSERT(((op & (EX86_PREF_F2 | EX86_PREF_F3 | EX86_PREF_66))
+			& ((op & (EX86_PREF_F2 | EX86_PREF_F3 | EX86_PREF_66)) - 1)) == 0);
+
+	op |= EX86_VEX_EXT | EX86_REX;
+
+	if (op & VEX_OP_0F38)
+		vex_m = 0x2;
+	else if (op & VEX_OP_0F3A)
+		vex_m = 0x3;
+
+	/* Currently WIG (W ignored) is supported only. */
+
+	if (op & EX86_PREF_66)
+		vex |= 0x1;
+	else if (op & EX86_PREF_F2)
+		vex |= 0x3;
+	else if (op & EX86_PREF_F3)
+		vex |= 0x2;
+
+	op &= ~(EX86_PREF_66 | EX86_PREF_F2 | EX86_PREF_F3);
+
+	if (op & VEX_256)
+		vex |= 0x4;
+
+	vex = U8(vex | ((((op & VEX_SSE2_OPV) ? freg_map[v] : reg_map[v]) ^ 0xf) << 3));
+
+	size = op & ~(sljit_uw)0xff;
+	size |= (vex_m == 0) ? (EX86_VEX_EXT | 2) : 3;
+
+	inst = emit_x86_instruction(compiler, size, a, 0, b, immb);
+	FAIL_IF(!inst);
+
+	SLJIT_ASSERT((inst[-1] & 0xf0) == REX);
+
+	/* If X or B is present in REX prefix. */
+	if (vex_m == 0 && inst[-1] & 0x3)
+		vex_m = 0x1;
+
+	if (vex_m == 0) {
+		vex |= U8(((inst[-1] >> 2) ^ 0x1) << 7);
+
+		inst[-1] = 0xc5;
+		inst[0] = vex;
+		inst[1] = U8(op);
+		return SLJIT_SUCCESS;
+	}
+
+	vex_m |= U8((inst[-1] ^ 0x7) << 5);
+	inst[-1] = 0xc4;
+	inst[0] = vex_m;
+	inst[1] = vex;
+	inst[2] = U8(op);
+	return SLJIT_SUCCESS;
 }
 
 /* --------------------------------------------------------------------- */

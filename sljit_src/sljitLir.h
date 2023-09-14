@@ -1858,6 +1858,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 #define SLJIT_SIMD_MEM_ALIGNED_64	(3 << 24)
 /* Memory address is 128 bit aligned */
 #define SLJIT_SIMD_MEM_ALIGNED_128	(4 << 24)
+/* Memory address is 256 bit aligned */
+#define SLJIT_SIMD_MEM_ALIGNED_256	(5 << 24)
+/* Memory address is 512 bit aligned */
+#define SLJIT_SIMD_MEM_ALIGNED_512	(6 << 24)
 
 /* Moves data between a simd register and memory.
 
