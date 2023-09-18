@@ -127,6 +127,7 @@ static const sljit_u8 freg_ebit_map[(SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 3] 
 #define POP		0xe8bd0000
 #define REV		0xe6bf0f30
 #define REV16		0xe6bf0fb0
+#define REVSH		0xe6ff0fb0
 #define RSB		0xe0600000
 #define RSC		0xe0e00000
 #define SBC		0xe0c00000
@@ -1027,6 +1028,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_CMOV:
 	case SLJIT_HAS_REV:
+	case SLJIT_HAS_REVPACK:
 	case SLJIT_HAS_PREFETCH:
 	case SLJIT_HAS_COPY_F32:
 	case SLJIT_HAS_COPY_F64:
@@ -1552,16 +1554,22 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_REV:
 	case SLJIT_REV_U32:
 	case SLJIT_REV_S32:
+	case SLJIT_REV32PACK:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED));
 		return push_inst(compiler, REV | RD(dst) | RM(src2));
 
 	case SLJIT_REV_U16:
-	case SLJIT_REV_S16:
+	case SLJIT_REV16PACK:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED) && src2 != TMP_REG1 && dst != TMP_REG1);
 		FAIL_IF(push_inst(compiler, REV16 | RD(dst) | RM(src2)));
-		if (dst == TMP_REG2 || (src2 == TMP_REG2 && op == SLJIT_REV_U16))
+		if (op == SLJIT_REV16PACK || dst == TMP_REG2 || src2 == TMP_REG2)
 			return SLJIT_SUCCESS;
-		return push_inst(compiler, (op == SLJIT_REV_U16 ? UXTH : SXTH) | RD(dst) | RM(dst));
+		return push_inst(compiler, UXTH | RD(dst) | RM(dst));
+
+	case SLJIT_REV_S16:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED) && src2 != TMP_REG1 && dst != TMP_REG1);
+		return push_inst(compiler, REVSH | RD(dst) | RM(src2));
+
 	case SLJIT_ADD:
 		SLJIT_ASSERT(!(flags & INV_IMM));
 
@@ -2282,6 +2290,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_REV:
 	case SLJIT_REV_U32:
 	case SLJIT_REV_S32:
+	case SLJIT_REV16PACK:
+	case SLJIT_REV32PACK:
 		return emit_op(compiler, op, 0, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_REV_U16:

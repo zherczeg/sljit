@@ -895,6 +895,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 2;
 #endif /* SLJIT_MIPS_REV >= 1 */
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2)
+	case SLJIT_HAS_REVPACK:
 	case SLJIT_HAS_REV:
 	case SLJIT_HAS_ROT:
 		return 1;
@@ -1635,9 +1636,12 @@ static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op, sljit_s
 	op = GET_OPCODE(op);
 #if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 #if defined(SLJIT_CONFIG_MIPS_64) && SLJIT_CONFIG_MIPS_64
-	if (!is_32 && (op == SLJIT_REV)) {
+	if (!is_32 && (op == SLJIT_REV || op == SLJIT_REV32PACK)) {
 		FAIL_IF(push_inst(compiler, DSBH | T(src) | D(dst), DR(dst)));
-		return push_inst(compiler, DSHD | T(dst) | D(dst), DR(dst));
+		FAIL_IF(push_inst(compiler, DSHD | T(dst) | D(dst), DR(dst)));
+		if (op != SLJIT_REV32PACK)
+			return SLJIT_SUCCESS;
+		return push_inst(compiler, DROTR32 | T(dst) | D(dst), DR(dst));
 	}
 	if (op != SLJIT_REV && src != TMP_REG2) {
 		FAIL_IF(push_inst(compiler, SLL | T(src) | D(TMP_REG1), DR(TMP_REG1)));
@@ -1711,10 +1715,13 @@ static sljit_s32 emit_rev16(struct sljit_compiler *compiler, sljit_s32 op, sljit
 #else /* !SLJIT_CONFIG_MIPS_32 */
 	FAIL_IF(push_inst(compiler, DSBH | T(src) | D(dst), DR(dst)));
 #endif /* SLJIT_CONFIG_MIPS_32 */
-	if (GET_OPCODE(op) == SLJIT_REV_U16)
+	switch (GET_OPCODE(op)) {
+	case SLJIT_REV_U16:
 		return push_inst(compiler, ANDI | S(dst) | T(dst) | 0xffff, DR(dst));
-	else
+	case SLJIT_REV_S16:
 		return push_inst(compiler, SEH | T(dst) | D(dst), DR(dst));
+	}
+	return SLJIT_SUCCESS;
 #else /* SLJIT_MIPS_REV < 2 */
 	FAIL_IF(push_inst(compiler, SELECT_OP(DSRL, SRL) | T(src) | D(TMP_REG1) | SH_IMM(8), DR(TMP_REG1)));
 	FAIL_IF(push_inst(compiler, SELECT_OP(DSLL32, SLL) | T(src) | D(dst) | SH_IMM(24), DR(dst)));
@@ -1851,11 +1858,13 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_REV:
 	case SLJIT_REV_U32:
 	case SLJIT_REV_S32:
+	case SLJIT_REV32PACK:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM) && src2 != TMP_REG1 && dst != TMP_REG1);
 		return emit_rev(compiler, op, dst, src2);
 
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
+	case SLJIT_REV16PACK:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
 		return emit_rev16(compiler, op, dst, src2);
 
@@ -2573,6 +2582,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
 	case SLJIT_REV:
+	case SLJIT_REV16PACK:
+	case SLJIT_REV32PACK:
 		return emit_op(compiler, op, flags, dst, dstw, TMP_REG1, 0, src, srcw);
 
 	case SLJIT_REV_U16:
