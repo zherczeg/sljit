@@ -216,7 +216,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 			sljit_unaligned_store_sw(buf_ptr, imma);
 	}
 
-	return !(flags & EX86_SHIFT_INS) ? inst : (inst + 1);
+	return inst;
 }
 
 static sljit_s32 emit_vex_instruction(struct sljit_compiler *compiler, sljit_uw op,
@@ -1340,11 +1340,11 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_uw(struct sljit_comp
 
 		inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 1, TMP_REG1, 0);
 		FAIL_IF(!inst);
-		*inst |= ROL;
+		inst[1] |= ROL;
 
 		inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 1, TMP_REG1, 0);
 		FAIL_IF(!inst);
-		*inst |= SHR;
+		inst[1] |= SHR;
 
 		FAIL_IF(emit_groupf(compiler, CVTSI2SD_x_rm, EX86_PREF_F2 | EX86_SSE2_OP1, dst_r, TMP_REG1, 0));
 
@@ -1395,7 +1395,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_uw(struct sljit_comp
 
 	inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 1, TMP_REG1, 0);
 	FAIL_IF(!inst);
-	*inst |= SHR;
+	inst[1] |= SHR;
 
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + 2);
 	FAIL_IF(!inst);

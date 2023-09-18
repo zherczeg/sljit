@@ -168,190 +168,197 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 /*  Instruction forms                                                    */
 /* --------------------------------------------------------------------- */
 
-#define ADD		(/* BINARY */ 0 << 3)
-#define ADD_EAX_i32	0x05
-#define ADD_r_rm	0x03
-#define ADD_rm_r	0x01
-#define ADDSD_x_xm	0x58
-#define ADC		(/* BINARY */ 2 << 3)
-#define ADC_EAX_i32	0x15
-#define ADC_r_rm	0x13
-#define ADC_rm_r	0x11
-#define AND		(/* BINARY */ 4 << 3)
-#define AND_EAX_i32	0x25
-#define AND_r_rm	0x23
-#define AND_rm_r	0x21
-#define ANDPD_x_xm	0x54
-#define BSR_r_rm	(/* GROUP_0F */ 0xbd)
-#define BSF_r_rm	(/* GROUP_0F */ 0xbc)
-#define BSWAP_r		(/* GROUP_0F */ 0xc8)
-#define CALL_i32	0xe8
-#define CALL_rm		(/* GROUP_FF */ 2 << 3)
-#define CDQ		0x99
-#define CMOVE_r_rm	(/* GROUP_0F */ 0x44)
-#define CMP		(/* BINARY */ 7 << 3)
-#define CMP_EAX_i32	0x3d
-#define CMP_r_rm	0x3b
-#define CMP_rm_r	0x39
-#define CMPS_x_xm	0xc2
-#define CMPXCHG_rm_r	0xb1
-#define CMPXCHG_rm8_r	0xb0
-#define CVTPD2PS_x_xm	0x5a
-#define CVTPS2PD_x_xm	0x5a
-#define CVTSI2SD_x_rm	0x2a
-#define CVTTSD2SI_r_xm	0x2c
-#define DIV		(/* GROUP_F7 */ 6 << 3)
-#define DIVSD_x_xm	0x5e
-#define EXTRACTPS_x_xm	0x17
-#define FLDS		0xd9
-#define FLDL		0xdd
-#define FSTPS		0xd9
-#define FSTPD		0xdd
-#define INSERTPS_x_xm	0x21
-#define INT3		0xcc
-#define IDIV		(/* GROUP_F7 */ 7 << 3)
-#define IMUL		(/* GROUP_F7 */ 5 << 3)
-#define IMUL_r_rm	(/* GROUP_0F */ 0xaf)
-#define IMUL_r_rm_i8	0x6b
-#define IMUL_r_rm_i32	0x69
-#define JL_i8		0x7c
-#define JE_i8		0x74
-#define JNC_i8		0x73
-#define JNE_i8		0x75
-#define JMP_i8		0xeb
-#define JMP_i32		0xe9
-#define JMP_rm		(/* GROUP_FF */ 4 << 3)
-#define LEA_r_m		0x8d
-#define LOOP_i8		0xe2
-#define LZCNT_r_rm	(/* GROUP_F3 */ /* GROUP_0F */ 0xbd)
-#define MOV_r_rm	0x8b
-#define MOV_r_i32	0xb8
-#define MOV_rm_r	0x89
-#define MOV_rm_i32	0xc7
-#define MOV_rm8_i8	0xc6
-#define MOV_rm8_r8	0x88
-#define MOVAPS_x_xm	0x28
-#define MOVAPS_xm_x	0x29
-#define MOVD_x_rm	0x6e
-#define MOVD_rm_x	0x7e
-#define MOVDDUP_x_xm	0x12
-#define MOVDQA_x_xm	0x6f
-#define MOVDQA_xm_x	0x7f
-#define MOVHLPS_x_x	0x12
-#define MOVHPD_m_x	0x17
-#define MOVHPD_x_m	0x16
-#define MOVLHPS_x_x	0x16
-#define MOVLPD_m_x	0x13
-#define MOVLPD_x_m	0x12
-#define MOVMSKPS_r_x	(/* GROUP_0F */ 0x50)
-#define MOVQ_x_xm	(/* GROUP_0F */ 0x7e)
-#define MOVSD_x_xm	0x10
-#define MOVSD_xm_x	0x11
-#define MOVSHDUP_x_xm	0x16
-#define MOVSXD_r_rm	0x63
-#define MOVSX_r_rm8	(/* GROUP_0F */ 0xbe)
-#define MOVSX_r_rm16	(/* GROUP_0F */ 0xbf)
-#define MOVUPS_x_xm	0x10
-#define MOVZX_r_rm8	(/* GROUP_0F */ 0xb6)
-#define MOVZX_r_rm16	(/* GROUP_0F */ 0xb7)
-#define MUL		(/* GROUP_F7 */ 4 << 3)
-#define MULSD_x_xm	0x59
-#define NEG_rm		(/* GROUP_F7 */ 3 << 3)
-#define NOP		0x90
-#define NOT_rm		(/* GROUP_F7 */ 2 << 3)
-#define OR		(/* BINARY */ 1 << 3)
-#define OR_r_rm		0x0b
-#define OR_EAX_i32	0x0d
-#define OR_rm_r		0x09
-#define OR_rm8_r8	0x08
-#define PACKSSWB_x_xm	(/* GROUP_0F */ 0x63)
-#define PCMPEQB_x_xm	0x74
-#define PINSRB_x_rm_i8	0x20
-#define PINSRW_x_rm_i8	0xc4
-#define PINSRD_x_rm_i8	0x22
-#define PEXTRB_rm_x_i8	0x14
-#define PEXTRW_rm_x_i8	0x15
-#define PEXTRD_rm_x_i8	0x16
-#define PMOVMSKB_r_x	(/* GROUP_0F */ 0xd7)
-#define PMOVSXBD_x_xm	0x21
-#define PMOVSXBQ_x_xm	0x22
-#define PMOVSXBW_x_xm	0x20
-#define PMOVSXDQ_x_xm	0x25
-#define PMOVSXWD_x_xm	0x23
-#define PMOVSXWQ_x_xm	0x24
-#define PMOVZXBD_x_xm	0x31
-#define PMOVZXBQ_x_xm	0x32
-#define PMOVZXBW_x_xm	0x30
-#define PMOVZXDQ_x_xm	0x35
-#define PMOVZXWD_x_xm	0x33
-#define PMOVZXWQ_x_xm	0x34
-#define POP_r		0x58
-#define POP_rm		0x8f
-#define POPF		0x9d
-#define PREFETCH	0x18
-#define PSHUFB_x_xm	0x00
-#define PSHUFD_x_xm	0x70
-#define PSHUFLW_x_xm	0x70
-#define PSRLDQ_x	0x73
-#define PUSH_i32	0x68
-#define PUSH_r		0x50
-#define PUSH_rm		(/* GROUP_FF */ 6 << 3)
-#define PUSHF		0x9c
-#define PXOR_x_xm	0xef
-#define ROL		(/* SHIFT */ 0 << 3)
-#define ROR		(/* SHIFT */ 1 << 3)
-#define RET_near	0xc3
-#define RET_i16		0xc2
-#define SBB		(/* BINARY */ 3 << 3)
-#define SBB_EAX_i32	0x1d
-#define SBB_r_rm	0x1b
-#define SBB_rm_r	0x19
-#define SAR		(/* SHIFT */ 7 << 3)
-#define SHL		(/* SHIFT */ 4 << 3)
-#define SHLD		(/* GROUP_0F */ 0xa5)
-#define SHRD		(/* GROUP_0F */ 0xad)
-#define SHR		(/* SHIFT */ 5 << 3)
-#define SHUFPS_x_xm	0xc6
-#define SUB		(/* BINARY */ 5 << 3)
-#define SUB_EAX_i32	0x2d
-#define SUB_r_rm	0x2b
-#define SUB_rm_r	0x29
-#define SUBSD_x_xm	0x5c
-#define TEST_EAX_i32	0xa9
-#define TEST_rm_r	0x85
-#define TZCNT_r_rm	(/* GROUP_F3 */ /* GROUP_0F */ 0xbc)
-#define UCOMISD_x_xm	0x2e
-#define UNPCKLPD_x_xm	0x14
-#define UNPCKLPS_x_xm	0x14
-#define XCHG_EAX_r	0x90
-#define XCHG_r_rm	0x87
-#define XOR		(/* BINARY */ 6 << 3)
-#define XOR_EAX_i32	0x35
-#define XOR_r_rm	0x33
-#define XOR_rm_r	0x31
-#define XORPD_x_xm	0x57
+#define ADD			(/* BINARY */ 0 << 3)
+#define ADD_EAX_i32		0x05
+#define ADD_r_rm		0x03
+#define ADD_rm_r		0x01
+#define ADDSD_x_xm		0x58
+#define ADC			(/* BINARY */ 2 << 3)
+#define ADC_EAX_i32		0x15
+#define ADC_r_rm		0x13
+#define ADC_rm_r		0x11
+#define AND			(/* BINARY */ 4 << 3)
+#define AND_EAX_i32		0x25
+#define AND_r_rm		0x23
+#define AND_rm_r		0x21
+#define ANDPD_x_xm		0x54
+#define BSR_r_rm		(/* GROUP_0F */ 0xbd)
+#define BSF_r_rm		(/* GROUP_0F */ 0xbc)
+#define BSWAP_r			(/* GROUP_0F */ 0xc8)
+#define CALL_i32		0xe8
+#define CALL_rm			(/* GROUP_FF */ 2 << 3)
+#define CDQ			0x99
+#define CMOVE_r_rm		(/* GROUP_0F */ 0x44)
+#define CMP			(/* BINARY */ 7 << 3)
+#define CMP_EAX_i32		0x3d
+#define CMP_r_rm		0x3b
+#define CMP_rm_r		0x39
+#define CMPS_x_xm		0xc2
+#define CMPXCHG_rm_r		0xb1
+#define CMPXCHG_rm8_r		0xb0
+#define CVTPD2PS_x_xm		0x5a
+#define CVTPS2PD_x_xm		0x5a
+#define CVTSI2SD_x_rm		0x2a
+#define CVTTSD2SI_r_xm		0x2c
+#define DIV			(/* GROUP_F7 */ 6 << 3)
+#define DIVSD_x_xm		0x5e
+#define EXTRACTPS_x_xm		0x17
+#define FLDS			0xd9
+#define FLDL			0xdd
+#define FSTPS			0xd9
+#define FSTPD			0xdd
+#define INSERTPS_x_xm		0x21
+#define INT3			0xcc
+#define IDIV			(/* GROUP_F7 */ 7 << 3)
+#define IMUL			(/* GROUP_F7 */ 5 << 3)
+#define IMUL_r_rm		(/* GROUP_0F */ 0xaf)
+#define IMUL_r_rm_i8		0x6b
+#define IMUL_r_rm_i32		0x69
+#define JL_i8			0x7c
+#define JE_i8			0x74
+#define JNC_i8			0x73
+#define JNE_i8			0x75
+#define JMP_i8			0xeb
+#define JMP_i32			0xe9
+#define JMP_rm			(/* GROUP_FF */ 4 << 3)
+#define LEA_r_m			0x8d
+#define LOOP_i8			0xe2
+#define LZCNT_r_rm		(/* GROUP_F3 */ /* GROUP_0F */ 0xbd)
+#define MOV_r_rm		0x8b
+#define MOV_r_i32		0xb8
+#define MOV_rm_r		0x89
+#define MOV_rm_i32		0xc7
+#define MOV_rm8_i8		0xc6
+#define MOV_rm8_r8		0x88
+#define MOVAPS_x_xm		0x28
+#define MOVAPS_xm_x		0x29
+#define MOVD_x_rm		0x6e
+#define MOVD_rm_x		0x7e
+#define MOVDDUP_x_xm		0x12
+#define MOVDQA_x_xm		0x6f
+#define MOVDQA_xm_x		0x7f
+#define MOVHLPS_x_x		0x12
+#define MOVHPD_m_x		0x17
+#define MOVHPD_x_m		0x16
+#define MOVLHPS_x_x		0x16
+#define MOVLPD_m_x		0x13
+#define MOVLPD_x_m		0x12
+#define MOVMSKPS_r_x		(/* GROUP_0F */ 0x50)
+#define MOVQ_x_xm		(/* GROUP_0F */ 0x7e)
+#define MOVSD_x_xm		0x10
+#define MOVSD_xm_x		0x11
+#define MOVSHDUP_x_xm		0x16
+#define MOVSXD_r_rm		0x63
+#define MOVSX_r_rm8		(/* GROUP_0F */ 0xbe)
+#define MOVSX_r_rm16		(/* GROUP_0F */ 0xbf)
+#define MOVUPS_x_xm		0x10
+#define MOVZX_r_rm8		(/* GROUP_0F */ 0xb6)
+#define MOVZX_r_rm16		(/* GROUP_0F */ 0xb7)
+#define MUL			(/* GROUP_F7 */ 4 << 3)
+#define MULSD_x_xm		0x59
+#define NEG_rm			(/* GROUP_F7 */ 3 << 3)
+#define NOP			0x90
+#define NOT_rm			(/* GROUP_F7 */ 2 << 3)
+#define OR			(/* BINARY */ 1 << 3)
+#define OR_r_rm			0x0b
+#define OR_EAX_i32		0x0d
+#define OR_rm_r			0x09
+#define OR_rm8_r8		0x08
+#define PACKSSWB_x_xm		(/* GROUP_0F */ 0x63)
+#define PCMPEQB_x_xm		0x74
+#define PINSRB_x_rm_i8		0x20
+#define PINSRW_x_rm_i8		0xc4
+#define PINSRD_x_rm_i8		0x22
+#define PEXTRB_rm_x_i8		0x14
+#define PEXTRW_rm_x_i8		0x15
+#define PEXTRD_rm_x_i8		0x16
+#define PMOVMSKB_r_x		(/* GROUP_0F */ 0xd7)
+#define PMOVSXBD_x_xm		0x21
+#define PMOVSXBQ_x_xm		0x22
+#define PMOVSXBW_x_xm		0x20
+#define PMOVSXDQ_x_xm		0x25
+#define PMOVSXWD_x_xm		0x23
+#define PMOVSXWQ_x_xm		0x24
+#define PMOVZXBD_x_xm		0x31
+#define PMOVZXBQ_x_xm		0x32
+#define PMOVZXBW_x_xm		0x30
+#define PMOVZXDQ_x_xm		0x35
+#define PMOVZXWD_x_xm		0x33
+#define PMOVZXWQ_x_xm		0x34
+#define POP_r			0x58
+#define POP_rm			0x8f
+#define POPF			0x9d
+#define PREFETCH		0x18
+#define PSHUFB_x_xm		0x00
+#define PSHUFD_x_xm		0x70
+#define PSHUFLW_x_xm		0x70
+#define PSRLDQ_x		0x73
+#define PUSH_i32		0x68
+#define PUSH_r			0x50
+#define PUSH_rm			(/* GROUP_FF */ 6 << 3)
+#define PUSHF			0x9c
+#define PXOR_x_xm		0xef
+#define ROL			(/* SHIFT */ 0 << 3)
+#define ROR			(/* SHIFT */ 1 << 3)
+#define RET_near		0xc3
+#define RET_i16			0xc2
+#define SBB			(/* BINARY */ 3 << 3)
+#define SBB_EAX_i32		0x1d
+#define SBB_r_rm		0x1b
+#define SBB_rm_r		0x19
+#define SAR			(/* SHIFT */ 7 << 3)
+#define SHL			(/* SHIFT */ 4 << 3)
+#define SHLD			(/* GROUP_0F */ 0xa5)
+#define SHRD			(/* GROUP_0F */ 0xad)
+#define SHR			(/* SHIFT */ 5 << 3)
+#define SHUFPS_x_xm		0xc6
+#define SUB			(/* BINARY */ 5 << 3)
+#define SUB_EAX_i32		0x2d
+#define SUB_r_rm		0x2b
+#define SUB_rm_r		0x29
+#define SUBSD_x_xm		0x5c
+#define TEST_EAX_i32		0xa9
+#define TEST_rm_r		0x85
+#define TZCNT_r_rm		(/* GROUP_F3 */ /* GROUP_0F */ 0xbc)
+#define UCOMISD_x_xm		0x2e
+#define UNPCKLPD_x_xm		0x14
+#define UNPCKLPS_x_xm		0x14
+#define VBROADCASTSD_x_xm	0x19
+#define VBROADCASTSS_x_xm	0x18
+#define VEXTRACTI128_x_xm	0x39
+#define VPBROADCASTB_x_xm	0x78
+#define VPBROADCASTD_x_xm	0x58
+#define VPBROADCASTQ_x_xm	0x59
+#define VPBROADCASTW_x_xm	0x79
+#define XCHG_EAX_r		0x90
+#define XCHG_r_rm		0x87
+#define XOR			(/* BINARY */ 6 << 3)
+#define XOR_EAX_i32		0x35
+#define XOR_r_rm		0x33
+#define XOR_rm_r		0x31
+#define XORPD_x_xm		0x57
 
-#define GROUP_0F	0x0f
-#define GROUP_66	0x66
-#define GROUP_F3	0xf3
-#define GROUP_F7	0xf7
-#define GROUP_FF	0xff
-#define GROUP_BINARY_81	0x81
-#define GROUP_BINARY_83	0x83
-#define GROUP_SHIFT_1	0xd1
-#define GROUP_SHIFT_N	0xc1
-#define GROUP_SHIFT_CL	0xd3
-#define GROUP_LOCK	0xf0
+#define GROUP_0F		0x0f
+#define GROUP_66		0x66
+#define GROUP_F3		0xf3
+#define GROUP_F7		0xf7
+#define GROUP_FF		0xff
+#define GROUP_BINARY_81		0x81
+#define GROUP_BINARY_83		0x83
+#define GROUP_SHIFT_1		0xd1
+#define GROUP_SHIFT_N		0xc1
+#define GROUP_SHIFT_CL		0xd3
+#define GROUP_LOCK		0xf0
 
-#define MOD_REG		0xc0
-#define MOD_DISP8	0x40
+#define MOD_REG			0xc0
+#define MOD_DISP8		0x40
 
-#define INC_SIZE(s)			(*inst++ = U8(s), compiler->size += (s))
+#define INC_SIZE(s)		(*inst++ = U8(s), compiler->size += (s))
 
-#define PUSH_REG(r)			(*inst++ = U8(PUSH_r + (r)))
-#define POP_REG(r)			(*inst++ = U8(POP_r + (r)))
-#define RET()				(*inst++ = RET_near)
-#define RET_I16(n)			(*inst++ = RET_i16, *inst++ = U8(n), *inst++ = 0)
+#define PUSH_REG(r)		(*inst++ = U8(PUSH_r + (r)))
+#define POP_REG(r)		(*inst++ = U8(POP_r + (r)))
+#define RET()			(*inst++ = RET_near)
+#define RET_I16(n)		(*inst++ = RET_i16, *inst++ = U8(n), *inst++ = 0)
 
 /* Multithreading does not affect these static variables, since they store
    built-in CPU features. Therefore they can be overwritten by different threads
@@ -364,7 +371,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define CPU_FEATURE_LZCNT		0x008
 #define CPU_FEATURE_TZCNT		0x010
 #define CPU_FEATURE_CMOV		0x020
-#define CPU_FEATURE_AVX			0x040
+#define CPU_FEATURE_AVX2		0x040
 
 static sljit_u32 cpu_feature_list = 0;
 
@@ -397,131 +404,113 @@ static SLJIT_INLINE void sljit_unaligned_store_sw(void *addr, sljit_sw value)
 /*    Utility functions                               */
 /******************************************************/
 
-static void get_cpu_features(void)
+static void execute_cpu_id(sljit_u32 info[4])
 {
-	sljit_u32 feature_list = CPU_FEATURE_DETECTED;
-	sljit_u32 value_ecx, value_edx;
-
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 
-	int CPUInfo[4];
-
-	__cpuid(CPUInfo, 0);
-	if (CPUInfo[0] >= 7) {
-		__cpuidex(CPUInfo, 7, 0);
-		if (CPUInfo[1] & 0x8)
-			feature_list |= CPU_FEATURE_TZCNT;
-	}
-
-	__cpuid(CPUInfo, (int)0x80000001);
-	if (CPUInfo[2] & 0x20)
-		feature_list |= CPU_FEATURE_LZCNT;
-
-	__cpuid(CPUInfo, 1);
-	value_ecx = (sljit_u32)CPUInfo[2];
-	value_edx = (sljit_u32)CPUInfo[3];
+	__cpuidex(info, info[0], info[2]);
 
 #elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C) || defined(__TINYC__)
 
 	/* AT&T syntax. */
 	__asm__ (
-		"movl $0x0, %%eax\n"
-		"lzcnt %%eax, %%eax\n"
-		"setnz %%al\n"
-		"movl %%eax, %0\n"
-		: "=g" (value_ecx)
-		:
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		: "eax"
-#else
-		: "rax"
-#endif
-	);
-
-	if (value_ecx & 0x1)
-		feature_list |= CPU_FEATURE_LZCNT;
-
-	__asm__ (
-		"movl $0x0, %%eax\n"
-		"tzcnt %%eax, %%eax\n"
-		"setnz %%al\n"
-		"movl %%eax, %0\n"
-		: "=g" (value_ecx)
-		:
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		: "eax"
-#else
-		: "rax"
-#endif
-	);
-
-	if (value_ecx & 0x1)
-		feature_list |= CPU_FEATURE_TZCNT;
-
-	__asm__ (
-		"movl $0x1, %%eax\n"
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		/* On x86-32, there is no red zone, so this
-		   should work (no need for a local variable). */
-		"push %%ebx\n"
-#endif
+		"movl %0, %%esi\n"
+		"movl (%%esi), %%eax\n"
+		"movl 8(%%esi), %%ecx\n"
 		"cpuid\n"
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		"pop %%ebx\n"
-#endif
-		"movl %%ecx, %0\n"
-		"movl %%edx, %1\n"
-		: "=g" (value_ecx), "=g" (value_edx)
+		"movl %%eax, (%%esi)\n"
+		"movl %%ebx, 4(%%esi)\n"
+		"movl %%ecx, 8(%%esi)\n"
+		"movl %%edx, 12(%%esi)\n"
+#else /* !SLJIT_CONFIG_X86_32 */
+		"movq %0, %%rsi\n"
+		"movl (%%rsi), %%eax\n"
+		"movl 8(%%rsi), %%ecx\n"
+		"cpuid\n"
+		"movl %%eax, (%%rsi)\n"
+		"movl %%ebx, 4(%%rsi)\n"
+		"movl %%ecx, 8(%%rsi)\n"
+		"movl %%edx, 12(%%rsi)\n"
+#endif /* SLJIT_CONFIG_X86_32 */
 		:
+		: "r" (info)
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		: "eax", "ecx", "edx"
-#else
-		: "rax", "rbx", "rcx", "rdx"
-#endif
+		: "eax", "ebx", "ecx", "edx", "esi"
+#else /* !SLJIT_CONFIG_X86_32 */
+		: "rax", "rbx", "rcx", "rdx", "rsi"
+#endif /* SLJIT_CONFIG_X86_32 */
 	);
 
 #else /* _MSC_VER < 1400 */
 
 	/* Intel syntax. */
 	__asm {
-		mov eax, 0
-		lzcnt eax, eax
-		setnz al
-		mov value_ecx, eax
-	}
-
-	if (value_ecx & 0x1)
-		feature_list |= CPU_FEATURE_LZCNT;
-
-	__asm {
-		mov eax, 0
-		tzcnt eax, eax
-		setnz al
-		mov value_ecx, eax
-	}
-
-	if (value_ecx & 0x1)
-		feature_list |= CPU_FEATURE_TZCNT;
-
-	__asm {
-		mov eax, 1
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		mov esi, info
+		mov eax, [esi]
+		mov ecx, [esi + 8]
 		cpuid
-		mov value_ecx, ecx
-		mov value_edx, edx
+		mov [esi], eax
+		mov [esi + 4], ebx
+		mov [esi + 8], ecx
+		mov [esi + 12], edx
+#else /* !SLJIT_CONFIG_X86_32 */
+		mov rsi, info
+		mov eax, [rsi]
+		mov ecx, [rsi + 8]
+		cpuid
+		mov [rsi], eax
+		mov [rsi + 4], ebx
+		mov [rsi + 8], ecx
+		mov [rsi + 12], edx
+#endif /* SLJIT_CONFIG_X86_32 */
 	}
 
 #endif /* _MSC_VER && _MSC_VER >= 1400 */
+}
 
+static void get_cpu_features(void)
+{
+	sljit_u32 feature_list = CPU_FEATURE_DETECTED;
+	sljit_u32 info[4];
+	sljit_u32 max_id;
+
+	info[0] = 0;
+	execute_cpu_id(info);
+	max_id = info[0];
+
+	if (max_id >= 7) {
+		info[0] = 7;
+		info[2] = 0;
+		execute_cpu_id(info);
+
+		if (info[1] & 0x8)
+			feature_list |= CPU_FEATURE_TZCNT;
+		if (info[1] & 0x20)
+			feature_list |= CPU_FEATURE_AVX2;
+	}
+
+	if (max_id >= 1) {
+		info[0] = 1;
+		execute_cpu_id(info);
+
+		if (info[2] & 0x80000)
+			feature_list |= CPU_FEATURE_SSE41;
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
-	if (value_edx & 0x4000000)
-		feature_list |= CPU_FEATURE_SSE2;
+		if (info[3] & 0x4000000)
+			feature_list |= CPU_FEATURE_SSE2;
 #endif
-	if (value_ecx & 0x80000)
-		feature_list |= CPU_FEATURE_SSE41;
-	if (value_edx & 0x8000)
-		feature_list |= CPU_FEATURE_CMOV;
-	if (value_ecx & 0x10000000)
-		feature_list |= CPU_FEATURE_AVX;
+		if (info[3] & 0x8000)
+			feature_list |= CPU_FEATURE_CMOV;
+	}
+
+	info[0] = 0x80000001;
+	info[2] = 0; /* Silences an incorrect compiler warning. */
+	execute_cpu_id(info);
+
+	if (info[2] & 0x20)
+		feature_list |= CPU_FEATURE_LZCNT;
 
 	cpu_feature_list = feature_list;
 }
@@ -1628,9 +1617,9 @@ static sljit_s32 emit_bswap(struct sljit_compiler *compiler,
 		inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, (sljit_sw)size, dst_r, 0);
 		FAIL_IF(!inst);
 		if (op == SLJIT_REV_U16)
-			*inst |= SHR;
+			inst[1] |= SHR;
 		else
-			*inst |= SAR;
+			inst[1] |= SAR;
 	}
 
 	if (dst & SLJIT_MEM) {
@@ -2321,14 +2310,14 @@ static sljit_s32 emit_shift(struct sljit_compiler *compiler,
 		if (dst == src1 && dstw == src1w) {
 			inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, src2, src2w, dst, dstw);
 			FAIL_IF(!inst);
-			*inst |= mode;
+			inst[1] |= mode;
 			return SLJIT_SUCCESS;
 		}
 		if (dst == SLJIT_PREF_SHIFT_REG && src2 == SLJIT_PREF_SHIFT_REG) {
 			EMIT_MOV(compiler, TMP_REG1, 0, src1, src1w);
 			inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_PREF_SHIFT_REG, 0, TMP_REG1, 0);
 			FAIL_IF(!inst);
-			*inst |= mode;
+			inst[1] |= mode;
 			EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, TMP_REG1, 0);
 			return SLJIT_SUCCESS;
 		}
@@ -2336,14 +2325,14 @@ static sljit_s32 emit_shift(struct sljit_compiler *compiler,
 			EMIT_MOV(compiler, dst, 0, src1, src1w);
 			inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, src2, src2w, dst, 0);
 			FAIL_IF(!inst);
-			*inst |= mode;
+			inst[1] |= mode;
 			return SLJIT_SUCCESS;
 		}
 
 		EMIT_MOV(compiler, TMP_REG1, 0, src1, src1w);
 		inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, src2, src2w, TMP_REG1, 0);
 		FAIL_IF(!inst);
-		*inst |= mode;
+		inst[1] |= mode;
 		EMIT_MOV(compiler, dst, dstw, TMP_REG1, 0);
 		return SLJIT_SUCCESS;
 	}
@@ -2353,7 +2342,7 @@ static sljit_s32 emit_shift(struct sljit_compiler *compiler,
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, src2, src2w);
 		inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_PREF_SHIFT_REG, 0, TMP_REG1, 0);
 		FAIL_IF(!inst);
-		*inst |= mode;
+		inst[1] |= mode;
 		return emit_mov(compiler, SLJIT_PREF_SHIFT_REG, 0, TMP_REG1, 0);
 	}
 
@@ -2371,7 +2360,7 @@ static sljit_s32 emit_shift(struct sljit_compiler *compiler,
 		EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, src2, src2w);
 		inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_PREF_SHIFT_REG, 0, dst, 0);
 		FAIL_IF(!inst);
-		*inst |= mode;
+		inst[1] |= mode;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 		compiler->mode32 = 0;
 #endif
@@ -2397,7 +2386,7 @@ static sljit_s32 emit_shift(struct sljit_compiler *compiler,
 	EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, src2, src2w);
 	inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_PREF_SHIFT_REG, 0, TMP_REG1, 0);
 	FAIL_IF(!inst);
-	*inst |= mode;
+	inst[1] |= mode;
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	EMIT_MOV(compiler, SLJIT_PREF_SHIFT_REG, 0, SLJIT_MEM1(SLJIT_SP), 0);
@@ -3517,7 +3506,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
 		pref = 2 | EX86_SSE2;
 		break;
 	case 5:
-		if (!(cpu_feature_list & CPU_FEATURE_AVX))
+		if (!(cpu_feature_list & CPU_FEATURE_AVX2))
 			return SLJIT_ERR_UNSUPPORTED;
 		pref = EX86_SSE2 | VEX_256;
 		break;
@@ -3574,134 +3563,188 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 		CHECK_EXTRA_REGS(src, srcw, (void)0);
 	}
 
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+	if ((type & SLJIT_SIMD_FLOAT) ? (elem_size < 2 || elem_size > 3) : (elem_size > 2))
+		return SLJIT_ERR_UNSUPPORTED;
+#else /* !SLJIT_CONFIG_X86_32 */
 	compiler->mode32 = 1;
-#endif /* SLJIT_CONFIG_X86_64 */
 
-	if (reg_size == 4) {
-		if (type & SLJIT_SIMD_FLOAT) {
-			if (elem_size < 2 || elem_size > 3)
-				return SLJIT_ERR_UNSUPPORTED;
+	if (elem_size > 3 || ((type & SLJIT_SIMD_FLOAT) && elem_size < 2))
+		return SLJIT_ERR_UNSUPPORTED;
+#endif /* SLJIT_CONFIG_X86_32 */
 
+	if (cpu_feature_list & CPU_FEATURE_AVX2) {
+		if (reg_size < 4 || reg_size > 5)
+			return SLJIT_ERR_UNSUPPORTED;
+
+		if (src != SLJIT_IMM && (reg_size == 5 || elem_size < 3 || !(type & SLJIT_SIMD_FLOAT))) {
 			if (type & SLJIT_SIMD_TEST)
 				return SLJIT_SUCCESS;
 
-			if (src == SLJIT_IMM)
-				return emit_groupf(compiler, XORPD_x_xm, (elem_size == 3 ? EX86_PREF_66 : 0) | EX86_SSE2, freg, freg, 0);
-
-			if (elem_size == 2 && freg != src) {
-				FAIL_IF(emit_sse2_load(compiler, 1, freg, src, srcw));
+			if (!(src & SLJIT_MEM) && !(type & SLJIT_SIMD_FLOAT)) {
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+				if (elem_size >= 3)
+					compiler->mode32 = 0;
+#endif /* SLJIT_CONFIG_X86_64 */
+				FAIL_IF(emit_groupf(compiler, MOVD_x_rm, EX86_PREF_66 | EX86_SSE2_OP1, freg, src, srcw));
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+				compiler->mode32 = 1;
+#endif /* SLJIT_CONFIG_X86_64 */
 				src = freg;
 				srcw = 0;
 			}
 
-			FAIL_IF(emit_groupf(compiler, elem_size == 2 ? SHUFPS_x_xm : MOVDDUP_x_xm, (elem_size == 2 ? 0 : EX86_PREF_F2) | EX86_SSE2, freg, src, srcw));
-
-			if (elem_size == 2)
-				return emit_byte(compiler, 0);
-			return SLJIT_SUCCESS;
-		}
-
-		if (src == SLJIT_IMM) {
-			if (elem_size == 0) {
-				srcw = (sljit_u8)srcw;
-				srcw |= srcw << 8;
-				srcw |= srcw << 16;
-				elem_size = 2;
-			} else if (elem_size == 1) {
-				srcw = (sljit_u16)srcw;
-				srcw |= srcw << 16;
-				elem_size = 2;
-			}
-
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-			if (elem_size == 2 && (sljit_s32)srcw == -1)
-				srcw = -1;
-#endif /* SLJIT_CONFIG_X86_64 */
-
-			if (srcw == 0 || srcw == -1)
-				return emit_groupf(compiler, srcw == 0 ? PXOR_x_xm : PCMPEQB_x_xm, EX86_PREF_66 | EX86_SSE2, freg, freg, 0);
-
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-			if (elem_size == 3)
-				FAIL_IF(emit_load_imm64(compiler, TMP_REG1, srcw));
-			else {
-#endif /* SLJIT_CONFIG_X86_64 */
-				EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, srcw);
-				src = TMP_REG1;
-				srcw = 0;
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-			}
-#endif /* SLJIT_CONFIG_X86_64 */
-		}
-
+			switch (elem_size) {
+			case 0:
+				size = VPBROADCASTB_x_xm | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2;
+				break;
+			case 1:
+				size = VPBROADCASTW_x_xm | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2;
+				break;
+			case 2:
+				size = ((type & SLJIT_SIMD_FLOAT) ? VBROADCASTSS_x_xm : VPBROADCASTD_x_xm) | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2;
+				break;
+			default:
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		if (elem_size > 2)
-			return SLJIT_ERR_UNSUPPORTED;
+				size = VBROADCASTSD_x_xm | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2;
+#else /* !SLJIT_CONFIG_X86_32 */
+				size = ((type & SLJIT_SIMD_FLOAT) ? VBROADCASTSD_x_xm : VPBROADCASTQ_x_xm) | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2;
 #endif /* SLJIT_CONFIG_X86_32 */
-
-		if (type & SLJIT_SIMD_TEST)
-			return SLJIT_SUCCESS;
-
-		size = 2;
-		opcode = MOVD_x_rm;
-
-		switch (elem_size) {
-		case 0:
-			if (!FAST_IS_REG(src)) {
-				opcode = 0x3a /* Prefix of PINSRB_x_rm_i8. */;
-				size = 3;
+				break;
 			}
-			break;
-		case 1:
-			if (!FAST_IS_REG(src))
-				opcode = PINSRW_x_rm_i8;
-			break;
-		case 2:
-			break;
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-		case 3:
-			/* MOVQ */
-			compiler->mode32 = 0;
-			break;
-#endif /* SLJIT_CONFIG_X86_64 */
+
+			if (reg_size == 5)
+				size |= VEX_256;
+
+			return emit_vex_instruction(compiler, size, freg, 0, src, srcw);
+		}
+	} else if (reg_size != 4)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_SIMD_TEST)
+		return SLJIT_SUCCESS;
+
+	if (type & SLJIT_SIMD_FLOAT) {
+		if (src == SLJIT_IMM) {
+			if (reg_size == 5)
+				return emit_vex_instruction(compiler, XORPD_x_xm | VEX_256 | (elem_size == 3 ? EX86_PREF_66 : 0) | EX86_SSE2 | VEX_SSE2_OPV, freg, freg, freg, 0);
+
+			return emit_groupf(compiler, XORPD_x_xm, (elem_size == 3 ? EX86_PREF_66 : 0) | EX86_SSE2, freg, freg, 0);
 		}
 
-		inst = emit_x86_instruction(compiler, size | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, src, srcw);
-		FAIL_IF(!inst);
-		inst[0] = GROUP_0F;
-		inst[1] = opcode;
-
-		if (size == 3) {
-			SLJIT_ASSERT(opcode == 0x3a);
-			inst[2] = PINSRB_x_rm_i8;
+		if (elem_size == 2 && freg != src) {
+			FAIL_IF(emit_sse2_load(compiler, 1, freg, src, srcw));
+			src = freg;
+			srcw = 0;
 		}
 
-		if (opcode != MOVD_x_rm)
-			FAIL_IF(emit_byte(compiler, 0));
+		FAIL_IF(emit_groupf(compiler, elem_size == 2 ? SHUFPS_x_xm : MOVDDUP_x_xm, (elem_size == 2 ? 0 : EX86_PREF_F2) | EX86_SSE2, freg, src, srcw));
 
-		switch (elem_size) {
-		case 0:
-			FAIL_IF(emit_groupf(compiler, PXOR_x_xm, EX86_PREF_66 | EX86_SSE2, TMP_FREG, TMP_FREG, 0));
-			return emit_groupf_3(compiler, 0x38, PSHUFB_x_xm, EX86_PREF_66 | EX86_SSE2, freg, TMP_FREG, 0);
-		case 1:
-			FAIL_IF(emit_groupf(compiler, PSHUFLW_x_xm, EX86_PREF_F2 | EX86_SSE2, freg, freg, 0));
-			FAIL_IF(emit_byte(compiler, 0));
-			/* fallthrough */
-		case 2:
-			FAIL_IF(emit_groupf(compiler, PSHUFD_x_xm, EX86_PREF_66 | EX86_SSE2, freg, freg, 0));
+		if (elem_size == 2)
 			return emit_byte(compiler, 0);
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-		case 3:
-			compiler->mode32 = 1;
-			FAIL_IF(emit_groupf(compiler, PSHUFD_x_xm, EX86_PREF_66 | EX86_SSE2, freg, freg, 0));
-			return emit_byte(compiler, 0x44);
-#endif /* SLJIT_CONFIG_X86_64 */
-		}
+		return SLJIT_SUCCESS;
 	}
 
-	/* TODO: Support VEX prefix and longer reg types. */
-	return SLJIT_ERR_UNSUPPORTED;
+	if (src == SLJIT_IMM) {
+		if (elem_size == 0) {
+			srcw = (sljit_u8)srcw;
+			srcw |= srcw << 8;
+			srcw |= srcw << 16;
+			elem_size = 2;
+		} else if (elem_size == 1) {
+			srcw = (sljit_u16)srcw;
+			srcw |= srcw << 16;
+			elem_size = 2;
+		}
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		if (elem_size == 2 && (sljit_s32)srcw == -1)
+			srcw = -1;
+#endif /* SLJIT_CONFIG_X86_64 */
+
+		if (srcw == 0 || srcw == -1) {
+			if (reg_size == 5)
+				return emit_vex_instruction(compiler, (srcw == 0 ? PXOR_x_xm : PCMPEQB_x_xm) | VEX_256 | EX86_PREF_66 | EX86_SSE2 | VEX_SSE2_OPV, freg, freg, freg, 0);
+
+			return emit_groupf(compiler, srcw == 0 ? PXOR_x_xm : PCMPEQB_x_xm, EX86_PREF_66 | EX86_SSE2, freg, freg, 0);
+		}
+
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		if (elem_size == 3)
+			FAIL_IF(emit_load_imm64(compiler, TMP_REG1, srcw));
+		else
+#endif /* SLJIT_CONFIG_X86_64 */
+			EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, srcw);
+
+		src = TMP_REG1;
+		srcw = 0;
+	}
+
+	size = 2;
+	opcode = MOVD_x_rm;
+
+	switch (elem_size) {
+	case 0:
+		if (!FAST_IS_REG(src)) {
+			opcode = 0x3a /* Prefix of PINSRB_x_rm_i8. */;
+			size = 3;
+		}
+		break;
+	case 1:
+		if (!FAST_IS_REG(src))
+			opcode = PINSRW_x_rm_i8;
+		break;
+	case 2:
+		break;
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	case 3:
+		/* MOVQ */
+		compiler->mode32 = 0;
+		break;
+#endif /* SLJIT_CONFIG_X86_64 */
+	}
+
+	inst = emit_x86_instruction(compiler, size | EX86_PREF_66 | EX86_SSE2_OP1, freg, 0, src, srcw);
+	FAIL_IF(!inst);
+	inst[0] = GROUP_0F;
+	inst[1] = opcode;
+
+	if (reg_size == 5) {
+		SLJIT_ASSERT(opcode == MOVD_x_rm);
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		size = VPBROADCASTD_x_xm;
+#else /* !SLJIT_CONFIG_X86_32 */
+		size = (elem_size == 3) ? VPBROADCASTQ_x_xm : VPBROADCASTD_x_xm;
+#endif /* SLJIT_CONFIG_X86_32 */
+		return emit_vex_instruction(compiler, size | VEX_256 | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, 0, freg, 0);
+	}
+
+	if (size == 3) {
+		SLJIT_ASSERT(opcode == 0x3a);
+		inst[2] = PINSRB_x_rm_i8;
+	}
+
+	if (opcode != MOVD_x_rm)
+		FAIL_IF(emit_byte(compiler, 0));
+
+	switch (elem_size) {
+	case 0:
+		FAIL_IF(emit_groupf(compiler, PXOR_x_xm, EX86_PREF_66 | EX86_SSE2, TMP_FREG, TMP_FREG, 0));
+		return emit_groupf_3(compiler, 0x38, PSHUFB_x_xm, EX86_PREF_66 | EX86_SSE2, freg, TMP_FREG, 0);
+	case 1:
+		FAIL_IF(emit_groupf(compiler, PSHUFLW_x_xm, EX86_PREF_F2 | EX86_SSE2, freg, freg, 0));
+		FAIL_IF(emit_byte(compiler, 0));
+		/* fallthrough */
+	default:
+		FAIL_IF(emit_groupf(compiler, PSHUFD_x_xm, EX86_PREF_66 | EX86_SSE2, freg, freg, 0));
+		return emit_byte(compiler, 0);
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	case 3:
+		compiler->mode32 = 1;
+		FAIL_IF(emit_groupf(compiler, PSHUFD_x_xm, EX86_PREF_66 | EX86_SSE2, freg, freg, 0));
+		return emit_byte(compiler, 0x44);
+#endif /* SLJIT_CONFIG_X86_64 */
+	}
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compiler *compiler, sljit_s32 type,
@@ -4160,10 +4203,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 	compiler->mode32 = 1;
 #endif /* SLJIT_CONFIG_X86_64 */
 
-	if (reg_size == 4) {
-		if ((type & SLJIT_SIMD_FLOAT) && elem_size < 2)
-			return SLJIT_ERR_UNSUPPORTED;
+	if (elem_size > 3 || ((type & SLJIT_SIMD_FLOAT) && elem_size < 2))
+		return SLJIT_ERR_UNSUPPORTED;
 
+	if (reg_size == 4) {
 		if (type & SLJIT_SIMD_TEST)
 			return SLJIT_SUCCESS;
 
@@ -4189,7 +4232,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 		if (elem_size == 1) {
 			inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, 8, dst_r, 0);
 			FAIL_IF(!inst);
-			*inst |= SHR;
+			inst[1] |= SHR;
 		}
 
 		if (dst_r == TMP_REG1)
@@ -4198,7 +4241,41 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 		return SLJIT_SUCCESS;
 	}
 
-	/* TODO: Support VEX prefix and longer reg types. */
+	if (reg_size == 5) {
+		if (!(cpu_feature_list & CPU_FEATURE_AVX2))
+			return SLJIT_ERR_UNSUPPORTED;
+
+		if (type & SLJIT_SIMD_TEST)
+			return SLJIT_SUCCESS;
+
+		dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
+
+		if (elem_size == 1) {
+			FAIL_IF(emit_vex_instruction(compiler, VEXTRACTI128_x_xm | VEX_256 | EX86_PREF_66 | VEX_OP_0F3A | EX86_SSE2, freg, 0, TMP_FREG, 0));
+			FAIL_IF(emit_byte(compiler, 1));
+			FAIL_IF(emit_vex_instruction(compiler, PACKSSWB_x_xm | VEX_256 | EX86_PREF_66 | EX86_SSE2 | VEX_SSE2_OPV, TMP_FREG, freg, TMP_FREG, 0));
+			FAIL_IF(emit_groupf(compiler, PMOVMSKB_r_x, EX86_PREF_66 | EX86_SSE2_OP2, dst_r, TMP_FREG, 0));
+		} else {
+			pref = MOVMSKPS_r_x | VEX_256 | EX86_SSE2_OP2;
+
+			if (elem_size == 0)
+				pref = PMOVMSKB_r_x | VEX_256 | EX86_PREF_66 | EX86_SSE2_OP2;
+			else if (elem_size == 3)
+				pref |= EX86_PREF_66;
+
+			FAIL_IF(emit_vex_instruction(compiler, pref, dst_r, 0, freg, 0));
+		}
+
+		if (dst_r == TMP_REG1) {
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+			compiler->mode32 = type & SLJIT_32;
+#endif /* SLJIT_CONFIG_X86_64 */
+			return emit_mov(compiler, dst, dstw, TMP_REG1, 0);
+		}
+
+		return SLJIT_SUCCESS;
+	}
+
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
