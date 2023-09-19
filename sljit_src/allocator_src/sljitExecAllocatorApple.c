@@ -41,7 +41,7 @@
 #define SLJIT_MAP_JIT	(get_map_jit_flag())
 #define SLJIT_UPDATE_WX_FLAGS(from, to, enable_exec)
 
-static SLJIT_INLINE int get_map_jit_flag()
+static SLJIT_INLINE int get_map_jit_flag(void)
 {
 	size_t page_size;
 	void *ptr;

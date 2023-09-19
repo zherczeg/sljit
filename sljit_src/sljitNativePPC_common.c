@@ -132,7 +132,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
    OE and Rc flag (see ALT_SET_FLAGS). */
 #define OE(flags)	((flags) & ALT_SET_FLAGS)
 /* Rc flag (see ALT_SET_FLAGS). */
-#define RC(flags)	(((flags) & ALT_SET_FLAGS) >> 10)
+#define RC(flags)	((sljit_ins)((flags) & ALT_SET_FLAGS) >> 10)
 #define HI(opcode)	((sljit_ins)(opcode) << 26)
 #define LO(opcode)	((sljit_ins)(opcode) << 1)
 
@@ -2096,6 +2096,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 type, slji
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
 	void *instruction, sljit_u32 size)
 {
+	SLJIT_UNUSED_ARG(size);
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_custom(compiler, instruction, size));
 
@@ -2465,6 +2467,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 arg_types)
 {
+	SLJIT_UNUSED_ARG(arg_types);
+
 	CHECK_ERROR_PTR();
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
@@ -2531,6 +2535,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 	sljit_s32 arg_types,
 	sljit_s32 src, sljit_sw srcw)
 {
+	SLJIT_UNUSED_ARG(arg_types);
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
 
