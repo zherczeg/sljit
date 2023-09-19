@@ -10926,7 +10926,7 @@ static void test87(void)
 	/* Test reverse bytes. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
-	sljit_sw buf[5];
+	sljit_sw buf[6];
 	sljit_s32 ibuf[5];
 	sljit_s32 i;
 
@@ -10935,7 +10935,7 @@ static void test87(void)
 
 	FAILED(!compiler, "cannot create compiler\n");
 
-	for (i = 0; i < 5; i++)
+	for (i = 0; i < 6; i++)
 		buf[i] = -1;
 	for (i = 0; i < 5; i++)
 		ibuf[i] = -1;
@@ -10966,6 +10966,11 @@ static void test87(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S2, 0, SLJIT_IMM, WCONST(0x1122334455667788, 0x11223344));
 	/* buf[4] */
 	sljit_emit_op1(compiler, SLJIT_REV, SLJIT_MEM0(), (sljit_sw)&buf[4], SLJIT_S2, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 5 * sizeof(sljit_sw));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, WCONST(0xaabbccddeeff0011, 0xaabbccdd));
+	/* buf[5] */
+	sljit_emit_op1(compiler, SLJIT_REV, SLJIT_MEM2(SLJIT_S0, SLJIT_R2), 0, SLJIT_R0, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, (sljit_s32)0xf1e2d3c4);
 	sljit_emit_op1(compiler, SLJIT_REV32, SLJIT_R1, 0, SLJIT_R0, 0);
@@ -11004,11 +11009,12 @@ static void test87(void)
 	FAILED(buf[2] != WCONST(0x0807060504030201, 0x04030201), "test87 case 3 failed\n");
 	FAILED(buf[3] != WCONST(0x8070605040302010, 0x40302010), "test87 case 4 failed\n");
 	FAILED(buf[4] != WCONST(0x8877665544332211, 0x44332211), "test87 case 5 failed\n");
-	FAILED(ibuf[0] != (sljit_s32)0xc4d3e2f1, "test87 case 6 failed\n");
-	FAILED(ibuf[1] != (sljit_s32)0xccddeeff, "test87 case 7 failed\n");
-	FAILED(ibuf[2] != (sljit_s32)0x04030201, "test87 case 8 failed\n");
-	FAILED(ibuf[3] != (sljit_s32)0x44332211, "test87 case 9 failed\n");
-	FAILED(ibuf[4] != (sljit_s32)0xcbdcedfe, "test87 case 10 failed\n");
+	FAILED(buf[5] != WCONST(0x1100ffeeddccbbaa, 0xddccbbaa), "test87 case 6 failed\n");
+	FAILED(ibuf[0] != (sljit_s32)0xc4d3e2f1, "test87 case 7 failed\n");
+	FAILED(ibuf[1] != (sljit_s32)0xccddeeff, "test87 case 8 failed\n");
+	FAILED(ibuf[2] != (sljit_s32)0x04030201, "test87 case 9 failed\n");
+	FAILED(ibuf[3] != (sljit_s32)0x44332211, "test87 case 10 failed\n");
+	FAILED(ibuf[4] != (sljit_s32)0xcbdcedfe, "test87 case 11 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
