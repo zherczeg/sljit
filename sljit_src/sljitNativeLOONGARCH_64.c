@@ -629,7 +629,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	{
 	case SLJIT_HAS_FPU:
 #ifdef SLJIT_IS_FPU_AVAILABLE
-		return SLJIT_IS_FPU_AVAILABLE;
+		return (SLJIT_IS_FPU_AVAILABLE) != 0;
 #else
 		/* Available by default. */
 		return 1;

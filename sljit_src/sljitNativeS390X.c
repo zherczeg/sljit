@@ -1663,6 +1663,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	/* TODO(mundaym): implement all */
 	switch (feature_type) {
 	case SLJIT_HAS_FPU:
+#ifdef SLJIT_IS_FPU_AVAILABLE
+		return (SLJIT_IS_FPU_AVAILABLE) != 0;
+#else
+		return 1;
+#endif /* SLJIT_IS_FPU_AVAILABLE */
+
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_REV:
 	case SLJIT_HAS_ROT:
@@ -1670,8 +1676,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_COPY_F32:
 	case SLJIT_HAS_COPY_F64:
 		return 1;
+
 	case SLJIT_HAS_CTZ:
 		return 2;
+
 	case SLJIT_HAS_CMOV:
 		return have_lscond1() ? 1 : 0;
 	}
