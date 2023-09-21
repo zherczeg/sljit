@@ -4133,54 +4133,59 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 	compiler->mode32 = 1;
 #endif /* SLJIT_CONFIG_X86_64 */
 
-	if (reg_size == 4) {
-		if (type & SLJIT_SIMD_FLOAT) {
-			if (elem_size != 2 || elem2_size != 3)
-				return SLJIT_ERR_UNSUPPORTED;
-
-			if (type & SLJIT_SIMD_TEST)
-				return SLJIT_SUCCESS;
-
-			return emit_groupf(compiler, CVTPS2PD_x_xm, EX86_SSE2, freg, src, srcw);
-		}
-
-		switch (elem_size) {
-		case 0:
-			if (elem2_size == 1)
-				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXBW_x_xm : PMOVZXBW_x_xm;
-			else if (elem2_size == 2)
-				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXBD_x_xm : PMOVZXBD_x_xm;
-			else if (elem2_size == 3)
-				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXBQ_x_xm : PMOVZXBQ_x_xm;
-			else
-				return SLJIT_ERR_UNSUPPORTED;
-			break;
-		case 1:
-			if (elem2_size == 2)
-				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXWD_x_xm : PMOVZXWD_x_xm;
-			else if (elem2_size == 3)
-				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXWQ_x_xm : PMOVZXWQ_x_xm;
-			else
-				return SLJIT_ERR_UNSUPPORTED;
-			break;
-		case 2:
-			if (elem2_size == 3)
-				opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXDQ_x_xm : PMOVZXDQ_x_xm;
-			else
-				return SLJIT_ERR_UNSUPPORTED;
-			break;
-		default:
+	if (reg_size == 5) {
+		if (!(cpu_feature_list & CPU_FEATURE_AVX2))
 			return SLJIT_ERR_UNSUPPORTED;
-		}
+	} else if (reg_size != 4)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (type & SLJIT_SIMD_FLOAT) {
+		if (elem_size != 2 || elem2_size != 3)
+			return SLJIT_ERR_UNSUPPORTED;
 
 		if (type & SLJIT_SIMD_TEST)
 			return SLJIT_SUCCESS;
 
-		return emit_groupf_3(compiler, 0x38, opcode, EX86_PREF_66 | EX86_SSE2, freg, src, srcw);
+		if (reg_size == 4)
+			return emit_groupf(compiler, CVTPS2PD_x_xm, EX86_SSE2, freg, src, srcw);
+		return emit_vex_instruction(compiler, CVTPS2PD_x_xm | VEX_256 | EX86_SSE2, freg, 0, src, srcw);
 	}
 
-	/* TODO: Support VEX prefix and longer reg types. */
-	return SLJIT_ERR_UNSUPPORTED;
+	switch (elem_size) {
+	case 0:
+		if (elem2_size == 1)
+			opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXBW_x_xm : PMOVZXBW_x_xm;
+		else if (elem2_size == 2)
+			opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXBD_x_xm : PMOVZXBD_x_xm;
+		else if (elem2_size == 3)
+			opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXBQ_x_xm : PMOVZXBQ_x_xm;
+		else
+			return SLJIT_ERR_UNSUPPORTED;
+		break;
+	case 1:
+		if (elem2_size == 2)
+			opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXWD_x_xm : PMOVZXWD_x_xm;
+		else if (elem2_size == 3)
+			opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXWQ_x_xm : PMOVZXWQ_x_xm;
+		else
+			return SLJIT_ERR_UNSUPPORTED;
+		break;
+	case 2:
+		if (elem2_size == 3)
+			opcode = (type & SLJIT_SIMD_EXTEND_SIGNED) ? PMOVSXDQ_x_xm : PMOVZXDQ_x_xm;
+		else
+			return SLJIT_ERR_UNSUPPORTED;
+		break;
+	default:
+		return SLJIT_ERR_UNSUPPORTED;
+	}
+
+	if (type & SLJIT_SIMD_TEST)
+		return SLJIT_SUCCESS;
+
+	if (reg_size == 4)
+		return emit_groupf_3(compiler, 0x38, opcode, EX86_PREF_66 | EX86_SSE2, freg, src, srcw);
+	return emit_vex_instruction(compiler, opcode | VEX_256 | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, 0, src, srcw);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *compiler, sljit_s32 type,
