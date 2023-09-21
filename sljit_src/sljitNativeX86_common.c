@@ -604,7 +604,7 @@ static sljit_u8* generate_near_jump_code(struct sljit_jump *jump, sljit_u8 *code
 		label_addr = jump->u.target - (sljit_uw)executable_offset;
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	if ((sljit_sw)(label_addr - (jump->addr + 1)) > HALFWORD_MAX || (sljit_sw)(label_addr - (jump->addr + 1)) < HALFWORD_MIN)
+	if ((sljit_sw)(label_addr - (jump->addr + 2)) > HALFWORD_MAX || (sljit_sw)(label_addr - (jump->addr + 6)) < HALFWORD_MIN)
 		return generate_far_jump_code(jump, code_ptr);
 #endif
 
