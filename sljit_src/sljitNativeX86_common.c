@@ -159,7 +159,8 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define VEX_OP_0F38		((sljit_uw)0x010000)
 #define VEX_OP_0F3A		((sljit_uw)0x020000)
 #define VEX_SSE2_OPV		((sljit_uw)0x040000)
-#define VEX_256			((sljit_uw)0x080000)
+#define VEX_W			((sljit_uw)0x080000)
+#define VEX_256			((sljit_uw)0x100000)
 
 #define EX86_SELECT_66(op)	(((op) & SLJIT_32) ? 0 : EX86_PREF_66)
 #define EX86_SELECT_F2_F3(op)	(((op) & SLJIT_32) ? EX86_PREF_F3 : EX86_PREF_F2)
@@ -330,6 +331,8 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define VPBROADCASTD_x_xm	0x58
 #define VPBROADCASTQ_x_xm	0x59
 #define VPBROADCASTW_x_xm	0x79
+#define VPERMPD_y_ym		0x01
+#define VPERMQ_y_ym		0x00
 #define XCHG_EAX_r		0x90
 #define XCHG_r_rm		0x87
 #define XOR			(/* BINARY */ 6 << 3)
@@ -838,15 +841,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_COPY_F64:
 		return 1;
 
-	case SLJIT_HAS_SSE2:
-#if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
+#if !(defined SLJIT_IS_FPU_AVAILABLE) || SLJIT_IS_FPU_AVAILABLE
+	case SLJIT_HAS_AVX2:
 		if (cpu_feature_list == 0)
 			get_cpu_features();
-		return (cpu_feature_list & CPU_FEATURE_SSE2) != 0;
-#else /* !SLJIT_DETECT_SSE2 */
-		return 1;
-#endif /* SLJIT_DETECT_SSE2 */
-#if !(defined SLJIT_IS_FPU_AVAILABLE) || SLJIT_IS_FPU_AVAILABLE
+		return (cpu_feature_list & CPU_FEATURE_AVX2) != 0;
 	case SLJIT_HAS_SIMD:
 		if (cpu_feature_list == 0)
 			get_cpu_features();
@@ -929,8 +928,8 @@ static sljit_s32 emit_groupf(struct sljit_compiler *compiler,
 	sljit_u8 opcode, sljit_uw pref,
 	sljit_s32 dst, sljit_s32 src, sljit_sw srcw);
 
-static sljit_s32 emit_groupf_3(struct sljit_compiler *compiler,
-	sljit_u8 opcode1, sljit_u8 opcode2, sljit_uw pref,
+static sljit_s32 emit_groupf_ext(struct sljit_compiler *compiler,
+	sljit_u8 opcode, sljit_uw pref,
 	sljit_s32 dst, sljit_s32 src, sljit_sw srcw);
 
 static SLJIT_INLINE sljit_s32 emit_sse2_store(struct sljit_compiler *compiler,
@@ -2867,18 +2866,19 @@ static sljit_s32 emit_groupf(struct sljit_compiler *compiler,
 	return SLJIT_SUCCESS;
 }
 
-static sljit_s32 emit_groupf_3(struct sljit_compiler *compiler,
-	sljit_u8 opcode1, sljit_u8 opcode2, sljit_uw pref,
+static sljit_s32 emit_groupf_ext(struct sljit_compiler *compiler,
+	sljit_u8 opcode, sljit_uw pref,
 	sljit_s32 dst, sljit_s32 src, sljit_sw srcw)
 {
 	sljit_u8 *inst;
 
-	SLJIT_ASSERT(pref & EX86_SSE2);
-	inst = emit_x86_instruction(compiler, 3 | pref, dst, 0, src, srcw);
+	SLJIT_ASSERT((pref & EX86_SSE2) && ((pref & VEX_OP_0F38) || (pref & VEX_OP_0F3A)));
+
+	inst = emit_x86_instruction(compiler, 3 | (pref & ~(VEX_OP_0F38 | VEX_OP_0F3A)), dst, 0, src, srcw);
 	FAIL_IF(!inst);
 	inst[0] = GROUP_0F;
-	inst[1] = opcode1;
-	inst[2] = opcode2;
+	inst[1] = U8((pref & VEX_OP_0F38) ? 0x38 : 0x3A);
+	inst[2] = opcode;
 	return SLJIT_SUCCESS;
 }
 
@@ -3730,7 +3730,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 	switch (elem_size) {
 	case 0:
 		FAIL_IF(emit_groupf(compiler, PXOR_x_xm, EX86_PREF_66 | EX86_SSE2, TMP_FREG, TMP_FREG, 0));
-		return emit_groupf_3(compiler, 0x38, PSHUFB_x_xm, EX86_PREF_66 | EX86_SSE2, freg, TMP_FREG, 0);
+		return emit_groupf_ext(compiler, PSHUFB_x_xm, EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, TMP_FREG, 0);
 	case 1:
 		FAIL_IF(emit_groupf(compiler, PSHUFLW_x_xm, EX86_PREF_F2 | EX86_SSE2, freg, freg, 0));
 		FAIL_IF(emit_byte(compiler, 0));
@@ -3860,7 +3860,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 				if (lane_index == 0 && !(srcdst & SLJIT_MEM))
 					return emit_sse2_store(compiler, 1, freg, 0, srcdst);
 
-				FAIL_IF(emit_groupf_3(compiler, 0x3a, INSERTPS_x_xm, EX86_PREF_66 | EX86_SSE2, freg, srcdst, srcdstw));
+				FAIL_IF(emit_groupf_ext(compiler, INSERTPS_x_xm, EX86_PREF_66 | VEX_OP_0F3A | EX86_SSE2, freg, srcdst, srcdstw));
 				return emit_byte(compiler, U8(lane_index << 4));
 			}
 
@@ -3868,7 +3868,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 				return emit_sse2_store(compiler, 1, srcdst, srcdstw, freg);
 
 			if (srcdst & SLJIT_MEM) {
-				FAIL_IF(emit_groupf_3(compiler, 0x3a, EXTRACTPS_x_xm, EX86_PREF_66 | EX86_SSE2, freg, srcdst, srcdstw));
+				FAIL_IF(emit_groupf_ext(compiler, EXTRACTPS_x_xm, EX86_PREF_66 | VEX_OP_0F3A | EX86_SSE2, freg, srcdst, srcdstw));
 				return emit_byte(compiler, U8(lane_index));
 			}
 
@@ -4001,82 +4001,103 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
 	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
-	sljit_u8 *inst;
 	sljit_uw pref;
 	sljit_u8 byte;
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+	sljit_s32 opcode3 = TMP_REG1;
+#else /* !SLJIT_CONFIG_X86_32 */
+	sljit_s32 opcode3 = SLJIT_S0;
+#endif /* SLJIT_CONFIG_X86_32 */
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_lane_replicate(compiler, type, freg, src, src_lane_index));
 
-	if (reg_size == 4) {
-		if (type & SLJIT_SIMD_FLOAT) {
-			pref = 0;
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	compiler->mode32 = 1;
+#endif /* SLJIT_CONFIG_X86_64 */
+	SLJIT_ASSERT(reg_map[opcode3] == 3);
 
-			if (elem_size == 3) {
-				if (type & SLJIT_SIMD_TEST)
-					return SLJIT_SUCCESS;
+	if (reg_size == 5) {
+		if (!(cpu_feature_list & CPU_FEATURE_AVX2))
+			return SLJIT_ERR_UNSUPPORTED;
+	} else if (reg_size != 4)
+		return SLJIT_ERR_UNSUPPORTED;
 
-				if (src_lane_index == 0)
-					return emit_groupf(compiler, MOVDDUP_x_xm, EX86_PREF_F2 | EX86_SSE2, freg, src, 0);
+	if (type & SLJIT_SIMD_FLOAT) {
+		pref = 0;
+		byte = U8(src_lane_index);
 
-				pref = EX86_PREF_66;
-			} else if (elem_size != 2)
-				return SLJIT_ERR_UNSUPPORTED;
-			else if (type & SLJIT_SIMD_TEST)
+		if (elem_size == 3) {
+			if (type & SLJIT_SIMD_TEST)
 				return SLJIT_SUCCESS;
 
+			if (reg_size == 5) {
+				if (src_lane_index == 0)
+					return emit_vex_instruction(compiler, VBROADCASTSD_x_xm | VEX_256 | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, 0, src, 0);
+
+				FAIL_IF(emit_vex_instruction(compiler, VPERMPD_y_ym | VEX_256 | EX86_PREF_66 | VEX_OP_0F3A | VEX_W | EX86_SSE2, freg, 0, src, 0));
+
+				byte = U8(byte | (byte << 2));
+				return emit_byte(compiler, U8(byte | (byte << 4)));
+			}
+
+			if (src_lane_index == 0)
+				return emit_groupf(compiler, MOVDDUP_x_xm, EX86_PREF_F2 | EX86_SSE2, freg, src, 0);
+
+			/* Changes it to SHUFPD_x_xm. */
+			pref = EX86_PREF_66;
+		} else if (elem_size != 2)
+			return SLJIT_ERR_UNSUPPORTED;
+		else if (type & SLJIT_SIMD_TEST)
+			return SLJIT_SUCCESS;
+
+		if (reg_size == 5) {
+			SLJIT_ASSERT(elem_size == 2);
+
+			if (src_lane_index == 0)
+				return emit_vex_instruction(compiler, VBROADCASTSS_x_xm | VEX_256 | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, 0, src, 0);
+
+			FAIL_IF(emit_vex_instruction(compiler, VPERMPD_y_ym | VEX_256 | EX86_PREF_66 | VEX_OP_0F3A | VEX_W | EX86_SSE2, freg, 0, src, 0));
+
+			byte = 0x44;
+			if (src_lane_index >= 4) {
+				byte = 0xee;
+				src_lane_index -= 4;
+			}
+
+			FAIL_IF(emit_byte(compiler, byte));
+			FAIL_IF(emit_vex_instruction(compiler, SHUFPS_x_xm | VEX_256 | pref | EX86_SSE2 | VEX_SSE2_OPV, freg, freg, freg, 0));
+			byte = U8(src_lane_index);
+		} else if (freg != src && (cpu_feature_list & CPU_FEATURE_AVX2)) {
+			FAIL_IF(emit_vex_instruction(compiler, SHUFPS_x_xm | pref | EX86_SSE2 | VEX_SSE2_OPV, freg, src, src, 0));
+		} else {
 			if (freg != src)
 				FAIL_IF(emit_groupf(compiler, MOVAPS_x_xm, pref | EX86_SSE2, freg, src, 0));
 
 			FAIL_IF(emit_groupf(compiler, SHUFPS_x_xm, pref | EX86_SSE2, freg, freg, 0));
-
-			byte = U8(src_lane_index);
-
-			if (elem_size == 2) {
-				byte = U8(byte | (byte << 2));
-				byte = U8(byte | (byte << 4));
-			} else
-				byte = U8(byte | (byte << 1));
-
-			return emit_byte(compiler, U8(byte));
 		}
 
-		if (type & SLJIT_SIMD_TEST)
-			return SLJIT_SUCCESS;
-
-		if (elem_size >= 1) {
-			if (elem_size == 1) {
-				if (src_lane_index >= 4) {
-					byte = U8(src_lane_index - 4);
-					src_lane_index = 2;
-					pref = EX86_PREF_F3;
-				} else {
-					byte = U8(src_lane_index);
-					src_lane_index = 0;
-					pref = EX86_PREF_F2;
-				}
-
-				FAIL_IF(emit_groupf(compiler, PSHUFLW_x_xm, pref | EX86_SSE2, freg, src, 0));
-				byte = U8(byte | (byte << 2));
-				FAIL_IF(emit_byte(compiler, U8(byte | (byte << 4))));
-
-				src = freg;
-			}
-
-			if (elem_size == 3)
-				src_lane_index <<= 1;
-
-			byte = U8(src_lane_index);
+		if (elem_size == 2) {
 			byte = U8(byte | (byte << 2));
+			byte = U8(byte | (byte << 4));
+		} else
+			byte = U8(byte | (byte << 1));
 
-			if (elem_size == 3)
-				byte |= 0x4;
+		return emit_byte(compiler, U8(byte));
+	}
 
-			FAIL_IF(emit_groupf(compiler, PSHUFD_x_xm, EX86_PREF_66 | EX86_SSE2, freg, src, 0));
-			return emit_byte(compiler, U8(byte | (byte << 4)));
+	if (type & SLJIT_SIMD_TEST)
+		return SLJIT_SUCCESS;
+
+	if (elem_size == 0) {
+		if (reg_size == 5 && src_lane_index >= 16) {
+			FAIL_IF(emit_vex_instruction(compiler, VPERMQ_y_ym | VEX_256 | EX86_PREF_66 | VEX_OP_0F3A | VEX_W | EX86_SSE2, freg, 0, src, 0));
+			FAIL_IF(emit_byte(compiler, src_lane_index >= 24 ? 0xff : 0xaa));
+			src_lane_index &= 0x7;
+			src = freg;
 		}
 
-		if (freg != src || src_lane_index != 0) {
+		if ((freg != src && !(cpu_feature_list & CPU_FEATURE_AVX2)) || src_lane_index != 0) {
 			pref = 0;
 
 			if ((src_lane_index & 0x3) == 0) {
@@ -4086,33 +4107,116 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 				pref = EX86_PREF_F2;
 				byte = U8(src_lane_index >> 1);
 			} else {
-				if (freg != src)
-					FAIL_IF(emit_groupf(compiler, MOVDQA_x_xm, EX86_PREF_66 | EX86_SSE2, freg, src, 0));
+				if (freg == src || !(cpu_feature_list & CPU_FEATURE_AVX2)) {
+					if (freg != src)
+						FAIL_IF(emit_groupf(compiler, MOVDQA_x_xm, EX86_PREF_66 | EX86_SSE2, freg, src, 0));
 
-				inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP2, 0, 0, freg, 0);
-				FAIL_IF(!inst);
-				inst[0] = GROUP_0F;
-				inst[1] = PSRLDQ_x;
-				inst[2] |= (0x3 << 3);
+					FAIL_IF(emit_groupf(compiler, PSRLDQ_x, 2 | EX86_PREF_66 | EX86_SSE2_OP2, opcode3, freg, 0));
+				} else
+					FAIL_IF(emit_vex_instruction(compiler, PSRLDQ_x | EX86_PREF_66 | EX86_SSE2_OP2 | VEX_SSE2_OPV, opcode3, freg, src, 0));
 
 				FAIL_IF(emit_byte(compiler, U8(src_lane_index)));
 			}
 
 			if (pref != 0) {
 				FAIL_IF(emit_groupf(compiler, PSHUFLW_x_xm, pref | EX86_SSE2, freg, src, 0));
-				byte = U8(byte | (byte << 2));
-				FAIL_IF(emit_byte(compiler, U8(byte | (byte << 4))));
+				FAIL_IF(emit_byte(compiler, byte));
 			}
 
 			src = freg;
 		}
 
+		if (cpu_feature_list & CPU_FEATURE_AVX2)
+			return emit_vex_instruction(compiler, VPBROADCASTB_x_xm | (reg_size == 5 ? VEX_256 : 0) | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, 0, src, 0);
+
+		SLJIT_ASSERT(reg_size == 4);
 		FAIL_IF(emit_groupf(compiler, PXOR_x_xm, EX86_PREF_66 | EX86_SSE2, TMP_FREG, TMP_FREG, 0));
-		return emit_groupf_3(compiler, 0x38, PSHUFB_x_xm, EX86_PREF_66 | EX86_SSE2, freg, TMP_FREG, 0);
+		return emit_groupf_ext(compiler, PSHUFB_x_xm, EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, TMP_FREG, 0);
 	}
 
-	/* TODO: Support VEX prefix and longer reg types. */
-	return SLJIT_ERR_UNSUPPORTED;
+	if ((cpu_feature_list & CPU_FEATURE_AVX2) && src_lane_index == 0 && elem_size <= 3) {
+		switch (elem_size) {
+		case 1:
+			pref = VPBROADCASTW_x_xm | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2;
+			break;
+		case 2:
+			pref = VPBROADCASTD_x_xm | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2;
+			break;
+		default:
+			pref = VPBROADCASTQ_x_xm | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2;
+			break;
+		}
+
+		if (reg_size == 5)
+			pref |= VEX_256;
+
+		return emit_vex_instruction(compiler, pref, freg, 0, src, 0);
+	}
+
+	if (reg_size == 5) {
+		switch (elem_size) {
+		case 1:
+			byte = U8(src_lane_index & 0x3);
+			src_lane_index >>= 2;
+			pref = PSHUFLW_x_xm | VEX_256 | ((src_lane_index & 1) == 0 ? EX86_PREF_F2 : EX86_PREF_F3) | EX86_SSE2;
+			break;
+		case 2:
+			byte = U8(src_lane_index & 0x3);
+			src_lane_index >>= 1;
+			pref = PSHUFD_x_xm | VEX_256 | EX86_PREF_66 | EX86_SSE2;
+			break;
+		case 3:
+			pref = 0;
+			break;
+		default:
+			FAIL_IF(emit_vex_instruction(compiler, VPERMQ_y_ym | VEX_256 | EX86_PREF_66 | VEX_OP_0F3A | VEX_W | EX86_SSE2, freg, 0, src, 0));
+			return emit_byte(compiler, U8(src_lane_index == 0 ? 0x44 : 0xee));
+		}
+
+		if (pref != 0) {
+			FAIL_IF(emit_vex_instruction(compiler, pref, freg, 0, src, 0));
+			byte = U8(byte | (byte << 2));
+			FAIL_IF(emit_byte(compiler, U8(byte | (byte << 4))));
+
+			if (src_lane_index == 0)
+				return emit_vex_instruction(compiler, VPBROADCASTQ_x_xm | VEX_256 | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, 0, freg, 0);
+
+			src = freg;
+		}
+
+		FAIL_IF(emit_vex_instruction(compiler, VPERMQ_y_ym | VEX_256 | EX86_PREF_66 | VEX_OP_0F3A | VEX_W | EX86_SSE2, freg, 0, src, 0));
+		byte = U8(src_lane_index);
+		byte = U8(byte | (byte << 2));
+		return emit_byte(compiler, U8(byte | (byte << 4)));
+	}
+
+	switch (elem_size) {
+	case 1:
+		byte = U8(src_lane_index & 0x3);
+		src_lane_index >>= 1;
+		pref = (src_lane_index & 2) == 0 ? EX86_PREF_F2 : EX86_PREF_F3;
+
+		FAIL_IF(emit_groupf(compiler, PSHUFLW_x_xm, pref | EX86_SSE2, freg, src, 0));
+		byte = U8(byte | (byte << 2));
+		FAIL_IF(emit_byte(compiler, U8(byte | (byte << 4))));
+
+		if ((cpu_feature_list & CPU_FEATURE_AVX2) && pref == EX86_PREF_F2)
+			return emit_vex_instruction(compiler, VPBROADCASTD_x_xm | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, 0, freg, 0);
+
+		src = freg;
+		/* fallthrough */
+	case 2:
+		byte = U8(src_lane_index);
+		byte = U8(byte | (byte << 2));
+		break;
+	default:
+		byte = U8(src_lane_index << 1);
+		byte = U8(byte | (byte << 2) | 0x4);
+		break;
+	}
+
+	FAIL_IF(emit_groupf(compiler, PSHUFD_x_xm, EX86_PREF_66 | EX86_SSE2, freg, src, 0));
+	return emit_byte(compiler, U8(byte | (byte << 4)));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler *compiler, sljit_s32 type,
@@ -4184,7 +4288,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 		return SLJIT_SUCCESS;
 
 	if (reg_size == 4)
-		return emit_groupf_3(compiler, 0x38, opcode, EX86_PREF_66 | EX86_SSE2, freg, src, srcw);
+		return emit_groupf_ext(compiler, opcode, EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, src, srcw);
 	return emit_vex_instruction(compiler, opcode | VEX_256 | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, freg, 0, src, srcw);
 }
 
@@ -4246,42 +4350,38 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 		return SLJIT_SUCCESS;
 	}
 
-	if (reg_size == 5) {
-		if (!(cpu_feature_list & CPU_FEATURE_AVX2))
-			return SLJIT_ERR_UNSUPPORTED;
+	if (reg_size != 5 || !(cpu_feature_list & CPU_FEATURE_AVX2))
+		return SLJIT_ERR_UNSUPPORTED;
 
-		if (type & SLJIT_SIMD_TEST)
-			return SLJIT_SUCCESS;
-
-		dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
-
-		if (elem_size == 1) {
-			FAIL_IF(emit_vex_instruction(compiler, VEXTRACTI128_x_xm | VEX_256 | EX86_PREF_66 | VEX_OP_0F3A | EX86_SSE2, freg, 0, TMP_FREG, 0));
-			FAIL_IF(emit_byte(compiler, 1));
-			FAIL_IF(emit_vex_instruction(compiler, PACKSSWB_x_xm | VEX_256 | EX86_PREF_66 | EX86_SSE2 | VEX_SSE2_OPV, TMP_FREG, freg, TMP_FREG, 0));
-			FAIL_IF(emit_groupf(compiler, PMOVMSKB_r_x, EX86_PREF_66 | EX86_SSE2_OP2, dst_r, TMP_FREG, 0));
-		} else {
-			pref = MOVMSKPS_r_x | VEX_256 | EX86_SSE2_OP2;
-
-			if (elem_size == 0)
-				pref = PMOVMSKB_r_x | VEX_256 | EX86_PREF_66 | EX86_SSE2_OP2;
-			else if (elem_size == 3)
-				pref |= EX86_PREF_66;
-
-			FAIL_IF(emit_vex_instruction(compiler, pref, dst_r, 0, freg, 0));
-		}
-
-		if (dst_r == TMP_REG1) {
-#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-			compiler->mode32 = type & SLJIT_32;
-#endif /* SLJIT_CONFIG_X86_64 */
-			return emit_mov(compiler, dst, dstw, TMP_REG1, 0);
-		}
-
+	if (type & SLJIT_SIMD_TEST)
 		return SLJIT_SUCCESS;
+
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
+
+	if (elem_size == 1) {
+		FAIL_IF(emit_vex_instruction(compiler, VEXTRACTI128_x_xm | VEX_256 | EX86_PREF_66 | VEX_OP_0F3A | EX86_SSE2, freg, 0, TMP_FREG, 0));
+		FAIL_IF(emit_byte(compiler, 1));
+		FAIL_IF(emit_vex_instruction(compiler, PACKSSWB_x_xm | VEX_256 | EX86_PREF_66 | EX86_SSE2 | VEX_SSE2_OPV, TMP_FREG, freg, TMP_FREG, 0));
+		FAIL_IF(emit_groupf(compiler, PMOVMSKB_r_x, EX86_PREF_66 | EX86_SSE2_OP2, dst_r, TMP_FREG, 0));
+	} else {
+		pref = MOVMSKPS_r_x | VEX_256 | EX86_SSE2_OP2;
+
+		if (elem_size == 0)
+			pref = PMOVMSKB_r_x | VEX_256 | EX86_PREF_66 | EX86_SSE2_OP2;
+		else if (elem_size == 3)
+			pref |= EX86_PREF_66;
+
+		FAIL_IF(emit_vex_instruction(compiler, pref, dst_r, 0, freg, 0));
 	}
 
-	return SLJIT_ERR_UNSUPPORTED;
+	if (dst_r == TMP_REG1) {
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+		compiler->mode32 = type & SLJIT_32;
+#endif /* SLJIT_CONFIG_X86_64 */
+		return emit_mov(compiler, dst, dstw, TMP_REG1, 0);
+	}
+
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,

@@ -304,7 +304,12 @@ static sljit_s32 emit_vex_instruction(struct sljit_compiler *compiler, sljit_uw 
 	else if (op & VEX_OP_0F3A)
 		vex_m = 0x3;
 
-	/* Currently WIG (W ignored) is supported only. */
+	if (op & VEX_W) {
+		if (vex_m == 0)
+			vex_m = 0x1;
+
+		vex |= 0x80;
+	}
 
 	if (op & EX86_PREF_66)
 		vex |= 0x1;
