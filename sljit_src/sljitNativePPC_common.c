@@ -452,6 +452,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	reverse_buf(compiler);
 
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+	/* add to compiler->size additional instruction space to hold the trampoline and padding */
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	compiler->size += (compiler->size & 0x1) + (sizeof(struct sljit_function_context) / sizeof(sljit_ins));
 #else
@@ -652,7 +653,6 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 	compiler->error = SLJIT_ERR_COMPILED;
 	compiler->executable_offset = executable_offset;
-	compiler->executable_size = (sljit_uw)(code_ptr - code) * sizeof(sljit_ins);
 
 	code = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(code, executable_offset);
 
@@ -670,8 +670,12 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	SLJIT_UPDATE_WX_FLAGS(code, code_ptr, 1);
 
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+	compiler->executable_size = (sljit_uw)(code_ptr - code) * sizeof(sljit_ins) + sizeof(struct sljit_function_context);
+
 	return code_ptr;
 #else
+	compiler->executable_size = (sljit_uw)(code_ptr - code) * sizeof(sljit_ins);
+
 	return code;
 #endif
 }
