@@ -181,7 +181,6 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define LDR (STRI | (1 << 22))
 #define LDRB (STRBI | (1 << 22))
 #define LDRH (LDRB | (1 << 30))
-#define LDRSW ((LDRI ^ (1 << 30)) ^ (0x3 << 22))
 #define MOV (ORR | RN(TMP_ZERO))
 
 static sljit_s32 push_inst(struct sljit_compiler *compiler, sljit_ins ins)
@@ -3056,10 +3055,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 #ifdef __ARM_FEATURE_ATOMICS
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV32:
-		ins = LDR ^ (1 << 30);
-		break;
 	case SLJIT_MOV_U32:
-		ins = LDRSW;
+		ins = LDR ^ (1 << 30);
 		break;
 	case SLJIT_MOV_U16:
 		ins = LDRH;
@@ -3128,7 +3125,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	}
 
 	if (cmp) {
-		FAIL_IF(push_inst(compiler, MOV ^ inv_bits | RM(temp_reg) | RD(TMP_REG1)));
+		FAIL_IF(push_inst(compiler, (MOV ^ inv_bits) | RM(temp_reg) | RD(TMP_REG1)));
 		tmp = TMP_REG1;
 	}
 	FAIL_IF(push_inst(compiler, ins | RM(tmp) | RN(mem_reg) | RD(src_reg)));
@@ -3136,7 +3133,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 		return SLJIT_SUCCESS;
 
 	FAIL_IF(push_inst(compiler, cmp | RM(tmp) | RN(temp_reg)));
-	FAIL_IF(push_inst(compiler, CSET ^ inv_bits | RD(tmp)));
+	FAIL_IF(push_inst(compiler, (CSET ^ inv_bits) | RD(tmp)));
 	return push_inst(compiler, cmp | RM(tmp) | RN(TMP_ZERO));
 #else /* !__ARM_FEATURE_ATOMICS */
 	SLJIT_UNUSED_ARG(tmp);
