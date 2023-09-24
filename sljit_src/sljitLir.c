@@ -1518,7 +1518,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_store(struct sljit
 	CHECK_ARGUMENT(!(op & VARIABLE_FLAG_MASK) || GET_FLAG_TYPE(op) == SLJIT_ATOMIC_STORED);
 
 	if (GET_OPCODE(op) == SLJIT_MOV_U8 || GET_OPCODE(op) == SLJIT_MOV_U16) {
-		/* Only SLJIT_32, SLJIT_ATOMIC_STORED is allowed. */
+		/* Only SLJIT_32, SLJIT_ATOMIC_STORED are allowed. */
 		CHECK_ARGUMENT(!(op & SLJIT_SET_Z));
 	} else {
 		/* Only SLJIT_ATOMIC_STORED is allowed. */
