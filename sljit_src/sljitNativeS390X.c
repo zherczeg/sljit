@@ -1651,6 +1651,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	compiler->error = SLJIT_ERR_COMPILED;
 	compiler->executable_offset = executable_offset;
 	compiler->executable_size = ins_size;
+	if (pool_size)
+		compiler->executable_size += (pad_size + pool_size);
 	code = SLJIT_ADD_EXEC_OFFSET(code, executable_offset);
 	code_ptr = SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 	SLJIT_CACHE_FLUSH(code, code_ptr);
