@@ -304,7 +304,7 @@ static sljit_s32 emit_vex_instruction(struct sljit_compiler *compiler, sljit_uw 
 	else if (op & VEX_OP_0F3A)
 		vex_m = 0x3;
 
-	if (op & VEX_W) {
+	if ((op & VEX_W) || ((op & VEX_AUTO_W) && !compiler->mode32)) {
 		if (vex_m == 0)
 			vex_m = 0x1;
 
