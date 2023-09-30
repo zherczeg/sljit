@@ -2010,6 +2010,7 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 			src2_reg = (sljit_s32)get_imm((sljit_uw)src2w);
 			if (src2_reg)
 				break;
+
 			if (inp_flags & ALLOW_INV_IMM) {
 				src2_reg = (sljit_s32)get_imm(~(sljit_uw)src2w);
 				if (src2_reg) {
@@ -2017,8 +2018,9 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 					break;
 				}
 			}
+
 			if (neg_op != 0) {
-				src2_reg = (sljit_s32)get_imm((sljit_uw)-src2w);
+				src2_reg = (sljit_s32)get_imm((neg_op == SLJIT_ADD || neg_op == SLJIT_SUB) ? (sljit_uw)-src2w : ~(sljit_uw)src2w);
 				if (src2_reg) {
 					op = neg_op | GET_ALL_FLAGS(op);
 					break;
@@ -2034,6 +2036,7 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 				src1w = src2w;
 				break;
 			}
+
 			if (inp_flags & ALLOW_INV_IMM) {
 				src2_reg = (sljit_s32)get_imm(~(sljit_uw)src1w);
 				if (src2_reg) {
@@ -2043,8 +2046,11 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 					break;
 				}
 			}
+
 			if (neg_op >= SLJIT_SUB) {
 				/* Note: additive operation (commutative). */
+				SLJIT_ASSERT(op == SLJIT_ADD || op == SLJIT_ADDC);
+
 				src2_reg = (sljit_s32)get_imm((sljit_uw)-src1w);
 				if (src2_reg) {
 					src1 = src2;
