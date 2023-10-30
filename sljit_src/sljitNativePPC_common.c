@@ -104,8 +104,8 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 #define TMP_FREG1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
 #define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
 
-static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 7] = {
-	0, 3, 4, 5, 6, 7, 8, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 1, 9, 10, 31, 12
+static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 6] = {
+	0, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 1, 11, 10, 31, 12
 };
 
 static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
@@ -804,9 +804,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	sljit_s32 i, tmp, base, offset;
 	sljit_s32 word_arg_count = 0;
 	sljit_s32 saved_arg_count = SLJIT_KEPT_SAVEDS_COUNT(options);
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined(SLJIT_CONFIG_PPC_64) && SLJIT_CONFIG_PPC_64) || defined(_AIX) || defined(__APPLE__)
 	sljit_s32 arg_count = 0;
-#endif
+#endif /* SLJIT_CONFIG_PPC_64 || AIX32 || OSX */
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, fscratches, fsaveds, local_size));
@@ -884,7 +884,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	while (arg_types > 0) {
 		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined(SLJIT_CONFIG_PPC_64) && SLJIT_CONFIG_PPC_64) || defined(_AIX) || defined(__APPLE__)
 			do {
 				if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
 					tmp = SLJIT_S0 - saved_arg_count;
@@ -905,7 +905,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			word_arg_count++;
 		}
 
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined(SLJIT_CONFIG_PPC_64) && SLJIT_CONFIG_PPC_64) || defined(_AIX) || defined(__APPLE__)
+#if defined(SLJIT_CONFIG_PPC_32) && SLJIT_CONFIG_PPC_32
+		if ((arg_types & SLJIT_ARG_MASK) == SLJIT_ARG_TYPE_F64)
+			arg_count++;
+#endif /* AIX32 || OSX */
 		arg_count++;
 #endif
 		arg_types >>= SLJIT_ARG_SHIFT;
@@ -2433,6 +2437,68 @@ static sljit_ins get_bo_bi_flags(struct sljit_compiler *compiler, sljit_s32 type
 	}
 }
 
+#if defined(_AIX) || defined(__APPLE__) || (defined(SLJIT_CONFIG_PPC_64) && SLJIT_CONFIG_PPC_64)
+
+static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_types, sljit_s32 *src)
+{
+	sljit_s32 arg_count = 0;
+	sljit_s32 word_arg_count = 0;
+	sljit_s32 types = 0;
+	sljit_s32 reg = src ? (*src & REG_MASK) : -1;
+
+	arg_types >>= SLJIT_ARG_SHIFT;
+
+	while (arg_types) {
+		types = (types << SLJIT_ARG_SHIFT) | (arg_types & SLJIT_ARG_MASK);
+
+		arg_count++;
+		switch (arg_types & SLJIT_ARG_MASK) {
+		case SLJIT_ARG_TYPE_F64:
+#if (defined(_AIX) || defined(__APPLE__)) && (defined(SLJIT_CONFIG_PPC_32) && SLJIT_CONFIG_PPC_32)
+			arg_count++;
+#endif /* AIX32 || OSX */
+			/* fallthrough */
+		case SLJIT_ARG_TYPE_F32:
+			break;
+		default:
+			word_arg_count++;
+
+			if (arg_count != word_arg_count && arg_count == reg) {
+				FAIL_IF(push_inst(compiler, OR | S(reg) | A(TMP_CALL_REG) | B(reg)));
+				*src = TMP_CALL_REG;
+			}
+			break;
+		}
+
+		arg_types >>= SLJIT_ARG_SHIFT;
+	}
+
+	while (types) {
+		switch (types & SLJIT_ARG_MASK) {
+		case SLJIT_ARG_TYPE_F64:
+#if (defined(_AIX) || defined(__APPLE__)) && (defined(SLJIT_CONFIG_PPC_32) && SLJIT_CONFIG_PPC_32)
+			arg_count--;
+#endif /* AIX32 || OSX */
+			/* fallthrough */
+		case SLJIT_ARG_TYPE_F32:
+			break;
+		default:
+			if (arg_count != word_arg_count)
+				FAIL_IF(push_inst(compiler, OR | S(word_arg_count) | A(arg_count) | B(word_arg_count)));
+
+			word_arg_count--;
+			break;
+		}
+		arg_count--;
+
+		types >>= SLJIT_ARG_SHIFT;
+	}
+
+	return SLJIT_SUCCESS;
+}
+
+#endif /* AIX || OSX || SLJIT_CONFIG_PPC_64 */
+
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 type)
 {
 	struct sljit_jump *jump;
@@ -2476,10 +2542,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compile
 	CHECK_ERROR_PTR();
 	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined(SLJIT_CONFIG_PPC_64) && SLJIT_CONFIG_PPC_64) || defined(_AIX) || defined(__APPLE__)
 	if ((type & 0xff) != SLJIT_CALL_REG_ARG)
 		PTR_FAIL_IF(call_with_args(compiler, arg_types, NULL));
-#endif
+#endif /* SLJIT_CONFIG_PPC_64 || AIX32 || OSX */
 
 	if (type & SLJIT_CALL_RETURN) {
 		PTR_FAIL_IF(emit_stack_frame_release(compiler, 0));
@@ -2560,10 +2626,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 		type = SLJIT_JUMP;
 	}
 
-#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+#if (defined(SLJIT_CONFIG_PPC_64) && SLJIT_CONFIG_PPC_64) || defined(_AIX) || defined(__APPLE__)
 	if ((type & 0xff) != SLJIT_CALL_REG_ARG)
 		FAIL_IF(call_with_args(compiler, arg_types, &src));
-#endif
+#endif /* SLJIT_CONFIG_PPC_64 || AIX32 || OSX */
 
 	SLJIT_SKIP_CHECKS(compiler);
 	return sljit_emit_ijump(compiler, type, src, srcw);

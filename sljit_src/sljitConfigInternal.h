@@ -476,7 +476,7 @@ typedef double sljit_f64;
 #endif /* !SLJIT_FUNC */
 
 #ifndef SLJIT_INDIRECT_CALL
-#if ((defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) && (!defined _CALL_ELF || _CALL_ELF == 1)) \
+#if ((defined(SLJIT_CONFIG_PPC_64) && SLJIT_CONFIG_PPC_64) && (!defined(_CALL_ELF) || _CALL_ELF == 1) && !defined(__APPLE__)) \
 	|| ((defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) && defined _AIX)
 /* It seems certain ppc compilers use an indirect addressing for functions
    which makes things complicated. */
@@ -572,7 +572,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 
 #elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 
-#define SLJIT_NUMBER_OF_REGISTERS 23
+#define SLJIT_NUMBER_OF_REGISTERS 24
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 17
 #define SLJIT_NUMBER_OF_FLOAT_REGISTERS 30
 #define SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS 18
