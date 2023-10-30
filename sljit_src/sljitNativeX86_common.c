@@ -378,7 +378,8 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
 #define CPU_FEATURE_LZCNT		0x008
 #define CPU_FEATURE_TZCNT		0x010
 #define CPU_FEATURE_CMOV		0x020
-#define CPU_FEATURE_AVX2		0x040
+#define CPU_FEATURE_AVX			0x040
+#define CPU_FEATURE_AVX2		0x080
 
 static sljit_u32 cpu_feature_list = 0;
 
@@ -504,6 +505,8 @@ static void get_cpu_features(void)
 
 		if (info[2] & 0x80000)
 			feature_list |= CPU_FEATURE_SSE41;
+		if (info[2] & 0x10000000)
+			feature_list |= CPU_FEATURE_AVX;
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
 		if (info[3] & 0x4000000)
 			feature_list |= CPU_FEATURE_SSE2;
@@ -846,6 +849,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 1;
 
 #if !(defined SLJIT_IS_FPU_AVAILABLE) || SLJIT_IS_FPU_AVAILABLE
+	case SLJIT_HAS_AVX:
+		if (cpu_feature_list == 0)
+			get_cpu_features();
+		return (cpu_feature_list & CPU_FEATURE_AVX) != 0;
 	case SLJIT_HAS_AVX2:
 		if (cpu_feature_list == 0)
 			get_cpu_features();
@@ -3900,7 +3907,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 			if (srcdst == freg)
 				opcode = SHUFPS_x_xm;
 			else {
-				if (cpu_feature_list & CPU_FEATURE_AVX2) {
+				if (cpu_feature_list & CPU_FEATURE_AVX) {
 					FAIL_IF(emit_vex_instruction(compiler, SHUFPS_x_xm | EX86_SSE2 | VEX_SSE2_OPV, srcdst, freg, freg, 0));
 					return emit_byte(compiler, U8(lane_index));
 				}
@@ -4125,7 +4132,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 			FAIL_IF(emit_byte(compiler, byte));
 			FAIL_IF(emit_vex_instruction(compiler, SHUFPS_x_xm | VEX_256 | pref | EX86_SSE2 | VEX_SSE2_OPV, freg, freg, freg, 0));
 			byte = U8(src_lane_index);
-		} else if (freg != src && (cpu_feature_list & CPU_FEATURE_AVX2)) {
+		} else if (freg != src && (cpu_feature_list & CPU_FEATURE_AVX)) {
 			FAIL_IF(emit_vex_instruction(compiler, SHUFPS_x_xm | pref | EX86_SSE2 | VEX_SSE2_OPV, freg, src, src, 0));
 		} else {
 			if (freg != src)

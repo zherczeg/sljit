@@ -680,8 +680,10 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_SIMD_REGS_ARE_PAIRS	13
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+/* [Not emulated] AVX support is available on x86. */
+#define SLJIT_HAS_AVX			100
 /* [Not emulated] AVX2 support is available on x86. */
-#define SLJIT_HAS_AVX2			100
+#define SLJIT_HAS_AVX2			101
 #endif
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type);
