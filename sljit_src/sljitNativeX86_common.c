@@ -416,7 +416,7 @@ static void execute_cpu_id(sljit_u32 info[4])
 {
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 
-	__cpuidex(info, info[0], info[2]);
+	__cpuidex((int*)info, (int)info[0], (int)info[2]);
 
 #elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C) || defined(__TINYC__)
 

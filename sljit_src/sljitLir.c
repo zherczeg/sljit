@@ -1301,7 +1301,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_return_void(struct sljit_
 	}
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(compiler->last_return == SLJIT_ARG_TYPE_VOID);
+	CHECK_ARGUMENT(compiler->last_return == SLJIT_ARG_TYPE_RET_VOID);
 #endif
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
