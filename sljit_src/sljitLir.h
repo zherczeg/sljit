@@ -344,7 +344,7 @@ extern "C" {
 #define SLJIT_ARG_TYPE_SCRATCH_REG 0x8
 
 /* Void result, can only be used by SLJIT_ARG_RETURN. */
-#define SLJIT_ARG_TYPE_VOID	0
+#define SLJIT_ARG_TYPE_V	0
 /* Machine word sized integer argument or result. */
 #define SLJIT_ARG_TYPE_W	1
 #define SLJIT_ARG_TYPE_W_R	(SLJIT_ARG_TYPE_W | SLJIT_ARG_TYPE_SCRATCH_REG)
