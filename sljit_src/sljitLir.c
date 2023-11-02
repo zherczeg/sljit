@@ -1078,14 +1078,16 @@ static const char* op1_names[] = {
 	"mov", "mov", "mov", "mov",
 	"mov", "mov", "mov", "mov",
 	"mov", "clz", "ctz", "rev",
-	"rev", "rev", "rev", "rev"
+	"rev", "rev", "rev", "rev",
+	"rev16w", "rev32w"
 };
 
 static const char* op1_types[] = {
 	"", ".u8", ".s8", ".u16",
 	".s16", ".u32", ".s32", "32",
 	".p", "", "", "",
-	".u16", ".s16", ".u32", ".s32"
+	".u16", ".s16", ".u32", ".s32",
+	"", ""
 };
 
 static const char* op2_names[] = {
@@ -1413,7 +1415,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	}
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_REV_S32);
+	CHECK_ARGUMENT(GET_OPCODE(op) >= SLJIT_MOV && GET_OPCODE(op) <= SLJIT_REV32PACK);
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
@@ -1423,6 +1425,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	case SLJIT_MOV_P:
 	case SLJIT_REV_U32:
 	case SLJIT_REV_S32:
+	case SLJIT_REV32PACK:
 		/* Nothing allowed */
 		CHECK_ARGUMENT(!(op & (SLJIT_32 | SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
 		break;

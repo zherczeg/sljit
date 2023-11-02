@@ -691,13 +691,15 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    two separate 32 bit floating point registers (e.g. ARM32). The
    second 32 bit part can be accessed by SLJIT_F64_SECOND. */
 #define SLJIT_HAS_F64_AS_F32_PAIR	11
+/* [Nor wmulated] There is support for word size bulk byte swaps. */
+#define SLJIT_HAS_REVPACK		12
 /* [Not emulated] Some SIMD operations are supported by the compiler. */
-#define SLJIT_HAS_SIMD			12
+#define SLJIT_HAS_SIMD			13
 /* [Not emulated] SIMD registers are mapped to a pair of double precision
    floating point registers. E.g. passing either SLJIT_FR0 or SLJIT_FR1 to
    a simd operation represents the same 128 bit register, and both SLJIT_FR0
    and SLJIT_FR1 are overwritten. */
-#define SLJIT_SIMD_REGS_ARE_PAIRS	13
+#define SLJIT_SIMD_REGS_ARE_PAIRS	14
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] AVX support is available on x86. */
@@ -1149,6 +1151,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
    Note: converts between little and big endian formats
    Note: immediate source argument is not supported */
 #define SLJIT_REV_S32			(SLJIT_OP1_BASE + 15)
+/* Reverse the order of bytes in each 16 bit halfword
+   Flags: - (may destroy flags)
+   Note: converts between little and big endian formats in bulk
+   Note: immediate source argument is not supported */
+#define SLJIT_REV16PACK			(SLJIT_OP1_BASE + 16)
+#define SLJIT_REV16PACK32		(SLJIT_REV16PACK | SLJIT_32)
+/* Reverse the order of bytes in each 32 bit word
+   Flags: - (may destroy flags)
+   Note: converts between little and big endian formats in bulk
+   Note: immediate source argument is not supported */
+#define SLJIT_REV32PACK			(SLJIT_OP1_BASE + 17)
 
 /* The following unary operations are supported by using sljit_emit_op2:
      - binary not: SLJIT_XOR with immedate -1 as src1 or src2

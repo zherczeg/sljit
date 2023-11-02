@@ -1221,14 +1221,21 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		FAIL_IF(push_inst(compiler, REVB_2H | RD(dst) | RJ(src2)));
 		return push_inst(compiler, INST(BSTRPICK, op) | RD(dst) | RJ(dst) | (15 << 16));
 
+	case SLJIT_REV16PACK:
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM));
+		return push_inst(compiler, ((op & SLJIT_32) ? REVB_2H : REVB_4H) | RD(dst) | RJ(src2));
+
 	case SLJIT_REV_S32:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM) && dst != TMP_REG1);
 		FAIL_IF(push_inst(compiler, REVB_2W | RD(dst) | RJ(src2)));
 		return push_inst(compiler, SLLI_W | RD(dst) | RJ(dst) | IMM_I12(0));
 
 	case SLJIT_REV_U32:
+	case SLJIT_REV32PACK:
 		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & SRC2_IMM) && dst != TMP_REG1);
 		FAIL_IF(push_inst(compiler, REVB_2W | RD(dst) | RJ(src2)));
+		if (GET_OPCODE(op) == SLJIT_REV32PACK)
+			return SLJIT_SUCCESS;
 		return push_inst(compiler, BSTRPICK_D | RD(dst) | RJ(dst) | (31 << 16));
 
 	case SLJIT_ADD:
