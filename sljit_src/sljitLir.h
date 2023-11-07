@@ -698,6 +698,8 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    a simd operation represents the same 128 bit register, and both SLJIT_FR0
    and SLJIT_FR1 are overwritten. */
 #define SLJIT_SIMD_REGS_ARE_PAIRS	13
+/* [Not emulated] Atomic support is available (fine-grained). */
+#define SLJIT_HAS_ATOMIC      14
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] AVX support is available on x86. */

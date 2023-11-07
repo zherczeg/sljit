@@ -11560,9 +11560,6 @@ static void test91(void)
 
 static void test92(void)
 {
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
-		|| (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
-		|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	/* Test atomic load and store. */
 	executable_code code;
 	struct sljit_compiler *compiler = sljit_create_compiler(NULL, NULL);
@@ -11573,6 +11570,13 @@ static void test92(void)
 
 	if (verbose)
 		printf("Run test92\n");
+
+	if (!sljit_has_cpu_feature(SLJIT_HAS_ATOMIC)) {
+		if (verbose)
+			printf("no fine-grained atomic available, test92 skipped\n");
+		successful_tests++;
+		return;
+	}
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -11917,7 +11921,6 @@ static void test92(void)
 	FAILED(((sljit_u8*)(buf + 44))[1] != buf[43], "test92 case 59 failed\n");
 
 	sljit_free_code(code.code, NULL);
-#endif
 	successful_tests++;
 }
 
