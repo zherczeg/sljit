@@ -119,6 +119,11 @@ static sljit_s32 silent = 0;
 #define IS_ARM 0
 #endif /* SLJIT_CONFIG_ARM */
 
+#if (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
+#define LOONGARCH_CFG2		0x02
+#define LOONGARCH_LAMCAS	(1 << 28) 
+#endif /* SLJIT_CONFIG_LOONGARCH */
+
 static void cond_set(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_s32 type)
 {
 	/* Testing both sljit_emit_op_flags and sljit_emit_jump. */
@@ -11562,7 +11567,8 @@ static void test92(void)
 {
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 		|| (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
-		|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+		|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
+		|| (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 	/* Test atomic load and store. */
 	executable_code code;
 	struct sljit_compiler *compiler = sljit_create_compiler(NULL, NULL);
@@ -11570,6 +11576,18 @@ static void test92(void)
 	struct sljit_jump *jump;
 	sljit_sw buf[45];
 	sljit_s32 i;
+
+/* Check whether the processor supports LoongArch V1.10's AMCAS instruction*/
+#if (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
+	sljit_u32 cpu_feature_list = 0;
+	__asm__ ("cpucfg %0, %1" : "+&r"(cpu_feature_list) : "r"(LOONGARCH_CFG2));
+	if (!(LOONGARCH_LAMCAS & cpu_feature_list)) {
+		if (verbose)
+			printf("no amcas instruction available, test92 skipped\n");
+		successful_tests++;
+		return;
+	}
+#endif /* SLJIT_CONFIG_LOONGARCH */
 
 	if (verbose)
 		printf("Run test92\n");
