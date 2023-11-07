@@ -46,10 +46,6 @@ typedef sljit_u32 sljit_ins;
 #define TMP_FREG1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
 #define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
 
-/* LoongArch CPUCFG Register */
-#define LOONGARCH_CFG2		0x02
-#define LOONGARCH_LAMCAS	(1 << 28)
-
 static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 7] = {
 	0, 4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 18, 19, 20, 22, 31, 30, 29, 28, 27, 26, 25, 24, 23, 3, 13, 1, 14, 12, 15
 };
@@ -341,10 +337,16 @@ lower parts in the instruction word, denoted by the “L” and “H” suffixes
 
 #define INST(inst, type) ((sljit_ins)((type & SLJIT_32) ? inst##_W : inst##_D))
 
-static sljit_u32 get_cpu_features(void)
+/* LoongArch CPUCFG register for feature detection */
+#define LOONGARCH_CFG2				0x02
+#define LOONGARCH_FEATURE_LAMCAS	(1 << 28)
+
+sljit_u32 cpu_feature_list = 0;
+
+static SLJIT_INLINE sljit_u32 get_cpu_features(void)
 {
-	sljit_u32 cpu_feature_list = 0;
-	__asm__ ("cpucfg %0, %1" : "+&r"(cpu_feature_list) : "r"(LOONGARCH_CFG2));
+	if (cpu_feature_list == 0)
+		__asm__ ("cpucfg %0, %1" : "+&r"(cpu_feature_list) : "r"(LOONGARCH_CFG2));
 	return cpu_feature_list;
 }
 
@@ -650,6 +652,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		/* Available by default. */
 		return 1;
 #endif
+
+	case SLJIT_HAS_ATOMIC:
+		return (LOONGARCH_FEATURE_LAMCAS & get_cpu_features());
 
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_CTZ:
@@ -2988,7 +2993,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
-	if (!(LOONGARCH_LAMCAS & get_cpu_features())) 
+	if (!(LOONGARCH_FEATURE_LAMCAS & get_cpu_features())) 
 		return SLJIT_ERR_UNSUPPORTED;
 
 	switch(GET_OPCODE(op)) {
@@ -3025,7 +3030,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
 
-	if (!(LOONGARCH_LAMCAS & get_cpu_features())) 
+	if (!(LOONGARCH_FEATURE_LAMCAS & get_cpu_features())) 
 		return SLJIT_ERR_UNSUPPORTED;
 
 	switch (GET_OPCODE(op)) {
