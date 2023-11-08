@@ -1449,13 +1449,6 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op1(struct sljit_compiler
 	CHECK_RETURN_OK;
 }
 
-/* experimental API, only implemented for: */
-
-#if (defined(SLJIT_CONFIG_X86) && SLJIT_CONFIG_X86) \
-	|| (defined(SLJIT_CONFIG_ARM) && SLJIT_CONFIG_ARM) \
-	|| (defined(SLJIT_CONFIG_S390X) && SLJIT_CONFIG_S390X) \
-	|| (defined(SLJIT_CONFIG_LOONGARCH) && SLJIT_CONFIG_LOONGARCH)
-
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst_reg,
 	sljit_s32 mem_reg)
@@ -1543,8 +1536,6 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_atomic_store(struct sljit
 #endif /* SLJIT_VERBOSE */
 	CHECK_RETURN_OK;
 }
-
-#endif /* !SLJIT_CONFIG_PPC && !SLJIT_CONFIG_MIPS && !SLJIT_CONFIG_RISCV */
 
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 unset,
 	sljit_s32 dst, sljit_sw dstw,
@@ -3335,6 +3326,47 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 }
 
 #endif /* !SLJIT_CONFIG_X86 && !SLJIT_CONFIG_ARM */
+
+#if !(defined(SLJIT_CONFIG_X86) && SLJIT_CONFIG_X86) \
+	&& !(defined(SLJIT_CONFIG_ARM) && SLJIT_CONFIG_ARM) \
+	&& !(defined(SLJIT_CONFIG_S390X) && SLJIT_CONFIG_S390X) \
+	&& !(defined(SLJIT_CONFIG_LOONGARCH) && SLJIT_CONFIG_LOONGARCH)
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler,
+	sljit_s32 op,
+	sljit_s32 dst_reg,
+	sljit_s32 mem_reg)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(op);
+	SLJIT_UNUSED_ARG(dst_reg);
+	SLJIT_UNUSED_ARG(mem_reg);
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
+
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler,
+	sljit_s32 op,
+	sljit_s32 src_reg,
+	sljit_s32 mem_reg,
+	sljit_s32 temp_reg)
+{
+	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(op);
+	SLJIT_UNUSED_ARG(src_reg);
+	SLJIT_UNUSED_ARG(mem_reg);
+	SLJIT_UNUSED_ARG(temp_reg);
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
+
+	return SLJIT_ERR_UNSUPPORTED;
+}
+
+#endif /* !SLJIT_CONFIG_X86 && !SLJIT_CONFIG_ARM && !SLJIT_CONFIG_S390X && !SLJIT_CONFIG_LOONGARCH */
 
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 	&& !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)

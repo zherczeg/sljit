@@ -444,9 +444,9 @@ static void execute_cpu_id(sljit_u32 info[4])
 		:
 		: "r" (info)
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		: "eax", "ebx", "ecx", "edx", "esi"
+		: "memory", "eax", "ebx", "ecx", "edx", "esi"
 #else /* !SLJIT_CONFIG_X86_32 */
-		: "rax", "rbx", "rcx", "rdx", "rsi"
+		: "memory", "rax", "rbx", "rcx", "rdx", "rsi"
 #endif /* SLJIT_CONFIG_X86_32 */
 	);
 

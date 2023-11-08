@@ -2993,7 +2993,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
-	if (!(LOONGARCH_FEATURE_LAMCAS & get_cpu_features())) 
+	if (!(LOONGARCH_FEATURE_LAMCAS & get_cpu_features()))
 		return SLJIT_ERR_UNSUPPORTED;
 
 	switch(GET_OPCODE(op)) {
@@ -3013,7 +3013,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 		ins = LD_D;
 		break;
 	}
-	
+
 	return push_inst(compiler, ins | RD(dst_reg) | RJ(mem_reg) | IMM_I12(0));
 }
 
@@ -3030,7 +3030,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
 
-	if (!(LOONGARCH_FEATURE_LAMCAS & get_cpu_features())) 
+	if (!(LOONGARCH_FEATURE_LAMCAS & get_cpu_features()))
 		return SLJIT_ERR_UNSUPPORTED;
 
 	switch (GET_OPCODE(op)) {
@@ -3062,7 +3062,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	if (!(op & SLJIT_SET_ATOMIC_STORED))
 		return SLJIT_SUCCESS;
 
-	if (unsign) 
+	if (unsign)
 		FAIL_IF(push_inst(compiler, unsign | RD(tmp) | RJ(tmp)));
 
 	FAIL_IF(push_inst(compiler, XOR | RD(EQUAL_FLAG) | RJ(tmp) | RK(temp_reg)));
