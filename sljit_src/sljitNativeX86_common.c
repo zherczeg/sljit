@@ -426,9 +426,11 @@ static void execute_cpu_id(sljit_u32 info[4])
 		"movl %0, %%esi\n"
 		"movl (%%esi), %%eax\n"
 		"movl 8(%%esi), %%ecx\n"
+		"pushl %%ebx\n"
 		"cpuid\n"
 		"movl %%eax, (%%esi)\n"
 		"movl %%ebx, 4(%%esi)\n"
+		"popl %%ebx\n"
 		"movl %%ecx, 8(%%esi)\n"
 		"movl %%edx, 12(%%esi)\n"
 #else /* !SLJIT_CONFIG_X86_32 */
@@ -444,7 +446,7 @@ static void execute_cpu_id(sljit_u32 info[4])
 		:
 		: "r" (info)
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		: "memory", "eax", "ebx", "ecx", "edx", "esi"
+		: "memory", "eax", "ecx", "edx", "esi"
 #else /* !SLJIT_CONFIG_X86_32 */
 		: "memory", "rax", "rbx", "rcx", "rdx", "rsi"
 #endif /* SLJIT_CONFIG_X86_32 */
