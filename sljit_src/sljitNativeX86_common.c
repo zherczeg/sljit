@@ -414,41 +414,40 @@ static SLJIT_INLINE void sljit_unaligned_store_sw(void *addr, sljit_sw value)
 
 static void execute_cpu_id(sljit_u32 info[4])
 {
+#if (defined(SLJIT_CONFIG_X86_32) && SLJIT_CONFIG_X86_32) && defined(__GNUC__)
+	register int *linfo __asm__ ("esi");
+#else
+	int *linfo;
+#endif
+	linfo = (int *)info;
+
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 
-	__cpuidex((int*)info, (int)info[0], (int)info[2]);
+	__cpuidex(linfo, linfo[0], linfo[2]);
 
 #elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C) || defined(__TINYC__)
 
 	/* AT&T syntax. */
-	__asm__ (
+	__asm__ volatile (
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		"movl %0, %%esi\n"
-		"movl (%%esi), %%eax\n"
-		"movl 8(%%esi), %%ecx\n"
 		"pushl %%ebx\n"
-		"cpuid\n"
-		"movl %%eax, (%%esi)\n"
-		"movl %%ebx, 4(%%esi)\n"
-		"popl %%ebx\n"
-		"movl %%ecx, 8(%%esi)\n"
-		"movl %%edx, 12(%%esi)\n"
-#else /* !SLJIT_CONFIG_X86_32 */
-		"movq %0, %%rsi\n"
-		"movl (%%rsi), %%eax\n"
-		"movl 8(%%rsi), %%ecx\n"
-		"cpuid\n"
-		"movl %%eax, (%%rsi)\n"
-		"movl %%ebx, 4(%%rsi)\n"
-		"movl %%ecx, 8(%%rsi)\n"
-		"movl %%edx, 12(%%rsi)\n"
 #endif /* SLJIT_CONFIG_X86_32 */
-		:
-		: "r" (info)
+		"movl (%0), %%eax\n"
+		"movl 8(%0), %%ecx\n"
+		"cpuid\n"
+		"movl %%eax, (%0)\n"
+		"movl %%ebx, 4(%0)\n"
+		"movl %%ecx, 8(%0)\n"
+		"movl %%edx, 12(%0)\n"
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		: "memory", "eax", "ecx", "edx", "esi"
+		"popl %%ebx\n"
+#endif /* SLJIT_CONFIG_X86_32 */
+		: "=r" (linfo)
+		: "0" (linfo)
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		: "memory", "eax", "ecx", "edx"
 #else /* !SLJIT_CONFIG_X86_32 */
-		: "memory", "rax", "rbx", "rcx", "rdx", "rsi"
+		: "memory", "rax", "rbx", "rcx", "rdx"
 #endif /* SLJIT_CONFIG_X86_32 */
 	);
 
@@ -518,7 +517,7 @@ static void get_cpu_features(void)
 	}
 
 	info[0] = 0x80000001;
-	info[2] = 0; /* Silences an incorrect compiler warning. */
+	info[2] = 0; /* Silences a compiler warning. */
 	execute_cpu_id(info);
 
 	if (info[2] & 0x20)
