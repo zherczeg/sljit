@@ -23,12 +23,16 @@ ifndef OPT_FLAGS
 OPT_FLAGS = -O2
 endif
 
+ifndef WARN_FLAGS
+WARN_FLAGS = -Wall -Wextra -Wconversion -Wsign-compare -Wdeclaration-after-statement -Wunused-function
+endif
+
 ifndef WERROR
 WERROR = -Werror
 endif
 
 CPPFLAGS = $(EXTRA_CPPFLAGS) -Isljit_src
-CFLAGS += $(OPT_FLAGS) -Wall -Wextra -Wconversion -Wsign-compare -Wdeclaration-after-statement $(WERROR)
+CFLAGS += $(OPT_FLAGS) $(WARN_FLAGS) $(WERROR)
 REGEX_CFLAGS += $(CFLAGS) -fshort-wchar
 LDFLAGS = $(EXTRA_LDFLAGS)
 
