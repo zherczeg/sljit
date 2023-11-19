@@ -14780,6 +14780,167 @@ static void test104(void)
 	successful_tests++;
 }
 
+static void test105(void)
+{
+	/* Test accessing temporary registers. */
+	executable_code code;
+	struct sljit_compiler* compiler;
+	sljit_sw buf[SLJIT_NUMBER_OF_TEMPORARY_REGISTERS + SLJIT_NUMBER_OF_REGISTERS - 1];
+	sljit_f64 fbuf[2 * (SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS + SLJIT_NUMBER_OF_FLOAT_REGISTERS)];
+	sljit_s32 i, ctr;
+
+	if (verbose)
+		printf("Run test105\n");
+
+	for (i = 0; i < SLJIT_NUMBER_OF_TEMPORARY_REGISTERS; i++)
+		buf[i] = -1;
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), SLJIT_NUMBER_OF_REGISTERS - 1, 1, 0, 0, 0);
+
+	ctr = 123;
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_R0, 0, SLJIT_IMM, ctr);
+
+	/* Set registers, also works for virtual registers. */
+	for (i = 1; i < SLJIT_NUMBER_OF_TEMPORARY_REGISTERS; i++)
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_R(i), 0, SLJIT_IMM, ++ctr);
+
+	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS - 1; i++)
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, ++ctr);
+
+	/* Save registers, temporaries first to avoid issues when virtual registers are copied. */
+	ctr = 0;
+	for (i = 0; i < SLJIT_NUMBER_OF_TEMPORARY_REGISTERS; i++, ctr += (sljit_s32)sizeof(sljit_sw))
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), ctr, SLJIT_TMP_R(i), 0);
+
+	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS - 1; i++, ctr += (sljit_s32)sizeof(sljit_sw))
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), ctr, SLJIT_R(i), 0);
+
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)buf);
+
+	for (i = 0; i < (SLJIT_NUMBER_OF_TEMPORARY_REGISTERS + SLJIT_NUMBER_OF_REGISTERS - 1); i++) {
+		FAILED(buf[i] != (123 + i), "test105 case 1 failed\n");
+	}
+
+	sljit_free_code(code.code, NULL);
+
+	if (!sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
+		successful_tests++;
+		return;
+	}
+
+	ctr = SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS + SLJIT_NUMBER_OF_FLOAT_REGISTERS;
+	for (i = 0; i < ctr; i++) {
+		fbuf[i] = 123.0 + i;
+		fbuf[ctr + i] = -1.0;
+	}
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 0, 1, SLJIT_NUMBER_OF_FLOAT_REGISTERS, 0, 0);
+
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_TMP_FR0, 0, SLJIT_MEM1(SLJIT_S0), 0);
+	ctr = sizeof(sljit_f64);
+	for (i = 1; i < SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS; i++, ctr += (sljit_s32)(sizeof(sljit_f64)))
+		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_TMP_FR(i), 0, SLJIT_MEM1(SLJIT_S0), ctr);
+
+	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++, ctr += (sljit_s32)(sizeof(sljit_f64)))
+		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR(i), 0, SLJIT_MEM1(SLJIT_S0), ctr);
+
+	for (i = 0; i < SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS; i++, ctr += (sljit_s32)(sizeof(sljit_f64)))
+		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), ctr, SLJIT_TMP_FR(i), 0);
+
+	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++, ctr += (sljit_s32)(sizeof(sljit_f64)))
+		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), ctr, SLJIT_FR(i), 0);
+
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)fbuf);
+
+	ctr = SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS + SLJIT_NUMBER_OF_FLOAT_REGISTERS;
+	for (i = 0; i < ctr; i++) {
+		FAILED(fbuf[ctr + i] != (123.0 + i), "test105 case 2 failed\n");
+	}
+
+	sljit_free_code(code.code, NULL);
+
+	if (sljit_has_cpu_feature(SLJIT_HAS_F64_AS_F32_PAIR)) {
+		fbuf[0] = 123456789012.0;
+		fbuf[1] = -1.0;
+
+		compiler = sljit_create_compiler(NULL, NULL);
+		FAILED(!compiler, "cannot create compiler\n");
+
+		sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 0, 1, SLJIT_NUMBER_OF_FLOAT_REGISTERS, 0, 0);
+
+#if (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
+		sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_TMP_FR0, 0, SLJIT_MEM1(SLJIT_S0), 0);
+		sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_F64_SECOND(SLJIT_TMP_FR0), 0, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f32));
+#else /* !SLJIT_LITTLE_ENDIAN */
+		sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_TMP_FR0, 0, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f32));
+		sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_F64_SECOND(SLJIT_TMP_FR0), 0, SLJIT_MEM1(SLJIT_S0), 0);
+#endif /* SLJIT_LITTLE_ENDIAN */
+
+		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f64), SLJIT_TMP_FR0, 0);
+
+		sljit_emit_return_void(compiler);
+
+		code.code = sljit_generate_code(compiler);
+		CHECK(compiler);
+		sljit_free_compiler(compiler);
+
+		code.func1((sljit_sw)fbuf);
+
+		FAILED(fbuf[1] != 123456789012.0, "test105 case 3 failed\n");
+
+		sljit_free_code(code.code, NULL);
+	}
+
+	if (sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
+		fbuf[0] = 123456789012.0;
+		fbuf[1] = 456789012345.0;
+		fbuf[2] = -1.0;
+		fbuf[3] = -1.0;
+
+		compiler = sljit_create_compiler(NULL, NULL);
+		FAILED(!compiler, "cannot create compiler\n");
+
+		sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 0, 1, SLJIT_NUMBER_OF_FLOAT_REGISTERS, 0, 0);
+
+		i = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_64 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_MEM_ALIGNED_64;
+		sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | i, SLJIT_TMP_FR0, SLJIT_MEM1(SLJIT_S0), 0);
+		sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | i, SLJIT_TMP_FR0, SLJIT_MEM1(SLJIT_S0), 16);
+
+		sljit_emit_return_void(compiler);
+
+		code.code = sljit_generate_code(compiler);
+		CHECK(compiler);
+		sljit_free_compiler(compiler);
+
+		code.func1((sljit_sw)fbuf);
+
+		FAILED(fbuf[2] != 123456789012.0, "test105 case 4 failed\n");
+		FAILED(fbuf[3] != 456789012345.0, "test105 case 5 failed\n");
+
+		sljit_free_code(code.code, NULL);
+	}
+
+	successful_tests++;
+}
+
 int sljit_test(int argc, char* argv[])
 {
 	sljit_s32 has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
@@ -14897,12 +15058,13 @@ int sljit_test(int argc, char* argv[])
 	test102();
 	test103();
 	test104();
+	test105();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 104
+#	define TEST_COUNT 105
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

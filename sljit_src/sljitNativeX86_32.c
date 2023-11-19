@@ -148,7 +148,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 		else if (!(flags & EX86_SSE2_OP1))
 			*buf_ptr = U8(reg_map[a] << 3);
 		else
-			*buf_ptr = U8(a << 3);
+			*buf_ptr = U8(freg_map[a] << 3);
 	} else {
 		if (a == SLJIT_IMM) {
 			if (imma == 1)
@@ -161,7 +161,7 @@ static sljit_u8* emit_x86_instruction(struct sljit_compiler *compiler, sljit_uw 
 	}
 
 	if (!(b & SLJIT_MEM)) {
-		*buf_ptr = U8(*buf_ptr | MOD_REG | (!(flags & EX86_SSE2_OP2) ? reg_map[b] : b));
+		*buf_ptr = U8(*buf_ptr | MOD_REG | (!(flags & EX86_SSE2_OP2) ? reg_map[b] : freg_map[b]));
 		buf_ptr++;
 	} else if (b & REG_MASK) {
 		reg_map_b = reg_map[b & REG_MASK];
@@ -257,7 +257,7 @@ static sljit_s32 emit_vex_instruction(struct sljit_compiler *compiler, sljit_uw 
 	if (op & VEX_256)
 		vex |= 0x4;
 
-	vex = U8(vex | ((((op & VEX_SSE2_OPV) ? v : reg_map[v]) ^ 0xf) << 3));
+	vex = U8(vex | ((((op & VEX_SSE2_OPV) ? freg_map[v] : reg_map[v]) ^ 0xf) << 3));
 
 	size = op & ~(sljit_uw)0xff;
 	size |= (vex_m == 0) ? 3 : 4;

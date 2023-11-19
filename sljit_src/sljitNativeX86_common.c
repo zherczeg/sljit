@@ -61,15 +61,18 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
     15 - R15
 */
 
-#define TMP_FREG	(0)
+#define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
+#define TMP_FREG	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 
-/* Last register + 1. */
-#define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
 
 static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 3] = {
 	0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 5, 7, 6, 4, 3
+};
+
+static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2] = {
+	0, 1, 2, 3, 4, 5, 6, 7, 0
 };
 
 #define CHECK_EXTRA_REGS(p, w, do) \
@@ -81,8 +84,6 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 3] = {
 
 #else /* SLJIT_CONFIG_X86_32 */
 
-/* Last register + 1. */
-#define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
 #define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
 
 /* Note: r12 & 0x7 == 0b100, which decoded as SIB byte present
@@ -95,7 +96,7 @@ static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 4] = {
 };
 /* low-map. reg_map & 0x7. */
 static const sljit_u8 reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 4] = {
-	0, 0, 6, 7, 1, 0, 3,  2,  4,  5,  5,  6,  7, 3, 4, 2, 1
+	0, 0, 6, 7, 1, 0,  3,  2,  4, 5,  5,  6,  7, 3, 4, 2, 1
 };
 #else
 /* Args: rcx(=1), rdx(=2), r8, r9. Scratches: rax(=0), r10, r11 */
@@ -109,12 +110,12 @@ static const sljit_u8 reg_lmap[SLJIT_NUMBER_OF_REGISTERS + 4] = {
 #endif
 
 /* Args: xmm0-xmm3 */
-static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
-	4, 0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2] = {
+	0, 0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 4
 };
 /* low-map. freg_map & 0x7. */
-static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
-	4, 0, 1, 2, 3, 5, 6, 7, 0, 1, 2,  3,  4,  5,  6,  7
+static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2] = {
+	0, 0, 1, 2, 3, 5, 6, 7, 0, 1,  2,  3,  4,  5,  6,  7, 4
 };
 
 #define REX_W		0x48

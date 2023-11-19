@@ -848,7 +848,8 @@ static sljit_s32 function_check_arguments(sljit_s32 arg_types, sljit_s32 scratch
 
 #define FUNCTION_CHECK_IS_REG(r) \
 	(((r) >= SLJIT_R0 && (r) < (SLJIT_R0 + compiler->scratches)) \
-	|| ((r) > (SLJIT_S0 - compiler->saveds) && (r) <= SLJIT_S0))
+	|| ((r) > (SLJIT_S0 - compiler->saveds) && (r) <= SLJIT_S0) \
+	|| ((r) >= SLJIT_TMP_REGISTER_BASE && (r) < (SLJIT_TMP_REGISTER_BASE + SLJIT_NUMBER_OF_TEMPORARY_REGISTERS)))
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 #define CHECK_IF_VIRTUAL_REGISTER(p) ((p) <= SLJIT_S3 && (p) >= SLJIT_S8)
@@ -956,7 +957,8 @@ static sljit_s32 function_check_is_freg(struct sljit_compiler *compiler, sljit_s
 		return 0;
 
 	return (fr >= SLJIT_FR0 && fr < (SLJIT_FR0 + compiler->fscratches))
-		|| (fr > (SLJIT_FS0 - compiler->fsaveds) && fr <= SLJIT_FS0);
+		|| (fr > (SLJIT_FS0 - compiler->fsaveds) && fr <= SLJIT_FS0)
+		|| (fr >= SLJIT_TMP_FREGISTER_BASE && fr < (SLJIT_TMP_FREGISTER_BASE + SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS));
 }
 
 #define FUNCTION_FCHECK(p, i, is_32) \
@@ -968,7 +970,8 @@ static sljit_s32 function_fcheck(struct sljit_compiler *compiler, sljit_s32 p, s
 		return 0;
 
 	if ((p >= SLJIT_FR0 && p < (SLJIT_FR0 + compiler->fscratches))
-			|| (p > (SLJIT_FS0 - compiler->fsaveds) && p <= SLJIT_FS0))
+			|| (p > (SLJIT_FS0 - compiler->fsaveds) && p <= SLJIT_FS0)
+			|| (p >= SLJIT_TMP_FREGISTER_BASE && p < (SLJIT_TMP_FREGISTER_BASE + SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS)))
 		return (i == 0);
 
 	return function_check_src_mem(compiler, p, i);
@@ -1003,26 +1006,30 @@ static void sljit_verbose_reg(struct sljit_compiler *compiler, sljit_s32 r)
 {
 	if (r < (SLJIT_R0 + compiler->scratches))
 		fprintf(compiler->verbose, "r%d", r - SLJIT_R0);
-	else if (r != SLJIT_SP)
+	else if (r < SLJIT_SP)
 		fprintf(compiler->verbose, "s%d", SLJIT_NUMBER_OF_REGISTERS - r);
-	else
+	else if (r == SLJIT_SP)
 		fprintf(compiler->verbose, "sp");
+	else
+		fprintf(compiler->verbose, "t%d", r - SLJIT_TMP_REGISTER_BASE);
 }
 
 static void sljit_verbose_freg(struct sljit_compiler *compiler, sljit_s32 r)
 {
 #if (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) \
 		|| (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
-	if (r >= (SLJIT_FS0 + SLJIT_FR0) && r <= (SLJIT_FS0 + SLJIT_FS0)) {
+	if (r >= SLJIT_F64_SECOND(SLJIT_FR0)) {
 		fprintf(compiler->verbose, "^");
-		r -= SLJIT_FS0;
+		r -= SLJIT_F64_SECOND(0);
 	}
 #endif /* SLJIT_CONFIG_ARM_32 || SLJIT_CONFIG_MIPS_32 */
 
 	if (r < (SLJIT_FR0 + compiler->fscratches))
 		fprintf(compiler->verbose, "fr%d", r - SLJIT_FR0);
-	else
+	else if (r < SLJIT_TMP_FREGISTER_BASE)
 		fprintf(compiler->verbose, "fs%d", SLJIT_NUMBER_OF_FLOAT_REGISTERS - r);
+	else
+		fprintf(compiler->verbose, "ft%d", r - SLJIT_TMP_FREGISTER_BASE);
 }
 
 static void sljit_verbose_param(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i)

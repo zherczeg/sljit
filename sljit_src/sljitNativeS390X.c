@@ -106,10 +106,10 @@ static const sljit_gpr r15 = 15;	/* reg_map[SLJIT_NUMBER_OF_REGISTERS + 1]: stac
 /* Link register. */
 static const sljit_gpr link_r = 14;     /* r14 */
 
-#define TMP_FREG1	(0)
+#define TMP_FREG1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
 
-static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1] = {
-	1, 0, 2, 4, 6, 3, 5, 7, 15, 14, 13, 12, 11, 10, 9, 8,
+static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2] = {
+	0, 0, 2, 4, 6, 3, 5, 7, 15, 14, 13, 12, 11, 10, 9, 8, 1
 };
 
 #define R0A(r) (r)

@@ -41,26 +41,28 @@ typedef sljit_u32 sljit_ins;
 #define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
 #define TMP_PC		(SLJIT_NUMBER_OF_REGISTERS + 4)
 
-#define TMP_FREG1	((SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 1)
-#define TMP_FREG2	((SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 2)
+#define TMP_FREG1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
+#define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
 
 /* See sljit_emit_enter and sljit_emit_op0 if you want to change them. */
 static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
 	0, 0, 1, 2, 3, 11, 10, 9, 8, 7, 6, 5, 4, 13, 12, 14, 15
 };
 
-static const sljit_u8 freg_map[(SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 3] = {
+static const sljit_u8 freg_map[((SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2) << 1) + 1] = {
 	0,
 	0, 1, 2, 3, 4, 5, 15, 14, 13, 12, 11, 10, 9, 8,
+	7, 6,
 	0, 1, 2, 3, 4, 5, 15, 14, 13, 12, 11, 10, 9, 8,
-	6, 7
+	7, 6
 };
 
-static const sljit_u8 freg_ebit_map[(SLJIT_NUMBER_OF_FLOAT_REGISTERS << 1) + 3] = {
+static const sljit_u8 freg_ebit_map[((SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2) << 1) + 1] = {
 	0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0,
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-	0, 0
+	1, 1
 };
 
 #define COPY_BITS(src, from, to, bits) \
@@ -258,11 +260,12 @@ static sljit_s32 function_check_is_freg(struct sljit_compiler *compiler, sljit_s
 	if (compiler->scratches == -1)
 		return 0;
 
-	if (is_32 && fr >= (SLJIT_FS0 + SLJIT_FR0) && fr <= (SLJIT_FS0 + SLJIT_FS0))
-		fr -= SLJIT_FS0;
+	if (is_32 && fr >= SLJIT_F64_SECOND(SLJIT_FR0))
+		fr -= SLJIT_F64_SECOND(0);
 
 	return (fr >= SLJIT_FR0 && fr < (SLJIT_FR0 + compiler->fscratches))
-		|| (fr > (SLJIT_FS0 - compiler->fsaveds) && fr <= SLJIT_FS0);
+		|| (fr > (SLJIT_FS0 - compiler->fsaveds) && fr <= SLJIT_FS0)
+		|| (fr >= SLJIT_TMP_FREGISTER_BASE && fr < (SLJIT_TMP_FREGISTER_BASE + SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS));
 }
 
 #endif /* SLJIT_ARGUMENT_CHECKS */
@@ -3716,8 +3719,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 			}
 
 			if (srcdst == freg || (elem_size == 3 && srcdst == (freg + SLJIT_QUAD_OTHER_HALF(freg)))) {
-				FAIL_IF(push_inst32(compiler, VORR | ins | VD4(TMP_FREG1) | VN4(freg) | VM4(freg)));
-				srcdst = TMP_FREG1;
+				FAIL_IF(push_inst32(compiler, VORR | ins | VD4(TMP_FREG2) | VN4(freg) | VM4(freg)));
+				srcdst = TMP_FREG2;
 				srcdstw = 0;
 			}
 		}
@@ -3878,7 +3881,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 		src = simd_get_quad_reg_index(src);
 
 	if (!(type & SLJIT_SIMD_FLOAT)) {
-		dst_reg = (reg_size == 4) ? freg : TMP_FREG1;
+		dst_reg = (reg_size == 4) ? freg : TMP_FREG2;
 
 		do {
 			FAIL_IF(push_inst32(compiler, VSHLL | ((type & SLJIT_SIMD_EXTEND_SIGNED) ? 0 : (1 << 28))
@@ -3886,8 +3889,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 			src = dst_reg;
 		} while (++elem_size < elem2_size);
 
-		if (dst_reg == TMP_FREG1)
-			return push_inst32(compiler, VORR | VD4(freg) | VN4(TMP_FREG1) | VM4(TMP_FREG1));
+		if (dst_reg == TMP_FREG2)
+			return push_inst32(compiler, VORR | VD4(freg) | VN4(TMP_FREG2) | VM4(TMP_FREG2));
 		return SLJIT_SUCCESS;
 	}
 
@@ -3953,27 +3956,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 		ins |= (sljit_ins)1 << 6;
 	}
 
-	SLJIT_ASSERT((freg_map[TMP_FREG1] & 0x1) == 0);
-	FAIL_IF(push_inst32(compiler, ins | VD4(TMP_FREG1) | VM4(freg)));
+	SLJIT_ASSERT((freg_map[TMP_FREG2] & 0x1) == 0);
+	FAIL_IF(push_inst32(compiler, ins | VD4(TMP_FREG2) | VM4(freg)));
 
 	if (reg_size == 4 && elem_size > 0)
-		FAIL_IF(push_inst32(compiler, VMOVN | ((sljit_ins)(elem_size - 1) << 18) | VD4(TMP_FREG1) | VM4(TMP_FREG1)));
+		FAIL_IF(push_inst32(compiler, VMOVN | ((sljit_ins)(elem_size - 1) << 18) | VD4(TMP_FREG2) | VM4(TMP_FREG2)));
 
 	ins = (reg_size == 4 && elem_size == 0) ? (1 << 6) : 0;
 
 	while (imms >= 0x100) {
-		FAIL_IF(push_inst32(compiler, VSRA | (1 << 28) | ins | ((imms & 0xff) << 16) | VD4(TMP_FREG1) | VM4(TMP_FREG1)));
+		FAIL_IF(push_inst32(compiler, VSRA | (1 << 28) | ins | ((imms & 0xff) << 16) | VD4(TMP_FREG2) | VM4(TMP_FREG2)));
 		imms >>= 8;
 	}
 
-	FAIL_IF(push_inst32(compiler, VSRA | (1 << 28) | ins | (1 << 7) | (imms << 16) | VD4(TMP_FREG1) | VM4(TMP_FREG1)));
+	FAIL_IF(push_inst32(compiler, VSRA | (1 << 28) | ins | (1 << 7) | (imms << 16) | VD4(TMP_FREG2) | VM4(TMP_FREG2)));
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
-	FAIL_IF(push_inst32(compiler, VMOV_s | (1 << 20) | (1 << 23) | (0x2 << 21) | RT4(dst_r) | VN4(TMP_FREG1)));
+	FAIL_IF(push_inst32(compiler, VMOV_s | (1 << 20) | (1 << 23) | (0x2 << 21) | RT4(dst_r) | VN4(TMP_FREG2)));
 
 	if (reg_size == 4 && elem_size == 0) {
-		SLJIT_ASSERT(freg_map[TMP_FREG1] + 1 == freg_map[TMP_FREG2]);
-		FAIL_IF(push_inst32(compiler, VMOV_s | (1 << 20) | (1 << 23) | (0x2 << 21) | RT4(TMP_REG2) | VN4(TMP_FREG2)));
+		SLJIT_ASSERT(freg_map[TMP_FREG2] + 1 == freg_map[TMP_FREG1]);
+		FAIL_IF(push_inst32(compiler, VMOV_s | (1 << 20) | (1 << 23) | (0x2 << 21) | RT4(TMP_REG2)| VN4(TMP_FREG1)));
 		FAIL_IF(push_inst32(compiler, ORR_W | RD4(dst_r) | RN4(dst_r) | RM4(TMP_REG2) | (0x2 << 12)));
 	}
 

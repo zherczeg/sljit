@@ -1610,9 +1610,10 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 		compiler->cache_argw = 0;
 	}
 
-	if (dst == TMP_REG2) {
+	if (dst == 0) {
 		SLJIT_ASSERT(HAS_FLAGS(op));
 		flags |= UNUSED_DEST;
+		dst = TMP_REG2;
 	}
 	else if (FAST_IS_REG(dst)) {
 		dst_r = dst;
@@ -1891,7 +1892,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 	CHECK(check_sljit_emit_op2(compiler, op, 1, 0, 0, src1, src1w, src2, src2w));
 
 	SLJIT_SKIP_CHECKS(compiler);
-	return sljit_emit_op2(compiler, op, TMP_REG2, 0, src1, src1w, src2, src2w);
+	return sljit_emit_op2(compiler, op, 0, 0, src1, src1w, src2, src2w);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
