@@ -47,8 +47,8 @@ static const sljit_ins sljit_ins_const = (sljit_ins)1 << 48;
 #define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
 #define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
 
-static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 4] = {
-	0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 0, 1
+static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 5] = {
+	0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 0, 1, 14
 };
 
 /* there are also a[2-15] available, but they are slower to access and
@@ -83,7 +83,7 @@ static const sljit_gpr r10 = 10;	/* reg_map[9] */
 static const sljit_gpr r11 = 11;	/* reg_map[10] */
 static const sljit_gpr r12 = 12;	/* reg_map[11]: GOT */
 static const sljit_gpr r13 = 13;	/* reg_map[12]: Literal Pool pointer */
-static const sljit_gpr r14 = 14;	/* reg_map[0]: return address and flag register */
+static const sljit_gpr r14 = 14;	/* reg_map[0]: return address */
 static const sljit_gpr r15 = 15;	/* reg_map[SLJIT_NUMBER_OF_REGISTERS + 1]: stack pointer */
 
 /* WARNING: r12 and r13 shouldn't be used as per ABI recommendation */
@@ -95,10 +95,6 @@ static const sljit_gpr r15 = 15;	/* reg_map[SLJIT_NUMBER_OF_REGISTERS + 1]: stac
 /* TODO(carenas): should be named TMP_REG[1-2] for consistency */
 #define tmp0	r0
 #define tmp1	r1
-
-/* TODO(carenas): flags should move to a different register so that
- *                link register doesn't need to change
- */
 
 /* When reg cannot be unused. */
 #define IS_GPR_REG(reg)		((reg > 0) && (reg) <= SLJIT_SP)
@@ -900,23 +896,17 @@ static sljit_s32 push_load_imm_inst(struct sljit_compiler *compiler, sljit_gpr t
 	if (((sljit_uw)v & ~(sljit_uw)0xffff000000000000) == 0)
 		return push_inst(compiler, llihh(target, (sljit_u16)(v >> 48)));
 
-	/* 6 byte instructions (requires extended immediate facility) */
-	if (have_eimm()) {
-		if (is_s32(v))
-			return push_inst(compiler, lgfi(target, (sljit_s32)v));
+	if (is_s32(v))
+		return push_inst(compiler, lgfi(target, (sljit_s32)v));
 
-		if (((sljit_uw)v >> 32) == 0)
-			return push_inst(compiler, llilf(target, (sljit_u32)v));
+	if (((sljit_uw)v >> 32) == 0)
+		return push_inst(compiler, llilf(target, (sljit_u32)v));
 
-		if (((sljit_uw)v << 32) == 0)
-			return push_inst(compiler, llihf(target, (sljit_u32)((sljit_uw)v >> 32)));
+	if (((sljit_uw)v << 32) == 0)
+		return push_inst(compiler, llihf(target, (sljit_u32)((sljit_uw)v >> 32)));
 
-		FAIL_IF(push_inst(compiler, llilf(target, (sljit_u32)v)));
-		return push_inst(compiler, iihf(target, (sljit_u32)(v >> 32)));
-	}
-
-	/* TODO(mundaym): instruction sequences that don't use extended immediates */
-	abort();
+	FAIL_IF(push_inst(compiler, llilf(target, (sljit_u32)v)));
+	return push_inst(compiler, iihf(target, (sljit_u32)(v >> 32)));
 }
 
 struct addr {
