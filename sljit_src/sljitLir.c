@@ -1995,7 +1995,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fset64(struct sljit_compi
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
 		fprintf(compiler->verbose, "  fset64 ");
 		sljit_verbose_freg(compiler, freg);
-		fprintf(compiler->verbose, ", %lf\n", value);
+		fprintf(compiler->verbose, ", %f\n", value);
 	}
 #endif
 	CHECK_RETURN_OK;

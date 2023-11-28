@@ -3056,7 +3056,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 
 		inst = emit_x86_instruction(compiler, 2 | EX86_PREF_66 | EX86_SSE2_OP2, 0, 0, dst_r, 0);
 		inst[0] = GROUP_0F;
-		// Same as PSRLD_x / PSRLQ_x
+		/* Same as PSRLD_x / PSRLQ_x */
 		inst[1] = (op & SLJIT_32) ? PSLLD_x_i8 : PSLLQ_x_i8;
 
 		if (GET_OPCODE(op) == SLJIT_ABS_F64) {
