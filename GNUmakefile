@@ -8,7 +8,9 @@ endif
 endif
 
 ifndef COMPAT_FLAGS
-COMPAT_FLAGS = -std=c89 -pedantic -Wpedantic
+# Should be replaced by proper warning options
+#COMPAT_FLAGS = -std=c89 -pedantic -Wpedantic
+COMPAT_FLAGS =
 endif
 
 ifndef OPT_FLAGS

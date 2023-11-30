@@ -2705,3 +2705,171 @@ static void test_float21(void)
 
 	successful_tests++;
 }
+
+static void test_float22(void)
+{
+	/* Test float to int conversion corner cases. */
+	executable_code code;
+	struct sljit_compiler *compiler;
+	struct sljit_label *label;
+	int i;
+
+	union {
+		sljit_f64 value_f64;
+		sljit_uw value_uw;
+		sljit_u32 value_u32;
+
+		struct {
+#if defined(SLJIT_LITTLE_ENDIAN) && SLJIT_LITTLE_ENDIAN
+			sljit_u32 lo;
+			sljit_u32 hi;
+#else /* !SLJIT_LITTLE_ENDIAN */
+			sljit_u32 hi;
+			sljit_u32 lo;
+#endif /* SLJIT_LITTLE_ENDIAN */
+		} bits;
+	} dbuf[32];
+	union {
+		sljit_f32 value_f32;
+		sljit_u32 bits;
+	} sbuf[6];
+
+	const sljit_uw min_uw = (sljit_uw)1 << ((sizeof(sljit_uw) * 8) - 1);
+	const sljit_u32 min_u32 = (sljit_u32)1 << 31;
+
+#if SLJIT_CONV_MAX_FLOAT == SLJIT_CONV_RESULT_MIN_INT
+	const sljit_uw large_pos_uw = min_uw;
+	const sljit_u32 large_pos_u32 = min_u32;
+#else
+	const sljit_uw large_pos_uw = min_uw - 1;
+	const sljit_u32 large_pos_u32 = min_u32 - 1;
+#endif
+
+#if SLJIT_CONV_MIN_FLOAT == SLJIT_CONV_RESULT_MIN_INT
+	const sljit_uw large_neg_uw = min_uw;
+	const sljit_u32 large_neg_u32 = min_u32;
+#else
+	const sljit_uw large_neg_uw = min_uw - 1;
+	const sljit_u32 large_neg_u32 = min_u32 - 1;
+#endif
+
+#if SLJIT_CONV_NAN_FLOAT == SLJIT_CONV_RESULT_MIN_INT
+	const sljit_uw nan_uw = min_uw;
+	const sljit_u32 nan_u32 = min_u32;
+#elif SLJIT_CONV_NAN_FLOAT == SLJIT_CONV_RESULT_MAX_INT
+	const sljit_uw nan_uw = min_uw - 1;
+	const sljit_u32 nan_u32 = min_u32 - 1;
+#else
+	const sljit_uw nan_uw = 0;
+	const sljit_u32 nan_u32 = 0;
+#endif
+
+	if (verbose)
+		printf("Run test_float22\n");
+
+	compiler = sljit_create_compiler(NULL, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	for (i = 0; i < 31; i++)
+		dbuf[i].value_f64 = 123.0;
+
+	/* Large positive integer */
+	dbuf[0].bits.hi = (sljit_u32)0x7fe << 20;
+	dbuf[0].bits.lo = 0;
+	/* Large negative integer */
+	dbuf[1].bits.hi = (sljit_u32)0xffe << 20;
+	dbuf[1].bits.lo = 0;
+	/* Positive infinity */
+	dbuf[2].bits.hi = (sljit_u32)0x7ff << 20;
+	dbuf[2].bits.lo = 0;
+	/* Negative infinity */
+	dbuf[3].bits.hi = (sljit_u32)0xfff << 20;
+	dbuf[3].bits.lo = 0;
+	/* Canonical NaN */
+	dbuf[4].bits.hi = (sljit_u32)0xfff << 19;
+	dbuf[4].bits.lo = 0;
+	/* NaN */
+	dbuf[5].bits.hi = (sljit_u32)0xfff << 20;
+	dbuf[5].bits.lo = 1;
+
+	/* Large positive integer */
+	sbuf[0].bits = (sljit_u32)0x7f000000;
+	/* Large negative integer */
+	sbuf[1].bits = (sljit_u32)0xff000000;
+	/* Positive infinity */
+	sbuf[2].bits = (sljit_u32)0x7f800000;
+	/* Negative infinity */
+	sbuf[3].bits = (sljit_u32)0xff800000;
+	/* Canonical NaN */
+	sbuf[4].bits = (sljit_u32)0x7fc00000;
+	/* NaN */
+	sbuf[5].bits = (sljit_u32)0x7f800001;
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 2, 2, 2, 0, 0);
+
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_IMM, 6 * sizeof(sljit_f64));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_R0, 0);
+
+	label = sljit_emit_label(compiler);
+	/* dbuf[6 - 17] */
+	sljit_emit_fop1(compiler, SLJIT_CONV_SW_FROM_F64, SLJIT_MEM1(SLJIT_R0), 0, SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_fop1(compiler, SLJIT_CONV_S32_FROM_F64, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_f64), SLJIT_MEM1(SLJIT_S0), 0);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 2 * sizeof(sljit_f64));
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_S0, 0, SLJIT_S0, 0, SLJIT_IMM, sizeof(sljit_f64));
+	sljit_set_label(sljit_emit_cmp(compiler, SLJIT_LESS, SLJIT_S0, 0, SLJIT_R1, 0), label);
+
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S1, 0, SLJIT_IMM, 6 * sizeof(sljit_f32));
+
+	label = sljit_emit_label(compiler);
+	/* dbuf[18 - 29] */
+	sljit_emit_fop1(compiler, SLJIT_CONV_SW_FROM_F32, SLJIT_MEM1(SLJIT_R0), 0, SLJIT_MEM1(SLJIT_S1), 0);
+	sljit_emit_fop1(compiler, SLJIT_CONV_S32_FROM_F32, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_f64), SLJIT_MEM1(SLJIT_S1), 0);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 2 * sizeof(sljit_f64));
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_S1, 0, SLJIT_S1, 0, SLJIT_IMM, sizeof(sljit_f32));
+	sljit_set_label(sljit_emit_cmp(compiler, SLJIT_LESS, SLJIT_S1, 0, SLJIT_R1, 0), label);
+
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func2((sljit_sw)&dbuf, (sljit_sw)&sbuf);
+	sljit_free_code(code.code, NULL);
+
+	/* Large integer */
+	FAILED(dbuf[6].value_uw != large_pos_uw, "test_float22 case 1 failed\n");
+	FAILED(dbuf[7].value_u32 != large_pos_u32, "test_float22 case 2 failed\n");
+	FAILED(dbuf[8].value_uw != large_neg_uw, "test_float22 case 3 failed\n");
+	FAILED(dbuf[9].value_u32 != large_neg_u32, "test_float22 case 4 failed\n");
+	/* Infinity */
+	FAILED(dbuf[10].value_uw != large_pos_uw, "test_float22 case 5 failed\n");
+	FAILED(dbuf[11].value_u32 != large_pos_u32, "test_float22 case 6 failed\n");
+	FAILED(dbuf[12].value_uw != large_neg_uw, "test_float22 case 7 failed\n");
+	FAILED(dbuf[13].value_u32 != large_neg_u32, "test_float22 case 8 failed\n");
+	/* NaN */
+	FAILED(dbuf[14].value_uw != nan_uw, "test_float22 case 9 failed\n");
+	FAILED(dbuf[15].value_u32 != nan_u32, "test_float22 case 10 failed\n");
+	FAILED(dbuf[16].value_uw != nan_uw, "test_float22 case 11 failed\n");
+	FAILED(dbuf[17].value_u32 != nan_u32, "test_float22 case 12 failed\n");
+
+	/* Large integer */
+	FAILED(dbuf[18].value_uw != large_pos_uw, "test_float22 case 13 failed\n");
+	FAILED(dbuf[19].value_u32 != large_pos_u32, "test_float22 case 14 failed\n");
+	FAILED(dbuf[20].value_uw != large_neg_uw, "test_float22 case 15 failed\n");
+	FAILED(dbuf[21].value_u32 != large_neg_u32, "test_float22 case 16 failed\n");
+	/* Infinity */
+	FAILED(dbuf[22].value_uw != large_pos_uw, "test_float22 case 17 failed\n");
+	FAILED(dbuf[23].value_u32 != large_pos_u32, "test_float22 case 18 failed\n");
+	FAILED(dbuf[24].value_uw != large_neg_uw, "test_float22 case 19 failed\n");
+	FAILED(dbuf[25].value_u32 != large_neg_u32, "test_float22 case 20 failed\n");
+	/* NaN */
+	FAILED(dbuf[26].value_uw != nan_uw, "test_float22 case 21 failed\n");
+	FAILED(dbuf[27].value_u32 != nan_u32, "test_float22 case 22 failed\n");
+	FAILED(dbuf[28].value_uw != nan_uw, "test_float22 case 23 failed\n");
+	FAILED(dbuf[29].value_u32 != nan_u32, "test_float22 case 24 failed\n");
+
+	FAILED(dbuf[30].value_f64 != 123.0, "test_float22 case 25 failed\n");
+
+	successful_tests++;
+}

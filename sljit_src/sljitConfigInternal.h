@@ -83,6 +83,15 @@ extern "C" {
                             the scratch register index of ecx is stored in this variable
      SLJIT_LOCALS_OFFSET : local space starting offset (SLJIT_SP + SLJIT_LOCALS_OFFSET)
      SLJIT_RETURN_ADDRESS_OFFSET : a return instruction always adds this offset to the return address
+     SLJIT_CONV_MAX_FLOAT : result when a floating point value is converted to integer
+                            and the floating point value is higher than the maximum integer value
+                            (possible values: SLJIT_CONV_RESULT_MAX_INT or SLJIT_CONV_RESULT_MIN_INT)
+     SLJIT_CONV_MIN_FLOAT : result when a floating point value is converted to integer
+                            and the floating point value is lower than the minimum integer value
+                            (possible values: SLJIT_CONV_RESULT_MAX_INT or SLJIT_CONV_RESULT_MIN_INT)
+     SLJIT_CONV_NAN_FLOAT : result when a NaN floating point value is converted to integer
+                            (possible values: SLJIT_CONV_RESULT_MAX_INT, SLJIT_CONV_RESULT_MIN_INT,
+                            or SLJIT_CONV_RESULT_ZERO)
 
    Other macros:
      SLJIT_TMP_R0 .. R9 : accessing temporary registers
@@ -361,6 +370,38 @@ typedef double sljit_f64;
 /* Shift for double precision sized data. */
 #define SLJIT_F32_SHIFT 2
 #define SLJIT_F64_SHIFT 3
+
+#define SLJIT_CONV_RESULT_MAX_INT 0
+#define SLJIT_CONV_RESULT_MIN_INT 1
+#define SLJIT_CONV_RESULT_ZERO 2
+
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#elif (defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM)
+#define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_ZERO
+#elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
+#define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
+#define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#elif (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
+#define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+#define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#else
+#error "Result for float to integer conversion is not defined"
+#endif
 
 #ifndef SLJIT_W
 

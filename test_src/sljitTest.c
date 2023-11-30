@@ -8032,10 +8032,11 @@ int sljit_test(int argc, char* argv[])
 		test_float19();
 		test_float20();
 		test_float21();
+		test_float22();
 	} else {
 		if (verbose)
 			printf("no fpu available, fpu tests are skipped\n");
-		successful_tests += 21;
+		successful_tests += 22;
 	}
 
 	if (sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
@@ -8059,7 +8060,7 @@ int sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 110
+#	define TEST_COUNT 111
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
