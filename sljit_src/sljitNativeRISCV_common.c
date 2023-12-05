@@ -348,13 +348,12 @@ static SLJIT_INLINE void load_addr_to_reg(void *dst, sljit_u32 reg)
 		if ((addr & 0x80000000l) != 0)
 			high = ~high;
 
-		if ((high & 0x800) != 0)
-			high += 0x1000;
-
 		if (flags & PATCH_ABS52) {
 			SLJIT_ASSERT(addr <= S52_MAX);
 			inst[0] = LUI | RD(TMP_REG3) | (sljit_ins)(high << 12);
 		} else {
+			if ((high & 0x800) != 0)
+				high += 0x1000;
 			inst[0] = LUI | RD(TMP_REG3) | (sljit_ins)(high & ~0xfff);
 			inst[1] = ADDI | RD(TMP_REG3) | RS1(TMP_REG3) | IMM_I(high);
 			inst++;
@@ -940,7 +939,7 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 
 	/* Since tmp can be the same as base or offset registers,
 	 * these might be unavailable after modifying tmp. */
-	if ((flags & MEM_MASK) <= GPR_REG && (flags & LOAD_DATA))
+	if ((flags & MEM_MASK) <= GPR_REG && (flags & LOAD_DATA) && reg == TMP_REG2)
 		tmp_r = reg;
 
 	if (SLJIT_UNLIKELY(arg & OFFS_REG_MASK)) {
