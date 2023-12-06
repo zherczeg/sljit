@@ -2828,11 +2828,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 type, slji
 	if (type != SLJIT_FLOAT_REGISTER && type != SLJIT_SIMD_REG_128 && type != SLJIT_SIMD_REG_256 && type != SLJIT_SIMD_REG_512)
 		return -1;
 
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-	return reg;
-#else /* !SLJIT_CONFIG_X86_32 */
 	return freg_map[reg];
-#endif /* SLJIT_CONFIG_X86_32 */
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
