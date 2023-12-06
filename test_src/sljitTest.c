@@ -7772,8 +7772,10 @@ static void test90(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_R0, 0, SLJIT_IMM, ctr);
 
 	/* Set registers, also works for virtual registers. */
-	for (i = 1; i < SLJIT_NUMBER_OF_TEMPORARY_REGISTERS; i++)
+	for (i = 1; i < SLJIT_NUMBER_OF_TEMPORARY_REGISTERS; i++) {
+		SLJIT_ASSERT(sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_TMP_R(i)) >= 0);
 		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_R(i), 0, SLJIT_IMM, ++ctr);
+	}
 
 	for (i = 0; i < SLJIT_NUMBER_OF_REGISTERS - 1; i++)
 		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, ++ctr);
@@ -7817,8 +7819,10 @@ static void test90(void)
 
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_TMP_FR0, 0, SLJIT_MEM1(SLJIT_S0), 0);
 	ctr = sizeof(sljit_f64);
-	for (i = 1; i < SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS; i++, ctr += (sljit_s32)(sizeof(sljit_f64)))
+	for (i = 1; i < SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS; i++, ctr += (sljit_s32)(sizeof(sljit_f64))) {
+		SLJIT_ASSERT(sljit_get_register_index(SLJIT_FLOAT_REGISTER, SLJIT_TMP_FR(i)) >= 0);
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_TMP_FR(i), 0, SLJIT_MEM1(SLJIT_S0), ctr);
+	}
 
 	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++, ctr += (sljit_s32)(sizeof(sljit_f64)))
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR(i), 0, SLJIT_MEM1(SLJIT_S0), ctr);
