@@ -132,23 +132,23 @@ extern "C" {
 */
 
 #ifndef SLJIT_MALLOC
-#define SLJIT_MALLOC(size, allocator_data) malloc(size)
+#define SLJIT_MALLOC(size, allocator_data) (malloc(size))
 #endif
 
 #ifndef SLJIT_FREE
-#define SLJIT_FREE(ptr, allocator_data) free(ptr)
+#define SLJIT_FREE(ptr, allocator_data) (free(ptr))
 #endif
 
 #ifndef SLJIT_MEMCPY
-#define SLJIT_MEMCPY(dest, src, len) memcpy(dest, src, len)
+#define SLJIT_MEMCPY(dest, src, len) (memcpy(dest, src, len))
 #endif
 
 #ifndef SLJIT_MEMMOVE
-#define SLJIT_MEMMOVE(dest, src, len) memmove(dest, src, len)
+#define SLJIT_MEMMOVE(dest, src, len) (memmove(dest, src, len))
 #endif
 
 #ifndef SLJIT_ZEROMEM
-#define SLJIT_ZEROMEM(dest, len) memset(dest, 0, len)
+#define SLJIT_ZEROMEM(dest, len) (memset(dest, 0, len))
 #endif
 
 /***************************/
