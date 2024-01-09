@@ -198,7 +198,7 @@ extern "C" {
 /* Type of public API functions. */
 /*********************************/
 
-#ifndef SLJIT_API_FUNC_ATTRIBUTE 
+#ifndef SLJIT_API_FUNC_ATTRIBUTE
 #if (defined SLJIT_CONFIG_STATIC && SLJIT_CONFIG_STATIC)
 /* Static ABI functions. For all-in-one programs. */
 
@@ -399,6 +399,10 @@ typedef double sljit_f64;
 #define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
 #define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
 #define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#elif (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
+#define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_ZERO
 #else
 #error "Result for float to integer conversion is not defined"
 #endif
