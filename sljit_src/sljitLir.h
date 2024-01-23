@@ -913,6 +913,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
 #define SLJIT_IS_IMM(arg)	((arg) == SLJIT_IMM)
 #define SLJIT_IS_REG_PAIR(arg)	(!((arg) & SLJIT_MEM) && (arg) >= (SLJIT_MEM << 1))
 
+/* Macros for extracting registers from operands. */
+/* Support operands which contains a single register or
+   constructed using SLJIT_MEM1, SLJIT_MEM2, or SLJIT_REG_PAIR. */
+#define SLJIT_EXTRACT_REG(arg)		((arg) & 0x7f)
+/* Support operands which constructed using SLJIT_MEM2, or SLJIT_REG_PAIR. */
+#define SLJIT_EXTRACT_SECOND_REG(arg)	((arg) >> 8)
+
 /* Sets 32 bit operation mode on 64 bit CPUs. This option is ignored on
    32 bit CPUs. When this option is set for an arithmetic operation, only
    the lower 32 bits of the input registers are used, and the CPU status
