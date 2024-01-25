@@ -1134,7 +1134,7 @@ static void test11(void)
 		memset(value, 255, 16);
 	}
 
-	/* Return vaue */
+	/* Return value */
 	const4 = sljit_emit_const(compiler, SLJIT_RETURN_REG, 0, (sljit_sw)0xf7afcdb7);
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
@@ -1257,6 +1257,77 @@ static void test12(void)
 	FAILED(buf[0] != 6, "test12 case 4 failed\n");
 
 	sljit_free_code(code.code, NULL);
+	successful_tests++;
+}
+
+static void test13(void)
+{
+	/* Test emit const and jumps. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_label *label;
+	struct sljit_jump *jump1;
+	struct sljit_jump *jump2;
+	struct sljit_const* const1;
+	struct sljit_put_label *put_label;
+	sljit_sw executable_offset;
+	sljit_uw const_addr;
+	sljit_uw jump_addr;
+	sljit_uw label_addr;
+	sljit_sw buf[4];
+
+	if (verbose)
+		printf("Run test13\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+	buf[0] = 0;
+	buf[1] = 0;
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 3, 2, 0, 0, 0);
+
+	jump1 = sljit_emit_jump(compiler, SLJIT_JUMP);
+	label = sljit_emit_label(compiler);
+	jump2 = sljit_emit_jump(compiler, SLJIT_JUMP);
+	sljit_set_label(jump2, label);
+	label = sljit_emit_label(compiler);
+	sljit_set_label(jump1, label);
+
+	put_label = sljit_emit_put_label(compiler, SLJIT_R2, 0);
+	/* buf[0] */
+	const1 = sljit_emit_const(compiler, SLJIT_MEM1(SLJIT_S0), 0, -1234);
+
+	sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_R2, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_IMM, -1234);
+
+	label = sljit_emit_label(compiler);
+	sljit_set_put_label(put_label, label);
+
+	/* buf[1] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_IMM, -56789);
+	jump1 = sljit_emit_jump(compiler, SLJIT_JUMP | SLJIT_REWRITABLE_JUMP);
+	label = sljit_emit_label(compiler);
+	sljit_set_label(jump1, label);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_IMM, 0);
+	label = sljit_emit_label(compiler);
+
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler);
+	CHECK(compiler);
+	executable_offset = sljit_get_executable_offset(compiler);
+	const_addr = sljit_get_const_addr(const1);
+	jump_addr = sljit_get_jump_addr(jump1);
+	label_addr = sljit_get_label_addr(label);
+	sljit_free_compiler(compiler);
+
+	sljit_set_const(const_addr, 87654, executable_offset);
+	sljit_set_jump_addr(jump_addr, label_addr, executable_offset);
+
+	code.func1((sljit_sw)&buf);
+	FAILED(buf[0] != 87654, "test13 case 1 failed\n");
+	FAILED(buf[1] != -56789, "test13 case 2 failed\n");
+
 	successful_tests++;
 }
 
@@ -1527,7 +1598,7 @@ static void test20(void)
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
-	FAILED(code.func1((sljit_sw)&buf) != -12345, "test20 case 1 failed\n")
+	FAILED(code.func1((sljit_sw)&buf) != -12345, "test20 case 1 failed\n");
 
 	FAILED(buf[2] != 60, "test20 case 2 failed\n");
 	FAILED(buf[3] != 17, "test20 case 3 failed\n");
@@ -7958,6 +8029,7 @@ int sljit_test(int argc, char* argv[])
 	test10();
 	test11();
 	test12();
+	test13();
 	test17();
 	test18();
 	test19();
@@ -8084,7 +8156,7 @@ int sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 111
+#	define TEST_COUNT 112
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

@@ -196,10 +196,13 @@
 #	define IS_COND		0x004
 #	define IS_CBZ		0x008
 #	define IS_BL		0x010
-#	define PATCH_B		0x020
-#	define PATCH_COND	0x040
-#	define PATCH_ABS48	0x080
-#	define PATCH_ABS64	0x100
+#	define PATCH_COND	0x020
+#	define PATCH_B		0x040
+#	define PATCH_B32	0x080
+#	define PATCH_ABS48	0x100
+#	define PATCH_ABS64	0x200
+#	define JUMP_SIZE_SHIFT	58
+#	define JUMP_MAX_SIZE	((sljit_uw)5)
 #endif /* SLJIT_CONFIG_ARM_64 */
 
 #if (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
@@ -253,8 +256,11 @@
 #	define PATCH_ABS32	0x080
 #	define PATCH_ABS44	0x100
 #	define PATCH_ABS52	0x200
+#	define JUMP_SIZE_SHIFT	58
+#	define JUMP_MAX_SIZE	((sljit_uw)6)
 #else /* !SLJIT_CONFIG_RISCV_64 */
-#	define PATCH_REL32	0x0
+#	define JUMP_SIZE_SHIFT	26
+#	define JUMP_MAX_SIZE	((sljit_uw)2)
 #endif /* SLJIT_CONFIG_RISCV_64 */
 #endif /* SLJIT_CONFIG_RISCV */
 
