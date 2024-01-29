@@ -270,26 +270,26 @@ exit:
 
 static SLJIT_INLINE sljit_sw put_label_get_length(struct sljit_put_label *put_label, sljit_uw addr)
 {
-	sljit_sw diff = ((sljit_sw)put_label->label->size - (sljit_sw)put_label->addr) * SSIZE_OF(ins);
+	sljit_sw diff = (sljit_sw)put_label->label->size - (sljit_sw)put_label->addr;
 
-	if (diff <= 0xfffff && diff >= -0x100000) {
+	if (diff <= (0xfffff / SSIZE_OF(ins)) && diff >= (-0x100000 / SSIZE_OF(ins))) {
 		put_label->flags = 0;
 		return 0;
 	}
 
-	if (diff <= 0xfffff000l && diff >= -0x100000000l) {
+	if (diff <= (0xfffff000l / SSIZE_OF(ins)) && diff >= (-0x100000000l / SSIZE_OF(ins))) {
 		put_label->flags = 1;
 		return 1;
 	}
 
-	addr += put_label->label->size * sizeof(sljit_ins);
+	addr += put_label->label->size;
 
-	if (addr < 0x100000000l) {
+	if (addr < (0x100000000l / sizeof(sljit_ins))) {
 		put_label->flags = 2;
 		return 1;
 	}
 
-	if (addr < 0x1000000000000l) {
+	if (addr < (0x1000000000000l / sizeof(sljit_ins))) {
 		put_label->flags = 3;
 		return 2;
 	}
@@ -386,11 +386,10 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 			total_size = 3;
 			diff = (sljit_sw)put_label->label->size - (sljit_sw)put_label->addr;
 
-			if (diff <= (0xfffff / SSIZE_OF(ins)) && diff >= (-0x100000 / SSIZE_OF(ins))) {
+			if (diff <= (0xfffff / SSIZE_OF(ins)) && diff >= (-0x100000 / SSIZE_OF(ins)))
 				total_size = 0;
-			} else if (diff <= (0xfffff000l / SSIZE_OF(ins)) && diff >= (-0x100000000l / SSIZE_OF(ins))) {
+			else if (diff <= (0xfffff000l / SSIZE_OF(ins)) && diff >= (-0x100000000l / SSIZE_OF(ins)))
 				total_size = 1;
-			}
 
 			size_reduce += 3 - total_size;
 			put_label->flags |= total_size << JUMP_SIZE_SHIFT;
@@ -553,7 +552,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 			buf_ptr[0] = ADR | (((sljit_ins)addr & 0x3) << 29) | (((sljit_ins)(addr >> 2) & 0x7ffff) << 5) | dst;
 		} else if (put_label->flags == 1) {
 			addr -= ((sljit_sw)SLJIT_ADD_EXEC_OFFSET(buf_ptr, executable_offset)) & ~(sljit_sw)0xfff;
-			SLJIT_ASSERT(addr <= 0xfffff000l && addr >= -0x100000000l);
+			SLJIT_ASSERT(addr <= 0xffffffffl && addr >= -0x100000000l);
 			buf_ptr[0] = ADRP | (((sljit_ins)(addr >> 12) & 0x3) << 29) | (((sljit_ins)(addr >> 14) & 0x7ffff) << 5) | dst;
 			buf_ptr[1] = ADDI | dst | (dst << 5) | ((sljit_ins)(addr & 0xfff) << 10);
 		} else {

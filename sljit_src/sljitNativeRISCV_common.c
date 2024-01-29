@@ -266,26 +266,26 @@ exit:
 
 static SLJIT_INLINE sljit_sw put_label_get_length(struct sljit_put_label *put_label, sljit_uw addr)
 {
-	sljit_sw diff = ((sljit_sw)put_label->label->size - (sljit_sw)put_label->addr) * SSIZE_OF(ins);
+	sljit_sw diff = (sljit_sw)put_label->label->size - (sljit_sw)put_label->addr;
 
-	if (diff >= S32_MIN && diff <= S32_MAX) {
+	if (diff >= (S32_MIN / SSIZE_OF(ins)) && diff <= (S32_MAX / SSIZE_OF(ins))) {
 		put_label->flags = PATCH_REL32;
 		return 1;
 	}
 
-	addr += put_label->label->size * sizeof(sljit_ins);
+	addr += put_label->label->size;
 
-	if (addr <= (sljit_uw)S32_MAX) {
+	if (addr <= (S32_MAX / sizeof(sljit_ins))) {
 		put_label->flags = PATCH_ABS32;
 		return 1;
 	}
 
-	if (addr <= S44_MAX) {
+	if (addr <= (S44_MAX / sizeof(sljit_ins))) {
 		put_label->flags = PATCH_ABS44;
 		return 3;
 	}
 
-	if (addr <= S52_MAX) {
+	if (addr <= (S52_MAX / sizeof(sljit_ins))) {
 		put_label->flags = PATCH_ABS52;
 		return 4;
 	}

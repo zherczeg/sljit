@@ -157,12 +157,21 @@
 /* SLJIT_REWRITABLE_JUMP is 0x1000. */
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
-#	define PATCH_MB		0x4
-#	define PATCH_MW		0x8
+#	define PATCH_MB		0x04
+#	define PATCH_MW		0x08
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 #	define PATCH_MD		0x10
-#endif
+#	define JUMP_MAX_SIZE	((sljit_uw)(10 + 3))
+#	define CJUMP_MAX_SIZE	((sljit_uw)(2 + 10 + 3))
+#else /* !SLJIT_CONFIG_X86_64 */
+#	define JUMP_MAX_SIZE	((sljit_uw)5)
+#	define CJUMP_MAX_SIZE	((sljit_uw)6)
+#endif /* SLJIT_CONFIG_X86_64 */
 #	define TYPE_SHIFT	13
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+/* Bits 7..12 is for debug jump size, SLJIT_REWRITABLE_JUMP is 0x1000 */
+#	define JUMP_SIZE_SHIFT	7
+#endif /* SLJIT_DEBUG */
 #endif /* SLJIT_CONFIG_X86 */
 
 #if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6) || (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
@@ -181,15 +190,15 @@
 #	define PATCH_TYPE1	0x10
 	/* conditional + imm20 */
 #	define PATCH_TYPE2	0x20
-	/* IT + imm24 */
-#	define PATCH_TYPE3	0x30
 	/* imm11 */
-#	define PATCH_TYPE4	0x40
+#	define PATCH_TYPE3	0x30
 	/* imm24 */
-#	define PATCH_TYPE5	0x50
+#	define PATCH_TYPE4	0x40
 	/* BL + imm24 */
-#	define PATCH_BL		0x60
+#	define PATCH_TYPE5	0x50
 	/* 0xf00 cc code for branches */
+#	define JUMP_SIZE_SHIFT	26
+#	define JUMP_MAX_SIZE	((sljit_uw)5)
 #endif /* SLJIT_CONFIG_ARM_THUMB2 */
 
 #if (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
