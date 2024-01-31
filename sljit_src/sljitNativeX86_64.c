@@ -408,6 +408,7 @@ static sljit_u8* generate_put_label_code(struct sljit_put_label *put_label, slji
 			SLJIT_ASSERT((code_ptr[-3 - SSIZE_OF(s32)] & 0xf8) == REX_W);
 			SLJIT_ASSERT((code_ptr[-2 - SSIZE_OF(s32)] & 0xf8) == MOV_r_i32);
 
+			code_ptr[-3 - SSIZE_OF(s32)] = U8(REX_W | ((code_ptr[-3 - SSIZE_OF(s32)] & 0x1) << 2));
 			code_ptr[-1 - SSIZE_OF(s32)] = U8(((code_ptr[-2 - SSIZE_OF(s32)] & 0x7) << 3) | 0x5);
 			code_ptr[-2 - SSIZE_OF(s32)] = LEA_r_m;
 

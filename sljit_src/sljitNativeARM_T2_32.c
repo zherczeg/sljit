@@ -499,25 +499,23 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 			jump->addr -= size_reduce;
 			total_size = JUMP_MAX_SIZE;
 
-			if (!(jump->flags & SLJIT_REWRITABLE_JUMP)) {
-				if (!(jump->flags & JUMP_ADDR)) {
-					/* Unit size: instruction. */
-					diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr - 2;
+			if (!(jump->flags & (SLJIT_REWRITABLE_JUMP | JUMP_ADDR))) {
+				/* Unit size: instruction. */
+				diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr - 2;
 
-					if (jump->flags & IS_COND) {
-						diff++;
+				if (jump->flags & IS_COND) {
+					diff++;
 
-						if (diff <= (0xff / SSIZE_OF(u16)) && diff >= (-0x100 / SSIZE_OF(u16)))
-							total_size = 0;
-						else if (diff <= (0xfffff / SSIZE_OF(u16)) && diff >= (-0x100000 / SSIZE_OF(u16)))
-							total_size = 1;
-						diff--;
-					} else if (!(jump->flags & IS_BL) && diff <= (0x7ff / SSIZE_OF(u16)) && diff >= (-0x800 / SSIZE_OF(u16)))
+					if (diff <= (0xff / SSIZE_OF(u16)) && diff >= (-0x100 / SSIZE_OF(u16)))
+						total_size = 0;
+					else if (diff <= (0xfffff / SSIZE_OF(u16)) && diff >= (-0x100000 / SSIZE_OF(u16)))
 						total_size = 1;
+					diff--;
+				} else if (!(jump->flags & IS_BL) && diff <= (0x7ff / SSIZE_OF(u16)) && diff >= (-0x800 / SSIZE_OF(u16)))
+					total_size = 1;
 
-					if (total_size == JUMP_MAX_SIZE && diff <= (0xffffff / SSIZE_OF(u16)) && diff >= (-0x1000000 / SSIZE_OF(u16)))
-						total_size = 2;
-				}
+				if (total_size == JUMP_MAX_SIZE && diff <= (0xffffff / SSIZE_OF(u16)) && diff >= (-0x1000000 / SSIZE_OF(u16)))
+					total_size = 2;
 			}
 
 			size_reduce += JUMP_MAX_SIZE - total_size;
