@@ -459,7 +459,11 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 					if (jump->u.target <= S32_MAX)
 						total_size = 2;
-#endif /* !SLJIT_CONFIG_RISCV_64 */
+					else if (jump->u.target <= S44_MAX)
+						total_size = 4;
+					else if (jump->u.target <= S52_MAX)
+						total_size = 5;
+#endif /* SLJIT_CONFIG_RISCV_64 */
 				} else {
 					/* Unit size: instruction. */
 					diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
@@ -496,8 +500,9 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 			if (diff >= (S32_MIN / SSIZE_OF(ins)) && diff <= (S32_MAX / SSIZE_OF(ins))) {
 				size_reduce += 4;
-				put_label->flags -= (sljit_uw)4 << JUMP_SIZE_SHIFT;
-			}
+				put_label->flags = 1;
+			} else
+				put_label->flags = 5;
 #endif /* !SLJIT_CONFIG_RISCV_64 */
 
 			put_label = put_label->next;
@@ -581,7 +586,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 					put_label->addr = (sljit_uw)code_ptr;
 					code_ptr += 1;
 #else /* !SLJIT_CONFIG_RISCV_32 */
-					word_count += put_label->flags >> JUMP_SIZE_SHIFT;
+					word_count += put_label->flags;
 					addr = (sljit_uw)code_ptr;
 					code_ptr += put_label_get_length(put_label, (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code, executable_offset));
 					put_label->addr = addr;
@@ -3110,7 +3115,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label* sljit_emit_put_label(struct slj
 	compiler->size += 1;
 #else /* !SLJIT_CONFIG_RISCV_32 */
 	compiler->size += 5;
-	put_label->flags |= (sljit_uw)5 << JUMP_SIZE_SHIFT;
 #endif /* SLJIT_CONFIG_RISCV_32 */
 
 	if (dst & SLJIT_MEM)

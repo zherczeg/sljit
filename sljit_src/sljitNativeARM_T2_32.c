@@ -541,7 +541,7 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 				total_size = 1;
 
 			size_reduce += 3 - total_size;
-			put_label->flags |= total_size << JUMP_SIZE_SHIFT;
+			put_label->flags = total_size;
 			put_label = put_label->next;
 			next_put_label_addr = put_label ? put_label->addr : ~(sljit_uw)0;
 		}
@@ -620,7 +620,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				}
 				if (put_label && put_label->addr == half_count) {
 					SLJIT_ASSERT(put_label->label);
-					half_count += put_label->flags >> JUMP_SIZE_SHIFT;
+					half_count += put_label->flags;
 					addr = (sljit_sw)code_ptr;
 					code_ptr += put_label_get_length(put_label);
 					put_label->addr = (sljit_uw)addr;

@@ -227,8 +227,12 @@
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #	define PATCH_ABS32	0x040
 #	define PATCH_ABS48	0x080
+#	define JUMP_SIZE_SHIFT	58
+#	define JUMP_MAX_SIZE	((sljit_uw)7)
+#else /* !SLJIT_CONFIG_PPC_64 */
+#	define JUMP_SIZE_SHIFT	26
+#	define JUMP_MAX_SIZE	((sljit_uw)4)
 #endif /* SLJIT_CONFIG_PPC_64 */
-#	define REMOVE_COND	0x100
 #endif /* SLJIT_CONFIG_PPC */
 
 #if (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)

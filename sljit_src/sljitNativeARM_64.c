@@ -354,6 +354,8 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 				if (jump->flags & JUMP_ADDR) {
 					if (jump->u.target < 0x100000000l)
 						total_size = 3;
+					else if (jump->u.target < 0x1000000000000l)
+						total_size = 4;
 				} else {
 					/* Unit size: instruction. */
 					diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
@@ -392,7 +394,7 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 				total_size = 1;
 
 			size_reduce += 3 - total_size;
-			put_label->flags |= total_size << JUMP_SIZE_SHIFT;
+			put_label->flags = total_size;
 			put_label = put_label->next;
 			next_put_label_addr = put_label ? put_label->addr : ~(sljit_uw)0;
 		}
@@ -458,11 +460,11 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 					label = label->next;
 				}
 				if (jump && jump->addr == word_count) {
-						word_count = word_count - 1 + (jump->flags >> JUMP_SIZE_SHIFT);
-						jump->addr = (sljit_uw)code_ptr;
-						code_ptr = detect_jump_type(jump, code_ptr, code, executable_offset);
-						SLJIT_ASSERT((jump->flags & PATCH_COND) || ((sljit_uw)code_ptr - jump->addr < (jump->flags >> JUMP_SIZE_SHIFT) * sizeof(sljit_ins)));
-						jump = jump->next;
+					word_count = word_count - 1 + (jump->flags >> JUMP_SIZE_SHIFT);
+					jump->addr = (sljit_uw)code_ptr;
+					code_ptr = detect_jump_type(jump, code_ptr, code, executable_offset);
+					SLJIT_ASSERT((jump->flags & PATCH_COND) || ((sljit_uw)code_ptr - jump->addr < (jump->flags >> JUMP_SIZE_SHIFT) * sizeof(sljit_ins)));
+					jump = jump->next;
 				}
 				if (const_ && const_->addr == word_count) {
 					const_->addr = (sljit_uw)code_ptr;
@@ -470,7 +472,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				}
 				if (put_label && put_label->addr == word_count) {
 					SLJIT_ASSERT(put_label->label);
-					word_count += put_label->flags >> JUMP_SIZE_SHIFT;
+					word_count += put_label->flags;
 					addr = (sljit_sw)code_ptr;
 					code_ptr += put_label_get_length(put_label, (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code, executable_offset));
 					put_label->addr = (sljit_uw)addr;
