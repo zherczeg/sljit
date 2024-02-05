@@ -771,7 +771,7 @@ static SLJIT_INLINE void set_label(struct sljit_label *label, struct sljit_compi
 {
 	label->next = NULL;
 	label->size = compiler->size;
-	if (compiler->last_label)
+	if (compiler->last_label != NULL)
 		compiler->last_label->next = label;
 	else
 		compiler->labels = label;
@@ -782,22 +782,11 @@ static SLJIT_INLINE void set_jump(struct sljit_jump *jump, struct sljit_compiler
 {
 	jump->next = NULL;
 	jump->flags = flags;
-	if (compiler->last_jump)
+	if (compiler->last_jump != NULL)
 		compiler->last_jump->next = jump;
 	else
 		compiler->jumps = jump;
 	compiler->last_jump = jump;
-}
-
-static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_compiler *compiler)
-{
-	const_->next = NULL;
-	const_->addr = compiler->size;
-	if (compiler->last_const)
-		compiler->last_const->next = const_;
-	else
-		compiler->consts = const_;
-	compiler->last_const = const_;
 }
 
 static SLJIT_INLINE void set_put_label(struct sljit_put_label *put_label, struct sljit_compiler *compiler, sljit_uw offset)
@@ -806,11 +795,22 @@ static SLJIT_INLINE void set_put_label(struct sljit_put_label *put_label, struct
 	put_label->label = NULL;
 	put_label->addr = compiler->size - offset;
 	put_label->flags = 0;
-	if (compiler->last_put_label)
+	if (compiler->last_put_label != NULL)
 		compiler->last_put_label->next = put_label;
 	else
 		compiler->put_labels = put_label;
 	compiler->last_put_label = put_label;
+}
+
+static SLJIT_INLINE void set_const(struct sljit_const *const_, struct sljit_compiler *compiler)
+{
+	const_->next = NULL;
+	const_->addr = compiler->size;
+	if (compiler->last_const != NULL)
+		compiler->last_const->next = const_;
+	else
+		compiler->consts = const_;
+	compiler->last_const = const_;
 }
 
 #define ADDRESSING_DEPENDS_ON(exp, reg) \
@@ -3081,6 +3081,8 @@ static sljit_s32 sljit_emit_fmem_unaligned(struct sljit_compiler *compiler, slji
 #elif (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 #	include "sljitNativeLOONGARCH_64.c"
 #endif
+
+#include "sljitSerialize.c"
 
 static SLJIT_INLINE sljit_s32 emit_mov_before_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
 {

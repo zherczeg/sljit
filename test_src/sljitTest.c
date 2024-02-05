@@ -1328,6 +1328,7 @@ static void test13(void)
 	FAILED(buf[0] != 87654, "test13 case 1 failed\n");
 	FAILED(buf[1] != -56789, "test13 case 2 failed\n");
 
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -8008,6 +8009,7 @@ static void test90(void)
 #include "sljitTestCall.h"
 #include "sljitTestFloat.h"
 #include "sljitTestSimd.h"
+#include "sljitTestSerialize.h"
 
 int sljit_test(int argc, char* argv[])
 {
@@ -8157,11 +8159,16 @@ int sljit_test(int argc, char* argv[])
 		successful_tests += 8;
 	}
 
+	if (verbose)
+		printf("---- Serialize tests ----\n");
+
+	test_serialize1();
+
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 112
+#	define TEST_COUNT 113
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
