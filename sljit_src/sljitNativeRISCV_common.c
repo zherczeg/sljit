@@ -312,14 +312,14 @@ static SLJIT_INLINE void load_addr_to_reg(void *dst, sljit_u32 reg, sljit_sw exe
 		jump = (struct sljit_jump*)dst;
 		flags = jump->flags;
 		inst = (sljit_ins*)jump->addr;
-		addr = (flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target;
+		addr = (flags & JUMP_LABEL) ? jump->u.label->u.addr : jump->u.target;
 	} else {
 		put_label = (struct sljit_put_label*)dst;
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 		flags = put_label->flags;
 #endif
 		inst = (sljit_ins*)put_label->addr;
-		addr = put_label->label->addr;
+		addr = put_label->label->u.addr;
 		reg = *inst;
 	}
 
@@ -564,7 +564,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 				/* These structures are ordered by their address. */
 				if (label && label->size == word_count) {
-					label->addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
+					label->u.addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 					label->size = (sljit_uw)(code_ptr - code);
 					label = label->next;
 				}
@@ -603,7 +603,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	} while (buf);
 
 	if (label && label->size == word_count) {
-		label->addr = (sljit_uw)code_ptr;
+		label->u.addr = (sljit_uw)code_ptr;
 		label->size = (sljit_uw)(code_ptr - code);
 		label = label->next;
 	}
@@ -622,7 +622,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				break;
 			}
 
-			addr = (jump->flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target;
+			addr = (jump->flags & JUMP_LABEL) ? jump->u.label->u.addr : jump->u.target;
 			buf_ptr = (sljit_ins *)jump->addr;
 			addr -= (sljit_uw)SLJIT_ADD_EXEC_OFFSET(buf_ptr, executable_offset);
 

@@ -609,7 +609,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				/* These structures are ordered by their address. */
 				if (label && label->size == word_count) {
 					/* Just recording the address. */
-					label->addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
+					label->u.addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 					label->size = (sljit_uw)(code_ptr - code);
 					label = label->next;
 				}
@@ -646,7 +646,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	} while (buf);
 
 	if (label && label->size == word_count) {
-		label->addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
+		label->u.addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 		label->size = (sljit_uw)(code_ptr - code);
 		label = label->next;
 	}
@@ -665,7 +665,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	jump = compiler->jumps;
 	while (jump) {
 		do {
-			addr = (jump->flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target;
+			addr = (jump->flags & JUMP_LABEL) ? jump->u.label->u.addr : jump->u.target;
 			buf_ptr = (sljit_ins *)jump->addr;
 
 			if (jump->flags & PATCH_B) {
@@ -700,7 +700,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	put_label = compiler->put_labels;
 	while (put_label) {
 		buf_ptr = (sljit_ins *)put_label->addr;
-		load_addr_to_reg(buf_ptr, put_label->label->addr, (sljit_s32)buf_ptr[0], put_label->flags);
+		load_addr_to_reg(buf_ptr, put_label->label->u.addr, (sljit_s32)buf_ptr[0], put_label->flags);
 		put_label = put_label->next;
 	}
 

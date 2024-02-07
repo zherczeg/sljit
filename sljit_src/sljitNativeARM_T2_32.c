@@ -383,7 +383,7 @@ static SLJIT_INLINE void set_jump_instruction(struct sljit_jump *jump, sljit_sw 
 	sljit_u16 *jump_inst;
 
 	if (SLJIT_UNLIKELY(type == 0)) {
-		set_imm32_const((sljit_u16*)jump->addr, RDN3(TMP_REG1), (jump->flags & JUMP_LABEL) ? jump->u.label->addr : jump->u.target);
+		set_imm32_const((sljit_u16*)jump->addr, RDN3(TMP_REG1), (jump->flags & JUMP_LABEL) ? jump->u.label->u.addr : jump->u.target);
 		return;
 	}
 
@@ -391,8 +391,8 @@ static SLJIT_INLINE void set_jump_instruction(struct sljit_jump *jump, sljit_sw 
 		SLJIT_ASSERT(jump->u.target & 0x1);
 		diff = ((sljit_sw)jump->u.target - (sljit_sw)(jump->addr + sizeof(sljit_u32)) - executable_offset) >> 1;
 	} else {
-		SLJIT_ASSERT(jump->u.label->addr & 0x1);
-		diff = ((sljit_sw)(jump->u.label->addr) - (sljit_sw)(jump->addr + sizeof(sljit_u32)) - executable_offset) >> 1;
+		SLJIT_ASSERT(jump->u.label->u.addr & 0x1);
+		diff = ((sljit_sw)(jump->u.label->u.addr) - (sljit_sw)(jump->addr + sizeof(sljit_u32)) - executable_offset) >> 1;
 	}
 	jump_inst = (sljit_u16*)jump->addr;
 
@@ -602,7 +602,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 				/* These structures are ordered by their address. */
 				if (label && label->size == half_count) {
-					label->addr = ((sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset)) | 0x1;
+					label->u.addr = ((sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset)) | 0x1;
 					label->size = (sljit_uw)(code_ptr - code);
 					label = label->next;
 				}
@@ -636,7 +636,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	} while (buf);
 
 	if (label && label->size == half_count) {
-		label->addr = ((sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset)) | 0x1;
+		label->u.addr = ((sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset)) | 0x1;
 		label->size = (sljit_uw)(code_ptr - code);
 		label = label->next;
 	}
@@ -659,7 +659,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 		if (put_label->flags == 0) {
 			addr = ((sljit_sw)SLJIT_ADD_EXEC_OFFSET(buf_ptr, executable_offset) + (2 * SSIZE_OF(u16))) & ~(sljit_sw)0x3;
-			addr = (sljit_sw)put_label->label->addr - addr;
+			addr = (sljit_sw)put_label->label->u.addr - addr;
 
 			SLJIT_ASSERT(addr <= 0xfff && addr >= -0xfff);
 
@@ -672,7 +672,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 			buf_ptr[1] = (sljit_u16)(buf_ptr[0] | COPY_BITS(addr, 8, 12, 3) | (addr & 0xff));
 			buf_ptr[0] = (sljit_u16)(ins | 0xf | COPY_BITS(addr, 11, 10, 1));
 		} else
-			set_imm32_const(buf_ptr, *buf_ptr, put_label->label->addr);
+			set_imm32_const(buf_ptr, *buf_ptr, put_label->label->u.addr);
 
 		put_label = put_label->next;
 	}

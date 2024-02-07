@@ -770,6 +770,7 @@ static SLJIT_INLINE void set_set_context(struct sljit_compiler *compiler,
 static SLJIT_INLINE void set_label(struct sljit_label *label, struct sljit_compiler *compiler)
 {
 	label->next = NULL;
+	label->u.index = compiler->label_count++;
 	label->size = compiler->size;
 	if (compiler->last_label != NULL)
 		compiler->last_label->next = label;

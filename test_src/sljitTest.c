@@ -5291,22 +5291,22 @@ static void test64(void)
 	compiler = sljit_create_compiler(NULL, (void*)malloc_addr);
 #endif /* !SLJIT_CONFIG_UNSUPPORTED */
 
-	label[0].addr = 0x1234;
+	label[0].u.addr = 0x1234;
 	label[0].size = (sljit_uw)0x1234 - malloc_addr;
 
-	label[1].addr = 0x12345678;
+	label[1].u.addr = 0x12345678;
 	label[1].size = (sljit_uw)0x12345678 - malloc_addr;
 
-	label[2].addr = (sljit_uw)offs1;
+	label[2].u.addr = (sljit_uw)offs1;
 	label[2].size = (sljit_uw)offs1 - malloc_addr;
 
-	label[3].addr = (sljit_uw)offs2;
+	label[3].u.addr = (sljit_uw)offs2;
 	label[3].size = (sljit_uw)offs2 - malloc_addr;
 
-	label[4].addr = (sljit_uw)offs3;
+	label[4].u.addr = (sljit_uw)offs3;
 	label[4].size = (sljit_uw)offs3 - malloc_addr;
 
-	label[5].addr = (sljit_uw)offs4;
+	label[5].u.addr = (sljit_uw)offs4;
 	label[5].size = (sljit_uw)offs4 - malloc_addr;
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -5363,14 +5363,14 @@ static void test64(void)
 	sljit_free_compiler(compiler);
 	SLJIT_ASSERT(SLJIT_FUNC_UADDR(code.code) >= malloc_addr && SLJIT_FUNC_UADDR(code.code) <= malloc_addr + 8);
 
-	FAILED(code.func1((sljit_sw)&buf) != (sljit_sw)label[5].addr, "test64 case 1 failed\n");
-	FAILED(buf[0] != label[0].addr, "test64 case 2 failed\n");
-	FAILED(buf[1] != label[0].addr, "test64 case 3 failed\n");
-	FAILED(buf[2] != label[1].addr, "test64 case 4 failed\n");
-	FAILED(buf[3] != label[1].addr, "test64 case 5 failed\n");
-	FAILED(buf[4] != label[2].addr, "test64 case 6 failed\n");
-	FAILED(buf[5] != label[3].addr, "test64 case 7 failed\n");
-	FAILED(buf[6] != label[4].addr, "test64 case 8 failed\n");
+	FAILED(code.func1((sljit_sw)&buf) != (sljit_sw)sljit_get_label_addr(label + 5), "test64 case 1 failed\n");
+	FAILED(buf[0] != sljit_get_label_addr(label + 0), "test64 case 2 failed\n");
+	FAILED(buf[1] != sljit_get_label_addr(label + 0), "test64 case 3 failed\n");
+	FAILED(buf[2] != sljit_get_label_addr(label + 1), "test64 case 4 failed\n");
+	FAILED(buf[3] != sljit_get_label_addr(label + 1), "test64 case 5 failed\n");
+	FAILED(buf[4] != sljit_get_label_addr(label + 2), "test64 case 6 failed\n");
+	FAILED(buf[5] != sljit_get_label_addr(label+ 3), "test64 case 7 failed\n");
+	FAILED(buf[6] != sljit_get_label_addr(label + 4), "test64 case 8 failed\n");
 
 	sljit_free_code(code.code, NULL);
 
@@ -8163,12 +8163,14 @@ int sljit_test(int argc, char* argv[])
 		printf("---- Serialize tests ----\n");
 
 	test_serialize1();
+	test_serialize2();
+	test_serialize3();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 113
+#	define TEST_COUNT 115
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

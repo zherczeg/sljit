@@ -78,12 +78,12 @@ struct sljit_serialized_compiler {
 	sljit_s32 delay_slot;
 #endif /* SLJIT_CONFIG_MIPS */
 
-#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
-		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	sljit_s32 last_flags;
+};
+
+struct sljit_serialized_debug_info {
+	sljit_sw last_flags;
 	sljit_s32 last_return;
 	sljit_s32 logical_local_size;
-#endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_DEBUG */
 };
 
 struct sljit_serialized_label {
@@ -99,7 +99,7 @@ struct sljit_serialized_jump {
 struct sljit_serialized_put_label {
 	sljit_uw addr;
 	sljit_uw flags;
-	sljit_uw value;
+	sljit_uw index;
 };
 
 struct sljit_serialized_const {
@@ -114,7 +114,8 @@ struct sljit_serialized_const {
 #endif /* SLJIT_LITTLE_ENDIAN */
 #define SLJIT_SERIALIZE_VERSION 1
 
-SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compiler *compiler, sljit_uw *size)
+SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compiler *compiler,
+	sljit_s32 options, sljit_uw *size)
 {
 	sljit_uw total_size = sizeof(struct sljit_serialized_compiler);
 	struct sljit_memory_fragment *buf;
@@ -127,11 +128,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 	struct sljit_serialized_jump *serialized_jump;
 	struct sljit_serialized_put_label *serialized_put_label;
 	struct sljit_serialized_const *serialized_const;
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
+		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	struct sljit_serialized_debug_info *serialized_debug_info;
+#endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_DEBUG */
 	sljit_uw counter, used_size;
 	sljit_u8 *result;
 	sljit_u8 *ptr;
+	SLJIT_UNUSED_ARG(options);
+
+	if (size != NULL)
+		*size = 0;
 
 	PTR_FAIL_IF(compiler->error);
+
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
+		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if (!(options & SLJIT_SERIALIZE_IGNORE_DEBUG))
+		total_size += sizeof(struct sljit_serialized_debug_info);
+#endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_DEBUG */
 
 #if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
 	total_size += SLJIT_SERIALIZE_ALIGN(compiler->cpool_fill * (sizeof(sljit_uw) + 1));
@@ -144,13 +159,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 		buf = buf->next;
 	}
 
-	label = compiler->labels;
-	counter = 0;
-	while (label != NULL) {
-		label->addr = counter++;
-		total_size += sizeof(struct sljit_serialized_label);
-		label = label->next;
-	}
+	total_size += compiler->label_count * sizeof(struct sljit_serialized_label);
 
 	jump = compiler->jumps;
 	while (jump != NULL) {
@@ -183,6 +192,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 	serialized_compiler->signature = SLJIT_SERIALIZE_SIGNATURE;
 	serialized_compiler->version = SLJIT_SERIALIZE_VERSION;
 	serialized_compiler->cpu_type = 0;
+	serialized_compiler->label_count = compiler->label_count;
 	serialized_compiler->options = compiler->options;
 	serialized_compiler->scratches = compiler->scratches;
 	serialized_compiler->saveds = compiler->saveds;
@@ -215,14 +225,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 	serialized_compiler->delay_slot = compiler->delay_slot;
 #endif /* SLJIT_CONFIG_MIPS */
 
-#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
-		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
-	serialized_compiler->last_flags = compiler->last_flags;
-	serialized_compiler->last_return = compiler->last_return;
-	serialized_compiler->logical_local_size = compiler->logical_local_size;
-	serialized_compiler->cpu_type |= SLJIT_SERIALIZE_DEBUG;
-#endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_DEBUG */
-
 	buf = compiler->buf;
 	counter = 0;
 	while (buf != NULL) {
@@ -237,15 +239,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 	serialized_compiler->buf_segment_count = counter;
 
 	label = compiler->labels;
-	counter = 0;
 	while (label != NULL) {
 		serialized_label = (struct sljit_serialized_label*)ptr;
 		serialized_label->size = label->size;
 		ptr += sizeof(struct sljit_serialized_label);
 		label = label->next;
-		counter++;
 	}
-	serialized_compiler->label_count = counter;
 
 	jump = compiler->jumps;
 	counter = 0;
@@ -255,7 +254,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 		serialized_jump->flags = jump->flags;
 
 		if (jump->flags & JUMP_LABEL)
-			serialized_jump->value = jump->u.label->addr;
+			serialized_jump->value = jump->u.label->u.index;
 		else
 			serialized_jump->value = jump->u.target;
 
@@ -274,9 +273,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 		serialized_put_label->flags = put_label->flags;
 
 		if (put_label->label != NULL)
-			serialized_put_label->value = put_label->label->addr;
+			serialized_put_label->index = put_label->label->u.index;
 		else
-			serialized_put_label->value = ~(sljit_uw)0;
+			serialized_put_label->index = ~(sljit_uw)0;
 
 		ptr += sizeof(struct sljit_serialized_put_label);
 		put_label = put_label->next;
@@ -295,12 +294,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 	}
 	serialized_compiler->const_count = counter;
 
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
+		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if (!(options & SLJIT_SERIALIZE_IGNORE_DEBUG)) {
+		serialized_debug_info = (struct sljit_serialized_debug_info*)ptr;
+		serialized_debug_info->last_flags = compiler->last_flags;
+		serialized_debug_info->last_return = compiler->last_return;
+		serialized_debug_info->logical_local_size = compiler->logical_local_size;
+		serialized_compiler->cpu_type |= SLJIT_SERIALIZE_DEBUG;
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+		ptr += sizeof(struct sljit_serialized_debug_info);
+#endif /* SLJIT_DEBUG */
+	}
+#endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_DEBUG */
+
 	SLJIT_ASSERT((sljit_uw)(ptr - result) == total_size);
 	return (sljit_uw*)result;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit_uw* buffer, sljit_uw size,
-	void *allocator_data, void *exec_allocator_data)
+	sljit_s32 options, void *allocator_data, void *exec_allocator_data)
 {
 	struct sljit_compiler *compiler;
 	struct sljit_serialized_compiler *serialized_compiler;
@@ -308,6 +321,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 	struct sljit_serialized_jump *serialized_jump;
 	struct sljit_serialized_put_label *serialized_put_label;
 	struct sljit_serialized_const *serialized_const;
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
+		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	struct sljit_serialized_debug_info *serialized_debug_info;
+#endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_DEBUG */
 	struct sljit_memory_fragment *buf;
 	struct sljit_memory_fragment *last_buf;
 	struct sljit_label *label;
@@ -322,6 +339,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 	sljit_u8 *ptr = (sljit_u8*)buffer;
 	sljit_u8 *end = ptr + size;
 	sljit_uw i, used_size, aligned_size, label_count;
+	SLJIT_UNUSED_ARG(options);
 
 	if (size < sizeof(struct sljit_serialized_compiler) || (size & (sizeof(sljit_uw) - 1)) != 0)
 		return NULL;
@@ -334,6 +352,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 	compiler = sljit_create_compiler(allocator_data, exec_allocator_data);
 	PTR_FAIL_IF(compiler == NULL);
 
+	compiler->label_count = serialized_compiler->label_count;
 	compiler->options = serialized_compiler->options;
 	compiler->scratches = serialized_compiler->scratches;
 	compiler->saveds = serialized_compiler->saveds;
@@ -374,14 +393,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
 		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	if (!(serialized_compiler->cpu_type & SLJIT_SERIALIZE_DEBUG))
-		goto error;
-
-	compiler->last_flags = serialized_compiler->last_flags;
-	compiler->last_return = serialized_compiler->last_return;
-	compiler->logical_local_size = serialized_compiler->logical_local_size;
-#else /* !SLJIT_ARGUMENT_CHECKS && !SLJIT_DEBUG */
-	/* This error could be ignored, but it may reveal issues. */
-	if (serialized_compiler->cpu_type & SLJIT_SERIALIZE_DEBUG)
 		goto error;
 #endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_DEBUG */
 
@@ -436,6 +447,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 
 		serialized_label = (struct sljit_serialized_label*)ptr;
 		label->next = NULL;
+		label->u.index = i;
 		label->size = serialized_label->size;
 
 		if (last_label != NULL)
@@ -497,10 +509,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 		put_label->addr = serialized_put_label->addr;
 		put_label->flags = serialized_put_label->flags;
 
-		if (serialized_put_label->value != ~(sljit_uw)0) {
-			if (serialized_put_label->value >= label_count)
+		if (serialized_put_label->index != ~(sljit_uw)0) {
+			if (serialized_put_label->index >= label_count)
 				goto error;
-			put_label->label = label_list[serialized_put_label->value];
+			put_label->label = label_list[serialized_put_label->index];
 		} else
 			put_label->label = NULL;
 
@@ -542,6 +554,17 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 		i--;
 	}
 	compiler->last_const = last_const;
+
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
+		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
+	if ((sljit_uw)(end - ptr) < sizeof(struct sljit_serialized_debug_info))
+		goto error;
+
+	serialized_debug_info = (struct sljit_serialized_debug_info*)ptr;
+	compiler->last_flags = (sljit_s32)serialized_debug_info->last_flags;
+	compiler->last_return = serialized_debug_info->last_return;
+	compiler->logical_local_size = serialized_debug_info->logical_local_size;
+#endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_DEBUG */
 
 	return compiler;
 

@@ -427,7 +427,10 @@ struct sljit_memory_fragment {
 
 struct sljit_label {
 	struct sljit_label *next;
-	sljit_uw addr;
+	union {
+		sljit_uw index;
+		sljit_uw addr;
+	} u;
 	/* The maximum size difference. */
 	sljit_uw size;
 };
@@ -473,6 +476,8 @@ struct sljit_compiler {
 	struct sljit_memory_fragment *buf;
 	struct sljit_memory_fragment *abuf;
 
+	/* Number of labels created by the compiler. */
+	sljit_uw label_count;
 	/* Available scratch registers. */
 	sljit_s32 scratches;
 	/* Available saved registers. */
@@ -2162,7 +2167,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_put_label(struct sljit_put_label *put_la
    is called. The returned value is unspecified before the sljit_generate_code call.
    Since these structures are freed by sljit_free_compiler, the addresses must be
    preserved by the user program elsewere. */
-static SLJIT_INLINE sljit_uw sljit_get_label_addr(struct sljit_label *label) { return label->addr; }
+static SLJIT_INLINE sljit_uw sljit_get_label_addr(struct sljit_label *label) { return label->u.addr; }
 static SLJIT_INLINE sljit_uw sljit_get_jump_addr(struct sljit_jump *jump) { return jump->addr; }
 static SLJIT_INLINE sljit_uw sljit_get_const_addr(struct sljit_const *const_) { return const_->addr; }
 
@@ -2242,8 +2247,8 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_current_flags(struct sljit_compiler *com
 /* Label/jump/const/put_label enumeration functions. The items in each
    group are enumerated in creation order. Serialization / deserialization
    preserves this order for each group. For example the fifth label after
-   deserialization refers to the same location as the fifth label before
-   the serialization. */
+   deserialization refers to the same machine code location as the fifth
+   label before the serialization. */
 static SLJIT_INLINE struct sljit_label *sljit_get_first_label(struct sljit_compiler *compiler) { return compiler->labels; }
 static SLJIT_INLINE struct sljit_jump *sljit_get_first_jump(struct sljit_compiler *compiler) { return compiler->jumps; }
 static SLJIT_INLINE struct sljit_const *sljit_get_first_const(struct sljit_compiler *compiler) { return compiler->consts; }
@@ -2254,60 +2259,79 @@ static SLJIT_INLINE struct sljit_jump *sljit_get_next_jump(struct sljit_jump *ju
 static SLJIT_INLINE struct sljit_const *sljit_get_next_const(struct sljit_const *const_) { return const_->next; }
 static SLJIT_INLINE struct sljit_put_label *sljit_get_next_put_label(struct sljit_put_label *put_label) { return put_label->next; }
 
-/* Helper functions to get the status of jumps. Useful after the deserialization.
-   The sljit_jump_has_label / target returns non-zero value if a label or target
-   is set for the jump respectively. Both may return with a zero value. */
+/* A number starting from 0 is assigned to each label, which
+represents its creation index. The first label created by the
+compiler has index 0, the second has index 1, the third has
+index 2, and so on. The returned value is unspecified after
+sljit_generate_code() is called. */
+static SLJIT_INLINE sljit_uw sljit_get_label_index(struct sljit_label *label) { return label->u.index; }
+
+/* The sljit_jump_has_label() and sljit_jump_has_target() functions
+returns non-zero value if a label or target is set for the jump
+respectively. Both may return with a zero value. The other two
+functions return the value assigned to the jump. */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_jump_has_label(struct sljit_jump *jump);
 static SLJIT_INLINE struct sljit_label *sljit_jump_get_label(struct sljit_jump *jump) { return jump->u.label; }
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_jump_has_target(struct sljit_jump *jump);
 static SLJIT_INLINE sljit_uw sljit_jump_get_target(struct sljit_jump *jump) { return jump->u.target; }
 
+/* Option bits for sljit_serialize_compiler. */
+
+/* When debugging is enabled, the serialized buffer contains
+debugging information unless this option is specified. */
+#define SLJIT_SERIALIZE_IGNORE_DEBUG		0x1
+
 /* Serialize the internal structure of the compiler into a buffer.
 If the serialization is successful, the returned value is a newly
 allocated buffer which is allocated by the memory allocator assigned
 to the compiler. Otherwise the returned value is NULL. Unlike
-sljit_generate_code(), serialization does nto modify the internal
+sljit_generate_code(), serialization does not modify the internal
 state of the compiler, so the code generation can be continued.
 
-Note: This function is useful for ahead-of-time compilation (AOT).
+  options must be the combination of SLJIT_SERIALIZE_* option bits
+  size is an output argument, which is set to the byte size of
+    the result buffer if the operation is successful
 
-Note: The returned buffer must be freed later by the caller.
-      The SLJIT_FREE() macro can be used for this purpose:
-      SLJIT_FREE(returned_buffer, sljit_get_allocator_data(compiler))
-
-Note: The type of the returned buffer is sljit_uw* to emphasize that
-      the buffer is word aligned. However, the size of the buffer
-      returned in the 'size' output argument is in bytes. The size
-      of the buffer is always divisible by sizeof(sljit_uw).
-
-Note: When debugging is enabled, the resulting buffer contains
-      debug related data. Therefore mixing the debug and release
-      variants of the compiler for serialization purposes
-      is not supported.
+Notes:
+  - This function is useful for ahead-of-time compilation (AOT).
+  - The returned buffer must be freed later by the caller.
+    The SLJIT_FREE() macro is suitable for this purpose:
+    SLJIT_FREE(returned_buffer, sljit_get_allocator_data(compiler))
+  - Memory allocated by sljit_alloc_memory() is not serialized.
+  - The type of the returned buffer is sljit_uw* to emphasize that
+    the buffer is word aligned. However, the 'size' output argument
+    contains the byte size, so this value is always divisible by
+    sizeof(sljit_uw).
 */
-SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compiler *compiler, sljit_uw *size);
+SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compiler *compiler,
+	sljit_s32 options, sljit_uw *size);
 
 /* Construct a new compiler instance from a buffer produced by
 sljit_serialize_compiler(). If the operation is successful, the new
 compiler instance is returned. Otherwise the returned value is NULL.
 
-Note: The buffer argument must be word aligned, and the size argument
-      must contain the size of the buffer in bytes.
+  buffer points to a word aligned memory data which was
+    created by sljit_serialize_compiler()
+  size is the byte size of the buffer
+  options must be 0
+  allocator_data and exec_allocator_data specify an allocator
+    specific data similar to sljit_create_compiler()
 
-Note: Similar to sljit_create_compiler(), the allocator_data and
-      exec_allocator_data arguments specify the allocater data.
-
-Note: Labels assigned to jumps or put_labels are restored with
-      a corresponding label constructed during deserialization.
-      Target addresses assigned to jumps are also restored.
-      Uninitialized jumps and put_labels remain uninitialized.
-
-Note: calling sljit_generate_code() does not need to be the next
-      operation on the returned compiler, the code generation
-      can be continued.
+Notes:
+  - Labels assigned to jumps or put_labels are restored with
+    their corresponding label in the label set created by
+    the deserializer. Target addresses assigned to jumps are
+    also restored. Uninitialized jumps and put_labels remain
+    uninitialized.
+  - After the deserialization, sljit_generate_code() does
+    not need to be the next operation on the returned
+    compiler, the code generation can be continued.
+    Even sljit_serialize_compiler() can be called again.
+  - When debugging is enabled, a buffers without debug
+    information cannot be deserialized.
 */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit_uw* buffer, sljit_uw size,
-	void *allocator_data, void *exec_allocator_data);
+	sljit_s32 options, void *allocator_data, void *exec_allocator_data);
 
 /* --------------------------------------------------------------------- */
 /*  Miscellaneous utility functions                                      */
