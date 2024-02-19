@@ -705,25 +705,46 @@ static SLJIT_INLINE void reverse_buf(struct sljit_compiler *compiler)
 	compiler->buf = prev;
 }
 
-/* Only used in RISC architectures where the instruction size is constant */
+#define SLJIT_MAX_ADDRESS ~(sljit_uw)0
+
+#define SLJIT_GET_NEXT_SIZE(ptr) (ptr != NULL) ? ((ptr)->size) : SLJIT_MAX_ADDRESS
+#define SLJIT_GET_NEXT_ADDRESS(ptr) (ptr != NULL) ? ((ptr)->addr) : SLJIT_MAX_ADDRESS
+
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 
-static SLJIT_INLINE sljit_uw compute_next_addr(struct sljit_label *label, struct sljit_jump *jump,
-	struct sljit_const *const_, struct sljit_put_label *put_label)
+#define SLJIT_NEXT_DEFINE_TYPES \
+	sljit_uw next_label_size; \
+	sljit_uw next_jump_addr; \
+	sljit_uw next_put_label_addr; \
+	sljit_uw next_const_addr; \
+	sljit_uw next_min_addr
+
+#define SLJIT_NEXT_INIT_TYPES() \
+	next_label_size = SLJIT_GET_NEXT_SIZE(label); \
+	next_jump_addr = SLJIT_GET_NEXT_ADDRESS(jump); \
+	next_put_label_addr = SLJIT_GET_NEXT_ADDRESS(put_label); \
+	next_const_addr = SLJIT_GET_NEXT_ADDRESS(const_);
+
+#define SLJIT_GET_NEXT_MIN() \
+	next_min_addr = sljit_get_next_min(next_label_size, next_jump_addr, next_put_label_addr, next_const_addr);
+
+static SLJIT_INLINE sljit_uw sljit_get_next_min(sljit_uw next_label_size, sljit_uw next_jump_addr,
+	sljit_uw next_put_label_addr, sljit_uw next_const_addr)
 {
-	sljit_uw result = ~(sljit_uw)0;
+	sljit_uw result = next_jump_addr;
 
-	if (label)
-		result = label->size;
+	SLJIT_ASSERT(result == SLJIT_MAX_ADDRESS || result != next_put_label_addr);
 
-	if (jump && jump->addr < result)
-		result = jump->addr;
+	if (next_put_label_addr < result)
+		result = next_put_label_addr;
 
-	if (const_ && const_->addr < result)
-		result = const_->addr;
+	SLJIT_ASSERT(result == SLJIT_MAX_ADDRESS || result != next_const_addr);
 
-	if (put_label && put_label->addr < result)
-		result = put_label->addr;
+	if (next_const_addr < result)
+		result = next_const_addr;
+
+	if (next_label_size < result)
+		result = next_label_size;
 
 	return result;
 }
