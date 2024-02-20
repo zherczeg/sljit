@@ -1269,7 +1269,7 @@ static void test13(void)
 	struct sljit_jump *jump1;
 	struct sljit_jump *jump2;
 	struct sljit_const* const1;
-	struct sljit_put_label *put_label;
+	struct sljit_jump *mov_addr;
 	sljit_sw executable_offset;
 	sljit_uw const_addr;
 	sljit_uw jump_addr;
@@ -1292,7 +1292,7 @@ static void test13(void)
 	label = sljit_emit_label(compiler);
 	sljit_set_label(jump1, label);
 
-	put_label = sljit_emit_put_label(compiler, SLJIT_R2, 0);
+	mov_addr = sljit_emit_mov_addr(compiler, SLJIT_R2, 0);
 	/* buf[0] */
 	const1 = sljit_emit_const(compiler, SLJIT_MEM1(SLJIT_S0), 0, -1234);
 
@@ -1300,7 +1300,7 @@ static void test13(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_IMM, -1234);
 
 	label = sljit_emit_label(compiler);
-	sljit_set_put_label(put_label, label);
+	sljit_set_label(mov_addr, label);
 
 	/* buf[1] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_IMM, -56789);
@@ -5194,7 +5194,7 @@ static void test50(void)
 	/* Test put label. */
 	executable_code code;
 	struct sljit_label *label[2];
-	struct sljit_put_label *put_label[5];
+	struct sljit_jump *mov_addr[5];
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
 	sljit_uw addr[2];
 	sljit_uw buf[4];
@@ -5212,30 +5212,30 @@ static void test50(void)
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(W, P), 3, 1, 0, 0, 2 * sizeof(sljit_sw));
 
 	/* buf[0-1] */
-	put_label[0] = sljit_emit_put_label(compiler, SLJIT_R0, 0);
+	mov_addr[0] = sljit_emit_mov_addr(compiler, SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R0, 0);
 
-	put_label[1] = sljit_emit_put_label(compiler, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_uw));
+	mov_addr[1] = sljit_emit_mov_addr(compiler, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_uw));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_uw), SLJIT_MEM1(SLJIT_SP), sizeof(sljit_uw));
 
 	label[0] = sljit_emit_label(compiler);
-	sljit_set_put_label(put_label[0], label[0]);
-	sljit_set_put_label(put_label[1], label[0]);
+	sljit_set_label(mov_addr[0], label[0]);
+	sljit_set_label(mov_addr[1], label[0]);
 
 	/* buf[2-3] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)(buf + 2) - offs);
-	put_label[2] = sljit_emit_put_label(compiler, SLJIT_MEM1(SLJIT_R0), offs);
+	mov_addr[2] = sljit_emit_mov_addr(compiler, SLJIT_MEM1(SLJIT_R0), offs);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, (offs + (sljit_sw)sizeof(sljit_uw)) >> 1);
-	put_label[3] = sljit_emit_put_label(compiler, SLJIT_MEM2(SLJIT_R0, SLJIT_R1), 1);
+	mov_addr[3] = sljit_emit_mov_addr(compiler, SLJIT_MEM2(SLJIT_R0, SLJIT_R1), 1);
 
 	label[1] = sljit_emit_label(compiler);
-	sljit_set_put_label(put_label[2], label[1]);
-	sljit_set_put_label(put_label[3], label[1]);
+	sljit_set_label(mov_addr[2], label[1]);
+	sljit_set_label(mov_addr[3], label[1]);
 
 	/* Return value */
-	put_label[4] = sljit_emit_put_label(compiler, SLJIT_RETURN_REG, 0);
-	sljit_set_put_label(put_label[4], label[0]);
+	mov_addr[4] = sljit_emit_mov_addr(compiler, SLJIT_RETURN_REG, 0);
+	sljit_set_label(mov_addr[4], label[0]);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
 	code.code = sljit_generate_code(compiler);
@@ -5262,7 +5262,7 @@ static void test51(void)
 	executable_code code;
 	sljit_uw malloc_addr;
 	struct sljit_label label[6];
-	struct sljit_put_label *put_label[2];
+	struct sljit_jump *mov_addr[2];
 	struct sljit_compiler* compiler;
 	sljit_uw buf[7];
 	sljit_s32 i;
@@ -5317,45 +5317,45 @@ static void test51(void)
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(W, P), 3, 1, 0, 0, 2 * sizeof(sljit_sw));
 
 	/* buf[0] */
-	put_label[0] = sljit_emit_put_label(compiler, SLJIT_R0, 0);
+	mov_addr[0] = sljit_emit_mov_addr(compiler, SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R0, 0);
 
 	/* buf[1] */
-	put_label[1] = sljit_emit_put_label(compiler, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_uw));
+	mov_addr[1] = sljit_emit_mov_addr(compiler, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_uw));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_uw), SLJIT_MEM1(SLJIT_SP), sizeof(sljit_uw));
 
-	sljit_set_put_label(put_label[0], &label[0]);
-	sljit_set_put_label(put_label[1], &label[0]);
+	sljit_set_label(mov_addr[0], &label[0]);
+	sljit_set_label(mov_addr[1], &label[0]);
 
 	/* buf[2] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)(buf + 2) - offs1);
-	put_label[0] = sljit_emit_put_label(compiler, SLJIT_MEM1(SLJIT_R0), offs1);
+	mov_addr[0] = sljit_emit_mov_addr(compiler, SLJIT_MEM1(SLJIT_R0), offs1);
 
 	/* buf[3] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, (offs1 + (sljit_sw)sizeof(sljit_uw)) >> 1);
-	put_label[1] = sljit_emit_put_label(compiler, SLJIT_MEM2(SLJIT_R0, SLJIT_R1), 1);
+	mov_addr[1] = sljit_emit_mov_addr(compiler, SLJIT_MEM2(SLJIT_R0, SLJIT_R1), 1);
 
-	sljit_set_put_label(put_label[0], &label[1]);
-	sljit_set_put_label(put_label[1], &label[1]);
+	sljit_set_label(mov_addr[0], &label[1]);
+	sljit_set_label(mov_addr[1], &label[1]);
 
 	/* buf[4] */
-	put_label[0] = sljit_emit_put_label(compiler, SLJIT_R1, 0);
-	sljit_set_put_label(put_label[0], &label[2]);
+	mov_addr[0] = sljit_emit_mov_addr(compiler, SLJIT_R1, 0);
+	sljit_set_label(mov_addr[0], &label[2]);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_uw), SLJIT_R1, 0);
 
 	/* buf[5] */
-	put_label[0] = sljit_emit_put_label(compiler, SLJIT_R2, 0);
-	sljit_set_put_label(put_label[0], &label[3]);
+	mov_addr[0] = sljit_emit_mov_addr(compiler, SLJIT_R2, 0);
+	sljit_set_label(mov_addr[0], &label[3]);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_uw), SLJIT_R2, 0);
 
 	/* buf[6] */
-	put_label[0] = sljit_emit_put_label(compiler, SLJIT_R1, 0);
-	sljit_set_put_label(put_label[0], &label[4]);
+	mov_addr[0] = sljit_emit_mov_addr(compiler, SLJIT_R1, 0);
+	sljit_set_label(mov_addr[0], &label[4]);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_uw), SLJIT_R1, 0);
 
 	/* buf[7] */
-	put_label[0] = sljit_emit_put_label(compiler, SLJIT_RETURN_REG, 0);
-	sljit_set_put_label(put_label[0], &label[5]);
+	mov_addr[0] = sljit_emit_mov_addr(compiler, SLJIT_RETURN_REG, 0);
+	sljit_set_label(mov_addr[0], &label[5]);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
 	code.code = sljit_generate_code(compiler);

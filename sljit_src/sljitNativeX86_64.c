@@ -395,11 +395,11 @@ static sljit_u8* detect_far_jump_type(struct sljit_jump *jump, sljit_u8 *code_pt
 	return code_ptr + 3;
 }
 
-static sljit_u8* generate_put_label_code(struct sljit_put_label *put_label, sljit_u8 *code_ptr, sljit_uw addr)
+static sljit_u8* generate_mov_addr_code(struct sljit_jump *jump, sljit_u8 *code_ptr, sljit_uw addr)
 {
-	sljit_sw diff = (sljit_sw)put_label->label->size - (sljit_sw)put_label->addr;
+	sljit_sw diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
 
-	addr += put_label->label->size;
+	addr += jump->u.label->size;
 
 	if (addr > 0xffffffffl) {
 		if (diff <= HALFWORD_MAX && diff >= HALFWORD_MIN) {
@@ -412,11 +412,11 @@ static sljit_u8* generate_put_label_code(struct sljit_put_label *put_label, slji
 			code_ptr[-1 - SSIZE_OF(s32)] = U8(((code_ptr[-2 - SSIZE_OF(s32)] & 0x7) << 3) | 0x5);
 			code_ptr[-2 - SSIZE_OF(s32)] = LEA_r_m;
 
-			put_label->flags = PATCH_MW;
+			jump->flags |= PATCH_MW;
 			return code_ptr;
 		}
 
-		put_label->flags = PATCH_MD;
+		jump->flags |= PATCH_MD;
 		return code_ptr;
 	}
 
