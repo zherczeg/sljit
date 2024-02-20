@@ -181,7 +181,7 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 	if (jump->flags & JUMP_ADDR)
 		target_addr = jump->u.target;
 	else {
-		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
+		SLJIT_ASSERT(jump->u.label != NULL);
 		target_addr = (sljit_uw)(code + jump->u.label->size) + (sljit_uw)executable_offset;
 	}
 
@@ -312,7 +312,7 @@ static SLJIT_INLINE void load_addr_to_reg(void *dst, sljit_u32 reg, sljit_sw exe
 		jump = (struct sljit_jump*)dst;
 		flags = jump->flags;
 		inst = (sljit_ins*)jump->addr;
-		addr = (flags & JUMP_LABEL) ? jump->u.label->u.addr : jump->u.target;
+		addr = (flags & JUMP_ADDR) ? jump->u.target : jump->u.label->u.addr;
 	} else {
 		put_label = (struct sljit_put_label*)dst;
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
@@ -605,7 +605,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				break;
 			}
 
-			addr = (jump->flags & JUMP_LABEL) ? jump->u.label->u.addr : jump->u.target;
+			addr = (jump->flags & JUMP_ADDR) ? jump->u.target : jump->u.label->u.addr;
 			buf_ptr = (sljit_ins *)jump->addr;
 			addr -= (sljit_uw)SLJIT_ADD_EXEC_OFFSET(buf_ptr, executable_offset);
 

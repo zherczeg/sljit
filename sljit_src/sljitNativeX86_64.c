@@ -362,7 +362,7 @@ static sljit_u8* detect_far_jump_type(struct sljit_jump *jump, sljit_u8 *code_pt
 {
 	sljit_uw type = jump->flags >> TYPE_SHIFT;
 
-	int short_addr = !(jump->flags & SLJIT_REWRITABLE_JUMP) && !(jump->flags & JUMP_LABEL) && (jump->u.target <= 0xffffffff);
+	int short_addr = !(jump->flags & SLJIT_REWRITABLE_JUMP) && (jump->flags & JUMP_ADDR) && (jump->u.target <= 0xffffffff);
 
 	/* The relative jump below specialized for this case. */
 	SLJIT_ASSERT(reg_map[TMP_REG2] >= 8);
@@ -379,7 +379,7 @@ static sljit_u8* detect_far_jump_type(struct sljit_jump *jump, sljit_u8 *code_pt
 	code_ptr += 2;
 	jump->addr = (sljit_uw)code_ptr;
 
-	if (jump->flags & JUMP_LABEL)
+	if (!(jump->flags & JUMP_ADDR))
 		jump->flags |= PATCH_MD;
 	else if (short_addr)
 		sljit_unaligned_store_s32(code_ptr, (sljit_s32)jump->u.target);

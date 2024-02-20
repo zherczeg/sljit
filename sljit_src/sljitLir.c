@@ -152,8 +152,7 @@
 #define SLJIT_SIMD_TYPE_MASK2(m) ((sljit_s32)0xc0000fff & ~(SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST | (m)))
 
 /* Jump flags. */
-#define JUMP_LABEL	0x1
-#define JUMP_ADDR	0x2
+#define JUMP_ADDR	0x1
 /* SLJIT_REWRITABLE_JUMP is 0x1000. */
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
@@ -591,7 +590,6 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_label(struct sljit_jump *jump, struct sl
 {
 	if (SLJIT_LIKELY(!!jump) && SLJIT_LIKELY(!!label)) {
 		jump->flags &= (sljit_uw)~JUMP_ADDR;
-		jump->flags |= JUMP_LABEL;
 		jump->u.label = label;
 	}
 }
@@ -599,7 +597,6 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_label(struct sljit_jump *jump, struct sl
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_target(struct sljit_jump *jump, sljit_uw target)
 {
 	if (SLJIT_LIKELY(!!jump)) {
-		jump->flags &= (sljit_uw)~JUMP_LABEL;
 		jump->flags |= JUMP_ADDR;
 		jump->u.target = target;
 	}
@@ -803,6 +800,7 @@ static SLJIT_INLINE void set_jump(struct sljit_jump *jump, struct sljit_compiler
 {
 	jump->next = NULL;
 	jump->flags = flags;
+	jump->u.label = NULL;
 	if (compiler->last_jump != NULL)
 		compiler->last_jump->next = jump;
 	else
@@ -1232,7 +1230,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_generate_code(struct sljit_com
 	jump = compiler->jumps;
 	while (jump) {
 		/* All jumps have target. */
-		CHECK_ARGUMENT(jump->flags & (JUMP_LABEL | JUMP_ADDR));
+		CHECK_ARGUMENT((jump->flags & JUMP_ADDR) || jump->u.label != NULL);
 		jump = jump->next;
 	}
 #endif

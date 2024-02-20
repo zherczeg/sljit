@@ -26,7 +26,7 @@
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_jump_has_label(struct sljit_jump *jump)
 {
-	return (jump->flags & JUMP_LABEL) != 0;
+	return !(jump->flags & JUMP_ADDR) && (jump->u.label != NULL);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_jump_has_target(struct sljit_jump *jump)
@@ -253,10 +253,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 		serialized_jump->addr = jump->addr;
 		serialized_jump->flags = jump->flags;
 
-		if (jump->flags & JUMP_LABEL)
+		if (jump->flags & JUMP_ADDR)
+			serialized_jump->value = jump->u.target;
+		else if (jump->u.label != NULL)
 			serialized_jump->value = jump->u.label->u.index;
 		else
-			serialized_jump->value = jump->u.target;
+			serialized_jump->value = SLJIT_MAX_ADDRESS;
 
 		ptr += sizeof(struct sljit_serialized_jump);
 		jump = jump->next;
@@ -476,10 +478,13 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 		jump->addr = serialized_jump->addr;
 		jump->flags = serialized_jump->flags;
 
-		if (serialized_jump->flags & JUMP_LABEL) {
-			if (serialized_jump->value >= label_count)
-				goto error;
-			jump->u.label = label_list[serialized_jump->value];
+		if (!(serialized_jump->flags & JUMP_ADDR)) {
+			if (serialized_jump->value != SLJIT_MAX_ADDRESS) {
+				if (serialized_jump->value >= label_count)
+					goto error;
+				jump->u.label = label_list[serialized_jump->value];
+			} else
+				jump->u.label = NULL;
 		} else
 			jump->u.target = serialized_jump->value;
 

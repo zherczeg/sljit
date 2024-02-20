@@ -329,7 +329,7 @@ static SLJIT_INLINE sljit_u16* detect_jump_type(struct sljit_jump *jump, sljit_u
 			goto exit;
 		diff = (sljit_sw)jump->u.target - (sljit_sw)(code_ptr + 2) - executable_offset;
 	} else {
-		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
+		SLJIT_ASSERT(jump->u.label != NULL);
 		diff = (sljit_sw)(code + jump->u.label->size) - (sljit_sw)(code_ptr + 2);
 	}
 
@@ -383,7 +383,7 @@ static SLJIT_INLINE void set_jump_instruction(struct sljit_jump *jump, sljit_sw 
 	sljit_u16 *jump_inst;
 
 	if (SLJIT_UNLIKELY(type == 0)) {
-		set_imm32_const((sljit_u16*)jump->addr, RDN3(TMP_REG1), (jump->flags & JUMP_LABEL) ? jump->u.label->u.addr : jump->u.target);
+		set_imm32_const((sljit_u16*)jump->addr, RDN3(TMP_REG1), (jump->flags & JUMP_ADDR) ? jump->u.target : jump->u.label->u.addr);
 		return;
 	}
 

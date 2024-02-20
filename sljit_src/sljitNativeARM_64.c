@@ -215,7 +215,7 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 	if (jump->flags & JUMP_ADDR)
 		target_addr = jump->u.target;
 	else {
-		SLJIT_ASSERT(jump->flags & JUMP_LABEL);
+		SLJIT_ASSERT(jump->u.label != NULL);
 		target_addr = (sljit_uw)(code + jump->u.label->size) + (sljit_uw)executable_offset;
 	}
 
@@ -485,7 +485,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	jump = compiler->jumps;
 	while (jump) {
 		do {
-			addr = (sljit_sw)((jump->flags & JUMP_LABEL) ? jump->u.label->u.addr : jump->u.target);
+			addr = (sljit_sw)((jump->flags & JUMP_ADDR) ? jump->u.target : jump->u.label->u.addr);
 			buf_ptr = (sljit_ins *)jump->addr;
 
 			if (jump->flags & PATCH_COND) {
