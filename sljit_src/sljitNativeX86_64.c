@@ -395,14 +395,23 @@ static sljit_u8* detect_far_jump_type(struct sljit_jump *jump, sljit_u8 *code_pt
 	return code_ptr + 3;
 }
 
-static sljit_u8* generate_mov_addr_code(struct sljit_jump *jump, sljit_u8 *code_ptr, sljit_uw addr)
+static sljit_u8* generate_mov_addr_code(struct sljit_jump *jump, sljit_u8 *code_ptr, sljit_u8 *code, sljit_sw executable_offset)
 {
-	sljit_sw diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
+	sljit_uw addr;
+	sljit_sw diff;
+	SLJIT_UNUSED_ARG(executable_offset);
 
-	addr += jump->u.label->size;
+	SLJIT_ASSERT(((jump->flags >> JUMP_SIZE_SHIFT) & 0x1f) <= 10);
+	if (jump->flags & JUMP_ADDR)
+		addr = jump->u.target;
+	else
+		addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code, executable_offset) + jump->u.label->size;
 
 	if (addr > 0xffffffffl) {
+		diff = (sljit_sw)addr - (sljit_sw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
+
 		if (diff <= HALFWORD_MAX && diff >= HALFWORD_MIN) {
+			SLJIT_ASSERT(((jump->flags >> JUMP_SIZE_SHIFT) & 0x1f) >= 7);
 			code_ptr -= SSIZE_OF(s32) - 1;
 
 			SLJIT_ASSERT((code_ptr[-3 - SSIZE_OF(s32)] & 0xf8) == REX_W);
@@ -426,9 +435,11 @@ static sljit_u8* generate_mov_addr_code(struct sljit_jump *jump, sljit_u8 *code_
 	SLJIT_ASSERT((code_ptr[1] & 0xf8) == MOV_r_i32);
 
 	if ((code_ptr[0] & 0x07) != 0) {
+		SLJIT_ASSERT(((jump->flags >> JUMP_SIZE_SHIFT) & 0x1f) >= 6);
 		code_ptr[0] = U8(code_ptr[0] & ~0x08);
 		code_ptr += 2 + sizeof(sljit_s32);
 	} else {
+		SLJIT_ASSERT(((jump->flags >> JUMP_SIZE_SHIFT) & 0x1f) >= 5);
 		code_ptr[0] = code_ptr[1];
 		code_ptr += 1 + sizeof(sljit_s32);
 	}

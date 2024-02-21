@@ -710,11 +710,21 @@ static void set_const_value(sljit_uw addr, sljit_sw executable_offset, sljit_uw 
 #endif /* SLJIT_CONFIG_ARM_V6 */
 }
 
-static SLJIT_INLINE sljit_sw mov_addr_get_length(struct sljit_jump *jump)
+static SLJIT_INLINE sljit_sw mov_addr_get_length(struct sljit_jump *jump, sljit_ins *code_ptr, sljit_ins *code, sljit_sw executable_offset)
 {
-	sljit_sw diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
+	sljit_uw addr;
+	sljit_sw diff;
+	SLJIT_UNUSED_ARG(executable_offset);
 
-	if (diff <= 0xff + 2 && diff >= -0xff + 2) {
+	if (jump->flags & JUMP_ADDR)
+		addr = jump->u.target;
+	else
+		addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code + jump->u.label->size, executable_offset);
+
+	/* The pc+8 offset is represented by the 2 * SSIZE_OF(ins) below. */
+	diff = (sljit_sw)addr - (sljit_sw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
+
+	if ((diff & 0x3) == 0 && diff <= (0x3fc + 2 * SSIZE_OF(ins)) && diff >= (-0x3fc + 2 * SSIZE_OF(ins))) {
 		jump->flags |= PATCH_B;
 		return 0;
 	}
@@ -782,10 +792,12 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 		} else {
 			/* Real size minus 1. Unit size: instruction. */
 			total_size = 1;
-			diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
 
-			if (diff <= 0xff + 2 && diff >= -0xff + 2)
-				total_size = 0;
+			if (!(jump->flags & JUMP_ADDR)) {
+				diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
+				if (diff <= 0xff + 2 && diff >= -0xff + 2)
+					total_size = 0;
+			}
 
 			size_reduce += 1 - total_size;
 		}
@@ -917,12 +929,11 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 							SLJIT_ASSERT((sljit_uw)code_ptr - jump->addr <= (jump->flags >> JUMP_SIZE_SHIFT) * sizeof(sljit_ins));
 #endif /* SLJIT_CONFIG_ARM_V6 */
 						} else {
-							SLJIT_ASSERT(jump->u.label);
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 							word_count += jump->flags >> JUMP_SIZE_SHIFT;
 #endif /* SLJIT_CONFIG_ARM_V7 */
 							addr = (sljit_uw)code_ptr;
-							code_ptr += mov_addr_get_length(jump);
+							code_ptr += mov_addr_get_length(jump, code_ptr, code, executable_offset);
 							jump->addr = addr;
 						}
 						jump = jump->next;
@@ -1005,6 +1016,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #endif /* SLJIT_CONFIG_ARM_V6 */
 
 			if (jump->flags & PATCH_B) {
+				SLJIT_ASSERT((((sljit_sw)addr - (sljit_sw)SLJIT_ADD_EXEC_OFFSET(buf_ptr + 2, executable_offset)) & 0x3) == 0);
 				diff = ((sljit_sw)addr - (sljit_sw)SLJIT_ADD_EXEC_OFFSET(buf_ptr + 2, executable_offset)) >> 2;
 
 				SLJIT_ASSERT(diff <= 0xff && diff >= -0xff);

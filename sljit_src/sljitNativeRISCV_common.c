@@ -264,32 +264,45 @@ exit:
 
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 
-static SLJIT_INLINE sljit_sw mov_addr_get_length(struct sljit_jump *jump, sljit_uw addr)
+static SLJIT_INLINE sljit_sw mov_addr_get_length(struct sljit_jump *jump, sljit_ins *code_ptr, sljit_ins *code, sljit_sw executable_offset)
 {
-	sljit_sw diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
+	sljit_uw addr;
+	sljit_sw diff;
+	SLJIT_UNUSED_ARG(executable_offset);
 
-	if (diff >= (S32_MIN / SSIZE_OF(ins)) && diff <= (S32_MAX / SSIZE_OF(ins))) {
+	SLJIT_ASSERT(jump->flags < ((sljit_uw)6 << JUMP_SIZE_SHIFT));
+	if (jump->flags & JUMP_ADDR)
+		addr = jump->u.target;
+	else
+		addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code + jump->u.label->size, executable_offset);
+
+	diff = (sljit_sw)addr - (sljit_sw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
+
+	if (diff >= S32_MIN && diff <= S32_MAX) {
+		SLJIT_ASSERT(jump->flags >= ((sljit_uw)1 << JUMP_SIZE_SHIFT));
 		jump->flags |= PATCH_REL32;
 		return 1;
 	}
 
-	addr += jump->u.label->size;
-
-	if (addr <= (S32_MAX / sizeof(sljit_ins))) {
+	if (addr <= S32_MAX) {
+		SLJIT_ASSERT(jump->flags >= ((sljit_uw)1 << JUMP_SIZE_SHIFT));
 		jump->flags |= PATCH_ABS32;
 		return 1;
 	}
 
-	if (addr <= (S44_MAX / sizeof(sljit_ins))) {
+	if (addr <= S44_MAX) {
+		SLJIT_ASSERT(jump->flags >= ((sljit_uw)3 << JUMP_SIZE_SHIFT));
 		jump->flags |= PATCH_ABS44;
 		return 3;
 	}
 
-	if (addr <= (S52_MAX / sizeof(sljit_ins))) {
+	if (addr <= S52_MAX) {
+		SLJIT_ASSERT(jump->flags >= ((sljit_uw)4 << JUMP_SIZE_SHIFT));
 		jump->flags |= PATCH_ABS52;
 		return 4;
 	}
 
+	SLJIT_ASSERT(jump->flags >= ((sljit_uw)5 << JUMP_SIZE_SHIFT));
 	return 5;
 }
 
@@ -454,16 +467,25 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 			size_reduce += JUMP_MAX_SIZE - total_size;
 			jump->flags |= total_size << JUMP_SIZE_SHIFT;
-		} else {
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
-			/* Real size minus 1. Unit size: instruction. */
-			diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
+		} else {
+			total_size = 5;
 
-			if (diff >= (S32_MIN / SSIZE_OF(ins)) && diff <= (S32_MAX / SSIZE_OF(ins))) {
-				size_reduce += 4;
-				jump->flags |= (sljit_uw)1 << JUMP_SIZE_SHIFT;
-			} else
-				jump->flags |= (sljit_uw)5 << JUMP_SIZE_SHIFT;
+			if (!(jump->flags & JUMP_ADDR)) {
+				/* Real size minus 1. Unit size: instruction. */
+				diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
+
+				if (diff >= (S32_MIN / SSIZE_OF(ins)) && diff <= (S32_MAX / SSIZE_OF(ins)))
+					total_size = 1;
+			} else if (jump->u.target < S32_MAX)
+				total_size = 1;
+			else if (jump->u.target < S44_MAX)
+				total_size = 3;
+			else if (jump->u.target <= S52_MAX)
+				total_size = 4;
+
+			size_reduce += 5 - total_size;
+			jump->flags |= total_size << JUMP_SIZE_SHIFT;
 #endif /* !SLJIT_CONFIG_RISCV_64 */
 		}
 
@@ -536,7 +558,6 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 						code_ptr = detect_jump_type(jump, code, executable_offset);
 						SLJIT_ASSERT((jump->flags & PATCH_B) || ((sljit_uw)code_ptr - jump->addr < (jump->flags >> JUMP_SIZE_SHIFT) * sizeof(sljit_ins)));
 					} else {
-						SLJIT_ASSERT(jump->u.label);
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 						word_count += 1;
 						jump->addr = (sljit_uw)code_ptr;
@@ -544,7 +565,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #else /* !SLJIT_CONFIG_RISCV_32 */
 						word_count += jump->flags >> JUMP_SIZE_SHIFT;
 						addr = (sljit_uw)code_ptr;
-						code_ptr += mov_addr_get_length(jump, (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code, executable_offset));
+						code_ptr += mov_addr_get_length(jump, code_ptr, code, executable_offset);
 						jump->addr = addr;
 #endif /* SLJIT_CONFIG_RISCV_32 */
 					}

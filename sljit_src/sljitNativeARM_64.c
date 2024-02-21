@@ -268,32 +268,44 @@ exit:
 	return code_ptr + 4;
 }
 
-static SLJIT_INLINE sljit_sw mov_addr_get_length(struct sljit_jump *mov_addr, sljit_uw addr)
+static SLJIT_INLINE sljit_sw mov_addr_get_length(struct sljit_jump *jump, sljit_ins *code_ptr, sljit_ins *code, sljit_sw executable_offset)
 {
-	sljit_sw diff = (sljit_sw)mov_addr->u.label->size - (sljit_sw)mov_addr->addr;
+	sljit_uw addr;
+	sljit_sw diff;
+	SLJIT_UNUSED_ARG(executable_offset);
 
-	if (diff <= (0xfffff / SSIZE_OF(ins)) && diff >= (-0x100000 / SSIZE_OF(ins))) {
-		mov_addr->flags |= PATCH_B;
+	SLJIT_ASSERT(jump->flags < ((sljit_uw)4 << JUMP_SIZE_SHIFT));
+	if (jump->flags & JUMP_ADDR)
+		addr = jump->u.target;
+	else
+		addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code + jump->u.label->size, executable_offset);
+
+	diff = (sljit_sw)addr - (sljit_sw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
+
+	if (diff <= 0xfffff && diff >= -0x100000) {
+		jump->flags |= PATCH_B;
 		return 0;
 	}
 
-	if (diff <= (0xfffff000l / SSIZE_OF(ins)) && diff >= (-0x100000000l / SSIZE_OF(ins))) {
-		mov_addr->flags |= PATCH_B32;
+	if (diff <= 0xfffff000l && diff >= -0x100000000l) {
+		SLJIT_ASSERT(jump->flags >= ((sljit_uw)1 << JUMP_SIZE_SHIFT));
+		jump->flags |= PATCH_B32;
 		return 1;
 	}
 
-	addr += mov_addr->u.label->size;
-
-	if (addr < (0x100000000l / sizeof(sljit_ins))) {
+	if (addr < 0x100000000l) {
+		SLJIT_ASSERT(jump->flags >= ((sljit_uw)1 << JUMP_SIZE_SHIFT));
 		return 1;
 	}
 
-	if (addr < (0x1000000000000l / sizeof(sljit_ins))) {
-		mov_addr->flags |= PATCH_ABS48;
+	if (addr < 0x1000000000000l) {
+		SLJIT_ASSERT(jump->flags >= ((sljit_uw)2 << JUMP_SIZE_SHIFT));
+		jump->flags |= PATCH_ABS48;
 		return 2;
 	}
 
-	mov_addr->flags |= PATCH_ABS64;
+	SLJIT_ASSERT(jump->flags >= ((sljit_uw)3 << JUMP_SIZE_SHIFT));
+	jump->flags |= PATCH_ABS64;
 	return 3;
 }
 
@@ -356,7 +368,7 @@ static SLJIT_INLINE void generate_jump_or_mov_addr(struct sljit_jump *jump, slji
 		buf_ptr[2] = MOVK | (((sljit_ins)(addr >> 32) & 0xffff) << 5) | (2 << 21) | dst;
 
 	if (jump->flags & PATCH_ABS64)
-		buf_ptr[3] = MOVK | ((sljit_ins)(addr >> 48) << 5) | (3 << 21) | dst;
+		buf_ptr[3] = MOVK | ((sljit_ins)((sljit_uw)addr >> 48) << 5) | (3 << 21) | dst;
 }
 
 static void reduce_code_size(struct sljit_compiler *compiler)
@@ -424,12 +436,18 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 		} else {
 			/* Real size minus 1. Unit size: instruction. */
 			total_size = 3;
-			diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
 
-			if (diff <= (0xfffff / SSIZE_OF(ins)) && diff >= (-0x100000 / SSIZE_OF(ins)))
-				total_size = 0;
-			else if (diff <= (0xfffff000l / SSIZE_OF(ins)) && diff >= (-0x100000000l / SSIZE_OF(ins)))
+			if (!(jump->flags & JUMP_ADDR)) {
+				diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
+
+				if (diff <= (0xfffff / SSIZE_OF(ins)) && diff >= (-0x100000 / SSIZE_OF(ins)))
+					total_size = 0;
+				else if (diff <= (0xfffff000l / SSIZE_OF(ins)) && diff >= (-0x100000000l / SSIZE_OF(ins)))
+					total_size = 1;
+			} else if (jump->u.target < 0x100000000l)
 				total_size = 1;
+			else if (jump->u.target < 0x1000000000000l)
+				total_size = 2;
 
 			size_reduce += 3 - total_size;
 		}
@@ -504,10 +522,9 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 						code_ptr = detect_jump_type(jump, code_ptr, code, executable_offset);
 						SLJIT_ASSERT((jump->flags & PATCH_COND) || ((sljit_uw)code_ptr - jump->addr < (jump->flags >> JUMP_SIZE_SHIFT) * sizeof(sljit_ins)));
 					} else {
-						SLJIT_ASSERT(jump->u.label);
 						word_count += jump->flags >> JUMP_SIZE_SHIFT;
 						addr = (sljit_sw)code_ptr;
-						code_ptr += mov_addr_get_length(jump, (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code, executable_offset));
+						code_ptr += mov_addr_get_length(jump, code_ptr, code, executable_offset);
 						jump->addr = (sljit_uw)addr;
 					}
 
@@ -1163,14 +1180,20 @@ static sljit_s32 emit_op_mem(struct sljit_compiler *compiler, sljit_s32 flags, s
 	if (argw <= 0xff && argw >= -0x100)
 		return push_inst(compiler, STURBI | type | RT(reg) | RN(arg) | (((sljit_ins)argw & 0x1ff) << 12));
 
-	if (argw >= 0) {
-		if (argw <= 0xfff0ff && ((argw + 0x100) & 0xfff) <= 0x1ff) {
+	if (((argw + 0x100) & 0xfff) <= 0x1ff && argw <= 0xfff0ff && argw >= -0xfff100) {
+		if (argw >= 0) {
+			if (argw & 0x100)
+				argw += 0x1000;
+
 			FAIL_IF(push_inst(compiler, ADDI | (1 << 22) | RD(tmp_reg) | RN(arg) | (((sljit_ins)argw >> 12) << 10)));
 			return push_inst(compiler, STURBI | type | RT(reg) | RN(tmp_reg) | (((sljit_ins)argw & 0x1ff) << 12));
+		} else {
+			if (!(argw & 0x100))
+				argw -= 0x1000;
+
+			FAIL_IF(push_inst(compiler, SUBI | (1 << 22) | RD(tmp_reg) | RN(arg) | (((sljit_ins)-argw >> 12) << 10)));
+			return push_inst(compiler, STURBI | type | RT(reg) | RN(tmp_reg) | (((sljit_ins)argw & 0x1ff) << 12));
 		}
-	} else if (argw >= -0xfff100 && ((-argw + 0xff) & 0xfff) <= 0x1ff) {
-		FAIL_IF(push_inst(compiler, SUBI | (1 << 22) | RD(tmp_reg) | RN(arg) | (((sljit_ins)-argw >> 12) << 10)));
-		return push_inst(compiler, STURBI | type | RT(reg) | RN(tmp_reg) | (((sljit_ins)argw & 0x1ff) << 12));
 	}
 
 	FAIL_IF(load_immediate(compiler, tmp_reg, argw));

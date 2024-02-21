@@ -399,18 +399,30 @@ exit:
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 
-static SLJIT_INLINE sljit_sw mov_addr_get_length(struct sljit_jump *jump, sljit_uw max_label)
+static SLJIT_INLINE sljit_sw mov_addr_get_length(struct sljit_jump *jump, sljit_ins *code, sljit_sw executable_offset)
 {
-	if (max_label < 0x80000000l) {
+	sljit_uw addr;
+	SLJIT_UNUSED_ARG(executable_offset);
+
+	SLJIT_ASSERT(jump->flags < ((sljit_uw)5 << JUMP_SIZE_SHIFT));
+	if (jump->flags & JUMP_ADDR)
+		addr = jump->u.target;
+	else
+		addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code + jump->u.label->size, executable_offset);
+
+	if (addr < 0x80000000l) {
+		SLJIT_ASSERT(jump->flags >= ((sljit_uw)1 << JUMP_SIZE_SHIFT));
 		jump->flags |= PATCH_ABS32;
 		return 1;
 	}
 
-	if (max_label < 0x800000000000l) {
+	if (addr < 0x800000000000l) {
+		SLJIT_ASSERT(jump->flags >= ((sljit_uw)3 << JUMP_SIZE_SHIFT));
 		jump->flags |= PATCH_ABS48;
 		return 3;
 	}
 
+	SLJIT_ASSERT(jump->flags >= ((sljit_uw)4 << JUMP_SIZE_SHIFT));
 	return 4;
 }
 
@@ -548,6 +560,21 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 			size_reduce += (JUMP_MAX_SIZE - 1) - total_size;
 			jump->flags |= total_size << JUMP_SIZE_SHIFT;
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+		} else {
+			total_size = (sljit_uw)4 << JUMP_SIZE_SHIFT;
+
+			if (jump->flags & JUMP_ADDR) {
+				if (jump->u.target < 0x80000000l) {
+					total_size = (sljit_uw)1 << JUMP_SIZE_SHIFT;
+					size_reduce += 3;
+				} else if (jump->u.target < 0x800000000000l) {
+					total_size = (sljit_uw)3 << JUMP_SIZE_SHIFT;
+					size_reduce += 1;
+				}
+			}
+			jump->flags |= total_size;
+#endif /* SLJIT_CONFIG_PPC_64 */
 		}
 
 		jump = jump->next;
@@ -627,14 +654,13 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 						code_ptr = detect_jump_type(jump, code_ptr, code, executable_offset);
 						SLJIT_ASSERT(((sljit_uw)code_ptr - jump->addr <= (jump->flags >> JUMP_SIZE_SHIFT) * sizeof(sljit_ins)));
 					} else {
-						SLJIT_ASSERT(jump->u.label);
 						jump->addr = (sljit_uw)code_ptr;
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-						code_ptr += mov_addr_get_length(jump, (sljit_uw)(SLJIT_ADD_EXEC_OFFSET(code, executable_offset) + jump->u.label->size));
-						word_count += 4;
+						word_count += jump->flags >> JUMP_SIZE_SHIFT;
+						code_ptr += mov_addr_get_length(jump, code, executable_offset);
 #else /* !SLJIT_CONFIG_PPC_64 */
-						code_ptr++;
 						word_count++;
+						code_ptr++;
 #endif /* SLJIT_CONFIG_PPC_64 */
 					}
 					jump = jump->next;

@@ -635,14 +635,22 @@ static __attribute__ ((noinline)) void sljit_cache_flush(void* code, void* code_
 
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 
-static SLJIT_INLINE sljit_sw mov_addr_get_length(struct sljit_jump *jump, sljit_uw max_label)
+static SLJIT_INLINE sljit_sw mov_addr_get_length(struct sljit_jump *jump, sljit_ins *code, sljit_sw executable_offset)
 {
-	if (max_label < 0x80000000l) {
+	sljit_uw addr;
+	SLJIT_UNUSED_ARG(executable_offset);
+
+	if (jump->flags & JUMP_ADDR)
+		addr = jump->u.target;
+	else
+		addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code + jump->u.label->size, executable_offset);
+
+	if (addr < 0x80000000l) {
 		jump->flags |= PATCH_ABS32;
 		return 1;
 	}
 
-	if (max_label < 0x800000000000l) {
+	if (addr < 0x800000000000l) {
 		jump->flags |= PATCH_ABS48;
 		return 3;
 	}
@@ -747,13 +755,12 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 						jump->addr = (sljit_uw)(code_ptr - 1);
 						code_ptr = detect_jump_type(jump, code, executable_offset);
 					} else {
-						SLJIT_ASSERT(jump->u.label);
 						jump->addr = (sljit_uw)code_ptr;
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 						code_ptr += 1;
 						word_count += 1;
 #else /* !SLJIT_CONFIG_MIPS_32 */
-						code_ptr += mov_addr_get_length(jump, (sljit_uw)(SLJIT_ADD_EXEC_OFFSET(code, executable_offset) + jump->u.label->size));
+						code_ptr += mov_addr_get_length(jump, code, executable_offset);
 						word_count += 5;
 #endif /* SLJIT_CONFIG_MIPS_32 */
 					}

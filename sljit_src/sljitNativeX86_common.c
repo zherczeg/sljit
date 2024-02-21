@@ -612,7 +612,7 @@ static sljit_u8 get_jump_code(sljit_uw type)
 static sljit_u8* detect_far_jump_type(struct sljit_jump *jump, sljit_u8 *code_ptr, sljit_sw executable_offset);
 #else /* !SLJIT_CONFIG_X86_32 */
 static sljit_u8* detect_far_jump_type(struct sljit_jump *jump, sljit_u8 *code_ptr);
-static sljit_u8* generate_mov_addr_code(struct sljit_jump *jump, sljit_u8 *code_ptr, sljit_uw max_label);
+static sljit_u8* generate_mov_addr_code(struct sljit_jump *jump, sljit_u8 *code_ptr, sljit_u8 *code, sljit_sw executable_offset);
 #endif /* SLJIT_CONFIG_X86_32 */
 
 static sljit_u8* detect_near_jump_type(struct sljit_jump *jump, sljit_u8 *code_ptr, sljit_u8 *code, sljit_sw executable_offset)
@@ -799,12 +799,23 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
 			jump->flags |= (size_reduce_max - size_reduce) << JUMP_SIZE_SHIFT;
 #endif /* SLJIT_DEBUG */
-		} else {
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-			diff = (sljit_sw)jump->u.label->size - (sljit_sw)(jump->addr - size_reduce - 3);
+		} else {
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+			size_reduce_max = size_reduce + 10;
+#endif /* SLJIT_DEBUG */
 
-			if (diff <= HALFWORD_MAX && diff >= HALFWORD_MIN)
-				size_reduce += 3;
+			if (!(jump->flags & JUMP_ADDR)) {
+				diff = (sljit_sw)jump->u.label->size - (sljit_sw)(jump->addr - size_reduce - 3);
+
+				if (diff <= HALFWORD_MAX && diff >= HALFWORD_MIN)
+					size_reduce += 3;
+			} else if (jump->u.target <= 0xffffffffl)
+				size_reduce += (jump->flags & MOV_ADDR_HI) ? 4 : 5;
+
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+			jump->flags |= (size_reduce_max - size_reduce) << JUMP_SIZE_SHIFT;
+#endif /* SLJIT_DEBUG */
 #endif /* SLJIT_CONFIG_X86_64 */
 		}
 
@@ -886,9 +897,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 					jump = jump->next;
 					break;
 				case SLJIT_INST_MOV_ADDR:
-					SLJIT_ASSERT(jump->u.label != NULL);
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-					code_ptr = generate_mov_addr_code(jump, code_ptr, (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code, executable_offset));
+					code_ptr = generate_mov_addr_code(jump, code_ptr, code, executable_offset);
 #endif /* SLJIT_CONFIG_X86_64 */
 					jump->addr = (sljit_uw)code_ptr;
 					jump = jump->next;
@@ -901,6 +911,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				}
 			}
 		} while (buf_ptr < buf_end);
+
 		SLJIT_ASSERT(buf_ptr == buf_end);
 		buf = buf->next;
 	} while (buf);
@@ -4853,6 +4864,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_com
 
 	PTR_FAIL_IF(emit_load_imm64(compiler, reg, 0));
 	jump->addr = compiler->size;
+
+	if (reg_map[reg] >= 8)
+		jump->flags |= MOV_ADDR_HI;
 #else /* !SLJIT_CONFIG_X86_64 */
 	PTR_FAIL_IF(emit_mov(compiler, dst, dstw, SLJIT_IMM, 0));
 #endif /* SLJIT_CONFIG_X86_64 */

@@ -161,6 +161,7 @@
 #	define PATCH_MW		0x08
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 #	define PATCH_MD		0x10
+#	define MOV_ADDR_HI	0x20
 #	define JUMP_MAX_SIZE	((sljit_uw)(10 + 3))
 #	define CJUMP_MAX_SIZE	((sljit_uw)(2 + 10 + 3))
 #else /* !SLJIT_CONFIG_X86_64 */
