@@ -1396,13 +1396,13 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 {
 	struct sljit_label *label;
 	struct sljit_jump *jump;
-	struct sljit_s390x_const *const_;
-	struct sljit_put_label *put_label;
+	struct sljit_const *const_;
 	sljit_sw executable_offset;
 	sljit_uw ins_size = compiler->size << 1;
 	sljit_uw pool_size = 0; /* literal pool */
 	sljit_uw pad_size;
-	sljit_uw half_count, next_addr;
+	sljit_uw half_count;
+	SLJIT_NEXT_DEFINE_TYPES;
 	struct sljit_memory_fragment *buf;
 	sljit_ins *buf_ptr;
 	sljit_ins *buf_end;
@@ -1418,28 +1418,23 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 	jump = compiler->jumps;
 	while (jump != NULL) {
-		if ((jump->flags & SLJIT_REWRITABLE_JUMP) || (jump->flags & JUMP_ADDR)) {
+		if (jump->flags & (SLJIT_REWRITABLE_JUMP | JUMP_ADDR | JUMP_MOV_ADDR)) {
 			/* encoded: */
 			/*   brasl %r14, <rel_addr> (or brcl <mask>, <rel_addr>) */
 			/* replace with: */
 			/*   lgrl %r1, <pool_addr> */
 			/*   bras %r14, %r1 (or bcr <mask>, %r1) */
 			pool_size += sizeof(*pool);
-			ins_size += 2;
+			if (!(jump->flags & JUMP_MOV_ADDR))
+				ins_size += 2;
 		}
 		jump = jump->next;
 	}
 
-	put_label = compiler->put_labels;
-	while (put_label) {
-		pool_size += sizeof(*pool);
-		put_label = put_label->next;
-	}
-
-	const_ = (struct sljit_s390x_const*)compiler->consts;
+	const_ = compiler->consts;
 	while (const_) {
 		pool_size += sizeof(*pool);
-		const_ = (struct sljit_s390x_const*)const_->const_.next;
+		const_ = const_->next;
 	}
 
 	/* pad code size to 8 bytes so is accessible with half word offsets */
@@ -1462,12 +1457,12 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	pool_ptr = pool;
 	buf = compiler->buf;
 	half_count = 0;
-	next_addr = 0;
 
 	label = compiler->labels;
 	jump = compiler->jumps;
-	put_label = compiler->put_labels;
-	const_ = (struct sljit_s390x_const *)compiler->consts;
+	const_ = compiler->consts;
+	SLJIT_NEXT_INIT_TYPES();
+	SLJIT_GET_NEXT_MIN();
 
 	do {
 		buf_ptr = (sljit_ins*)buf->memory;
@@ -1475,18 +1470,32 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 		do {
 			ins = *buf_ptr++;
 
-			if (next_addr == half_count) {
+			if (next_min_addr == half_count) {
 				SLJIT_ASSERT(!label || label->size >= half_count);
 				SLJIT_ASSERT(!jump || jump->addr >= half_count);
-				SLJIT_ASSERT(!const_ || const_->const_.addr >= half_count);
-				SLJIT_ASSERT(!put_label || put_label->addr >= half_count);
+				SLJIT_ASSERT(!const_ || const_->addr >= half_count);
 
-				if (label && label->size == half_count) {
+				if (next_min_addr == next_label_size) {
 					label->u.addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 					label = label->next;
+					next_label_size = SLJIT_GET_NEXT_SIZE(label);
 				}
-				if (jump && jump->addr == half_count) {
-					if ((jump->flags & SLJIT_REWRITABLE_JUMP) || (jump->flags & JUMP_ADDR)) {
+
+				if (next_min_addr == next_jump_addr) {
+					if (SLJIT_UNLIKELY(jump->flags & JUMP_MOV_ADDR)) {
+						source = (sljit_sw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
+
+						jump->addr = (sljit_uw)pool_ptr;
+
+						/* store target into pool */
+						offset = (sljit_sw)SLJIT_ADD_EXEC_OFFSET(pool_ptr, executable_offset) - source;
+						pool_ptr++;
+
+						SLJIT_ASSERT(!(offset & 1));
+						offset >>= 1;
+						SLJIT_ASSERT(is_s32(offset));
+						ins |= (sljit_ins)offset & 0xffffffff;
+					} else if (jump->flags & (SLJIT_REWRITABLE_JUMP | JUMP_ADDR)) {
 						sljit_ins arg;
 
 						jump->addr = (sljit_uw)pool_ptr;
@@ -1522,25 +1531,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 						jump->addr = (sljit_uw)code_ptr;
 
 					jump = jump->next;
-				}
-				if (put_label && put_label->addr == half_count) {
-					source = (sljit_sw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
-
-					SLJIT_ASSERT(put_label->label);
-					put_label->addr = (sljit_uw)pool_ptr;
-
-					/* store target into pool */
-					offset = (sljit_sw)SLJIT_ADD_EXEC_OFFSET(pool_ptr, executable_offset) - source;
-					*pool_ptr++ = put_label->label->u.addr;
-
-					SLJIT_ASSERT(!(offset & 1));
-					offset >>= 1;
-					SLJIT_ASSERT(is_s32(offset));
-					ins |= (sljit_ins)offset & 0xffffffff;
-
-					put_label = put_label->next;
-				}
-				if (const_ && const_->const_.addr == half_count) {
+					next_jump_addr = SLJIT_GET_NEXT_ADDRESS(jump);
+				} else  if (next_min_addr == next_const_addr) {
 					/* update instruction with relative address of constant */
 					source = (sljit_sw)code_ptr;
 					offset = (sljit_sw)pool_ptr - source;
@@ -1552,15 +1544,17 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 					ins |= (sljit_ins)offset & 0xffffffff;
 
 					/* update address */
-					const_->const_.addr = (sljit_uw)pool_ptr;
+					const_->addr = (sljit_uw)pool_ptr;
 
 					/* store initial value into pool and update pool address */
-					*(pool_ptr++) = (sljit_uw)const_->init_value;
+					*(pool_ptr++) = (sljit_uw)(((struct sljit_s390x_const*)const_)->init_value);
 
 					/* move to next constant */
-					const_ = (struct sljit_s390x_const *)const_->const_.next;
+					const_ = const_->next;
+					next_const_addr = SLJIT_GET_NEXT_ADDRESS(const_);
 				}
-				next_addr = compute_next_addr(label, jump, &const_->const_, put_label);
+
+				SLJIT_GET_NEXT_MIN();
 			}
 
 			if (ins & 0xffff00000000L) {
@@ -1586,7 +1580,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	jump = compiler->jumps;
 	while (jump != NULL) {
 		offset = (sljit_sw)((jump->flags & JUMP_ADDR) ? jump->u.target : jump->u.label->u.addr);
-		if ((jump->flags & SLJIT_REWRITABLE_JUMP) || (jump->flags & JUMP_ADDR)) {
+
+		if (jump->flags & (SLJIT_REWRITABLE_JUMP | JUMP_ADDR | JUMP_MOV_ADDR)) {
 			/* Store jump target into pool. */
 			*(sljit_uw*)(jump->addr) = (sljit_uw)offset;
 		} else {
@@ -1602,12 +1597,6 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 			code_ptr[2] = (sljit_u16)offset;
 		}
 		jump = jump->next;
-	}
-
-	put_label = compiler->put_labels;
-	while (put_label != NULL) {
-		*(sljit_uw*)(put_label->addr) = put_label->label->u.addr;
-		put_label = put_label->next;
 	}
 
 	compiler->error = SLJIT_ERR_COMPILED;
@@ -4474,20 +4463,18 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_consta
 	sljit_set_jump_addr(addr, (sljit_uw)new_constant, executable_offset);
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label *sljit_emit_put_label(
-	struct sljit_compiler *compiler,
-	sljit_s32 dst, sljit_sw dstw)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
 {
-	struct sljit_put_label *put_label;
+	struct sljit_jump *jump;
 	sljit_gpr dst_r;
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_put_label(compiler, dst, dstw));
+	CHECK_PTR(check_sljit_emit_mov_addr(compiler, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
-	put_label = (struct sljit_put_label*)ensure_abuf(compiler, sizeof(struct sljit_put_label));
-	PTR_FAIL_IF(!put_label);
-	set_put_label(put_label, compiler, 0);
+	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+	PTR_FAIL_IF(!jump);
+	set_mov_addr(jump, compiler, 0);
 
 	dst_r = FAST_IS_REG(dst) ? gpr(dst & REG_MASK) : tmp0;
 
@@ -4501,7 +4488,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label *sljit_emit_put_label(
 	if (dst & SLJIT_MEM)
 		PTR_FAIL_IF(store_word(compiler, dst_r, dst, dstw, 0));
 
-	return put_label;
+	return jump;
 }
 
 /* TODO(carenas): EVAL probably should move up or be refactored */
