@@ -73,7 +73,7 @@ static void test_simd1(void)
 	for (i = 0; i < 880; i++)
 		buf[i] = 0xaa;
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	simd_set(buf + 0, 81, 16);
@@ -201,7 +201,7 @@ static void test_simd1(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -300,7 +300,7 @@ static void test_simd2(void)
 	for (i = 0; i < 5; i++)
 		result32[i] = 0;
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 4, 4, 6, SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? 2 : 0, 16);
@@ -603,7 +603,7 @@ static void test_simd2(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -713,7 +713,7 @@ static void test_simd3(void)
 	for (i = 32; i < 768; i++)
 		buf[i] = 0xaa;
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 4, 4, 6, SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? 2 : 0, 16);
@@ -928,7 +928,7 @@ static void test_simd3(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1007,7 +1007,7 @@ static void test_simd4(void)
 	for (i = 32; i < 992; i++)
 		buf[i] = 0xaa;
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 4, 4, 6, SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? 2 : 0, 16);
@@ -1217,7 +1217,7 @@ static void test_simd4(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1315,7 +1315,7 @@ static void test_simd5(void)
 	for (i = 64; i < 672; i++)
 		buf[i] = 0xaa;
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 4, 4, 6, SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? 2 : 0, 16);
@@ -1504,7 +1504,7 @@ static void test_simd5(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1684,7 +1684,7 @@ static void test_simd6(void)
 	init_simd_extend(buf + 288, 4, 2, 0, -1);
 	init_simd_extend(buf + 320, 2, 1, 0, -1);
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 4, 4, 6, SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? 2 : 0, 32);
@@ -1903,7 +1903,7 @@ static void test_simd6(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -2044,7 +2044,7 @@ static void test_simd7(void)
 	init_simd_sign(buf + 224, 32, 4, 0xa5);
 	init_simd_sign(buf + 256, 32, 8, 0x9);
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS3V(P, P, P), 4, 4, 6, SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? 2 : 0, 16);
@@ -2134,7 +2134,7 @@ static void test_simd7(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -2211,7 +2211,7 @@ static void test_simd8(void)
 	init_simd_u32(buf, 32, 0x00ff00ff);
 	init_simd_u32(buf + 32, 32, 0x0000ffff);
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS3V(P, P, P), 4, 4, 6, SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS > 0 ? 2 : 0, 16);
@@ -2303,7 +2303,7 @@ static void test_simd8(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 

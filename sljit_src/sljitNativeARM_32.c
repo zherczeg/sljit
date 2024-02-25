@@ -812,7 +812,7 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 #endif /* SLJIT_CONFIG_ARM_V7 */
 
-SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compiler)
+SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options, void *exec_allocator_data)
 {
 	struct sljit_memory_fragment *buf;
 	sljit_ins *code;
@@ -848,7 +848,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #else /* !SLJIT_CONFIG_ARM_V6 */
 	reduce_code_size(compiler);
 #endif /* SLJIT_CONFIG_ARM_V6 */
-	code = (sljit_ins*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_ins), compiler->exec_allocator_data);
+	code = (sljit_ins*)allocate_executable_memory(compiler->size * sizeof(sljit_ins), options, exec_allocator_data, &executable_offset);
 	PTR_FAIL_WITH_EXEC_IF(code);
 
 	reverse_buf(compiler);
@@ -865,8 +865,6 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 	code_ptr = code;
 	word_count = 0;
-	executable_offset = SLJIT_EXEC_OFFSET(code);
-
 	label = compiler->labels;
 	jump = compiler->jumps;
 	const_ = compiler->consts;
@@ -884,7 +882,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 					cpool_skip_alignment--;
 				} else {
 					if (SLJIT_UNLIKELY(resolve_const_pool_index(compiler, &first_patch, cpool_current_index, cpool_start_address, buf_ptr))) {
-						SLJIT_FREE_EXEC(code, compiler->exec_allocator_data);
+						SLJIT_FREE_EXEC(code, exec_allocator_data);
 						compiler->error = SLJIT_ERR_ALLOC_FAILED;
 						return NULL;
 					}
@@ -992,7 +990,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 		cpool_current_index = 0;
 		while (buf_ptr < buf_end) {
 			if (SLJIT_UNLIKELY(resolve_const_pool_index(compiler, &first_patch, cpool_current_index, cpool_start_address, buf_ptr))) {
-				SLJIT_FREE_EXEC(code, compiler->exec_allocator_data);
+				SLJIT_FREE_EXEC(code, exec_allocator_data);
 				compiler->error = SLJIT_ERR_ALLOC_FAILED;
 				return NULL;
 			}

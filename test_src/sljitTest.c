@@ -255,7 +255,7 @@ static void test1(void)
 {
 	/* Enter and return from an sljit function. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 
 	if (verbose)
 		printf("Run test1\n");
@@ -267,7 +267,7 @@ static void test1(void)
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_S1, 0);
 
 	SLJIT_ASSERT(sljit_get_generated_code_size(compiler) == 0);
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	SLJIT_ASSERT(compiler->error == SLJIT_ERR_COMPILED);
 	SLJIT_ASSERT(sljit_get_generated_code_size(compiler) > 0);
@@ -284,7 +284,7 @@ static void test2(void)
 {
 	/* Test mov. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[12];
 	sljit_s32 i;
 	static sljit_sw data[2] = { 0, -9876 };
@@ -342,7 +342,7 @@ static void test2(void)
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R2, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -367,7 +367,7 @@ static void test3(void)
 {
 	/* Test not. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[5];
 
 	if (verbose)
@@ -393,7 +393,7 @@ static void test3(void)
 	sljit_emit_op2(compiler, SLJIT_XOR, SLJIT_MEM1(SLJIT_R1), 0xff0000 + 0x20, SLJIT_IMM, -1, SLJIT_MEM1(SLJIT_R2), 0xff0000);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -410,7 +410,7 @@ static void test4(void)
 {
 	/* Test negate. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[4];
 
 	if (verbose)
@@ -433,7 +433,7 @@ static void test4(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw) * 2);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -450,7 +450,7 @@ static void test5(void)
 {
 	/* Test add. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[9];
 
 	if (verbose)
@@ -502,7 +502,7 @@ static void test5(void)
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -524,7 +524,7 @@ static void test6(void)
 {
 	/* Test addc, sub, subc. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[21];
 	sljit_s32 i;
 
@@ -627,7 +627,7 @@ static void test6(void)
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_RETURN_REG, 0, SLJIT_RETURN_REG, 0, SLJIT_IMM, -2220);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -662,7 +662,7 @@ static void test7(void)
 {
 	/* Test logical operators. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[8];
 
 	if (verbose)
@@ -709,7 +709,7 @@ static void test7(void)
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -731,7 +731,7 @@ static void test8(void)
 {
 	/* Test flags (neg, cmp, test). */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[22];
 	sljit_s32 i;
 
@@ -829,7 +829,7 @@ static void test8(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -864,7 +864,7 @@ static void test9(void)
 {
 	/* Test shift. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[15];
 	sljit_s32 i;
 #ifdef SLJIT_PREF_SHIFT_REG
@@ -989,7 +989,7 @@ static void test9(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1018,7 +1018,7 @@ static void test10(void)
 {
 	/* Test multiplications. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[7];
 
 	if (verbose)
@@ -1065,7 +1065,7 @@ static void test10(void)
 	sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_RETURN_REG, 0, SLJIT_IMM, 11, SLJIT_IMM, 10);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1088,7 +1088,7 @@ static void test11(void)
 {
 	/* Test rewritable constants. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_const* const1;
 	struct sljit_const* const2;
 	struct sljit_const* const3;
@@ -1145,7 +1145,7 @@ static void test11(void)
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	executable_offset = sljit_get_executable_offset(compiler);
 	const1_addr = sljit_get_const_addr(const1);
@@ -1181,7 +1181,7 @@ static void test12(void)
 {
 	/* Test rewriteable jumps. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_label *label1;
 	struct sljit_label *label2;
 	struct sljit_label *label3;
@@ -1240,7 +1240,7 @@ static void test12(void)
 		memset(value, 255, 8);
 	}
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	executable_offset = sljit_get_executable_offset(compiler);
 	jump1_addr = sljit_get_jump_addr(jump1);
@@ -1270,7 +1270,7 @@ static void test13(void)
 {
 	/* Test emit const and jumps. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_label *label;
 	struct sljit_jump *jump1;
 	struct sljit_jump *jump2;
@@ -1319,7 +1319,7 @@ static void test13(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	executable_offset = sljit_get_executable_offset(compiler);
 	const_addr = sljit_get_const_addr(const1);
@@ -1342,7 +1342,7 @@ static void test14(void)
 {
 	/* Test arm constant pool. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_s32 i;
 	sljit_sw buf[5];
 
@@ -1365,7 +1365,7 @@ static void test14(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_sw), SLJIT_R0, 0);
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1384,7 +1384,7 @@ static void test15(void)
 {
 	/* Test 64 bit. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[11];
 
 	if (verbose)
@@ -1458,7 +1458,7 @@ static void test15(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1501,7 +1501,7 @@ static void test16(void)
 {
 	/* Test arm partial instruction caching. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[10];
 
 	if (verbose)
@@ -1538,7 +1538,7 @@ static void test16(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1560,7 +1560,7 @@ static void test17(void)
 {
 	/* Test stack. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* jump;
 	struct sljit_label* label;
 	sljit_sw buf[6];
@@ -1601,7 +1601,7 @@ static void test17(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S0, 0, SLJIT_IMM, 23);
 	sljit_emit_label(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1613,7 +1613,7 @@ static void test17(void)
 
 	sljit_free_code(code.code, NULL);
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS3(W, W, W, W), 3, 3, 0, 0, SLJIT_MAX_LOCAL_SIZE);
 
 	sljit_get_local_base(compiler, SLJIT_R0, 0, SLJIT_MAX_LOCAL_SIZE - sizeof(sljit_sw));
@@ -1631,7 +1631,7 @@ static void test17(void)
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_S2, 0);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1646,7 +1646,7 @@ static void test18(void)
 	/* Test set context. The parts of the jit code can be separated in the memory. */
 	executable_code code1;
 	executable_code code2;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* jump = NULL;
 	sljit_uw addr;
 	sljit_sw executable_offset;
@@ -1670,7 +1670,7 @@ static void test18(void)
 	jump = sljit_emit_jump(compiler, SLJIT_JUMP | SLJIT_REWRITABLE_JUMP);
 	sljit_set_target(jump, 0);
 
-	code1.code = sljit_generate_code(compiler);
+	code1.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 
 	executable_offset = sljit_get_executable_offset(compiler);
@@ -1678,7 +1678,7 @@ static void test18(void)
 
 	sljit_free_compiler(compiler);
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	/* Other part of the jit code. */
@@ -1693,7 +1693,7 @@ static void test18(void)
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code2.code = sljit_generate_code(compiler);
+	code2.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1712,7 +1712,7 @@ static void test19(void)
 {
 	/* Test simple byte and half-int data transfers. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[4];
 	sljit_s16 sbuf[9];
 	sljit_s8 bbuf[5];
@@ -1795,7 +1795,7 @@ static void test19(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1828,7 +1828,7 @@ static void test20(void)
 	/* Test 32 bit / 64 bit signed / unsigned int transfer and conversion.
 	   This test has do real things on 64 bit systems, but works on 32 bit systems as well. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[9];
 	sljit_s32 ibuf[5];
 	union {
@@ -1909,7 +1909,7 @@ static void test20(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 0x2bd700 | 243);
 	sljit_emit_return(compiler, SLJIT_MOV_S8, SLJIT_R1, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -1947,7 +1947,7 @@ static void test21(void)
 {
 	/* Some complicated addressing modes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[9];
 	sljit_s16 sbuf[5];
 	sljit_s8 bbuf[7];
@@ -2043,7 +2043,7 @@ static void test21(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -2077,7 +2077,7 @@ static void test22(void)
 #if IS_64BIT
 	/* 64 bit loads. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[14];
 
 	if (verbose)
@@ -2118,7 +2118,7 @@ static void test22(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -2147,7 +2147,7 @@ static void test23(void)
 {
 	/* Aligned access without aligned offsets. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[4];
 	sljit_s32 ibuf[4];
 	sljit_f64 dbuf[4];
@@ -2205,7 +2205,7 @@ static void test23(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -2240,7 +2240,7 @@ static void test24(void)
 
 	/* Playing with conditional flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_u8 buf[41];
 	sljit_u32 i;
 #ifdef SLJIT_PREF_SHIFT_REG
@@ -2437,7 +2437,7 @@ static void test24(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -2502,7 +2502,7 @@ static void test25(void)
 {
 	/* Test mov. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_const* const1 = NULL;
 	struct sljit_label* label = NULL;
 	sljit_uw label_addr = 0;
@@ -2545,7 +2545,7 @@ static void test25(void)
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R4, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 
 	label_addr = sljit_get_label_addr(label);
@@ -2567,7 +2567,7 @@ static void test26(void)
 {
 	/* Test signed/unsigned bytes and halfs. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[25];
 	sljit_s32 i;
 
@@ -2656,7 +2656,7 @@ static void test26(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -2703,7 +2703,7 @@ static void test27(void)
 {
 	/* Test unused results. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[1];
 
 	if (verbose)
@@ -2749,7 +2749,7 @@ static void test27(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -2764,7 +2764,7 @@ static void test28(void)
 {
 	/* Integer mul and set flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[12];
 	sljit_s32 i;
 	sljit_sw big_word = WCONST(0x7fffffff00000000, 0x7fffffff);
@@ -2825,7 +2825,7 @@ static void test28(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -2850,7 +2850,7 @@ static void test29(void)
 {
 	/* Test setting multiple flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* jump;
 	sljit_sw buf[10];
 
@@ -2937,7 +2937,7 @@ static void test29(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -2980,7 +2980,7 @@ static void test30(void)
 	buf[1] = 0;
 
 	/* A */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 1, 5, 5, 0, 0, 2 * sizeof(sljit_p));
 
@@ -2989,12 +2989,12 @@ static void test30(void)
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 4);
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_R1, 0);
 
-	codeA.code = sljit_generate_code(compiler);
+	codeA.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
 	/* B */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 1, 5, 5, 0, 0, 2 * sizeof(sljit_p));
 
@@ -3005,12 +3005,12 @@ static void test30(void)
 	sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_R1, 0);
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_R4, 0);
 
-	codeB.code = sljit_generate_code(compiler);
+	codeB.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
 	/* C */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 1, 5, 5, 0, 0, 2 * sizeof(sljit_p));
 
@@ -3021,12 +3021,12 @@ static void test30(void)
 	sljit_set_target(jump, SLJIT_FUNC_UADDR(codeB.code));
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_p));
 
-	codeC.code = sljit_generate_code(compiler);
+	codeC.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
 	/* D */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 1, 5, 5, 0, 0, 2 * sizeof(sljit_p));
 
@@ -3040,13 +3040,13 @@ static void test30(void)
 	sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_IMM, SLJIT_FUNC_ADDR(codeC.code));
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_MEM1(SLJIT_SP), 0);
 
-	codeD.code = sljit_generate_code(compiler);
+	codeD.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	addr = sljit_get_label_addr(label);
 	sljit_free_compiler(compiler);
 
 	/* E */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 1, 5, 5, 0, 0, 2 * sizeof(sljit_p));
 
@@ -3056,12 +3056,12 @@ static void test30(void)
 	sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_p));
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_MEM1(SLJIT_S0), 0);
 
-	codeE.code = sljit_generate_code(compiler);
+	codeE.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
 	/* F */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(W, P), 5, 5, 0, 0, 2 * sizeof(sljit_p));
@@ -3070,7 +3070,7 @@ static void test30(void)
 	label = sljit_emit_label(compiler);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
 
-	codeF.code = sljit_generate_code(compiler);
+	codeF.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	addr = sljit_get_label_addr(label);
 	sljit_free_compiler(compiler);
@@ -3107,7 +3107,7 @@ static void test31(void)
 	buf[0] = 0;
 
 	/* A */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 0, 2, 2, 0, 0, 0);
 
@@ -3120,14 +3120,14 @@ static void test31(void)
 	label = sljit_emit_label(compiler);
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_MEM0(), (sljit_sw)&buf[0]);
 
-	codeA.code = sljit_generate_code(compiler);
+	codeA.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	executable_offset = sljit_get_executable_offset(compiler);
 	jump_addr = sljit_get_jump_addr(jump);
 	sljit_free_compiler(compiler);
 
 	/* B */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, 0, 2, 2, 0, 0, 0);
 
@@ -3136,14 +3136,14 @@ static void test31(void)
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 7);
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_R1, 0);
 
-	codeB.code = sljit_generate_code(compiler);
+	codeB.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
 	sljit_set_jump_addr(jump_addr, SLJIT_FUNC_UADDR(codeB.code), executable_offset);
 
 	/* C */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS0(W), 2, 2, 0, 0, 0);
@@ -3152,7 +3152,7 @@ static void test31(void)
 	label = sljit_emit_label(compiler);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
 
-	codeC.code = sljit_generate_code(compiler);
+	codeC.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	return_addr = sljit_get_label_addr(label);
 	sljit_free_compiler(compiler);
@@ -3186,7 +3186,7 @@ static void test32(void)
 {
 	/* Compare instruction. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 
 	sljit_s8 buf[TEST_CASES];
 	sljit_s8 compare_buf[TEST_CASES] = {
@@ -3299,7 +3299,7 @@ static void test32(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -3326,7 +3326,7 @@ static void test33(void)
 {
 	/* Test count leading zeroes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[9];
 	sljit_s32 ibuf[3];
 	sljit_s32 i;
@@ -3389,7 +3389,7 @@ static void test33(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -3418,7 +3418,7 @@ static void test34(void)
 #if (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK)
 	/* Test stack utility. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* alloc1_fail;
 	struct sljit_jump* alloc2_fail;
 	struct sljit_jump* alloc3_fail;
@@ -3504,7 +3504,7 @@ static void test34(void)
 	sljit_set_label(sanity4_fail, label);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_IMM, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -3520,7 +3520,7 @@ static void test35(void)
 {
 	/* Test error handling. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* jump;
 
 	if (verbose)
@@ -3558,12 +3558,12 @@ static void test35(void)
 	sljit_set_compiler_memory_error(compiler);
 	FAILED(sljit_get_compiler_error(compiler) != -3967, "test35 case 1 failed\n");
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	FAILED(sljit_get_compiler_error(compiler) != -3967, "test35 case 2 failed\n");
 	FAILED(!!code.code, "test35 case 3 failed\n");
 	sljit_free_compiler(compiler);
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	FAILED(sljit_get_compiler_error(compiler) != SLJIT_SUCCESS, "test35 case 4 failed\n");
@@ -3578,7 +3578,7 @@ static void test36(void)
 {
 	/* Test emit_op_flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[10];
 
 	if (verbose)
@@ -3660,7 +3660,7 @@ static void test36(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), 0, SLJIT_IMM, 0xbaddead);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -3684,7 +3684,7 @@ static void test37(void)
 {
 	/* Test inline assembly. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_s32 i;
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	sljit_u8 inst[16];
@@ -3804,7 +3804,7 @@ static void test37(void)
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -3822,7 +3822,7 @@ static void test38(void)
 {
 	/* Test long multiply and division. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_s32 i;
 	sljit_sw buf[7 + 4 + 8 + 8];
 
@@ -3990,7 +3990,7 @@ static void test38(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4036,7 +4036,7 @@ static void test39(void)
 {
 	/* Test mov. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	void *buf[5];
 
 	if (verbose)
@@ -4070,7 +4070,7 @@ static void test39(void)
 
 	sljit_emit_return(compiler, SLJIT_MOV_P, SLJIT_R0, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4089,7 +4089,7 @@ static void test40(void)
 	/* Test sljit_emit_op_flags with 32 bit operations. */
 
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_s32 buf[24];
 	sljit_sw buf2[6];
 	sljit_s32 i;
@@ -4171,7 +4171,7 @@ static void test40(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4216,7 +4216,7 @@ static void test41(void)
 {
 	/* Test jump optimizations. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[3];
 
 	if (verbose)
@@ -4247,7 +4247,7 @@ static void test41(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_sw), SLJIT_R0, 0);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4264,7 +4264,7 @@ static void test42(void)
 {
 	/* Test all registers provided by the CPU. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* jump;
 	sljit_sw buf[2];
 	sljit_s32 i;
@@ -4316,7 +4316,7 @@ static void test42(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4328,7 +4328,7 @@ static void test42(void)
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -4351,7 +4351,7 @@ static void test42(void)
 		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, 35);
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4361,7 +4361,7 @@ static void test42(void)
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -4386,7 +4386,7 @@ static void test42(void)
 		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R(i), 0, SLJIT_IMM, 43);
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4400,7 +4400,7 @@ static void test43(void)
 {
 	/* Test addressing modes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_u8 buf[3 + SLJIT_NUMBER_OF_REGISTERS * 3];
 	sljit_u8 *buf_start;
 	sljit_uw addr = (sljit_uw)&buf;
@@ -4440,7 +4440,7 @@ static void test43(void)
 
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R2, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4466,7 +4466,7 @@ static void test44(void)
 {
 	/* Test select operation. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	int i;
 	sljit_sw buf[25];
 	sljit_s32 ibuf[6];
@@ -4689,7 +4689,7 @@ static void test44(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4739,7 +4739,7 @@ static void test45(void)
 {
 	/* Check value preservation. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[2];
 	sljit_s32 i;
 
@@ -4784,7 +4784,7 @@ static void test45(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4801,7 +4801,7 @@ static void test46(void)
 {
 	/* Check integer subtraction with negative immediate. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[13];
 	sljit_s32 i;
 
@@ -4862,7 +4862,7 @@ static void test46(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -4890,7 +4890,7 @@ static void test47(void)
 {
 	/* Check prefetch instructions. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_label* labels[5];
 	sljit_p addr[5];
 	int i;
@@ -4920,7 +4920,7 @@ static void test47(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 
 	for (i = 0; i < 5; i++)
@@ -4950,7 +4950,7 @@ static void test48(void)
 {
 	/* Test memory accesses with pre/post updates. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_u32 i;
 	sljit_s32 supported[10];
 	sljit_sw wbuf[18];
@@ -5099,7 +5099,7 @@ static void test48(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -5157,7 +5157,7 @@ static void test49(void)
 		printf("Run test49\n");
 
 	/* A */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	sljit_set_context(compiler, 0, SLJIT_ARGS1(W, W), 1, 1, 0, 0, 0);
 
@@ -5165,12 +5165,12 @@ static void test49(void)
 	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_Z | SLJIT_SET_LESS, SLJIT_S0, 0, SLJIT_IMM, 42);
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_R0, 0);
 
-	code1.code = sljit_generate_code(compiler);
+	code1.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
 	/* B */
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(W, W), 1, 1, 0, 0, 0);
@@ -5182,7 +5182,7 @@ static void test49(void)
 	sljit_emit_op2(compiler, SLJIT_OR, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_S0, 0);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
 
-	code2.code = sljit_generate_code(compiler);
+	code2.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -5197,11 +5197,11 @@ static void test49(void)
 
 static void test50(void)
 {
-	/* Test put label. */
+	/* Test mov addr. */
 	executable_code code;
 	struct sljit_label *label[2];
 	struct sljit_jump *mov_addr[5];
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_uw addr[2];
 	sljit_uw buf[4];
 	sljit_sw offs = WCONST(0x123456789012, 0x12345678);
@@ -5244,7 +5244,7 @@ static void test50(void)
 	sljit_set_label(mov_addr[4], label[0]);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 
 	addr[0] = sljit_get_label_addr(label[0]);
@@ -5264,11 +5264,12 @@ static void test50(void)
 
 static void test51(void)
 {
-	/* Test put label with absolute label addresses */
+	/* Test mov addr with absolute label addresses */
 	executable_code code;
 	sljit_uw malloc_addr;
 	struct sljit_jump *mov_addr[2];
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_generate_code_buffer code_buffer;
 	sljit_uw buf[9];
 	sljit_s32 i;
 	/* Must be even because it is also used for addressing. */
@@ -5282,17 +5283,19 @@ static void test51(void)
 	if (verbose)
 		printf("Run test51\n");
 
-	/* lock next allocation; see sljit_test_malloc_exec() */
-	malloc_addr = (sljit_uw)SLJIT_MALLOC_EXEC(2048, NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	code_buffer.size = 2048;
+	malloc_addr = (sljit_uw)SLJIT_MALLOC_EXEC(code_buffer.size, NULL);
 
 	if (!malloc_addr) {
 		printf("Cannot allocate executable memory\n");
 		return;
 	}
 
-	compiler = sljit_create_compiler(NULL, (void*)malloc_addr);
-	malloc_addr += (sljit_uw)SLJIT_EXEC_OFFSET((void*)malloc_addr);
-	FAILED(!compiler, "cannot create compiler\n");
+	code_buffer.buffer = (void*)malloc_addr;
+	code_buffer.executable_offset = SLJIT_EXEC_OFFSET((void*)malloc_addr);
+	malloc_addr += (sljit_uw)code_buffer.executable_offset;
 
 	for (i = 0; i < 9; i++)
 		buf[i] = 0;
@@ -5352,7 +5355,7 @@ static void test51(void)
 	sljit_set_target(mov_addr[0], offs6);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, SLJIT_GENERATE_CODE_BUFFER, &code_buffer);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -5376,7 +5379,7 @@ static void test52(void)
 {
 	/* Test jump tables. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_s32 i;
 	/* Normally this table is allocated on the heap. */
 	sljit_uw addr[64];
@@ -5404,7 +5407,7 @@ static void test52(void)
 	sljit_set_label(jump, sljit_emit_label(compiler));
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_IMM, -1);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 
 	for (i = 0; i < 64; i++) {
@@ -5427,7 +5430,7 @@ static void test53(void)
 {
 	/* Test direct jumps (computed goto). */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_s32 i;
 	sljit_uw addr[64];
 	struct sljit_label *labels[64];
@@ -5447,7 +5450,7 @@ static void test53(void)
 		sljit_emit_return(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 	}
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 
 	for (i = 0; i < 64; i++) {
@@ -5468,7 +5471,7 @@ static void test54(void)
 {
 	/* Test skipping returns from fast calls (return type is fast). */
 	executable_code code;
-	struct sljit_compiler *compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
 	struct sljit_jump *call, *jump;
 	struct sljit_label *label;
 
@@ -5512,7 +5515,7 @@ static void test54(void)
 	sljit_emit_op_src(compiler, SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN, SLJIT_R1, 0);
 	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_R1, 0);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 
 	sljit_free_compiler(compiler);
@@ -5536,7 +5539,7 @@ static void test55(void)
 		printf("Run test55\n");
 
 	for (i = 0; i < 6; i++) {
-		compiler = sljit_create_compiler(NULL, NULL);
+		compiler = sljit_create_compiler(NULL);
 		FAILED(!compiler, "cannot create compiler\n");
 
 		sljit_emit_enter(compiler, 0, SLJIT_ARGS0(W), 2 + (i % 6), (i % 6), 0, 0, 0);
@@ -5562,7 +5565,7 @@ static void test55(void)
 		sljit_emit_op0(compiler, SLJIT_SKIP_FRAMES_BEFORE_RETURN);
 		sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
 
-		code.code = sljit_generate_code(compiler);
+		code.code = sljit_generate_code(compiler, 0, NULL);
 		CHECK(compiler);
 
 		sljit_free_compiler(compiler);
@@ -5581,7 +5584,7 @@ static void test56(void)
 {
 	/* Test sljit_set_current_flags. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[8];
 	sljit_s32 i;
 
@@ -5645,7 +5648,7 @@ static void test56(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -5668,7 +5671,7 @@ static void test57(void)
 {
 	/* Test argument passing to sljit_emit_enter. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw wbuf[2];
 	sljit_s32 ibuf[2];
 
@@ -5691,7 +5694,7 @@ static void test57(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_s32), SLJIT_S2, 0);
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -5704,7 +5707,7 @@ static void test57(void)
 
 	sljit_free_code(code.code, NULL);
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS4V(32, 32, W, W), 1, 4, 0, 0, 0);
@@ -5716,7 +5719,7 @@ static void test57(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_s32), SLJIT_S3, 0);
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -5745,7 +5748,7 @@ static void test58(void)
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS4V(32_R, W, W_R, 32), 3, 2, 0, 0, 0);
@@ -5761,7 +5764,7 @@ static void test58(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_R1), sizeof(sljit_s32), SLJIT_S1, 0);
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -5775,7 +5778,7 @@ static void test58(void)
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS4V(32, W_R, W, 32_R), 4, 2, 0, 0, 8192);
@@ -5791,7 +5794,7 @@ static void test58(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_s32), SLJIT_R3, 0);
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -5805,7 +5808,7 @@ static void test58(void)
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS4V(32_R, W_R, W_R, 32_R), 4, 1, 0, 0, SLJIT_MAX_LOCAL_SIZE);
@@ -5821,7 +5824,7 @@ static void test58(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_s32), SLJIT_R3, 0);
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -5835,7 +5838,7 @@ static void test58(void)
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS4V(W_R, W_R, 32_R, 32_R), 4, 1, 0, 0, SLJIT_MAX_LOCAL_SIZE);
@@ -5852,7 +5855,7 @@ static void test58(void)
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_s32), SLJIT_R3, 0);
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -5881,7 +5884,7 @@ static void test59(void)
 	for (i = 0; i < 15; i++)
 		wbuf[i] = -1;
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(W), 3, 2, 0, 0, 0);
@@ -5983,7 +5986,7 @@ static void test59(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -6071,7 +6074,7 @@ static void test60(void)
 	hbuf[0] = -17249;
 	bbuf[0] = -73;
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 2, 2, 0, 0, 0);
@@ -6169,7 +6172,7 @@ static void test60(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -6215,7 +6218,7 @@ static void test60(void)
 		dbuf[0] = -18046.5;
 		sbuf[0] = 3751.75;
 
-		compiler = sljit_create_compiler(NULL, NULL);
+		compiler = sljit_create_compiler(NULL);
 		FAILED(!compiler, "cannot create compiler\n");
 
 		sljit_emit_enter(compiler, 0, SLJIT_ARGS3V(P, P, P), 1, 3, 1, 0, 0);
@@ -6277,7 +6280,7 @@ static void test60(void)
 
 		sljit_emit_return_void(compiler);
 
-		code.code = sljit_generate_code(compiler);
+		code.code = sljit_generate_code(compiler, 0, NULL);
 		CHECK(compiler);
 		sljit_free_compiler(compiler);
 
@@ -6305,7 +6308,7 @@ static void test61(void)
 {
 	/* Test register pair movement. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[33];
 	sljit_s8 bbuf_start[66 + 8 /* for alignment */];
 	sljit_s8 *bbuf = (sljit_s8 *)(((sljit_uw)bbuf_start + 7) & ~(sljit_uw)7);
@@ -6442,7 +6445,7 @@ static void test61(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -6491,7 +6494,7 @@ static void test62(void)
 {
 	/* Test masked shift. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[9];
 	sljit_s32 ibuf[8];
 	sljit_s32 i;
@@ -6592,7 +6595,7 @@ static void test62(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -6628,7 +6631,7 @@ static void test63(void)
 {
 	/* Test rotate. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[13];
 	sljit_s32 ibuf[8];
 	sljit_s32 i;
@@ -6754,7 +6757,7 @@ static void test63(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -6790,7 +6793,7 @@ static void test64(void)
 {
 	/* Test "shift into". */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[19];
 	sljit_s32 ibuf[10];
 	sljit_s32 i;
@@ -6980,7 +6983,7 @@ static void test64(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -7028,7 +7031,7 @@ static void test65(void)
 {
 	/* Test count trailing zeroes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[5];
 	sljit_s32 ibuf[7];
 	sljit_s32 i;
@@ -7097,7 +7100,7 @@ static void test65(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -7121,7 +7124,7 @@ static void test66(void)
 {
 	/* Test reverse bytes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[6];
 	sljit_s32 ibuf[5];
 	sljit_s32 i;
@@ -7194,7 +7197,7 @@ static void test66(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -7220,7 +7223,7 @@ static void test67(void)
 {
 	/* Test reverse two bytes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[7];
 	sljit_s32 ibuf[4];
 	sljit_s16 hbuf[11];
@@ -7331,7 +7334,7 @@ static void test67(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -7369,7 +7372,7 @@ static void test68(void)
 {
 	/* Test reverse four bytes. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[7];
 	sljit_s32 ibuf[6];
 	sljit_s32 i;
@@ -7450,7 +7453,7 @@ static void test68(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -7478,7 +7481,7 @@ static void test69(void)
 {
 	/* Test atomic load and store. */
 	executable_code code;
-	struct sljit_compiler *compiler = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
 	struct sljit_label *label;
 	struct sljit_jump *jump;
 	sljit_sw buf[45];
@@ -7762,7 +7765,7 @@ static void test69(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -7855,7 +7858,7 @@ static void test70(void)
 	for (i = 0; i < SLJIT_NUMBER_OF_TEMPORARY_REGISTERS; i++)
 		buf[i] = -1;
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), SLJIT_NUMBER_OF_REGISTERS - 1, 1, 0, 0, 0);
@@ -7882,7 +7885,7 @@ static void test70(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -7904,7 +7907,7 @@ static void test70(void)
 		fbuf[ctr + i] = -1.0;
 	}
 
-	compiler = sljit_create_compiler(NULL, NULL);
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 0, 1, SLJIT_NUMBER_OF_FLOAT_REGISTERS, 0, 0);
@@ -7927,7 +7930,7 @@ static void test70(void)
 
 	sljit_emit_return_void(compiler);
 
-	code.code = sljit_generate_code(compiler);
+	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
@@ -7943,7 +7946,7 @@ static void test70(void)
 		fbuf[0] = 123456789012.0;
 		fbuf[1] = -1.0;
 
-		compiler = sljit_create_compiler(NULL, NULL);
+		compiler = sljit_create_compiler(NULL);
 		FAILED(!compiler, "cannot create compiler\n");
 
 		sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 0, 1, SLJIT_NUMBER_OF_FLOAT_REGISTERS, 0, 0);
@@ -7960,7 +7963,7 @@ static void test70(void)
 
 		sljit_emit_return_void(compiler);
 
-		code.code = sljit_generate_code(compiler);
+		code.code = sljit_generate_code(compiler, 0, NULL);
 		CHECK(compiler);
 		sljit_free_compiler(compiler);
 
@@ -7976,7 +7979,7 @@ static void test70(void)
 		fbuf[2] = -1.0;
 		fbuf[3] = -1.0;
 
-		compiler = sljit_create_compiler(NULL, NULL);
+		compiler = sljit_create_compiler(NULL);
 		FAILED(!compiler, "cannot create compiler\n");
 
 		sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 0, 1, SLJIT_NUMBER_OF_FLOAT_REGISTERS, 0, 0);
@@ -7987,7 +7990,7 @@ static void test70(void)
 
 		sljit_emit_return_void(compiler);
 
-		code.code = sljit_generate_code(compiler);
+		code.code = sljit_generate_code(compiler, 0, NULL);
 		CHECK(compiler);
 		sljit_free_compiler(compiler);
 

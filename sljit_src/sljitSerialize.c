@@ -286,7 +286,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit_uw* buffer, sljit_uw size,
-	sljit_s32 options, void *allocator_data, void *exec_allocator_data)
+	sljit_s32 options, void *allocator_data)
 {
 	struct sljit_compiler *compiler;
 	struct sljit_serialized_compiler *serialized_compiler;
@@ -319,7 +319,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 	if (serialized_compiler->signature != SLJIT_SERIALIZE_SIGNATURE || serialized_compiler->version != SLJIT_SERIALIZE_VERSION)
 		return NULL;
 
-	compiler = sljit_create_compiler(allocator_data, exec_allocator_data);
+	compiler = sljit_create_compiler(allocator_data);
 	PTR_FAIL_IF(compiler == NULL);
 
 	compiler->label_count = serialized_compiler->label_count;

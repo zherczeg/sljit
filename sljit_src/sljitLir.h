@@ -451,6 +451,12 @@ struct sljit_const {
 	sljit_uw addr;
 };
 
+struct sljit_generate_code_buffer {
+	void *buffer;
+	sljit_uw size;
+	sljit_sw executable_offset;
+};
+
 struct sljit_compiler {
 	sljit_s32 error;
 	sljit_s32 options;
@@ -463,7 +469,7 @@ struct sljit_compiler {
 	struct sljit_const *last_const;
 
 	void *allocator_data;
-	void *exec_allocator_data;
+	void *user_data;
 	struct sljit_memory_fragment *buf;
 	struct sljit_memory_fragment *abuf;
 
@@ -585,12 +591,10 @@ struct sljit_compiler {
    custom memory managers. This pointer is passed to SLJIT_MALLOC
    and SLJIT_FREE macros. Most allocators (including the default
    one) ignores this value, and it is recommended to pass NULL
-   as a dummy value for allocator_data. The exec_allocator_data
-   has the same purpose but this one is passed to SLJIT_MALLOC_EXEC /
-   SLJIT_MALLOC_FREE functions.
+   as a dummy value for allocator_data.
 
    Returns NULL if failed. */
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data, void *exec_allocator_data);
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data);
 
 /* Frees everything except the compiled machine code. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_compiler(struct sljit_compiler *compiler);
@@ -621,20 +625,31 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_compiler_memory_error(struct sljit_compi
    of the compiler to out-of-memory status). */
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_alloc_memory(struct sljit_compiler *compiler, sljit_s32 size);
 
-/* Returns the allocator data passed to sljit_create_compiler. These pointers
-   may contain context data even if the normal/exec allocator ignores it. */
-static SLJIT_INLINE void* sljit_get_allocator_data(struct sljit_compiler *compiler) { return compiler->allocator_data; }
-static SLJIT_INLINE void* sljit_get_exec_allocator_data(struct sljit_compiler *compiler) { return compiler->exec_allocator_data; }
+/* Returns the allocator data passed to sljit_create_compiler. */
+static SLJIT_INLINE void* sljit_compiler_get_allocator_data(struct sljit_compiler *compiler) { return compiler->allocator_data; }
+/* Sets/get the user data for a compiler. */
+static SLJIT_INLINE void sljit_compiler_set_user_data(struct sljit_compiler *compiler, void *user_data) { compiler->user_data = user_data; }
+static SLJIT_INLINE void* sljit_compiler_get_user_data(struct sljit_compiler *compiler) { return compiler->user_data; }
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 /* Passing NULL disables verbose. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose);
 #endif
 
-/* Create executable code from the instruction stream. This is the final step
-   of the code generation so no more instructions can be emitted after this call. */
+/* Option bits for sljit_generate_code. */
 
-SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compiler);
+/* The exec_allocator_data points to a pre-allocated
+   buffer which type is sljit_generate_code_buffer. */
+#define SLJIT_GENERATE_CODE_BUFFER		0x1
+
+/* Create executable code from the instruction stream. This is the final step
+   of the code generation, and no more instructions can be emitted after this call.
+
+   options is the combination of SLJIT_GENERATE_CODE_* bits
+   exec_allocator_data is passed to SLJIT_MALLOC_EXEC and
+                       SLJIT_MALLOC_FREE functions */
+
+SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options, void *exec_allocator_data);
 
 /* Free executable code. */
 
@@ -2301,8 +2316,8 @@ compiler instance is returned. Otherwise the returned value is NULL.
     created by sljit_serialize_compiler()
   size is the byte size of the buffer
   options must be 0
-  allocator_data and exec_allocator_data specify an allocator
-    specific data similar to sljit_create_compiler()
+  allocator_data specify an allocator specific data, see
+                 sljit_create_compiler() for further details
 
 Notes:
   - Labels assigned to jumps are restored with their
@@ -2318,7 +2333,7 @@ Notes:
     information cannot be deserialized.
 */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit_uw* buffer, sljit_uw size,
-	sljit_s32 options, void *allocator_data, void *exec_allocator_data);
+	sljit_s32 options, void *allocator_data);
 
 /* --------------------------------------------------------------------- */
 /*  Miscellaneous utility functions                                      */

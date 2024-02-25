@@ -1392,7 +1392,7 @@ static sljit_s32 emit_non_commutative(struct sljit_compiler *compiler, const str
 	return emit_rrf(compiler, ins, dst, src1, src1w, src2, src2w);
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compiler)
+SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options, void *exec_allocator_data)
 {
 	struct sljit_label *label;
 	struct sljit_jump *jump;
@@ -1443,10 +1443,9 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	SLJIT_ASSERT(pad_size < 8UL);
 
 	/* allocate target buffer */
-	code = SLJIT_MALLOC_EXEC(ins_size + pad_size + pool_size, compiler->exec_allocator_data);
+	code = (sljit_u16*)allocate_executable_memory(ins_size + pad_size + pool_size, options, exec_allocator_data, &executable_offset);
 	PTR_FAIL_WITH_EXEC_IF(code);
 	code_ptr = code;
-	executable_offset = SLJIT_EXEC_OFFSET(code);
 
 	/* TODO(carenas): pool is optional, and the ABI recommends it to
          *                be created before the function code, instead of

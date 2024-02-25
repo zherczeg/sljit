@@ -446,7 +446,7 @@ static sljit_s32 compiler_initialized = 0;
 static void init_compiler(void);
 #endif
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data, void *exec_allocator_data)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data)
 {
 	struct sljit_compiler *compiler = (struct sljit_compiler*)SLJIT_MALLOC(sizeof(struct sljit_compiler), allocator_data);
 	if (!compiler)
@@ -471,7 +471,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allo
 	compiler->error = SLJIT_SUCCESS;
 
 	compiler->allocator_data = allocator_data;
-	compiler->exec_allocator_data = exec_allocator_data;
 	compiler->buf = (struct sljit_memory_fragment*)SLJIT_MALLOC(BUF_SIZE, allocator_data);
 	compiler->abuf = (struct sljit_memory_fragment*)SLJIT_MALLOC(ABUF_SIZE, allocator_data);
 
@@ -700,6 +699,28 @@ static SLJIT_INLINE void reverse_buf(struct sljit_compiler *compiler)
 	} while (buf != NULL);
 
 	compiler->buf = prev;
+}
+
+static SLJIT_INLINE void* allocate_executable_memory(sljit_uw size, sljit_s32 options,
+	void *exec_allocator_data, sljit_sw *executable_offset)
+{
+	void *code;
+	struct sljit_generate_code_buffer *buffer;
+
+	if (SLJIT_LIKELY(!(options & SLJIT_GENERATE_CODE_BUFFER))) {
+		code = SLJIT_MALLOC_EXEC(size, exec_allocator_data);
+		*executable_offset = SLJIT_EXEC_OFFSET(code);
+		return code;
+	}
+
+	buffer = (struct sljit_generate_code_buffer*)exec_allocator_data;
+
+	if (size <= buffer->size) {
+		*executable_offset = buffer->executable_offset;
+		return buffer->buffer;
+	}
+
+	return NULL;
 }
 
 #define SLJIT_MAX_ADDRESS ~(sljit_uw)0
