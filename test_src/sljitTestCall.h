@@ -254,7 +254,7 @@ static void test_call3(void)
 {
 	/* Check function calls with floating point arguments. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* jump = NULL;
 	sljit_f64 dbuf[7];
 	sljit_f32 sbuf[7];
@@ -270,7 +270,6 @@ static void test_call3(void)
 		return;
 	}
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	dbuf[0] = 5.25;
@@ -837,7 +836,7 @@ static void test_call7(void)
 {
 	/* Test register argument and keep saved registers. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* jump;
 	sljit_sw buf[9];
 	sljit_s32 i;
@@ -848,7 +847,6 @@ static void test_call7(void)
 	for (i = 0; i < 9; i++)
 		buf[i] = -1;
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS0V(), 4, 2, 0, 0, 0);
