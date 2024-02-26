@@ -295,6 +295,8 @@
 #	define PATCH_REL32	0x040
 #	define PATCH_ABS32	0x080
 #	define PATCH_ABS52	0x100
+#	define JUMP_SIZE_SHIFT	58
+#	define JUMP_MAX_SIZE	((sljit_uw)4)
 
 #endif /* SLJIT_CONFIG_LOONGARCH */
 /* Stack management. */
