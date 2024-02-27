@@ -5874,7 +5874,7 @@ static void test59(void)
 {
 	/* Test carry flag. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw wbuf[15];
 	sljit_s32 i;
 
@@ -5884,7 +5884,6 @@ static void test59(void)
 	for (i = 0; i < 15; i++)
 		wbuf[i] = -1;
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(W), 3, 2, 0, 0, 0);
@@ -6007,6 +6006,7 @@ static void test59(void)
 	FAILED(wbuf[12] != 1, "test59 case 13 failed\n");
 	FAILED(wbuf[13] != 1, "test59 case 14 failed\n");
 	FAILED(wbuf[14] != 1, "test59 case 15 failed\n");
+	sljit_free_code(code.code, NULL);
 
 	successful_tests++;
 }
@@ -6038,7 +6038,7 @@ static void test60(void)
 {
 	/* Test unaligned accesses. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw i;
 	sljit_sw wbuf[13];
 	sljit_s32 ibuf[1];
@@ -6074,7 +6074,6 @@ static void test60(void)
 	hbuf[0] = -17249;
 	bbuf[0] = -73;
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 2, 2, 0, 0, 0);
@@ -7847,7 +7846,7 @@ static void test70(void)
 {
 	/* Test accessing temporary registers. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[SLJIT_NUMBER_OF_TEMPORARY_REGISTERS + SLJIT_NUMBER_OF_REGISTERS - 1];
 	sljit_f64 fbuf[2 * (SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS + SLJIT_NUMBER_OF_FLOAT_REGISTERS)];
 	sljit_s32 i, ctr;
@@ -7858,7 +7857,6 @@ static void test70(void)
 	for (i = 0; i < SLJIT_NUMBER_OF_TEMPORARY_REGISTERS; i++)
 		buf[i] = -1;
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), SLJIT_NUMBER_OF_REGISTERS - 1, 1, 0, 0, 0);

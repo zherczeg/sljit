@@ -28,14 +28,13 @@ static void test_float1(void)
 {
 	/* Test fpu monadic functions. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_f64 buf[7];
 	sljit_sw buf2[6];
 
 	if (verbose)
 		printf("Run test_float1\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 7.75;
@@ -121,13 +120,12 @@ static void test_float2(void)
 {
 	/* Test fpu diadic functions. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_f64 buf[15];
 
 	if (verbose)
 		printf("Run test_float2\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 7.25;
@@ -227,7 +225,7 @@ static void test_float3(void)
 {
 	/* Floating point set flags. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_s32 i;
 
 	sljit_sw buf[16];
@@ -242,7 +240,6 @@ static void test_float3(void)
 	if (verbose)
 		printf("Run test_float3\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 16; i++)
@@ -358,7 +355,6 @@ static void test_float4(void)
 	buf[1] = -2.25;
 	buf[2] = 0.0;
 
-	compiler = sljit_create_compiler(NULL);
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 0, 1, 2, 0, 0);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_S0), 0);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f64));
@@ -456,7 +452,7 @@ static void test_float5(void)
 {
 	/* Test floating point compare. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* jump;
 	sljit_sw res[4];
 
@@ -471,7 +467,6 @@ static void test_float5(void)
 	if (verbose)
 		printf("Run test_float5\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	dbuf[0].value = 12.125;
@@ -531,7 +526,7 @@ static void test_float6(void)
 	/* Test single precision floating point. */
 
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_f32 buf[12];
 	sljit_sw buf2[6];
 	struct sljit_jump* jump;
@@ -539,7 +534,6 @@ static void test_float6(void)
 	if (verbose)
 		printf("Run test_float6\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = 5.5;
@@ -653,7 +647,7 @@ static void test_float7(void)
 {
 	/* Test floating point conversions. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	int i;
 	sljit_f64 dbuf[10];
 	sljit_f32 sbuf[10];
@@ -663,7 +657,6 @@ static void test_float7(void)
 	if (verbose)
 		printf("Run test_float7\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 10; i++) {
@@ -800,7 +793,7 @@ static void test_float8(void)
 {
 	/* Test floating point conversions. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	int i;
 	sljit_f64 dbuf[10];
 	sljit_f32 sbuf[9];
@@ -812,7 +805,6 @@ static void test_float8(void)
 	if (verbose)
 		printf("Run test_float8\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 9; i++) {
@@ -930,7 +922,7 @@ static void test_float9(void)
 {
 	/* Test stack and floating point operations. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 #if !IS_X86
 	sljit_uw size1, size2, size3;
 	int result;
@@ -940,7 +932,6 @@ static void test_float9(void)
 	if (verbose)
 		printf("Run test_float9\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sbuf[0] = 245.5;
@@ -1005,7 +996,7 @@ static void test_float10(void)
 {
 	/* Test all registers provided by the CPU. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* jump;
 	sljit_f64 buf[3];
 	sljit_s32 i;
@@ -1013,7 +1004,6 @@ static void test_float10(void)
 	if (verbose)
 		printf("Run test_float10\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 	buf[0] = 6.25;
 	buf[1] = 17.75;
@@ -1092,7 +1082,7 @@ static void test_float11(void)
 {
 	/* Test float memory accesses with pre/post updates. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_u32 i;
 	sljit_s32 supported[6];
 	sljit_sw wbuf[6];
@@ -1109,7 +1099,6 @@ static void test_float11(void)
 	if (verbose)
 		printf("Run test_float11\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 6; i++)
@@ -1257,7 +1246,6 @@ static void test_float12(void)
 	dbuf[0] = 0;
 	fbuf[0] = 0;
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS4V(32, F32, W, F64), 2, 2, 2, 0, 0);
@@ -1488,7 +1476,7 @@ static void test_float13(void)
 {
 	/* Test using all fpu registers. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_f64 buf[SLJIT_NUMBER_OF_FLOAT_REGISTERS];
 	sljit_f64 buf2[2];
 	struct sljit_jump *jump;
@@ -1497,7 +1485,6 @@ static void test_float13(void)
 	if (verbose)
 		printf("Run test_float13\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	buf2[0] = 7.75;
@@ -1606,7 +1593,7 @@ static void test_float14(void)
 {
 	/* Test passing arguments in registers. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw wbuf[2];
 	sljit_f64 dbuf[3];
 
@@ -1615,7 +1602,6 @@ static void test_float14(void)
 
 	/* Next test. */
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS4V(F64, F64, F64, W_R), 1, 0, 3, 0, SLJIT_MAX_LOCAL_SIZE);
@@ -1696,7 +1682,7 @@ static void test_float15(void)
 {
 	/* Test floating point comparison. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_s8 bbuf[96];
 	sljit_s32 i;
 
@@ -1716,7 +1702,6 @@ static void test_float15(void)
 	if (verbose)
 		printf("Run test_float15\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	dbuf[0].u.value1 = 0x7fffffff;
@@ -1998,7 +1983,7 @@ static void test_float16(void)
 {
 	/* Test sljit_emit_fcopy. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_f64 dbuf[4];
 	sljit_f32 sbuf[2];
 #if IS_64BIT
@@ -2011,7 +1996,6 @@ static void test_float16(void)
 	if (verbose)
 		printf("Run test_float16\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sbuf[0] = 12345.0;
@@ -2118,7 +2102,7 @@ static void test_float17(void)
 {
 	/* Test fselect operation. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_f64 dbuf[10];
 	sljit_f32 sbuf[10];
 	sljit_s32 i;
@@ -2141,7 +2125,6 @@ static void test_float17(void)
 	sbuf[2] = 264.25;
 	sbuf[3] = -407.5;
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(W, W), 3, 3, 4, 0, 2 * sizeof(sljit_f64));
@@ -2246,7 +2229,7 @@ static void test_float18(void)
 {
 	/* Floating point set immediate. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_f64 dbuf[6];
 	sljit_f32 sbuf[5];
 	sljit_s32 check_buf[2];
@@ -2261,7 +2244,6 @@ static void test_float18(void)
 	for (i = 0; i < 5; i++)
 		sbuf[i] = -1.0;
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 2, 2, 4, 0, 0);
@@ -2330,7 +2312,7 @@ static void test_float19(void)
 {
 	/* Floating point convert from unsigned. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_f64 dbuf[9];
 	sljit_f32 sbuf[9];
 	sljit_s32 i;
@@ -2366,7 +2348,6 @@ static void test_float19(void)
 	for (i = 0; i < 9; i++)
 		sbuf[i] = -1.0;
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS2V(P, P), 4, 4, 4, 0, 0);
@@ -2496,7 +2477,7 @@ static void test_float19(void)
 	f32_check.value = sbuf[8]; /* 0x80000081 */
 	FAILED(f32_check.bin != 0x4f000001, "test_float19 case 18 failed\n");
 #endif /* IS_64BIT */
-
+	sljit_free_code(code.code, NULL);
 	successful_tests++;
 }
 
@@ -2504,7 +2485,7 @@ static void test_float20(void)
 {
 	/* Test fpu copysign. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	int i;
 
 	union {
@@ -2527,7 +2508,6 @@ static void test_float20(void)
 	if (verbose)
 		printf("Run test_float20\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 8; i++)
@@ -2617,7 +2597,7 @@ static void test_float21(void)
 {
 	/* Test f64 as f32 register pair access. */
 	executable_code code;
-	struct sljit_compiler* compiler;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_f32 buf[10];
 	sljit_sw num;
 	sljit_s32 i;
@@ -2632,7 +2612,6 @@ static void test_float21(void)
 		return;
 	}
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = -45.25;
@@ -2712,7 +2691,7 @@ static void test_float22(void)
 {
 	/* Test float to int conversion corner cases. */
 	executable_code code;
-	struct sljit_compiler *compiler;
+	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
 	struct sljit_label *label;
 	int i;
 
@@ -2769,7 +2748,6 @@ static void test_float22(void)
 	if (verbose)
 		printf("Run test_float22\n");
 
-	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	for (i = 0; i < 31; i++)
