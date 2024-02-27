@@ -1687,7 +1687,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		mem_flags = INT_SIZE;
 	}
 
-	if (dst == TMP_REG1)
+	if (dst == TMP_REG2)
 		flags |= UNUSED_RETURN;
 
 	if (src1 & SLJIT_MEM) {
@@ -1725,7 +1725,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 	CHECK(check_sljit_emit_op2(compiler, op, 1, 0, 0, src1, src1w, src2, src2w));
 
 	SLJIT_SKIP_CHECKS(compiler);
-	return sljit_emit_op2(compiler, op, TMP_REG1, 0, src1, src1w, src2, src2w);
+	return sljit_emit_op2(compiler, op, TMP_REG2, 0, src1, src1w, src2, src2w);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
@@ -2470,7 +2470,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	if (GET_OPCODE(op) < SLJIT_ADD) {
 		FAIL_IF(push_inst(compiler, CSINC | (cc << 12) | RD(dst_r) | RN(TMP_ZERO) | RM(TMP_ZERO)));
 
-		if (dst_r == TMP_REG1) {
+		if (dst & SLJIT_MEM) {
 			mem_flags = (GET_OPCODE(op) == SLJIT_MOV ? WORD_SIZE : INT_SIZE) | STORE;
 			return emit_op_mem(compiler, mem_flags, TMP_REG1, dst, dstw, TMP_REG2);
 		}

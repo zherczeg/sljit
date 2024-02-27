@@ -1592,7 +1592,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
 static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 flags,
 	sljit_uw dst, sljit_uw src1, sljit_uw src2)
 {
-	sljit_s32 is_masked;
+	sljit_s32 reg, is_masked;
 	sljit_uw shift_type;
 
 	switch (op) {
@@ -1657,9 +1657,9 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
-		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED) && src2 != TMP_REG1 && dst != TMP_REG1);
+		SLJIT_ASSERT(src1 == TMP_REG1 && !(flags & ARGS_SWAPPED) && src2 != TMP_REG1);
 		FAIL_IF(push_inst(compiler, REV16 | RD(dst) | RM(src2)));
-		if (dst == TMP_REG2 || (src2 == TMP_REG2 && op == SLJIT_REV_U16))
+		if (src2 == TMP_REG2 && op == SLJIT_REV_U16)
 			return SLJIT_SUCCESS;
 		return push_inst(compiler, (op == SLJIT_REV_U16 ? UXTH : SXTH) | RD(dst) | RM(dst));
 	case SLJIT_ADD:
@@ -1695,10 +1695,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		if (!(flags & SET_FLAGS))
 			return push_inst(compiler, MUL | RN(dst) | RM8(src2) | RM(src1));
 
-		FAIL_IF(push_inst(compiler, SMULL | RN(TMP_REG1) | RD(dst) | RM8(src2) | RM(src1)));
+		reg = dst == TMP_REG1 ? TMP_REG2 : TMP_REG1;
+		FAIL_IF(push_inst(compiler, SMULL | RN(reg) | RD(dst) | RM8(src2) | RM(src1)));
 
 		/* cmp TMP_REG1, dst asr #31. */
-		return push_inst(compiler, CMP | SET_FLAGS | RN(TMP_REG1) | RM(dst) | 0xfc0);
+		return push_inst(compiler, CMP | SET_FLAGS | RN(reg) | RM(dst) | 0xfc0);
 
 	case SLJIT_AND:
 		if ((flags & (UNUSED_RETURN | INV_IMM)) == UNUSED_RETURN)
@@ -2174,7 +2175,7 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 	}
 
 	/* Destination. */
-	dst_reg = FAST_IS_REG(dst) ? dst : TMP_REG2;
+	dst_reg = FAST_IS_REG(dst) ? dst : TMP_REG1;
 
 	if (op <= SLJIT_MOV_P) {
 		if (dst & SLJIT_MEM) {
@@ -2185,7 +2186,7 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 				return emit_op_mem(compiler, inp_flags, src2, dst, dstw, TMP_REG2);
 		}
 
-		if (FAST_IS_REG(src2) && dst_reg != TMP_REG2)
+		if (FAST_IS_REG(src2) && dst_reg != TMP_REG1)
 			flags |= MOVE_REG_CONV;
 	}
 
@@ -2260,7 +2261,7 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 	if (!(dst & SLJIT_MEM))
 		return SLJIT_SUCCESS;
 
-	return emit_op_mem(compiler, inp_flags, dst_reg, dst, dstw, TMP_REG1);
+	return emit_op_mem(compiler, inp_flags, dst_reg, dst, dstw, TMP_REG2);
 }
 
 #ifdef __cplusplus

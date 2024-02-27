@@ -2598,8 +2598,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	compiler->mode32 = op & SLJIT_32;
 #endif
 
-	SLJIT_ASSERT(dst != TMP_REG1 || HAS_FLAGS(op));
-
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
 		if (!HAS_FLAGS(op)) {
@@ -2693,9 +2691,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 	compiler->mode32 = op & SLJIT_32;
 #endif
 
-	if (opcode == SLJIT_SUB) {
+	if (opcode == SLJIT_SUB)
 		return emit_cmp_binary(compiler, src1, src1w, src2, src2w);
-	}
+
 	return emit_test_binary(compiler, src1, src1w, src2, src2w);
 }
 
