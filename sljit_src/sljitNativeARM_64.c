@@ -1625,7 +1625,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		else if (!(src & SLJIT_MEM))
 			dst_r = src;
 		else
-			FAIL_IF(emit_op_mem(compiler, mem_flags, dst_r, src, srcw, TMP_REG1));
+			FAIL_IF(emit_op_mem(compiler, mem_flags, dst_r, src, srcw, TMP_REG2));
 
 		if (dst & SLJIT_MEM)
 			return emit_op_mem(compiler, mem_flags | STORE, dst_r, dst, dstw, TMP_REG2);

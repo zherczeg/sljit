@@ -1314,23 +1314,6 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 			sugg_src2_r = dst_r;
 	}
 
-	/* Source 1. */
-	if (FAST_IS_REG(src1)) {
-		src1_r = src1;
-		flags |= REG1_SOURCE;
-	}
-	else if (src1 == SLJIT_IMM) {
-		src1_r = TMP_ZERO;
-		if (src1w != 0) {
-			FAIL_IF(load_immediate(compiler, TMP_REG1, src1w));
-			src1_r = TMP_REG1;
-		}
-	}
-	else {
-		FAIL_IF(emit_op_mem(compiler, input_flags | LOAD_DATA, TMP_REG1, src1, src1w, TMP_REG1));
-		src1_r = TMP_REG1;
-	}
-
 	/* Source 2. */
 	if (FAST_IS_REG(src2)) {
 		src2_r = src2;
@@ -1338,17 +1321,30 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 
 		if (!(flags & REG_DEST) && op >= SLJIT_MOV && op <= SLJIT_MOV_P)
 			dst_r = src2_r;
-	}
-	else if (src2 == SLJIT_IMM) {
+	} else if (src2 == SLJIT_IMM) {
 		src2_r = TMP_ZERO;
 		if (src2w != 0) {
 			FAIL_IF(load_immediate(compiler, sugg_src2_r, src2w));
 			src2_r = sugg_src2_r;
 		}
-	}
-	else {
-		FAIL_IF(emit_op_mem(compiler, input_flags | LOAD_DATA, sugg_src2_r, src2, src2w, TMP_REG2));
+	} else {
+		FAIL_IF(emit_op_mem(compiler, input_flags | LOAD_DATA, sugg_src2_r, src2, src2w, TMP_REG1));
 		src2_r = sugg_src2_r;
+	}
+
+	/* Source 1. */
+	if (FAST_IS_REG(src1)) {
+		src1_r = src1;
+		flags |= REG1_SOURCE;
+	} else if (src1 == SLJIT_IMM) {
+		src1_r = TMP_ZERO;
+		if (src1w != 0) {
+			FAIL_IF(load_immediate(compiler, TMP_REG1, src1w));
+			src1_r = TMP_REG1;
+		}
+	} else {
+		FAIL_IF(emit_op_mem(compiler, input_flags | LOAD_DATA, TMP_REG1, src1, src1w, TMP_REG1));
+		src1_r = TMP_REG1;
 	}
 
 	FAIL_IF(emit_single_op(compiler, op, flags, dst_r, src1_r, src2_r));

@@ -1959,7 +1959,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		if (src == SLJIT_IMM)
 			FAIL_IF(emit_op_imm(compiler, SLJIT_MOV | ARG2_IMM, dst_r, TMP_REG2, (sljit_uw)srcw));
 		else if (src & SLJIT_MEM) {
-			FAIL_IF(emit_op_mem(compiler, flags, dst_r, src, srcw, TMP_REG1));
+			FAIL_IF(emit_op_mem(compiler, flags, dst_r, src, srcw, TMP_REG2));
 		} else {
 			if (dst_r != TMP_REG1)
 				return emit_op_imm(compiler, op, dst_r, TMP_REG2, (sljit_uw)src);
