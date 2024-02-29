@@ -968,7 +968,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	} while (buf);
 
 	if (label && label->size == word_count) {
-		label->u.addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code, executable_offset);
+		label->u.addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 		label->size = (sljit_uw)(code_ptr - code);
 		label = label->next;
 	}
