@@ -120,6 +120,7 @@ static const sljit_u8 freg_ebit_map[((SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2) << 1)
 #define LDREX		0xe1900f9f
 #define LDREXB		0xe1d00f9f
 #define LDREXH		0xe1f00f9f
+#define MLA		0xe0200090
 #define MOV		0xe1a00000
 #define MUL		0xe0000090
 #define MVN		0xe1e00000
@@ -1749,6 +1750,9 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		is_masked = 0;
 		break;
 
+	case SLJIT_MULADD:
+		return push_inst(compiler, MLA | RN(dst) | RD(dst) | RM8(src2) | RM(src1));
+
 	default:
 		SLJIT_UNREACHABLE();
 		return SLJIT_SUCCESS;
@@ -2464,6 +2468,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 
 	SLJIT_SKIP_CHECKS(compiler);
 	return sljit_emit_op2(compiler, op, TMP_REG2, 0, src1, src1w, src2, src2w);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2r(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_reg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op2r(compiler, op, dst_reg, src1, src1w, src2, src2w));
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+	ADJUST_LOCAL_OFFSET(src2, src2w);
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MULADD:
+		return emit_op(compiler, op, 0, dst_reg, 0, src1, src1w, src2, src2w);
+	}
+
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,

@@ -2045,6 +2045,30 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 	return sljit_emit_op2(compiler, op, 0, 0, src1, src1w, src2, src2w);
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2r(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_reg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+	sljit_ins word = (sljit_ins)(op & SLJIT_32) >> 5;
+#endif /* SLJIT_CONFIG_RISCV_64 */
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op2r(compiler, op, dst_reg, src1, src1w, src2, src2w));
+
+	SLJIT_ASSERT(WORD == 0 || WORD == 0x8);
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MULADD:
+		SLJIT_SKIP_CHECKS(compiler);
+		FAIL_IF(sljit_emit_op2(compiler, SLJIT_MUL | (op & SLJIT_32), TMP_REG2, 0, src1, src1w, src2, src2w));
+		return push_inst(compiler, ADD | WORD | RD(dst_reg) | RS1(dst_reg) | RS2(TMP_REG2));
+	}
+
+	return SLJIT_SUCCESS;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst_reg,
 	sljit_s32 src1_reg,

@@ -840,7 +840,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		imm = (flags & ARG2_IMM) ? arg2 : arg1;
 
 		switch (op) {
-		case SLJIT_MUL:
 		case SLJIT_CLZ:
 		case SLJIT_CTZ:
 		case SLJIT_REV:
@@ -850,6 +849,8 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		case SLJIT_REV_S32:
 		case SLJIT_ADDC:
 		case SLJIT_SUBC:
+		case SLJIT_MUL:
+		case SLJIT_MULADD:
 			/* No form with immediate operand (except imm 0, which
 			is represented by a ZERO register). */
 			break;
@@ -1104,6 +1105,9 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		/* fallthrough */
 	case SLJIT_ROTR:
 		return push_inst(compiler, (RORV ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
+	case SLJIT_MULADD:
+		compiler->status_flags_state = 0;
+		return push_inst(compiler, (MADD ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2) | RT2(dst));
 	default:
 		SLJIT_UNREACHABLE();
 		return SLJIT_SUCCESS;
@@ -1726,6 +1730,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 
 	SLJIT_SKIP_CHECKS(compiler);
 	return sljit_emit_op2(compiler, op, TMP_REG2, 0, src1, src1w, src2, src2w);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2r(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_reg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op2r(compiler, op, dst_reg, src1, src1w, src2, src2w));
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MULADD:
+		SLJIT_SKIP_CHECKS(compiler);
+		return sljit_emit_op2(compiler, op, dst_reg, 0, src1, src1w, src2, src2w);
+	}
+
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,

@@ -1163,6 +1163,10 @@ static const char* op2_names[] = {
 	"ashr", "mashr", "rotl", "rotr"
 };
 
+static const char* op2r_names[] = {
+	"muladd"
+};
+
 static const char* op_src_dst_names[] = {
 	"fast_return", "skip_frames_before_fast_return",
 	"prefetch_l1", "prefetch_l2",
@@ -1683,6 +1687,33 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2(struct sljit_compiler
 			fprintf(compiler->verbose, "unset");
 		else
 			sljit_verbose_param(compiler, dst, dstw);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_param(compiler, src1, src1w);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_param(compiler, src2, src2w);
+		fprintf(compiler->verbose, "\n");
+	}
+#endif
+	CHECK_RETURN_OK;
+}
+
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2r(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_reg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT((op | SLJIT_32) == SLJIT_MULADD32);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(dst_reg));
+	FUNCTION_CHECK_SRC(src1, src1w);
+	FUNCTION_CHECK_SRC(src2, src2w);
+	compiler->last_flags = 0;
+#endif
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  %s%s ", op2r_names[GET_OPCODE(op) - SLJIT_OP2R_BASE], !(op & SLJIT_32) ? "" : "32");
+
+		sljit_verbose_reg(compiler, dst_reg);
 		fprintf(compiler->verbose, ", ");
 		sljit_verbose_param(compiler, src1, src1w);
 		fprintf(compiler->verbose, ", ");

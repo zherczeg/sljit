@@ -2697,6 +2697,38 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 	return emit_test_binary(compiler, src1, src1w, src2, src2w);
 }
 
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2r(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_reg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+	sljit_u8* inst;
+	sljit_sw dstw = 0;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op2r(compiler, op, dst_reg, src1, src1w, src2, src2w));
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+	ADJUST_LOCAL_OFFSET(src2, src2w);
+
+	CHECK_EXTRA_REGS(dst_reg, dstw, (void)0);
+	CHECK_EXTRA_REGS(src1, src1w, (void)0);
+	CHECK_EXTRA_REGS(src2, src2w, (void)0);
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
+	compiler->mode32 = op & SLJIT_32;
+#endif
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MULADD:
+		FAIL_IF(emit_mul(compiler, TMP_REG1, 0, src1, src1w, src2, src2w));
+		inst = emit_x86_instruction(compiler, 1, TMP_REG1, 0, dst_reg, dstw);
+		FAIL_IF(!inst);
+		*inst = ADD_rm_r;
+		return SLJIT_SUCCESS;
+	}
+
+	return SLJIT_SUCCESS;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst_reg,
 	sljit_s32 src1_reg,
