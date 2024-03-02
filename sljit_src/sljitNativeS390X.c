@@ -1573,6 +1573,14 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 		buf = buf->next;
 	} while (buf);
 
+	if (next_label_size == half_count) {
+		label->u.addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
+		label = label->next;
+	}
+
+	SLJIT_ASSERT(!label);
+	SLJIT_ASSERT(!jump);
+	SLJIT_ASSERT(!const_);
 	SLJIT_ASSERT(code + (ins_size >> 1) == code_ptr);
 	SLJIT_ASSERT((sljit_u8 *)pool + pool_size == (sljit_u8 *)pool_ptr);
 
@@ -2965,7 +2973,25 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 	CHECK(check_sljit_emit_op2(compiler, op, 1, 0, 0, src1, src1w, src2, src2w));
 
 	SLJIT_SKIP_CHECKS(compiler);
-	return sljit_emit_op2(compiler, op, (sljit_s32)tmp0, 0, src1, src1w, src2, src2w);
+	return sljit_emit_op2(compiler, op, 0 /* tmp0 */, 0, src1, src1w, src2, src2w);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2r(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_reg,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op2r(compiler, op, dst_reg, src1, src1w, src2, src2w));
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MULADD:
+		SLJIT_SKIP_CHECKS(compiler);
+		FAIL_IF(sljit_emit_op2(compiler, SLJIT_MUL | (op & SLJIT_32), 0 /* tmp0 */, 0, src1, src1w, src2, src2w));
+		return push_inst(compiler, ((op & SLJIT_32) ? 0x1a00 /* ar */ : 0xb9080000 /* agr */) | R4A(gpr(dst_reg)) | R0A(tmp0));
+	}
+
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
