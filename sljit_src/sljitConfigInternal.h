@@ -99,7 +99,7 @@ extern "C" {
      SLJIT_TMP_FR0 .. FR9 : accessing temporary floating point registers
      SLJIT_TMP_FR(i) : accessing temporary floating point registers
      SLJIT_TMP_DEST_REG : a temporary register for results
-     SLJIT_TMP_MEM_REG : a temporary base register for accessing memory with limited offsets
+     SLJIT_TMP_MEM_REG : a temporary base register for accessing memory
                          (can be the same as SLJIT_TMP_DEST_REG)
      SLJIT_FUNC : calling convention attribute for both calling JIT from C and C calling back from JIT
      SLJIT_W(number) : defining 64 bit constants on 64 bit architectures (platform independent helper)
@@ -723,7 +723,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #define SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS 8
 #define SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS 1
 #define SLJIT_TMP_DEST_REG SLJIT_TMP_R0
-#define SLJIT_TMP_MEM_REG SLJIT_TMP_R1
+#define SLJIT_TMP_MEM_REG SLJIT_TMP_R2
 #define SLJIT_LOCALS_OFFSET_BASE SLJIT_S390X_DEFAULT_STACK_FRAME_SIZE
 #define SLJIT_MASKED_SHIFT 1
 
