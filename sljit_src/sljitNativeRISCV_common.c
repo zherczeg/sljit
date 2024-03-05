@@ -1043,7 +1043,7 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 
 	/* Since tmp can be the same as base or offset registers,
 	 * these might be unavailable after modifying tmp. */
-	if ((flags & MEM_MASK) <= GPR_REG && (flags & LOAD_DATA) && reg == TMP_REG2)
+	if ((flags & MEM_MASK) <= GPR_REG && (flags & LOAD_DATA) && reg == TMP_REG2 && base != TMP_REG2 && (arg & OFFS_REG_MASK) != TO_OFFS_REG(TMP_REG2))
 		tmp_r = reg;
 
 	if (SLJIT_UNLIKELY(arg & OFFS_REG_MASK)) {
