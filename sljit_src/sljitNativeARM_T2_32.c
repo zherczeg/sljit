@@ -1963,13 +1963,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 
 		if (src == SLJIT_IMM)
 			FAIL_IF(emit_op_imm(compiler, SLJIT_MOV | ARG2_IMM, dst_r, TMP_REG2, (sljit_uw)srcw));
-		else if (src & SLJIT_MEM) {
+		else if (src & SLJIT_MEM)
 			FAIL_IF(emit_op_mem(compiler, flags, dst_r, src, srcw, TMP_REG2));
-		} else {
-			if (dst_r != TMP_REG1)
-				return emit_op_imm(compiler, op, dst_r, TMP_REG2, (sljit_uw)src);
+		else if (FAST_IS_REG(dst))
+			return emit_op_imm(compiler, op, dst_r, TMP_REG2, (sljit_uw)src);
+		else
 			dst_r = src;
-		}
 
 		if (!(dst & SLJIT_MEM))
 			return SLJIT_SUCCESS;
@@ -2236,8 +2235,8 @@ static sljit_s32 emit_fop_mem(struct sljit_compiler *compiler, sljit_s32 flags, 
 
 	/* Fast loads and stores. */
 	if (SLJIT_UNLIKELY(arg & OFFS_REG_MASK)) {
-		FAIL_IF(push_inst32(compiler, ADD_W | RD4(TMP_REG1) | RN4(arg & REG_MASK) | RM4(OFFS_REG(arg)) | (((sljit_uw)argw & 0x3) << 6)));
-		arg = SLJIT_MEM | TMP_REG1;
+		FAIL_IF(push_inst32(compiler, ADD_W | RD4(TMP_REG2) | RN4(arg & REG_MASK) | RM4(OFFS_REG(arg)) | (((sljit_uw)argw & 0x3) << 6)));
+		arg = SLJIT_MEM | TMP_REG2;
 		argw = 0;
 	}
 
@@ -2249,29 +2248,29 @@ static sljit_s32 emit_fop_mem(struct sljit_compiler *compiler, sljit_s32 flags, 
 	}
 
 	if (arg & REG_MASK) {
-		if (emit_set_delta(compiler, TMP_REG1, arg & REG_MASK, argw) != SLJIT_ERR_UNSUPPORTED) {
+		if (emit_set_delta(compiler, TMP_REG2, arg & REG_MASK, argw) != SLJIT_ERR_UNSUPPORTED) {
 			FAIL_IF(compiler->error);
-			return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG1) | VD4(reg));
+			return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG2) | VD4(reg));
 		}
 
 		imm = get_imm((sljit_uw)argw & ~(sljit_uw)0x3fc);
 		if (imm != INVALID_IMM) {
-			FAIL_IF(push_inst32(compiler, ADD_WI | RD4(TMP_REG1) | RN4(arg & REG_MASK) | imm));
-			return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG1) | VD4(reg) | (((sljit_uw)argw & 0x3fc) >> 2));
+			FAIL_IF(push_inst32(compiler, ADD_WI | RD4(TMP_REG2) | RN4(arg & REG_MASK) | imm));
+			return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG2) | VD4(reg) | (((sljit_uw)argw & 0x3fc) >> 2));
 		}
 
 		imm = get_imm((sljit_uw)-argw & ~(sljit_uw)0x3fc);
 		if (imm != INVALID_IMM) {
 			argw = -argw;
-			FAIL_IF(push_inst32(compiler, SUB_WI | RD4(TMP_REG1) | RN4(arg & REG_MASK) | imm));
-			return push_inst32(compiler, inst | RN4(TMP_REG1) | VD4(reg) | (((sljit_uw)argw & 0x3fc) >> 2));
+			FAIL_IF(push_inst32(compiler, SUB_WI | RD4(TMP_REG2) | RN4(arg & REG_MASK) | imm));
+			return push_inst32(compiler, inst | RN4(TMP_REG2) | VD4(reg) | (((sljit_uw)argw & 0x3fc) >> 2));
 		}
 	}
 
-	FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)argw));
+	FAIL_IF(load_immediate(compiler, TMP_REG2, (sljit_uw)argw));
 	if (arg & REG_MASK)
-		FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(TMP_REG1, (arg & REG_MASK))));
-	return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG1) | VD4(reg));
+		FAIL_IF(push_inst16(compiler, ADD | SET_REGS44(TMP_REG2, (arg & REG_MASK))));
+	return push_inst32(compiler, inst | 0x800000 | RN4(TMP_REG2) | VD4(reg));
 }
 
 static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_compiler *compiler, sljit_s32 op,
@@ -2382,7 +2381,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV_F64:
 		if (src != dst_r) {
-			if (dst_r != TMP_FREG1)
+			if (!(dst & SLJIT_MEM))
 				FAIL_IF(push_inst32(compiler, VMOV_F32 | (op & SLJIT_32) | VD4(dst_r) | VM4(src)));
 			else
 				dst_r = src;

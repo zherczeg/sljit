@@ -3261,15 +3261,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 			/* Swap arguments. */
 			src2 = src1;
 			src2w = src1w;
-		}
-		else if (dst != src2)
+		} else if (dst != src2)
 			FAIL_IF(emit_sse2_load(compiler, op & SLJIT_32, dst_r, src1, src1w));
 		else {
 			dst_r = TMP_FREG;
 			FAIL_IF(emit_sse2_load(compiler, op & SLJIT_32, TMP_FREG, src1, src1w));
 		}
-	}
-	else {
+	} else {
 		dst_r = TMP_FREG;
 		FAIL_IF(emit_sse2_load(compiler, op & SLJIT_32, TMP_FREG, src1, src1w));
 	}
@@ -3292,7 +3290,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 		break;
 	}
 
-	if (dst_r == TMP_FREG)
+	if (dst_r != dst)
 		return emit_sse2_store(compiler, op & SLJIT_32, dst, dstw, TMP_FREG);
 	return SLJIT_SUCCESS;
 }

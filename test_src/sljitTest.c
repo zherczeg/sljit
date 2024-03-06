@@ -8017,7 +8017,6 @@ static void test71(void)
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[64];
 	sljit_s32 i;
-	sljit_f64 dbuf[2];
 
 	if (verbose)
 		printf("Run test71\n");
@@ -8038,9 +8037,6 @@ static void test71(void)
 	buf[54] = 0;
 	*(sljit_u16*)(buf + 54) = 0xa39a;
 	buf[53] = (61 * sizeof(sljit_sw)) >> 1;
-
-	dbuf[0] = 6.5;
-	dbuf[1] = -3.25;
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -8238,20 +8234,12 @@ static void test71(void)
 	/* buf[33] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM2(SLJIT_S0, SLJIT_TMP_MEM_REG), 0, SLJIT_R1, 0);
 
-	if (sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
-		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)dbuf);
-		sljit_emit_fop1(compiler, SLJIT_CMP_F64 | SLJIT_SET_F_GREATER_EQUAL, SLJIT_MEM1(SLJIT_R0), 0, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_f64));
-		sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_F_GREATER_EQUAL);
-		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_TMP_DEST_REG, 0, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, 2);
-		/* buf[34] */
-		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 34 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
-
-		sljit_emit_fop1(compiler, SLJIT_CMP_F64 | SLJIT_SET_F_LESS, SLJIT_MEM1(SLJIT_R0), 0, SLJIT_MEM1(SLJIT_R0), sizeof(sljit_f64));
-		sljit_emit_op_flags(compiler, SLJIT_MOV32, SLJIT_TMP_DEST_REG, 0, SLJIT_F_LESS);
-		sljit_emit_op2(compiler, SLJIT_SUB32, SLJIT_TMP_DEST_REG, 0, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, 2);
-		/* buf[35] */
-		sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S0), 35 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
-	}
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0x58b26f7b);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_TMP_MEM_REG, 0);
+	/* buf[34] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 34 * sizeof(sljit_sw), SLJIT_R1, 0);
 
 	sljit_emit_return_void(compiler);
 
@@ -8293,11 +8281,7 @@ static void test71(void)
 	FAILED(buf[31] != WCONST(0x5c78930a47b18f24, 0x5c78930a), "test71 case 31 failed\n");
 	FAILED(buf[32] != 0x123456, "test71 case 32 failed\n");
 	FAILED(buf[33] != 0x654321, "test71 case 33 failed\n");
-
-	if (sljit_has_cpu_feature(SLJIT_HAS_FPU)) {
-		FAILED(buf[34] != 3, "test71 case 34 failed\n");
-		FAILED(*(sljit_s32*)(buf + 35) != -2, "test71 case 35 failed\n");
-	}
+	FAILED(buf[34] != 0x58b26f7b, "test71 case 34 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -8593,10 +8577,11 @@ int sljit_test(int argc, char* argv[])
 		test_float20();
 		test_float21();
 		test_float22();
+		test_float23();
 	} else {
 		if (verbose)
 			printf("no fpu available, fpu tests are skipped\n");
-		successful_tests += 22;
+		successful_tests += 23;
 	}
 
 	if (sljit_has_cpu_feature(SLJIT_HAS_SIMD)) {
@@ -8627,7 +8612,7 @@ int sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 118
+#	define TEST_COUNT 119
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

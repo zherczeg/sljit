@@ -3102,7 +3102,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV_F64:
 		if (src != dst_r) {
-			if (dst_r != TMP_FREG1)
+			if (!(dst & SLJIT_MEM))
 				FAIL_IF(push_inst(compiler, MOV_fmt(FMT(op)) | FS(src) | FD(dst_r), MOVABLE_INS));
 			else
 				dst_r = src;
@@ -3161,11 +3161,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	}
 
 	if ((flags & (SLOW_SRC1 | SLOW_SRC2)) == (SLOW_SRC1 | SLOW_SRC2)) {
-		if (!can_cache(src1, src1w, src2, src2w) && can_cache(src1, src1w, dst, dstw)) {
+		if ((dst & SLJIT_MEM) && !can_cache(src1, src1w, src2, src2w) && can_cache(src1, src1w, dst, dstw)) {
 			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, FR(TMP_FREG2), src2, src2w, src1, src1w));
 			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, FR(TMP_FREG1), src1, src1w, dst, dstw));
-		}
-		else {
+		} else {
 			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, FR(TMP_FREG1), src1, src1w, src2, src2w));
 			FAIL_IF(getput_arg(compiler, FLOAT_DATA(op) | LOAD_DATA, FR(TMP_FREG2), src2, src2w, dst, dstw));
 		}

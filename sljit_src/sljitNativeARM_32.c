@@ -2792,7 +2792,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV_F64:
 		if (src != dst_r) {
-			if (dst_r != TMP_FREG1)
+			if (!(dst & SLJIT_MEM))
 				FAIL_IF(push_inst(compiler, EMIT_FPU_OPERATION(VMOV_F32, op & SLJIT_32, dst_r, src, 0)));
 			else
 				dst_r = src;
@@ -2862,7 +2862,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 		return push_inst(compiler, EMIT_FPU_OPERATION((VNEG_F32 & ~COND_MASK) | 0xb0000000, op & SLJIT_32, dst_r, dst_r, 0));
 	}
 
-	if (dst_r == TMP_FREG1)
+	if (dst_r != dst)
 		FAIL_IF(emit_fop_mem(compiler, (op & SLJIT_32), TMP_FREG1, dst, dstw));
 
 	return SLJIT_SUCCESS;
