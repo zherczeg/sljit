@@ -1459,7 +1459,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 	sljit_s32 freg, sljit_f64 value)
 {
 	sljit_u8 *inst;
-	sljit_s32 tmp_freg = freg;
 	union {
 		sljit_s32 imm[2];
 		sljit_f64 value;
@@ -1475,8 +1474,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 			return emit_groupf(compiler, PXOR_x_xm | EX86_PREF_66 | EX86_SSE2, freg, freg, 0);
 
 		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, u.imm[1]);
-	} else
+	} else {
+		SLJIT_ASSERT(cpu_feature_list != 0);
+
+		if (!(cpu_feature_list & CPU_FEATURE_SSE41) && u.imm[1] != 0 && u.imm[0] != u.imm[1]) {
+			EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), 0, SLJIT_IMM, u.imm[0]);
+			EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_sw), SLJIT_IMM, u.imm[1]);
+
+			return emit_groupf(compiler, MOVLPD_x_m | EX86_SSE2, freg, SLJIT_MEM1(SLJIT_SP), 0);
+		}
+
 		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, u.imm[0]);
+	}
 
 	FAIL_IF(emit_groupf(compiler, MOVD_x_rm | EX86_PREF_66 | EX86_SSE2_OP1, freg, TMP_REG1, 0));
 
@@ -1496,17 +1505,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 	}
 
 	if (u.imm[0] != u.imm[1]) {
-		SLJIT_ASSERT(u.imm[1] != 0 && cpu_feature_list != 0);
-
+		SLJIT_ASSERT(cpu_feature_list & CPU_FEATURE_SSE41);
 		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, u.imm[1]);
 
-		if (cpu_feature_list & CPU_FEATURE_SSE41) {
-			FAIL_IF(emit_groupf_ext(compiler, PINSRD_x_rm_i8 | EX86_PREF_66 | VEX_OP_0F3A | EX86_SSE2_OP1, freg, TMP_REG1, 0));
-			return emit_byte(compiler, 1);
-		}
-
-		FAIL_IF(emit_groupf(compiler, MOVD_x_rm | EX86_PREF_66 | EX86_SSE2_OP1, TMP_FREG, TMP_REG1, 0));
-		tmp_freg = TMP_FREG;
+		FAIL_IF(emit_groupf_ext(compiler, PINSRD_x_rm_i8 | EX86_PREF_66 | VEX_OP_0F3A | EX86_SSE2_OP1, freg, TMP_REG1, 0));
+		return emit_byte(compiler, 1);
 	}
 
 	inst = (sljit_u8*)ensure_buf(compiler, 1 + 3);
@@ -1515,7 +1518,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 
 	inst[0] = GROUP_0F;
 	inst[1] = UNPCKLPS_x_xm;
-	inst[2] = U8(MOD_REG | (freg << 3) | tmp_freg);
+	inst[2] = U8(MOD_REG | (freg << 3) | freg);
 	return SLJIT_SUCCESS;
 }
 

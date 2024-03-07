@@ -3400,12 +3400,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 		FAIL_IF(push_inst(compiler, ins | F4(dst_r) | F0(src)));
 	}
 
-	if (!(dst & SLJIT_MEM))
-		return SLJIT_SUCCESS;
+	if (dst & SLJIT_MEM)
+		return float_mem(compiler, FLOAT_STORE | (op & SLJIT_32), TMP_FREG1, dst, dstw);
 
-	SLJIT_ASSERT(dst_r == TMP_FREG1);
-
-	return float_mem(compiler, FLOAT_STORE | (op & SLJIT_32), TMP_FREG1, dst, dstw);
+	return SLJIT_SUCCESS;
 }
 
 #define FLOAT_MOV(op, dst_r, src_r) \
@@ -3476,7 +3474,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2(struct sljit_compiler *compil
 	if (dst & SLJIT_MEM)
 		return float_mem(compiler, FLOAT_STORE | (op & SLJIT_32), TMP_FREG1, dst, dstw);
 
-	SLJIT_ASSERT(dst_r != TMP_FREG1);
 	return SLJIT_SUCCESS;
 }
 
