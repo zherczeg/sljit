@@ -2358,7 +2358,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 		jump->flags |= IS_BL;
 
 	jump->addr = compiler->size;
-	PTR_FAIL_IF(push_inst(compiler, ((type >= SLJIT_FAST_CALL) ? BLR : BR) | RN(TMP_REG1)));
+	PTR_FAIL_IF(push_inst(compiler, ((type >= SLJIT_FAST_CALL) ? BLR : BR) | RN(TMP_REG2)));
 
 	/* Maximum number of instructions required for generating a constant. */
 	compiler->size += JUMP_MAX_SIZE - 1;
@@ -2411,7 +2411,7 @@ static SLJIT_INLINE struct sljit_jump* emit_cmp_to0(struct sljit_compiler *compi
 
 	PTR_FAIL_IF(push_inst(compiler, (CBZ ^ inv_bits) | (6 << 5) | RT(src)));
 	jump->addr = compiler->size;
-	PTR_FAIL_IF(push_inst(compiler, BR | RN(TMP_REG1)));
+	PTR_FAIL_IF(push_inst(compiler, BR | RN(TMP_REG2)));
 
 	/* Maximum number of instructions required for generating a constant. */
 	compiler->size += JUMP_MAX_SIZE - 1;
@@ -2443,7 +2443,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 	jump->addr = compiler->size;
 	/* Maximum number of instructions required for generating a constant. */
 	compiler->size += JUMP_MAX_SIZE - 1;
-	return push_inst(compiler, ((type >= SLJIT_FAST_CALL) ? BLR : BR) | RN(TMP_REG1));
+	return push_inst(compiler, ((type >= SLJIT_FAST_CALL) ? BLR : BR) | RN(TMP_REG2));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,

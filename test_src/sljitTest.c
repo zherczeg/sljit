@@ -8016,6 +8016,8 @@ static void test71(void)
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[64];
+	struct sljit_jump *jumps[2];
+	struct sljit_label *labels[2];
 	sljit_s32 i;
 
 	if (verbose)
@@ -8241,10 +8243,31 @@ static void test71(void)
 	/* buf[34] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 34 * sizeof(sljit_sw), SLJIT_R1, 0);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, WCONST(0x5e7ce7ce7ce7ce7c, 0x5e7ce7ce));
+	jumps[0] = sljit_emit_jump(compiler, SLJIT_REWRITABLE_JUMP | SLJIT_JUMP);
+	sljit_set_target(jumps[0], 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_MEM0(), 0);
+	labels[0] = sljit_emit_label(compiler);
+	/* buf[35] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 35 * sizeof(sljit_sw), SLJIT_TMP_MEM_REG, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, WCONST(0x3b41b41b41b41b41, 0x3b41b41b));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 99);
+	jumps[1] = sljit_emit_cmp(compiler, SLJIT_REWRITABLE_JUMP | SLJIT_GREATER, SLJIT_TMP_MEM_REG, 0, SLJIT_R0, 0);
+	sljit_set_target(jumps[1], 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_MEM0(), 0);
+	labels[1] = sljit_emit_label(compiler);
+	/* buf[36] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 36 * sizeof(sljit_sw), SLJIT_TMP_MEM_REG, 0);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);
 	CHECK(compiler);
+
+	sljit_set_jump_addr(sljit_get_jump_addr(jumps[0]), sljit_get_label_addr(labels[0]), sljit_get_executable_offset(compiler));
+	sljit_set_jump_addr(sljit_get_jump_addr(jumps[1]), sljit_get_label_addr(labels[1]), sljit_get_executable_offset(compiler));
+
 	sljit_free_compiler(compiler);
 
 	code.func1((sljit_sw)&buf);
@@ -8282,6 +8305,8 @@ static void test71(void)
 	FAILED(buf[32] != 0x123456, "test71 case 32 failed\n");
 	FAILED(buf[33] != 0x654321, "test71 case 33 failed\n");
 	FAILED(buf[34] != 0x58b26f7b, "test71 case 34 failed\n");
+	FAILED(buf[35] != WCONST(0x5e7ce7ce7ce7ce7c, 0x5e7ce7ce), "test71 case 35 failed\n");
+	FAILED(buf[36] != WCONST(0x3b41b41b41b41b41, 0x3b41b41b), "test71 case 36 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;

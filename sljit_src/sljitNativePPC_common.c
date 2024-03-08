@@ -98,7 +98,7 @@ static void ppc_cache_flush(sljit_ins *from, sljit_ins *to)
 #if (defined SLJIT_PASS_ENTRY_ADDR_TO_CALL && SLJIT_PASS_ENTRY_ADDR_TO_CALL)
 #define TMP_CALL_REG	(SLJIT_NUMBER_OF_REGISTERS + 5)
 #else
-#define TMP_CALL_REG	TMP_REG2
+#define TMP_CALL_REG	TMP_REG1
 #endif
 
 #define TMP_FREG1	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
@@ -984,14 +984,16 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 	sljit_s32 i, tmp, base, offset;
 	sljit_s32 local_size = compiler->local_size;
 
+	SLJIT_ASSERT(TMP_CALL_REG != TMP_REG2);
+
 	base = SLJIT_SP;
 	if (local_size > STACK_MAX_DISTANCE) {
-		base = TMP_REG1;
+		base = TMP_REG2;
 		if (local_size > 2 * STACK_MAX_DISTANCE + LR_SAVE_OFFSET) {
 			FAIL_IF(push_inst(compiler, STACK_LOAD | D(base) | A(SLJIT_SP) | IMM(0)));
 			local_size = 0;
 		} else {
-			FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG1) | A(SLJIT_SP) | IMM(local_size - STACK_MAX_DISTANCE)));
+			FAIL_IF(push_inst(compiler, ADDI | D(TMP_REG2) | A(SLJIT_SP) | IMM(local_size - STACK_MAX_DISTANCE)));
 			local_size = STACK_MAX_DISTANCE;
 		}
 	}
@@ -1033,7 +1035,7 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 	if (local_size > 0)
 		return push_inst(compiler, ADDI | D(SLJIT_SP) | A(base) | IMM(local_size));
 
-	SLJIT_ASSERT(base == TMP_REG1);
+	SLJIT_ASSERT(base == TMP_REG2);
 	return push_inst(compiler, OR | S(base) | A(SLJIT_SP) | B(base));
 }
 
@@ -2512,7 +2514,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	type &= 0xff;
 
 	if ((type | 0x1) == SLJIT_NOT_CARRY)
-		PTR_FAIL_IF(push_inst(compiler, ADDE | RC(ALT_SET_FLAGS) | D(TMP_REG1) | A(TMP_ZERO) | B(TMP_ZERO)));
+		PTR_FAIL_IF(push_inst(compiler, ADDE | RC(ALT_SET_FLAGS) | D(TMP_REG2) | A(TMP_ZERO) | B(TMP_ZERO)));
 
 	/* In PPC, we don't need to touch the arguments. */
 	if (type < SLJIT_JUMP)
