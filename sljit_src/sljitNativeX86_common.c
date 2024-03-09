@@ -1031,8 +1031,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
 			BINARY_IMM32(op_imm, immw, arg, argw); \
 		} \
 		else { \
-			FAIL_IF(emit_load_imm64(compiler, (arg == TMP_REG1) ? TMP_REG2 : TMP_REG1, immw)); \
-			inst = emit_x86_instruction(compiler, 1, (arg == TMP_REG1) ? TMP_REG2 : TMP_REG1, 0, arg, argw); \
+			FAIL_IF(emit_load_imm64(compiler, FAST_IS_REG(arg) ? TMP_REG2 : TMP_REG1, immw)); \
+			inst = emit_x86_instruction(compiler, 1, FAST_IS_REG(arg) ? TMP_REG2 : TMP_REG1, 0, arg, argw); \
 			FAIL_IF(!inst); \
 			*inst = (op_mr); \
 		} \
@@ -2358,10 +2358,9 @@ static sljit_s32 emit_test_binary(struct sljit_compiler *compiler,
 				inst = emit_x86_instruction(compiler, 1, SLJIT_IMM, src2w, src1, src1w);
 				FAIL_IF(!inst);
 				*inst = GROUP_F7;
-			}
-			else {
-				FAIL_IF(emit_load_imm64(compiler, TMP_REG1, src2w));
-				inst = emit_x86_instruction(compiler, 1, TMP_REG1, 0, src1, src1w);
+			} else {
+				FAIL_IF(emit_load_imm64(compiler, FAST_IS_REG(src1) ? TMP_REG2 : TMP_REG1, src2w));
+				inst = emit_x86_instruction(compiler, 1, FAST_IS_REG(src1) ? TMP_REG2 : TMP_REG1, 0, src1, src1w);
 				FAIL_IF(!inst);
 				*inst = TEST_rm_r;
 			}

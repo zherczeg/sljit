@@ -8469,6 +8469,101 @@ static void test73(void)
 	successful_tests++;
 }
 
+static void test74(void)
+{
+	/* Test binary operations with named temporary registers. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	sljit_sw buf[64];
+	sljit_s32 i;
+
+	if (verbose)
+		printf("Run test74\n");
+
+	for (i = 0; i < 64; i++)
+		buf[i] = -1;
+
+	buf[63] = WCONST(0xabcdef123456789, 0xabcdef1);
+	buf[62] = WCONST(0x5678905678905678, 0x56789056);
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 3, 3, 0, 0, 2 * sizeof(sljit_sw));
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0x467e67e67e67e67e, 0x467e67e6));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, WCONST(0x1234567812345678, 0x12345678));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, WCONST(0x987654321fedcba, 0x1fedcba));
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R2, 0, SLJIT_R1, 0, SLJIT_IMM, WCONST(0x1512512512512512, 0x15125125));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, (sljit_sw)(buf + 63) + WCONST(0x4b6ab6ab6ab6ab6a, 0x4b6ab6ab));
+	sljit_emit_op2(compiler, SLJIT_AND, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_R1), -WCONST(0x4b6ab6ab6ab6ab6a, 0x4b6ab6ab));
+	/* buf[0] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R2, 0);
+	/* buf[1] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_R0, 0);
+	/* buf[2] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0x3c29c29c29c29c29, 0x3c29c29c));
+	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_TMP_DEST_REG, 0, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0x1234561234561234, 0x12345612));
+	/* buf[3] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0xef12345678ef1234, 0xef123456));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, (sljit_sw)(buf + 62) - WCONST(0x760d60d60d60d60d, 0x760d60d6));
+	sljit_emit_op2(compiler, SLJIT_ADD | SLJIT_SET_CARRY, SLJIT_TMP_DEST_REG, 0, SLJIT_TMP_DEST_REG, 0, SLJIT_MEM1(SLJIT_R1), WCONST(0x760d60d60d60d60d, 0x760d60d6));
+	/* buf[4] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+	/* buf[5] */
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_sw), SLJIT_CARRY);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0x7b52b52b52b52b52, 0x7b52b52b));
+	sljit_emit_op2(compiler, SLJIT_SUB | SLJIT_SET_LESS, SLJIT_S2, 0, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0x1594594594594594, 0x15945945));
+	/* buf[6] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_sw), SLJIT_S2, 0);
+	/* buf[7] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 7 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+	/* buf[8] */
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 8 * sizeof(sljit_sw), SLJIT_LESS);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0x253a53a53a53a53a, 0x253a53a5));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 0xffff);
+	/* Only SUB and AND supported for op2u. */
+	sljit_emit_op2u(compiler, SLJIT_AND | SLJIT_SET_Z, SLJIT_R1, 0, SLJIT_IMM, WCONST(0x3d4ed4ed4ed4ed4e, 0x3d4ed4ed));
+	/* Not all target registers are supported. */
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_NOT_ZERO);
+	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_SIG_GREATER, SLJIT_R1, 0, SLJIT_IMM, WCONST(0x3d4ed4ed4ed4ed4e, 0x3d4ed4ed));
+	/* buf[9] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 9 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+	/* buf[10] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 10 * sizeof(sljit_sw), SLJIT_R0, 0);
+	/* buf[11] */
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 11 * sizeof(sljit_sw), SLJIT_SIG_GREATER);
+
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler, 0, NULL);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)&buf);
+
+	FAILED(buf[0] != WCONST(0x2746a79d24857b8a, 0x2746a79d), "test74 case 1 failed\n");
+	FAILED(buf[1] != WCONST(0x884444121444488, 0xbcdcb0), "test74 case 2 failed\n");
+	FAILED(buf[2] != WCONST(0x467e67e67e67e67e, 0x467e67e6), "test74 case 3 failed\n");
+	FAILED(buf[3] != WCONST(0x29f56c89f56c89f5, 0x29f56c8a), "test74 case 4 failed\n");
+	FAILED(buf[4] != WCONST(0x458ac4acf17f68ac, 0x458ac4ac), "test74 case 5 failed\n");
+	FAILED(buf[5] != 1, "test71 case 6 failed\n");
+	FAILED(buf[6] != WCONST(0x65be5be5be5be5be, 0x65be5be6), "test74 case 7 failed\n");
+	FAILED(buf[7] != WCONST(0x7b52b52b52b52b52, 0x7b52b52b), "test74 case 8 failed\n");
+	FAILED(buf[8] != 0, "test71 case 9 failed\n");
+	FAILED(buf[9] != WCONST(0x253a53a53a53a53a, 0x253a53a5), "test71 case 10 failed\n");
+	FAILED(buf[10] != 1, "test71 case 11 failed\n");
+	FAILED(buf[11] != 0, "test71 case 12 failed\n");
+
+	sljit_free_code(code.code, NULL);
+	successful_tests++;
+}
+
 #include "sljitTestCall.h"
 #include "sljitTestFloat.h"
 #include "sljitTestSimd.h"
@@ -8560,6 +8655,7 @@ int sljit_test(int argc, char* argv[])
 	test71();
 	test72();
 	test73();
+	test74();
 
 	if (verbose)
 		printf("---- Call tests ----\n");
@@ -8637,7 +8733,7 @@ int sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 119
+#	define TEST_COUNT 120
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

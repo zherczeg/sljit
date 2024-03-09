@@ -2002,7 +2002,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
-	sljit_s32 dst_reg, flags;
+	sljit_s32 dst_reg, src2_tmp_reg, flags;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op2(compiler, op, 0, dst, dstw, src1, src1w, src2, src2w));
@@ -2019,8 +2019,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 	if (src2 == SLJIT_IMM)
 		flags |= ARG2_IMM;
 	else if (src2 & SLJIT_MEM) {
-		emit_op_mem(compiler, WORD_SIZE, TMP_REG2, src2, src2w, TMP_REG1);
-		src2w = TMP_REG2;
+		src2_tmp_reg = FAST_IS_REG(src1) ? TMP_REG1 : TMP_REG2;
+		emit_op_mem(compiler, WORD_SIZE, src2_tmp_reg, src2, src2w, TMP_REG1);
+		src2w = src2_tmp_reg;
 	} else
 		src2w = src2;
 
