@@ -2249,7 +2249,7 @@ static void test24(void)
 	/* Playing with conditional flags. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
-	sljit_u8 buf[41];
+	sljit_u8 buf[43];
 	sljit_u32 i;
 #ifdef SLJIT_PREF_SHIFT_REG
 	sljit_s32 shift_reg = SLJIT_PREF_SHIFT_REG;
@@ -2263,7 +2263,7 @@ static void test24(void)
 		printf("Run test24\n");
 
 	for (i = 0; i < sizeof(buf); ++i)
-		buf[i] = 10;
+		buf[i] = 0xaa;
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -2393,34 +2393,39 @@ static void test24(void)
 	sljit_emit_op2(compiler, SLJIT_SHL, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, (8 * sizeof(sljit_sw)) - 1);
 	sljit_emit_op2u(compiler, SLJIT_ADD | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_IMM, 0);
 	SET_NEXT_BYTE(SLJIT_EQUAL);
-	/* buf[34] */
+	/* buf[29] */
 	sljit_emit_op2u(compiler, SLJIT_ADD | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0);
 	SET_NEXT_BYTE(SLJIT_EQUAL);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
 	sljit_emit_op2(compiler, SLJIT_ASHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 0);
+	/* buf[30] */
 	SET_NEXT_BYTE(SLJIT_EQUAL);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1);
 	sljit_emit_op2(compiler, SLJIT_LSHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 0xffffc0);
+	/* buf[31] */
 	SET_NEXT_BYTE(SLJIT_NOT_EQUAL);
 	sljit_emit_op1(compiler, SLJIT_MOV, shift_reg, 0, SLJIT_IMM, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
 	sljit_emit_op2(compiler, SLJIT_ASHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, shift_reg, 0);
+	/* buf[32] */
 	SET_NEXT_BYTE(SLJIT_EQUAL);
 	sljit_emit_op1(compiler, SLJIT_MOV, shift_reg, 0, SLJIT_IMM, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1);
 	sljit_emit_op2(compiler, SLJIT_LSHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, shift_reg, 0);
+	/* buf[33] */
 	SET_NEXT_BYTE(SLJIT_NOT_EQUAL);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 1);
 	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_CARRY, SLJIT_R0, 0, SLJIT_R0, 0);
 	sljit_emit_op2(compiler, SLJIT_SUBC | SLJIT_SET_CARRY, SLJIT_R2, 0, SLJIT_IMM, 1, SLJIT_R0, 0);
+	/* buf[34] */
 	sljit_emit_op1(compiler, SLJIT_MOV_U8, SLJIT_MEM1(SLJIT_S0), 1, SLJIT_R2, 0);
-	/* buf[35] */
 	sljit_emit_op2u(compiler, SLJIT_SUBC | SLJIT_SET_CARRY, SLJIT_R0, 0, SLJIT_R1, 0);
 	sljit_emit_op2(compiler, SLJIT_SUBC, SLJIT_R2, 0, SLJIT_IMM, 1, SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV_U8, SLJIT_MEM1(SLJIT_S0), 2, SLJIT_R2, 0);
+	/* buf[35] */
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_S0, 0, SLJIT_S0, 0, SLJIT_IMM, 2);
 
 	/* buf[36] */
@@ -2430,7 +2435,6 @@ static void test24(void)
 	/* buf[37] */
 	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_SIG_LESS, SLJIT_R0, 0, SLJIT_IMM, 0x1234);
 	SET_NEXT_BYTE(SLJIT_SIG_LESS);
-	/* buf[38] */
 #if IS_64BIT
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(0x12300000000) - 43);
 #else
@@ -2438,10 +2442,19 @@ static void test24(void)
 #endif
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, -96);
 	sljit_emit_op2u(compiler, SLJIT_SUB32 | SLJIT_SET_LESS, SLJIT_R0, 0, SLJIT_R1, 0);
+	/* buf[38] */
 	SET_NEXT_BYTE(SLJIT_LESS);
 	/* buf[39] */
 	sljit_emit_op2u(compiler, SLJIT_SUB32 | SLJIT_SET_SIG_GREATER, SLJIT_R0, 0, SLJIT_R1, 0);
 	SET_NEXT_BYTE(SLJIT_SIG_GREATER);
+
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 3);
+	sljit_emit_op2(compiler, SLJIT_SUB32 | SLJIT_SET_SIG_LESS, SLJIT_R0, 0, SLJIT_R1, 0, SLJIT_IMM, -7);
+	/* buf[40] */
+	SET_NEXT_BYTE(SLJIT_SIG_LESS);
+	sljit_emit_op2(compiler, SLJIT_SUB32 | SLJIT_SET_SIG_LESS, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_IMM, 7);
+	/* buf[41] */
+	SET_NEXT_BYTE(SLJIT_SIG_LESS);
 
 	sljit_emit_return_void(compiler);
 
@@ -2498,7 +2511,10 @@ static void test24(void)
 	FAILED(buf[37] != 1, "test24 case 38 failed\n");
 	FAILED(buf[38] != 2, "test24 case 39 failed\n");
 	FAILED(buf[39] != 1, "test24 case 40 failed\n");
-	FAILED(buf[40] != 10, "test24 case 41 failed\n");
+
+	FAILED(buf[40] != 2, "test24 case 42 failed\n");
+	FAILED(buf[41] != 1, "test24 case 43 failed\n");
+	FAILED(buf[42] != 0xaa, "test24 case 44 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -8552,13 +8568,13 @@ static void test74(void)
 	FAILED(buf[2] != WCONST(0x467e67e67e67e67e, 0x467e67e6), "test74 case 3 failed\n");
 	FAILED(buf[3] != WCONST(0x29f56c89f56c89f5, 0x29f56c8a), "test74 case 4 failed\n");
 	FAILED(buf[4] != WCONST(0x458ac4acf17f68ac, 0x458ac4ac), "test74 case 5 failed\n");
-	FAILED(buf[5] != 1, "test71 case 6 failed\n");
+	FAILED(buf[5] != 1, "test74 case 6 failed\n");
 	FAILED(buf[6] != WCONST(0x65be5be5be5be5be, 0x65be5be6), "test74 case 7 failed\n");
 	FAILED(buf[7] != WCONST(0x7b52b52b52b52b52, 0x7b52b52b), "test74 case 8 failed\n");
-	FAILED(buf[8] != 0, "test71 case 9 failed\n");
-	FAILED(buf[9] != WCONST(0x253a53a53a53a53a, 0x253a53a5), "test71 case 10 failed\n");
-	FAILED(buf[10] != 1, "test71 case 11 failed\n");
-	FAILED(buf[11] != 0, "test71 case 12 failed\n");
+	FAILED(buf[8] != 0, "test74 case 9 failed\n");
+	FAILED(buf[9] != WCONST(0x253a53a53a53a53a, 0x253a53a5), "test74 case 10 failed\n");
+	FAILED(buf[10] != 1, "test74 case 11 failed\n");
+	FAILED(buf[11] != 0, "test74 case 12 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;

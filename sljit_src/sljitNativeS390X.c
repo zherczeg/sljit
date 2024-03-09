@@ -2464,7 +2464,7 @@ static sljit_s32 sljit_emit_sub(struct sljit_compiler *compiler, sljit_s32 op,
 	const struct ins_forms *forms;
 	sljit_ins ins;
 
-	if (dst == (sljit_s32)tmp0 && flag_type <= SLJIT_SIG_LESS_EQUAL) {
+	if (dst == TMP_REG2 && flag_type <= SLJIT_SIG_LESS_EQUAL) {
 		int compare_signed = flag_type >= SLJIT_SIG_LESS;
 
 		compiler->status_flags_state |= SLJIT_CURRENT_FLAGS_COMPARE;
@@ -2564,7 +2564,7 @@ done:
 			     - the first operand is less if the sign bit of the result is not set
 			   The -result operation sets the corrent sign, because the result cannot be zero.
 			   The overflow is considered greater, since the result must be equal to INT_MIN so its sign bit is set. */
-			FAIL_IF(push_inst(compiler, brc(0xe, 2 + 2)));
+			FAIL_IF(push_inst(compiler, brc(0xe, (op & SLJIT_32) ? (2 + 1) : (2 + 2))));
 			FAIL_IF(push_inst(compiler, (op & SLJIT_32) ? lcr(tmp1, dst_r) : lcgr(tmp1, dst_r)));
 		}
 		else if (op & SLJIT_SET_Z)
@@ -2726,7 +2726,7 @@ static sljit_s32 sljit_emit_bitwise(struct sljit_compiler *compiler, sljit_s32 o
 	sljit_s32 type = GET_OPCODE(op);
 	const struct ins_forms *forms;
 
-	if (src2 == SLJIT_IMM && (!(op & SLJIT_SET_Z) || (type == SLJIT_AND && dst == (sljit_s32)tmp0))) {
+	if (src2 == SLJIT_IMM && (!(op & SLJIT_SET_Z) || (type == SLJIT_AND && dst == TMP_REG2))) {
 		sljit_s32 count16 = 0;
 		sljit_uw imm = (sljit_uw)src2w;
 
@@ -2742,13 +2742,13 @@ static sljit_s32 sljit_emit_bitwise(struct sljit_compiler *compiler, sljit_s32 o
 		if ((imm & 0xffff000000000000ull) != 0)
 			count16++;
 
-		if (type == SLJIT_AND && dst == (sljit_s32)tmp0 && count16 == 1) {
-			sljit_gpr src_r = tmp0;
+		if (type == SLJIT_AND && dst == TMP_REG2 && count16 == 1) {
+			sljit_gpr src_r = tmp1;
 
 			if (FAST_IS_REG(src1))
 				src_r = gpr(src1 & REG_MASK);
 			else
-				FAIL_IF(emit_move(compiler, tmp0, src1, src1w));
+				FAIL_IF(emit_move(compiler, tmp1, src1, src1w));
 
 			if ((imm & 0x000000000000ffffull) != 0 || imm == 0)
 				return push_inst(compiler, 0xa7010000 /* tmll */ | R20A(src_r) | imm);
@@ -2969,11 +2969,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2u(struct sljit_compiler *compil
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
+	sljit_s32 dst_reg = (GET_OPCODE(op) == SLJIT_SUB || GET_OPCODE(op) == SLJIT_AND) ? TMP_REG2 : TMP_REG1;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op2(compiler, op, 1, 0, 0, src1, src1w, src2, src2w));
 
 	SLJIT_SKIP_CHECKS(compiler);
-	return sljit_emit_op2(compiler, op, 0 /* tmp0 */, 0, src1, src1w, src2, src2w);
+	return sljit_emit_op2(compiler, op, dst_reg, 0, src1, src1w, src2, src2w);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2r(struct sljit_compiler *compiler, sljit_s32 op,
