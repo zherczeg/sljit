@@ -1688,7 +1688,7 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 	sljit_s32 dst_r = TMP_REG2;
 	sljit_s32 src1_r;
 	sljit_sw src2_r = 0;
-	sljit_s32 sugg_src2_r = TMP_REG2;
+	sljit_s32 src2_tmp_reg = (GET_OPCODE(op) >= SLJIT_OP2_BASE && FAST_IS_REG(src1)) ? TMP_REG1 : TMP_REG2;
 
 	if (!(flags & ALT_KEEP_CACHE)) {
 		compiler->cache_arg = 0;
@@ -1703,7 +1703,7 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 		dst_r = dst;
 		flags |= REG_DEST;
 		if (flags & MOVE_OP)
-			sugg_src2_r = dst_r;
+			src2_tmp_reg = dst_r;
 	} else if ((dst & SLJIT_MEM) && !getput_arg_fast(compiler, flags | ARG_TEST, TMP_REG1, dst, dstw))
 		flags |= SLOW_DEST;
 
@@ -1751,8 +1751,8 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 	} else if (src2 == SLJIT_IMM) {
 		if (!(flags & SRC2_IMM)) {
 			if (src2w) {
-				FAIL_IF(load_immediate(compiler, sugg_src2_r, src2w));
-				src2_r = sugg_src2_r;
+				FAIL_IF(load_immediate(compiler, src2_tmp_reg, src2w));
+				src2_r = src2_tmp_reg;
 			} else {
 				src2_r = TMP_ZERO;
 				if (flags & MOVE_OP) {
@@ -1764,12 +1764,12 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 			}
 		}
 	} else {
-		if (getput_arg_fast(compiler, flags | LOAD_DATA, sugg_src2_r, src2, src2w))
+		if (getput_arg_fast(compiler, flags | LOAD_DATA, src2_tmp_reg, src2, src2w))
 			FAIL_IF(compiler->error);
 		else
 			flags |= SLOW_SRC2;
 
-		src2_r = sugg_src2_r;
+		src2_r = src2_tmp_reg;
 	}
 
 	if ((flags & (SLOW_SRC1 | SLOW_SRC2)) == (SLOW_SRC1 | SLOW_SRC2)) {
@@ -1785,7 +1785,7 @@ static sljit_s32 emit_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s3
 	else if (flags & SLOW_SRC1)
 		FAIL_IF(getput_arg(compiler, flags | LOAD_DATA, TMP_REG1, src1, src1w, dst, dstw));
 	else if (flags & SLOW_SRC2)
-		FAIL_IF(getput_arg(compiler, flags | LOAD_DATA | ((src1_r == TMP_REG1) ? MEM_USE_TMP2 : 0), sugg_src2_r, src2, src2w, dst, dstw));
+		FAIL_IF(getput_arg(compiler, flags | LOAD_DATA | ((src1_r == TMP_REG1) ? MEM_USE_TMP2 : 0), src2_tmp_reg, src2, src2w, dst, dstw));
 
 	FAIL_IF(emit_single_op(compiler, op, flags, dst_r, src1_r, src2_r));
 
