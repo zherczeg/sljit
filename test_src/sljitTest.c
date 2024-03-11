@@ -8276,6 +8276,13 @@ static void test71(void)
 	/* buf[36] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 36 * sizeof(sljit_sw), SLJIT_TMP_MEM_REG, 0);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (sljit_sw)(buf + 63) - WCONST(0x3209209209209209, 0x32092092));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_TMP_MEM_REG), WCONST(0x3209209209209209, 0x32092092));
+	/* buf[37] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 37 * sizeof(sljit_sw), SLJIT_R0, 0);
+	/* buf[38] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 38 * sizeof(sljit_sw), SLJIT_TMP_MEM_REG, 0);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);
@@ -8323,6 +8330,8 @@ static void test71(void)
 	FAILED(buf[34] != 0x58b26f7b, "test71 case 34 failed\n");
 	FAILED(buf[35] != WCONST(0x5e7ce7ce7ce7ce7c, 0x5e7ce7ce), "test71 case 35 failed\n");
 	FAILED(buf[36] != WCONST(0x3b41b41b41b41b41, 0x3b41b41b), "test71 case 36 failed\n");
+	FAILED(buf[37] != (sljit_sw)&buf, "test71 case 37 failed\n");
+	FAILED(buf[38] != (sljit_sw)(buf + 63) - WCONST(0x3209209209209209, 0x32092092), "test71 case 38 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -8732,10 +8741,11 @@ int sljit_test(int argc, char* argv[])
 		test_simd6();
 		test_simd7();
 		test_simd8();
+		test_simd9();
 	} else {
 		if (verbose)
 			printf("no simd available, simd tests are skipped\n");
-		successful_tests += 8;
+		successful_tests += 9;
 	}
 
 	if (verbose)
@@ -8749,7 +8759,7 @@ int sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 120
+#	define TEST_COUNT 121
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)
