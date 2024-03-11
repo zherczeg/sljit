@@ -1446,10 +1446,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *comp
 
 	if (u.imm == 0) {
 		inst[2] = PXOR_x_xm;
-		inst[3] = U8(freg | (freg << 3) | MOD_REG);
+		inst[3] = U8(freg_map[freg] | (freg_map[freg] << 3) | MOD_REG);
 	} else {
 		inst[2] = MOVD_x_rm;
-		inst[3] = U8(reg_map[TMP_REG1] | (freg << 3) | MOD_REG);
+		inst[3] = U8(reg_map[TMP_REG1] | (freg_map[freg] << 3) | MOD_REG);
 	}
 
 	return SLJIT_SUCCESS;
@@ -1499,7 +1499,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 
 		inst[0] = GROUP_0F;
 		inst[1] = SHUFPS_x_xm;
-		inst[2] = U8(MOD_REG | (freg << 3) | freg);
+		inst[2] = U8(MOD_REG | (freg_map[freg] << 3) | freg_map[freg]);
 		inst[3] = 0x51;
 		return SLJIT_SUCCESS;
 	}
@@ -1518,7 +1518,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 
 	inst[0] = GROUP_0F;
 	inst[1] = UNPCKLPS_x_xm;
-	inst[2] = U8(MOD_REG | (freg << 3) | freg);
+	inst[2] = U8(MOD_REG | (freg_map[freg] << 3) | freg_map[freg]);
 	return SLJIT_SUCCESS;
 }
 
@@ -1581,7 +1581,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 		inst[0] = GROUP_66;
 		inst[1] = GROUP_0F;
 		inst[2] = PSHUFD_x_xm;
-		inst[3] = U8(MOD_REG | (TMP_FREG << 3) | freg);
+		inst[3] = U8(MOD_REG | (TMP_FREG << 3) | freg_map[freg]);
 		inst[4] = 1;
 	} else if (reg != 0)
 		FAIL_IF(emit_groupf(compiler, MOVD_x_rm | EX86_PREF_66 | EX86_SSE2_OP1, TMP_FREG, reg, regw));
@@ -1597,7 +1597,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 
 		inst[0] = GROUP_0F;
 		inst[1] = UNPCKLPS_x_xm;
-		inst[2] = U8(MOD_REG | (freg << 3) | (reg == 0 ? freg : TMP_FREG));
+		inst[2] = U8(MOD_REG | (freg_map[freg] << 3) | freg_map[reg == 0 ? freg : TMP_FREG]);
 	} else
 		FAIL_IF(emit_groupf(compiler, MOVD_rm_x | EX86_PREF_66 | EX86_SSE2_OP1, TMP_FREG, reg, regw));
 

@@ -2947,6 +2947,35 @@ static void test_float23(void)
 	/* dbuf[7] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 7 * sizeof(sljit_f64), SLJIT_FR1, 0);
 
+	sljit_emit_fset32(compiler, SLJIT_TMP_DEST_FREG, -683573.75);
+	/* dbuf[8] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 8 * sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
+
+	sljit_emit_fset64(compiler, SLJIT_TMP_DEST_FREG, 5.0);
+	/* dbuf[9] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 9 * sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
+
+	/* Only signed operations are supported for float temporary reg. */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1234567);
+	sljit_emit_fop1(compiler, SLJIT_CONV_F64_FROM_SW, SLJIT_TMP_DEST_FREG, 0, SLJIT_R0, 0);
+	/* dbuf[10] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 10 * sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R2, 0, SLJIT_IMM, 56789);
+	sljit_emit_fop1(compiler, SLJIT_CONV_F32_FROM_S32, SLJIT_TMP_DEST_FREG, 0, SLJIT_R2, 0);
+	/* dbuf[11] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 11 * sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
+
+	sljit_emit_fset64(compiler, SLJIT_TMP_DEST_FREG, 216.75);
+	sljit_emit_fop1(compiler, SLJIT_CONV_F32_FROM_F64, SLJIT_TMP_DEST_FREG, 0, SLJIT_TMP_DEST_FREG, 0);
+	/* dbuf[12] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 12 * sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
+
+	sljit_emit_fset32(compiler, SLJIT_TMP_DEST_FREG, 684.25);
+	sljit_emit_fop1(compiler, SLJIT_CONV_F64_FROM_F32, SLJIT_TMP_DEST_FREG, 0, SLJIT_TMP_DEST_FREG, 0);
+	/* dbuf[13] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 13 * sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);
@@ -2965,6 +2994,12 @@ static void test_float23(void)
 	FAILED(dbuf[5] != 89025461287.0, "test_float23 case 8 failed\n");
 	FAILED(dbuf[6] != 485123045937643.75, "test_float23 case 9 failed\n");
 	FAILED(dbuf[7] != -8345295078926845.25, "test_float23 case 10 failed\n");
+	FAILED(*(sljit_f32*)(dbuf + 8) != -683573.75, "test_float23 case 11 failed\n");
+	FAILED(dbuf[9] != 5, "test_float23 case 12 failed\n");
+	FAILED(dbuf[10] != 1234567.0, "test_float23 case 13 failed\n");
+	FAILED(*(sljit_f32*)(dbuf + 11) != 56789.0, "test_float23 case 14 failed\n");
+	FAILED(*(sljit_f32*)(dbuf + 12) != 216.75, "test_float23 case 15 failed\n");
+	FAILED(dbuf[13] != 684.25, "test_float23 case 16 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
