@@ -2960,7 +2960,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	} else
 		FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst_reg) | RS1(src1) | IMM_I(0)));
 
-	*ptr = get_jump_instruction(type & ~SLJIT_32) | (sljit_ins)((compiler->size - size) << 9);
+	size = compiler->size - size;
+	*ptr = get_jump_instruction(type & ~SLJIT_32) | (sljit_ins)((size & 0x7) << 9) | (sljit_ins)((size >> 3) << 25);
 	return SLJIT_SUCCESS;
 }
 
@@ -2999,7 +3000,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 	else
 		FAIL_IF(push_inst(compiler, FSGNJ_S | FMT(type) | FRD(dst_freg) | FRS1(src1) | FRS2(src1)));
 
-	*ptr = get_jump_instruction(type & ~SLJIT_32) | (sljit_ins)((compiler->size - size) << 9);
+	size = compiler->size - size;
+	*ptr = get_jump_instruction(type & ~SLJIT_32) | (sljit_ins)((size & 0x7) << 9) | (sljit_ins)((size >> 3) << 25);
 	return SLJIT_SUCCESS;
 }
 

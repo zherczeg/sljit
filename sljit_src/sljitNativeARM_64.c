@@ -2563,8 +2563,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 
 	if (src1 & SLJIT_MEM) {
-		FAIL_IF(emit_fop_mem(compiler, (type & SLJIT_32) ? INT_SIZE : WORD_SIZE, TMP_FREG1, src1, src1w));
-		src1 = TMP_FREG1;
+		FAIL_IF(emit_fop_mem(compiler, (type & SLJIT_32) ? INT_SIZE : WORD_SIZE, TMP_FREG2, src1, src1w));
+		src1 = TMP_FREG2;
 	}
 
 	cc = get_cc(compiler, type & ~SLJIT_32);

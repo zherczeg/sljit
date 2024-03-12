@@ -3845,8 +3845,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1 && SLJIT_MIPS_REV < 6)
 	if (src1 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, FLOAT_DATA(type) | LOAD_DATA, FR(TMP_FREG1), src1, src1w));
-		src1 = TMP_FREG1;
+		FAIL_IF(emit_op_mem(compiler, FLOAT_DATA(type) | LOAD_DATA, FR(TMP_FREG2), src1, src1w));
+		src1 = TMP_FREG2;
 	}
 
 	return push_inst(compiler, get_select_cc(type, 1) | FMT(type) | FS(src1) | FD(dst_freg), MOVABLE_INS);
