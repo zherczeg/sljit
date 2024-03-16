@@ -3002,15 +3002,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 		if ((type & ~SLJIT_32) == SLJIT_EQUAL)
 			invert = 1;
 		FAIL_IF(push_inst(compiler, MOVGR2CF | FCD(F_OTHER_FLAG) | RJ(EQUAL_FLAG)));
-	}
-	else
+	} else {
+		if (get_jump_instruction(type & ~SLJIT_32) == (BNE | RJ(OTHER_FLAG) | RD(TMP_ZERO)))
+			invert = 1;
 		FAIL_IF(push_inst(compiler, MOVGR2CF | FCD(F_OTHER_FLAG) | RJ(OTHER_FLAG)));
+	}
 
 	if (src1 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, FLOAT_DATA(type) | LOAD_DATA, dst_freg, src1, src1w));
+		FAIL_IF(emit_op_mem(compiler, FLOAT_DATA(type) | LOAD_DATA, TMP_FREG2, src1, src1w));
 		if (invert)
-			return push_inst(compiler, FSEL | FRD(dst_freg) | FRJ(dst_freg) | FRK(src2_freg) | FCA(F_OTHER_FLAG));
-		return push_inst(compiler, FSEL | FRD(dst_freg) | FRJ(src2_freg) | FRK(dst_freg) | FCA(F_OTHER_FLAG));
+			return push_inst(compiler, FSEL | FRD(dst_freg) | FRJ(TMP_FREG2) | FRK(src2_freg) | FCA(F_OTHER_FLAG));
+		return push_inst(compiler, FSEL | FRD(dst_freg) | FRJ(src2_freg) | FRK(TMP_FREG2) | FCA(F_OTHER_FLAG));
 	} else {
 		if (invert)
 			return push_inst(compiler, FSEL | FRD(dst_freg) | FRJ(src1) | FRK(src2_freg) | FCA(F_OTHER_FLAG));
