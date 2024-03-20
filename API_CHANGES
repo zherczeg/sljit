@@ -1,5 +1,8 @@
 This file is the short summary of the API changes:
 
+20.03.2024 - Non-backward compatible
+    The sljit_p type is renamed to sljit_up.
+
 26.02.2024 - Non-backward compatible
     Arguments of sljit_create_compiler() and
     sljit_generate_code() are changed and

@@ -872,7 +872,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
      int    | 4 byte (physical_address & 0x3 == 0)
      word   | 4 byte if SLJIT_32BIT_ARCHITECTURE is defined and its value is 1
             | 8 byte if SLJIT_64BIT_ARCHITECTURE is defined and its value is 1
-    pointer | size of sljit_p type (4 byte on 32 bit machines, 4 or 8 byte
+    pointer | size of sljit_up type (4 byte on 32 bit machines, 4 or 8 byte
             | on 64 bit machines)
 
    Note:   Different architectures have different addressing limitations.
@@ -1108,7 +1108,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
    S16 - signed 16 bit data transfer
    U32 - unsigned int (32 bit) data transfer
    S32 - signed int (32 bit) data transfer
-   P   - pointer (sljit_p) data transfer
+   P   - pointer (sljit_up) data transfer
 */
 
 /* Flags: - (does not modify flags) */

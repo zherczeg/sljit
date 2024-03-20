@@ -49,8 +49,8 @@ extern "C" {
      sljit_s16, sljit_u16 : signed and unsigned 16 bit integer type
      sljit_s32, sljit_u32 : signed and unsigned 32 bit integer type
      sljit_sw, sljit_uw   : signed and unsigned machine word, enough to store a pointer
-     sljit_p              : unsgined pointer value (usually the same as sljit_uw, but
-                            some 64 bit ABIs may use 32 bit pointers)
+     sljit_sp, sljit_up   : signed and unsigned pointer value (usually the same as
+                            sljit_uw, but some 64 bit ABIs may use 32 bit pointers)
      sljit_f32            : 32 bit single precision floating point value
      sljit_f64            : 64 bit double precision floating point value
 
@@ -362,7 +362,8 @@ typedef long int sljit_sw;
 #endif /* _WIN32 */
 #endif
 
-typedef sljit_uw sljit_p;
+typedef sljit_sw sljit_sp;
+typedef sljit_uw sljit_up;
 
 /* Floating point types. */
 typedef float sljit_f32;
@@ -565,9 +566,9 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void);
 #endif /* SLJIT_FREE_EXEC */
 
 #if (defined SLJIT_PROT_EXECUTABLE_ALLOCATOR && SLJIT_PROT_EXECUTABLE_ALLOCATOR)
-SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
-#define SLJIT_EXEC_OFFSET(ptr) sljit_exec_offset(ptr)
-#endif
+SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
+#define SLJIT_EXEC_OFFSET(code) sljit_exec_offset(code)
+#endif /* SLJIT_PROT_EXECUTABLE_ALLOCATOR */
 
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 

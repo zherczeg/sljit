@@ -318,6 +318,14 @@
 /* Utils can still be used even if SLJIT_CONFIG_UNSUPPORTED is set. */
 #include "sljitUtils.c"
 
+#if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
+#define SLJIT_CODE_TO_PTR(code) ((void*)((sljit_up)(code) & ~(sljit_up)0x1))
+#elif (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+#define SLJIT_CODE_TO_PTR(code) ((void*)(*(sljit_up*)code))
+#else /* !SLJIT_CONFIG_ARM_THUMB2 && !SLJIT_INDIRECT_CALL */
+#define SLJIT_CODE_TO_PTR(code) ((void*)(code))
+#endif /* SLJIT_CONFIG_ARM_THUMB2 || SLJIT_INDIRECT_CALL */
+
 #if !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
@@ -457,10 +465,11 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allo
 		sizeof(sljit_s8) == 1 && sizeof(sljit_u8) == 1
 		&& sizeof(sljit_s16) == 2 && sizeof(sljit_u16) == 2
 		&& sizeof(sljit_s32) == 4 && sizeof(sljit_u32) == 4
-		&& (sizeof(sljit_p) == 4 || sizeof(sljit_p) == 8)
-		&& sizeof(sljit_p) <= sizeof(sljit_sw)
+		&& (sizeof(sljit_up) == 4 || sizeof(sljit_up) == 8)
+		&& sizeof(sljit_up) <= sizeof(sljit_sw)
+		&& sizeof(sljit_up) == sizeof(sljit_sp)
 		&& (sizeof(sljit_sw) == 4 || sizeof(sljit_sw) == 8)
-		&& (sizeof(sljit_uw) == 4 || sizeof(sljit_uw) == 8),
+		&& (sizeof(sljit_uw) == sizeof(sljit_sw)),
 		invalid_integer_types);
 	SLJIT_COMPILE_ASSERT(SLJIT_REWRITABLE_JUMP != SLJIT_32,
 		rewritable_jump_and_single_op_must_not_be_the_same);
@@ -565,31 +574,12 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_compiler_memory_error(struct sljit_compi
 		compiler->error = SLJIT_ERR_ALLOC_FAILED;
 }
 
-#if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_data)
 {
 	SLJIT_UNUSED_ARG(exec_allocator_data);
 
-	/* Remove thumb mode flag. */
-	SLJIT_FREE_EXEC((void*)((sljit_uw)code & ~(sljit_uw)0x1), exec_allocator_data);
+	SLJIT_FREE_EXEC(SLJIT_CODE_TO_PTR(code), exec_allocator_data);
 }
-#elif (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
-SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_data)
-{
-	SLJIT_UNUSED_ARG(exec_allocator_data);
-
-	/* Resolve indirection. */
-	code = (void*)(*(sljit_uw*)code);
-	SLJIT_FREE_EXEC(code, exec_allocator_data);
-}
-#else
-SLJIT_API_FUNC_ATTRIBUTE void sljit_free_code(void* code, void *exec_allocator_data)
-{
-	SLJIT_UNUSED_ARG(exec_allocator_data);
-
-	SLJIT_FREE_EXEC(code, exec_allocator_data);
-}
-#endif
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_label(struct sljit_jump *jump, struct sljit_label* label)
 {
