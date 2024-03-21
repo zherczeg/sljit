@@ -2815,13 +2815,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 				type ^= 0x1;
 		} else {
 			if (ADDRESSING_DEPENDS_ON(src1, dst_reg)) {
-				FAIL_IF(push_inst(compiler, OR | S(dst_reg) | A(TMP_REG2) | B(dst_reg)));
+				FAIL_IF(push_inst(compiler, OR | S(dst_reg) | A(TMP_REG1) | B(dst_reg)));
 
 				if ((src1 & REG_MASK) == dst_reg)
-					src1 = (src1 & ~REG_MASK) | TMP_REG2;
+					src1 = (src1 & ~REG_MASK) | TMP_REG1;
 
 				if (OFFS_REG(src1) == dst_reg)
-					src1 = (src1 & ~OFFS_REG_MASK) | TO_OFFS_REG(TMP_REG2);
+					src1 = (src1 & ~OFFS_REG_MASK) | TO_OFFS_REG(TMP_REG1);
 			}
 
 			FAIL_IF(push_inst(compiler, OR | S(src2_reg) | A(dst_reg) | B(src2_reg)));

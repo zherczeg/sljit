@@ -3124,7 +3124,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	}
 
 	if (src1 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, (src2_reg != dst_reg) ? dst_reg : TMP_REG1, src1, src1w, TMP_REG2));
+		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, (src2_reg != dst_reg) ? dst_reg : TMP_REG1, src1, src1w, TMP_REG1));
 
 		if (src2_reg != dst_reg) {
 			src1 = src2_reg;

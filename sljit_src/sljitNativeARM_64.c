@@ -2538,11 +2538,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	if (src1 == SLJIT_IMM) {
 		if (type & SLJIT_32)
 			src1w = (sljit_s32)src1w;
-		FAIL_IF(load_immediate(compiler, TMP_REG1, src1w));
-		src1 = TMP_REG1;
+		FAIL_IF(load_immediate(compiler, TMP_REG2, src1w));
+		src1 = TMP_REG2;
 	} else if (src1 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG1, src1, src1w, TMP_REG2));
-		src1 = TMP_REG1;
+		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, src1, src1w, TMP_REG2));
+		src1 = TMP_REG2;
 	}
 
 	cc = get_cc(compiler, type & ~SLJIT_32);

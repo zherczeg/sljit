@@ -1286,7 +1286,7 @@ static sljit_s32 emit_rev16(struct sljit_compiler *compiler, sljit_s32 op, sljit
 static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 flags,
 	sljit_s32 dst, sljit_s32 src1, sljit_sw src2)
 {
-	sljit_s32 is_overflow, is_carry, carry_src_r, is_handled;
+	sljit_s32 is_overflow, is_carry, carry_src_r, is_handled, reg;
 	sljit_ins op_imm, op_reg;
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 	sljit_ins word = (sljit_ins)(op & SLJIT_32) >> 5;
@@ -1501,8 +1501,9 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			is_handled = 1;
 
 			if (flags & SRC2_IMM) {
-				FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG2) | RS1(TMP_ZERO) | IMM_I(src2)));
-				src2 = TMP_REG2;
+				reg = (src1 == TMP_REG1) ? TMP_REG2 : TMP_REG1;
+				FAIL_IF(push_inst(compiler, ADDI | RD(reg) | RS1(TMP_ZERO) | IMM_I(src2)));
+				src2 = reg;
 				flags &= ~SRC2_IMM;
 			}
 
@@ -2665,6 +2666,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 	struct sljit_jump *jump;
 	sljit_s32 flags;
 	sljit_ins inst;
+	sljit_s32 src2_tmp_reg = FAST_IS_REG(src1) ? TMP_REG1 : TMP_REG2;
 
 	CHECK_ERROR_PTR();
 	CHECK_PTR(check_sljit_emit_cmp(compiler, type, src1, src1w, src2, src2w));
@@ -2685,8 +2687,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 	}
 
 	if (src2 & SLJIT_MEM) {
-		PTR_FAIL_IF(emit_op_mem2(compiler, flags, TMP_REG2, src2, src2w, 0, 0));
-		src2 = TMP_REG2;
+		PTR_FAIL_IF(emit_op_mem2(compiler, flags, src2_tmp_reg, src2, src2w, 0, 0));
+		src2 = src2_tmp_reg;
 	}
 
 	if (src1 == SLJIT_IMM) {
@@ -2700,8 +2702,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 
 	if (src2 == SLJIT_IMM) {
 		if (src2w != 0) {
-			PTR_FAIL_IF(load_immediate(compiler, TMP_REG2, src2w, TMP_REG3));
-			src2 = TMP_REG2;
+			PTR_FAIL_IF(load_immediate(compiler, src2_tmp_reg, src2w, TMP_REG3));
+			src2 = src2_tmp_reg;
 		}
 		else
 			src2 = TMP_ZERO;
@@ -2930,13 +2932,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 			type ^= 0x1;
 		} else {
 			if (ADDRESSING_DEPENDS_ON(src1, dst_reg)) {
-				FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG2) | RS1(dst_reg) | IMM_I(0)));
+				FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG1) | RS1(dst_reg) | IMM_I(0)));
 
 				if ((src1 & REG_MASK) == dst_reg)
-					src1 = (src1 & ~REG_MASK) | TMP_REG2;
+					src1 = (src1 & ~REG_MASK) | TMP_REG1;
 
 				if (OFFS_REG(src1) == dst_reg)
-					src1 = (src1 & ~OFFS_REG_MASK) | TO_OFFS_REG(TMP_REG2);
+					src1 = (src1 & ~OFFS_REG_MASK) | TO_OFFS_REG(TMP_REG1);
 			}
 
 			FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst_reg) | RS1(src2_reg) | IMM_I(0)));

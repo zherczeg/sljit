@@ -1695,7 +1695,7 @@ static sljit_s32 emit_rev16(struct sljit_compiler *compiler, sljit_s32 op, sljit
 static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 flags,
 	sljit_s32 dst, sljit_s32 src1, sljit_sw src2)
 {
-	sljit_s32 is_overflow, is_carry, carry_src_ar, is_handled;
+	sljit_s32 is_overflow, is_carry, carry_src_ar, is_handled, reg;
 	sljit_ins op_imm, op_v;
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 	sljit_ins ins, op_dimm, op_dimm32, op_dv;
@@ -1947,8 +1947,9 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			is_handled = 1;
 
 			if (flags & SRC2_IMM) {
-				FAIL_IF(push_inst(compiler, ADDIU | SA(0) | T(TMP_REG2) | IMM(src2), DR(TMP_REG2)));
-				src2 = TMP_REG2;
+				reg = (src1 == TMP_REG1) ? TMP_REG2 : TMP_REG1;
+				FAIL_IF(push_inst(compiler, ADDIU | SA(0) | T(reg) | IMM(src2), DR(reg)));
+				src2 = reg;
 				flags &= ~SRC2_IMM;
 			}
 
@@ -3390,8 +3391,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 #define RESOLVE_IMM2() \
 	if (src2 == SLJIT_IMM) { \
 		if (src2w) { \
-			PTR_FAIL_IF(load_immediate(compiler, DR(TMP_REG2), src2w)); \
-			src2 = TMP_REG2; \
+			PTR_FAIL_IF(load_immediate(compiler, DR(src2_tmp_reg), src2w)); \
+			src2 = src2_tmp_reg; \
 		} \
 		else \
 			src2 = 0; \
@@ -3404,6 +3405,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 	struct sljit_jump *jump;
 	sljit_s32 flags;
 	sljit_ins inst;
+	sljit_s32 src2_tmp_reg = FAST_IS_REG(src1) ? TMP_REG1 : TMP_REG2;
 
 	CHECK_ERROR_PTR();
 	CHECK_PTR(check_sljit_emit_cmp(compiler, type, src1, src1w, src2, src2w));
@@ -3424,8 +3426,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 	}
 
 	if (src2 & SLJIT_MEM) {
-		PTR_FAIL_IF(emit_op_mem2(compiler, flags, DR(TMP_REG2), src2, src2w, 0, 0));
-		src2 = TMP_REG2;
+		PTR_FAIL_IF(emit_op_mem2(compiler, flags, DR(src2_tmp_reg), src2, src2w, 0, 0));
+		src2 = src2_tmp_reg;
 	}
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
@@ -3753,8 +3755,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1 && SLJIT_MIPS_REV < 6)
 	if (src1 & SLJIT_MEM) {
-		FAIL_IF(emit_op_mem(compiler, inp_flags, DR(TMP_REG2), src1, src1w));
-		src1 = TMP_REG2;
+		FAIL_IF(emit_op_mem(compiler, inp_flags, DR(TMP_REG1), src1, src1w));
+		src1 = TMP_REG1;
 	} else if (src1 == SLJIT_IMM) {
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 		if (type & SLJIT_32)
@@ -3782,13 +3784,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 			type ^= 0x1;
 		} else {
 			if (ADDRESSING_DEPENDS_ON(src1, dst_reg)) {
-				FAIL_IF(push_inst(compiler, ADDU_W | S(dst_reg) | TA(0) | D(TMP_REG2), DR(TMP_REG2)));
+				FAIL_IF(push_inst(compiler, ADDU_W | S(dst_reg) | TA(0) | D(TMP_REG1), DR(TMP_REG1)));
 
 				if ((src1 & REG_MASK) == dst_reg)
-					src1 = (src1 & ~REG_MASK) | TMP_REG2;
+					src1 = (src1 & ~REG_MASK) | TMP_REG1;
 
 				if (OFFS_REG(src1) == dst_reg)
-					src1 = (src1 & ~OFFS_REG_MASK) | TO_OFFS_REG(TMP_REG2);
+					src1 = (src1 & ~OFFS_REG_MASK) | TO_OFFS_REG(TMP_REG1);
 			}
 
 			FAIL_IF(push_inst(compiler, mov_ins | S(src2_reg) | TA(0) | D(dst_reg), DR(dst_reg)));
