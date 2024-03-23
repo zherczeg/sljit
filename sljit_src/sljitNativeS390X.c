@@ -3821,8 +3821,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 			return push_inst(compiler, ins | R36A(dst_r) | (mask << 32) | (sljit_ins)(src1w & 0xffff) << 16);
 		}
 
-		FAIL_IF(push_load_imm_inst(compiler, tmp0, src1w));
-		src_r = tmp0;
+		FAIL_IF(push_load_imm_inst(compiler, tmp1, src1w));
+		src_r = tmp1;
 	} else
 		src_r = gpr(src1);
 
