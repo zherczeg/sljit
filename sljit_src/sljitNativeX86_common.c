@@ -391,6 +391,7 @@ static const sljit_u8 freg_lmap[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2] = {
 #define CPU_FEATURE_CMOV		0x020
 #define CPU_FEATURE_AVX			0x040
 #define CPU_FEATURE_AVX2		0x080
+#define CPU_FEATURE_OSXSAVE		0x100
 
 static sljit_u32 cpu_feature_list = 0;
 
@@ -491,6 +492,42 @@ static void execute_cpu_id(sljit_u32 info[4])
 #endif /* _MSC_VER && _MSC_VER >= 1400 */
 }
 
+static sljit_u32 execute_get_xcr0_low(void)
+{
+	sljit_u32 xcr0;
+
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+
+	xcr0 = (sljit_u32)_xgetbv(0);
+
+#elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C) || defined(__TINYC__)
+
+	/* AT&T syntax. */
+	__asm__ (
+		"xorl %%ecx, %%ecx\n"
+		"xgetbv\n"
+		: "=a" (xcr0)
+		:
+#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+		: "ecx", "edx"
+#else /* !SLJIT_CONFIG_X86_32 */
+		: "rcx", "rdx"
+#endif /* SLJIT_CONFIG_X86_32 */
+	);
+
+#else /* _MSC_VER < 1400 */
+
+	/* Intel syntax. */
+	__asm {
+		mov ecx, 0
+		xgetbv
+		mov xcr0, eax
+	}
+
+#endif /* _MSC_VER && _MSC_VER >= 1400 */
+	return xcr0;
+}
+
 static void get_cpu_features(void)
 {
 	sljit_u32 feature_list = CPU_FEATURE_DETECTED;
@@ -518,6 +555,8 @@ static void get_cpu_features(void)
 
 		if (info[2] & 0x80000)
 			feature_list |= CPU_FEATURE_SSE41;
+		if (info[2] & 0x8000000)
+			feature_list |= CPU_FEATURE_OSXSAVE;
 		if (info[2] & 0x10000000)
 			feature_list |= CPU_FEATURE_AVX;
 #if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
@@ -534,6 +573,9 @@ static void get_cpu_features(void)
 
 	if (info[2] & 0x20)
 		feature_list |= CPU_FEATURE_LZCNT;
+
+	if ((feature_list & CPU_FEATURE_OSXSAVE) && (execute_get_xcr0_low() & 0x4) == 0)
+		feature_list &= ~(sljit_u32)(CPU_FEATURE_AVX | CPU_FEATURE_AVX2);
 
 	cpu_feature_list = feature_list;
 }
