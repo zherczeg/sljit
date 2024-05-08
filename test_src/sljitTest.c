@@ -8033,7 +8033,7 @@ static void test71(void)
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_sw buf[64];
 	struct sljit_jump *jumps[2];
-	struct sljit_label *labels[2];
+	struct sljit_label *labels[3];
 	sljit_s32 i;
 
 	if (verbose)
@@ -8311,6 +8311,13 @@ static void test71(void)
 	/* buf[42] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 42 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (sljit_sw)(buf + 44) - WCONST(0x5c49c49c49c49c49, 0x5c49c49c));
+	sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_MEM1(SLJIT_TMP_MEM_REG), WCONST(0x5c49c49c49c49c49, 0x5c49c49c));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM0(), 0);
+	labels[2] = sljit_emit_label(compiler);
+	/* buf[43] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 43 * sizeof(sljit_sw), SLJIT_TMP_MEM_REG, 0);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);
@@ -8318,6 +8325,9 @@ static void test71(void)
 
 	sljit_set_jump_addr(sljit_get_jump_addr(jumps[0]), sljit_get_label_addr(labels[0]), sljit_get_executable_offset(compiler));
 	sljit_set_jump_addr(sljit_get_jump_addr(jumps[1]), sljit_get_label_addr(labels[1]), sljit_get_executable_offset(compiler));
+
+	/* The buf[44] can be overwritten later. */
+	buf[44] = (sljit_sw)sljit_get_label_addr(labels[2]);
 
 	sljit_free_compiler(compiler);
 
@@ -8364,6 +8374,7 @@ static void test71(void)
 	FAILED(buf[40] != WCONST(0x728c28c28c28c28c, 0x728c28c2), "test71 case 40 failed\n");
 	FAILED(buf[41] != WCONST(0x574d74d74d74d74d, 0x574d74d7), "test71 case 41 failed\n");
 	FAILED(buf[42] != WCONST(0x46c86c86c86c86c8, 0x46c86c86), "test71 case 42 failed\n");
+	FAILED(buf[43] != (sljit_sw)(buf + 44) - WCONST(0x5c49c49c49c49c49, 0x5c49c49c), "test71 case 43 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
