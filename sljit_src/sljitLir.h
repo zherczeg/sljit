@@ -794,17 +794,22 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type);
    global / local context pointers) across function calls. The
    value of n must be between 1 and 3. This option is only
    supported by SLJIT_ENTER_REG_ARG calling convention. */
-#define SLJIT_ENTER_KEEP(n)	(n)
+#define SLJIT_ENTER_KEEP(n)		(n)
 
 /* The compiled function uses an SLJIT specific register argument
    calling convention. This is a lightweight function call type where
    both the caller and the called functions must be compiled by
    SLJIT. The type argument of the call must be SLJIT_CALL_REG_ARG
    and all arguments must be stored in scratch registers. */
-#define SLJIT_ENTER_REG_ARG	0x00000004
+#define SLJIT_ENTER_REG_ARG		0x00000004
 
 /* The local_size must be >= 0 and <= SLJIT_MAX_LOCAL_SIZE. */
-#define SLJIT_MAX_LOCAL_SIZE	1048576
+#define SLJIT_MAX_LOCAL_SIZE		1048576
+
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+/* Use VEX prefix for all SIMD operations on x86. */
+#define SLJIT_ENTER_USE_VEX		0x00010000
+#endif /* !SLJIT_CONFIG_X86 */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compiler,
 	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
