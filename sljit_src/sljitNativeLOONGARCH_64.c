@@ -323,7 +323,7 @@ lower parts in the instruction word, denoted by the “L” and “H” suffixes
 /* Vector Instructions */
 
 /* Vector Arithmetic Instructions */
-#define VOR_V  OPC_3R(0xe24d)
+#define VOR_V OPC_3R(0xe24d)
 #define VXOR_V OPC_3R(0xe24e)
 #define VAND_V OPC_3R(0xe24c)
 #define VMSKLTZ OPC_2R(0x1ca710)
@@ -3317,8 +3317,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 			ins |= (sljit_ins)lane_index << 18 | (sljit_ins)(1 << (23 - elem_size));
 			return push_inst(compiler, VSTELM | ins | FRD(freg) | RJ(srcdst));
 		} else {
-			emit_op_mem(compiler, (elem_size == 3 ? WORD_DATA : (elem_size == 2 ? INT_DATA : (elem_size == 1 ? HALF_DATA : BYTE_DATA))) | LOAD_DATA, TMP_REG2, srcdst | SLJIT_MEM, 0);
-			srcdst = TMP_REG2;
+			emit_op_mem(compiler, (elem_size == 3 ? WORD_DATA : (elem_size == 2 ? INT_DATA : (elem_size == 1 ? HALF_DATA : BYTE_DATA))) | LOAD_DATA, TMP_REG1, srcdst | SLJIT_MEM, 0);
+			srcdst = TMP_REG1;
 			ins = (sljit_ins)(0x3f ^ (0x1f >> elem_size)) << 10;
 
 			if (reg_size == 5) {
@@ -3344,17 +3344,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 		ins = (reg_size == 5) ? (sljit_ins)(0x3f ^ (0x3f >> elem_size)) << 10 | (sljit_ins)1 << 26 : (sljit_ins)(0x3f ^ (0x1f >> elem_size)) << 10;
 
 		if (type & SLJIT_SIMD_STORE) {
-			FAIL_IF(push_inst(compiler, VPICKVE2GR_U | ins | RD(TMP_REG2) | FRJ(freg) | IMM_V(lane_index)));
-			return push_inst(compiler, VINSGR2VR | ins | FRD(srcdst) | RJ(TMP_REG2) | IMM_V(0));
+			FAIL_IF(push_inst(compiler, VPICKVE2GR_U | ins | RD(TMP_REG1) | FRJ(freg) | IMM_V(lane_index)));
+			return push_inst(compiler, VINSGR2VR | ins | FRD(srcdst) | RJ(TMP_REG1) | IMM_V(0));
 		} else {
-			FAIL_IF(push_inst(compiler, VPICKVE2GR_U | ins | RD(TMP_REG2) | FRJ(srcdst) | IMM_V(0)));
-			return push_inst(compiler, VINSGR2VR | ins | FRD(freg) | RJ(TMP_REG2) | IMM_V(lane_index));
+			FAIL_IF(push_inst(compiler, VPICKVE2GR_U | ins | RD(TMP_REG1) | FRJ(srcdst) | IMM_V(0)));
+			return push_inst(compiler, VINSGR2VR | ins | FRD(freg) | RJ(TMP_REG1) | IMM_V(lane_index));
 		}
 	}
 
 	if (srcdst == SLJIT_IMM) {
-		FAIL_IF(load_immediate(compiler, TMP_REG2, srcdstw));
-		srcdst = TMP_REG2;
+		FAIL_IF(load_immediate(compiler, TMP_REG1, srcdstw));
+		srcdst = TMP_REG1;
 	}
 
 	if (type & SLJIT_SIMD_STORE) {
