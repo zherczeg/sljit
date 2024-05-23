@@ -527,7 +527,7 @@ static void test_float6(void)
 
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
-	sljit_f32 buf[12];
+	sljit_f32 buf[14];
 	sljit_sw buf2[6];
 	struct sljit_jump* jump;
 
@@ -548,6 +548,8 @@ static void test_float6(void)
 	buf[9] = 16.5;
 	buf[10] = 0;
 	buf[11] = 0;
+	buf[12] = 345.75;
+	buf[13] = -678.5;
 
 	buf2[0] = -1;
 	buf2[1] = -1;
@@ -588,6 +590,17 @@ static void test_float6(void)
 	/* buf[11] */
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_IMM, 0x3d0ac + sizeof(sljit_f32));
 	sljit_emit_fop1(compiler, SLJIT_ABS_F32, SLJIT_MEM1(SLJIT_S0), 11 * sizeof(sljit_f32), SLJIT_MEM1(SLJIT_R0), -0x3d0ac);
+
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR3, 0, SLJIT_MEM1(SLJIT_S0), 13 * sizeof(sljit_f32));
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_S0), 12 * sizeof(sljit_f32));
+	sljit_emit_fop2(compiler, SLJIT_ADD_F32, SLJIT_FR3, 0, SLJIT_MEM1(SLJIT_S0), 12 * sizeof(sljit_f32), SLJIT_FR3, 0);
+	/* buf[12] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 12 * sizeof(sljit_f32), SLJIT_FR3, 0);
+
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR3, 0, SLJIT_MEM1(SLJIT_S0), 13 * sizeof(sljit_f32));
+	sljit_emit_fop2(compiler, SLJIT_MUL_F32, SLJIT_FR1, 0, SLJIT_FR3, 0, SLJIT_FR1, 0);
+	/* buf[13] */
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 13 * sizeof(sljit_f32), SLJIT_FR1, 0);
 
 	/* buf2[0] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_S0), 0);
@@ -633,12 +646,14 @@ static void test_float6(void)
 	FAILED(buf[9] != 3, "test_float6 case 8 failed\n");
 	FAILED(buf[10] != -5.5, "test_float6 case 9 failed\n");
 	FAILED(buf[11] != 7.25, "test_float6 case 10 failed\n");
-	FAILED(buf2[0] != 1, "test_float6 case 11 failed\n");
-	FAILED(buf2[1] != 2, "test_float6 case 12 failed\n");
-	FAILED(buf2[2] != 2, "test_float6 case 13 failed\n");
-	FAILED(buf2[3] != 1, "test_float6 case 14 failed\n");
-	FAILED(buf2[4] != 7, "test_float6 case 15 failed\n");
-	FAILED(buf2[5] != -1, "test_float6 case 16 failed\n");
+	FAILED(buf[12] != -332.75, "test_float6 case 11 failed\n");
+	FAILED(buf[13] != -234591.375, "test_float6 case 12 failed\n");
+	FAILED(buf2[0] != 1, "test_float6 case 13 failed\n");
+	FAILED(buf2[1] != 2, "test_float6 case 14 failed\n");
+	FAILED(buf2[2] != 2, "test_float6 case 15 failed\n");
+	FAILED(buf2[3] != 1, "test_float6 case 16 failed\n");
+	FAILED(buf2[4] != 7, "test_float6 case 17 failed\n");
+	FAILED(buf2[5] != -1, "test_float6 case 18 failed\n");
 
 	successful_tests++;
 }
