@@ -4486,6 +4486,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *co
 	if ((type & SLJIT_SIMD_FLOAT) && (elem_size < 2 || elem_size > 3))
 		return SLJIT_ERR_UNSUPPORTED;
 
+	if (type & SLJIT_SIMD_TEST)
+		return SLJIT_SUCCESS;
+
 	switch (SLJIT_SIMD_GET_OPCODE(type)) {
 	case SLJIT_SIMD_OP2_AND:
 		ins = VAND;
@@ -4500,9 +4503,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *co
 		ins = VTBL;
 		break;
 	}
-
-	if (type & SLJIT_SIMD_TEST)
-		return SLJIT_SUCCESS;
 
 	if (src2 & SLJIT_MEM) {
 		if (elem_size > 3)
