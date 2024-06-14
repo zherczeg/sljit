@@ -434,6 +434,7 @@ static void test_simd2(void)
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_ELEM_32;
 	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR4, SLJIT_MEM1(SLJIT_S0), 0);
 	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, SLJIT_MEM1(SLJIT_S0), 64);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR0, SLJIT_FR3, 0);
 
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_FR4, 2, SLJIT_FR1, 0);
 	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_FR3, 0, SLJIT_FR1, 0);

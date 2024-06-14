@@ -4090,8 +4090,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 		} else if (type & SLJIT_SIMD_STORE) {
 			if (lane_index == 0) {
 				if (use_vex)
-					return emit_vex_instruction(compiler, ((srcdst & SLJIT_MEM) ? MOVSD_xm_x : MOVSD_x_xm) | EX86_PREF_F3 | EX86_SSE2
-						| ((srcdst & SLJIT_MEM) ? 0 : VEX_SSE2_OPV), freg, ((srcdst & SLJIT_MEM) ? 0 : freg), srcdst, srcdstw);
+					return emit_vex_instruction(compiler, MOVSD_xm_x | EX86_PREF_F3 | EX86_SSE2 | ((srcdst & SLJIT_MEM) ? 0 : VEX_SSE2_OPV),
+						freg, ((srcdst & SLJIT_MEM) ? 0 : srcdst), srcdst, srcdstw);
 				return emit_sse2_store(compiler, 1, srcdst, srcdstw, freg);
 			}
 
