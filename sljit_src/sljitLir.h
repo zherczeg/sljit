@@ -251,7 +251,7 @@ extern "C" {
 #define SLJIT_FS7	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - 7)
 #define SLJIT_FS8	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - 8)
 #define SLJIT_FS9	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - 9)
-/* All S registers provided by the architecture can be accessed by SLJIT_FS(i)
+/* All FS registers provided by the architecture can be accessed by SLJIT_FS(i)
    The i parameter must be >= 0 and < SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS. */
 #define SLJIT_FS(i)	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - (i))
 
@@ -261,6 +261,52 @@ extern "C" {
 /* Return with floating point arg. */
 
 #define SLJIT_RETURN_FREG	SLJIT_FR0
+
+/* --------------------------------------------------------------------- */
+/*  Vector registers                                                     */
+/* --------------------------------------------------------------------- */
+
+/* Vector registers are storage areas, which are used for Single Instruction
+   Multiple Data (SIMD) computations. The VR and VS register sets overlap
+   in the same way as R and S register sets. See above.
+
+   The storage space of vector registers often overlap with floating point
+   registers. In this case setting the value of SLJIT_VR(i) destroys the
+   value of SLJIT_FR(i) and vice versa. See SLJIT_SEPARATE_VECTOR_REGISTERS
+   macro. */
+
+/* Vector scratch registers. */
+#define SLJIT_VR0	1
+#define SLJIT_VR1	2
+#define SLJIT_VR2	3
+#define SLJIT_VR3	4
+#define SLJIT_VR4	5
+#define SLJIT_VR5	6
+#define SLJIT_VR6	7
+#define SLJIT_VR7	8
+#define SLJIT_VR8	9
+#define SLJIT_VR9	10
+/* All VR registers provided by the architecture can be accessed by SLJIT_VR(i)
+   The i parameter must be >= 0 and < SLJIT_NUMBER_OF_VECTOR_REGISTERS. */
+#define SLJIT_VR(i)	(1 + (i))
+
+/* Vector saved registers. */
+#define SLJIT_VS0	(SLJIT_NUMBER_OF_VECTOR_REGISTERS)
+#define SLJIT_VS1	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - 1)
+#define SLJIT_VS2	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - 2)
+#define SLJIT_VS3	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - 3)
+#define SLJIT_VS4	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - 4)
+#define SLJIT_VS5	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - 5)
+#define SLJIT_VS6	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - 6)
+#define SLJIT_VS7	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - 7)
+#define SLJIT_VS8	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - 8)
+#define SLJIT_VS9	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - 9)
+/* All VS registers provided by the architecture can be accessed by SLJIT_VS(i)
+   The i parameter must be >= 0 and < SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS. */
+#define SLJIT_VS(i)	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - (i))
+
+/* Vector registers >= SLJIT_FIRST_SAVED_VECTOR_REG are saved registers. */
+#define SLJIT_FIRST_SAVED_VECTOR_REG (SLJIT_VS0 - SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS + 1)
 
 /* --------------------------------------------------------------------- */
 /*  Argument type definitions                                            */
@@ -1890,21 +1936,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 
 /* The following options are used by several simd operations. */
 
-/* Load data into a simd register, this is the default */
+/* Load data into a vector register, this is the default */
 #define SLJIT_SIMD_LOAD			0x000000
-/* Store data from a simd register */
+/* Store data from a vector register */
 #define SLJIT_SIMD_STORE		0x000001
-/* The simd register contains floating point values */
+/* The vector register contains floating point values */
 #define SLJIT_SIMD_FLOAT		0x000400
 /* Tests whether the operation is available */
 #define SLJIT_SIMD_TEST			0x000800
-/* Move data to/from a 64 bit (8 byte) long SIMD register */
+/* Move data to/from a 64 bit (8 byte) long vector register */
 #define SLJIT_SIMD_REG_64		(3 << 12)
-/* Move data to/from a 128 bit (16 byte) long SIMD register */
+/* Move data to/from a 128 bit (16 byte) long vector register */
 #define SLJIT_SIMD_REG_128		(4 << 12)
-/* Move data to/from a 256 bit (32 byte) long SIMD register */
+/* Move data to/from a 256 bit (32 byte) long vector register */
 #define SLJIT_SIMD_REG_256		(5 << 12)
-/* Move data to/from a 512 bit (64 byte) long SIMD register */
+/* Move data to/from a 512 bit (64 byte) long vector register */
 #define SLJIT_SIMD_REG_512		(6 << 12)
 /* Element size is 8 bit long (this is the default), usually cannot be combined with SLJIT_SIMD_FLOAT */
 #define SLJIT_SIMD_ELEM_8		(0 << 18)
@@ -1937,7 +1983,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 /* Memory address is 512 bit aligned */
 #define SLJIT_SIMD_MEM_ALIGNED_512	(6 << 24)
 
-/* Moves data between a simd register and memory.
+/* Moves data between a vector register and memory.
 
    If the operation is not supported, it returns with
    SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
@@ -1945,21 +1991,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem_update(struct sljit_compiler 
 
    type must be a combination of SLJIT_SIMD_* and
      SLJIT_SIMD_MEM_* options
-   freg is the source or destination simd register
+   vreg is the source or destination vector register
      of the operation
-   srcdst must be a memory operand or a simd register
+   srcdst must be a memory operand or a vector register
 
    Note:
        The alignment and element size must be
-       less or equal than simd register size.
+       less or equal than vector register size.
 
    Flags: - (does not modify flags) */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg,
+	sljit_s32 vreg,
 	sljit_s32 srcdst, sljit_sw srcdstw);
 
-/* Replicates a scalar value to all lanes of a simd
+/* Replicates a scalar value to all lanes of a vector
    register.
 
    If the operation is not supported, it returns with
@@ -1968,7 +2014,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
 
    type must be a combination of SLJIT_SIMD_* options
      except SLJIT_SIMD_STORE.
-   freg is the destination simd register of the operation
+   vreg is the destination vector register of the operation
    src is the value which is replicated
 
    Note:
@@ -1978,7 +2024,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
    Flags: - (does not modify flags) */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg,
+	sljit_s32 vreg,
 	sljit_s32 src, sljit_sw srcw);
 
 /* The following options are used by sljit_emit_simd_lane_mov(). */
@@ -1988,7 +2034,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 /* Sign extend the integer value stored from the lane. */
 #define SLJIT_SIMD_LANE_SIGNED		0x000004
 
-/* Moves data between a simd register lane and a register or
+/* Moves data between a vector register lane and a register or
    memory. If the srcdst argument is a register, it must be
    a floating point register when SLJIT_SIMD_FLOAT is specified,
    or a general purpose register otherwise.
@@ -2004,7 +2050,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
            is set and SLJIT_SIMD_FLOAT is not set
        SLJIT_SIMD_LANE_ZERO - when SLJIT_SIMD_LOAD
            is specified
-   freg is the source or destination simd register
+   vreg is the source or destination vector register
      of the operation
    lane_index is the index of the lane
    srcdst is the destination operand for loads, and
@@ -2016,11 +2062,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
    Flags: - (does not modify flags) */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg, sljit_s32 lane_index,
+	sljit_s32 vreg, sljit_s32 lane_index,
 	sljit_s32 srcdst, sljit_sw srcdstw);
 
 /* Replicates a scalar value from a lane to all lanes
-   of a simd register.
+   of a vector register.
 
    If the operation is not supported, it returns with
    SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
@@ -2028,14 +2074,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 
    type must be a combination of SLJIT_SIMD_* options
      except SLJIT_SIMD_STORE.
-   freg is the destination simd register of the operation
-   src is the simd register which lane is replicated
+   vreg is the destination vector register of the operation
+   src is the vector register which lane is replicated
    src_lane_index is the lane index of the src register
 
    Flags: - (does not modify flags) */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg,
+	sljit_s32 vreg,
 	sljit_s32 src, sljit_s32 src_lane_index);
 
 /* The following options are used by sljit_emit_simd_load_extend(). */
@@ -2049,7 +2095,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 /* Extend data to 64 bit */
 #define SLJIT_SIMD_EXTEND_64		(3 << 24)
 
-/* Extend elements and stores them in a simd register.
+/* Extend elements and stores them in a vector register.
    The extension operation increases the size of the
    elements (e.g. from 16 bit to 64 bit). For integer
    values, the extension can be signed or unsigned.
@@ -2060,15 +2106,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 
    type must be a combination of SLJIT_SIMD_*, and
      SLJIT_SIMD_EXTEND_* options except SLJIT_SIMD_STORE
-   freg is the destination simd register of the operation
-   src must be a memory operand or a simd register.
+   vreg is the destination vector register of the operation
+   src must be a memory operand or a vector register.
      In the latter case, the source elements are stored
      in the lower half of the register.
 
    Flags: - (does not modify flags) */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg,
+	sljit_s32 vreg,
 	sljit_s32 src, sljit_sw srcw);
 
 /* Extract the highest bit (usually the sign bit) from
@@ -2080,13 +2126,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 
    type must be a combination of SLJIT_SIMD_* and SLJIT_32
      options except SLJIT_SIMD_LOAD
-   freg is the source simd register of the operation
+   vreg is the source vector register of the operation
    dst is the destination operand
 
    Flags: - (does not modify flags) */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg,
+	sljit_s32 vreg,
 	sljit_s32 dst, sljit_sw dstw);
 
 /* The following options are used by sljit_emit_simd_op2(). */
@@ -2100,7 +2146,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 /* Shuffle bytes of src1 using the indicies in src2 */
 #define SLJIT_SIMD_OP2_SHUFFLE		0x000004
 
-/* Perform simd operations using simd registers.
+/* Perform simd operations using vector registers.
 
    If the operation is not supported, it returns with
    SLJIT_ERR_UNSUPPORTED. If SLJIT_SIMD_TEST is passed,
@@ -2109,14 +2155,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
    type must be a combination of SLJIT_SIMD_*, SLJIT_SIMD_MEM_*
      and SLJIT_SIMD_OP2_* options except SLJIT_SIMD_LOAD
      and SLJIT_SIMD_STORE
-   dst_freg is the destination register of the operation
-   src1_freg is the first source register of the operation
+   dst_vreg is the destination register of the operation
+   src1_vreg is the first source register of the operation
    src2 is the second source operand of the operation
 
    Flags: - (does not modify flags) */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 dst_freg, sljit_s32 src1_freg, sljit_s32 src2, sljit_sw src2w);
+	sljit_s32 dst_vreg, sljit_s32 src1_vreg, sljit_s32 src2, sljit_sw src2w);
 
 /* The sljit_emit_atomic_load and sljit_emit_atomic_store operation pair
    can perform an atomic read-modify-write operation. First, an unsigned

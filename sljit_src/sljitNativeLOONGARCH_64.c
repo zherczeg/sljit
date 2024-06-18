@@ -3162,14 +3162,14 @@ static sljit_s32 sljit_emit_simd_mem_offset(struct sljit_compiler *compiler, slj
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg,
+	sljit_s32 vreg,
 	sljit_s32 srcdst, sljit_sw srcdstw)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
 	sljit_ins ins = 0;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_mov(compiler, type, freg, srcdst, srcdstw));
+	CHECK(check_sljit_emit_simd_mov(compiler, type, vreg, srcdst, srcdstw));
 
 	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
@@ -3184,9 +3184,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
 
 	if (!(srcdst & SLJIT_MEM)) {
 		if (type & SLJIT_SIMD_STORE)
-			ins = FRD(srcdst) | FRJ(freg) | FRK(freg);
+			ins = FRD(srcdst) | FRJ(vreg) | FRK(vreg);
 		else
-			ins = FRD(freg) | FRJ(srcdst) | FRK(srcdst);
+			ins = FRD(vreg) | FRJ(srcdst) | FRK(srcdst);
 
 		if (reg_size == 5)
 			ins |= VOR_V | (sljit_ins)1 << 26;
@@ -3202,15 +3202,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
 		ins = (type & SLJIT_SIMD_STORE) ? XVST : XVLD;
 
 	if (FAST_IS_REG(srcdst) && srcdst >= 0 && (srcdstw >= I12_MIN && srcdstw <= I12_MAX))
-		return push_inst(compiler, ins | FRD(freg) | RJ((sljit_u8)srcdst) | IMM_I12(srcdstw));
+		return push_inst(compiler, ins | FRD(vreg) | RJ((sljit_u8)srcdst) | IMM_I12(srcdstw));
 	else {
 		FAIL_IF(sljit_emit_simd_mem_offset(compiler, &srcdst, srcdstw));
-		return push_inst(compiler, ins | FRD(freg) | RJ(srcdst) | IMM_I12(0));
+		return push_inst(compiler, ins | FRD(vreg) | RJ(srcdst) | IMM_I12(0));
 	}
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg,
+	sljit_s32 vreg,
 	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
@@ -3218,7 +3218,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 	sljit_ins ins = 0;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_replicate(compiler, type, freg, src, srcw));
+	CHECK(check_sljit_emit_simd_replicate(compiler, type, vreg, src, srcw));
 
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
@@ -3237,7 +3237,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 		if (reg_size == 5)
 			ins = (sljit_ins)1 << 25;
 
-		return push_inst(compiler, VLDREPL | ins | FRD(freg) | RJ(src) | (sljit_ins)1 << (23 - elem_size));
+		return push_inst(compiler, VLDREPL | ins | FRD(vreg) | RJ(src) | (sljit_ins)1 << (23 - elem_size));
 	}
 
 	if (reg_size == 5)
@@ -3245,13 +3245,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 
 	if (type & SLJIT_SIMD_FLOAT) {
 		if (src == SLJIT_IMM)
-			return push_inst(compiler, VREPLGR2VR | ins | FRD(freg) | RJ(TMP_ZERO) | (sljit_ins)elem_size << 10);
+			return push_inst(compiler, VREPLGR2VR | ins | FRD(vreg) | RJ(TMP_ZERO) | (sljit_ins)elem_size << 10);
 
-		FAIL_IF(push_inst(compiler, VREPLVE | ins | FRD(freg) | FRJ(src) | RK(TMP_ZERO) | (sljit_ins)elem_size << 15));
+		FAIL_IF(push_inst(compiler, VREPLVE | ins | FRD(vreg) | FRJ(src) | RK(TMP_ZERO) | (sljit_ins)elem_size << 15));
 
 		if (reg_size == 5) {
 			ins = (sljit_ins)(0x44 << 10);
-			return push_inst(compiler, XVPERMI | ins | FRD(freg) | FRJ(freg));
+			return push_inst(compiler, XVPERMI | ins | FRD(vreg) | FRJ(vreg));
 		}
 
 		return SLJIT_SUCCESS;
@@ -3264,11 +3264,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 		src = TMP_REG2;
 	}
 
-	return push_inst(compiler, ins | FRD(freg) | RJ(src));
+	return push_inst(compiler, ins | FRD(vreg) | RJ(src));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg, sljit_s32 lane_index,
+	sljit_s32 vreg, sljit_s32 lane_index,
 	sljit_s32 srcdst, sljit_sw srcdstw)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
@@ -3276,7 +3276,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 	sljit_ins ins = 0;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_lane_mov(compiler, type, freg, lane_index, srcdst, srcdstw));
+	CHECK(check_sljit_emit_simd_lane_mov(compiler, type, vreg, lane_index, srcdst, srcdstw));
 
 	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
@@ -3298,13 +3298,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 	if (type & SLJIT_SIMD_LANE_ZERO) {
 		ins = (reg_size == 5) ? ((sljit_ins)1 << 26) : 0;
 
-		if ((type & SLJIT_SIMD_FLOAT) && freg == srcdst) {
-			FAIL_IF(push_inst(compiler, VOR_V | ins | FRD(TMP_FREG1) | FRJ(freg) | FRK(freg)));
+		if ((type & SLJIT_SIMD_FLOAT) && vreg == srcdst) {
+			FAIL_IF(push_inst(compiler, VOR_V | ins | FRD(TMP_FREG1) | FRJ(vreg) | FRK(vreg)));
 			srcdst = TMP_FREG1;
 			srcdstw = 0;
 		}
 
-		FAIL_IF(push_inst(compiler, VXOR_V | ins | FRD(freg) | FRJ(freg) | FRK(freg)));
+		FAIL_IF(push_inst(compiler, VXOR_V | ins | FRD(vreg) | FRJ(vreg) | FRK(vreg)));
 	}
 
 	if (srcdst & SLJIT_MEM) {
@@ -3315,7 +3315,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 
 		if (type & SLJIT_SIMD_STORE) {
 			ins |= (sljit_ins)lane_index << 18 | (sljit_ins)(1 << (23 - elem_size));
-			return push_inst(compiler, VSTELM | ins | FRD(freg) | RJ(srcdst));
+			return push_inst(compiler, VSTELM | ins | FRD(vreg) | RJ(srcdst));
 		} else {
 			emit_op_mem(compiler, (elem_size == 3 ? WORD_DATA : (elem_size == 2 ? INT_DATA : (elem_size == 1 ? HALF_DATA : BYTE_DATA))) | LOAD_DATA, TMP_REG1, srcdst | SLJIT_MEM, 0);
 			srcdst = TMP_REG1;
@@ -3323,20 +3323,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 
 			if (reg_size == 5) {
 				if (elem_size < 2) {
-					FAIL_IF(push_inst(compiler, VOR_V | (sljit_ins)1 << 26 | FRD(TMP_FREG1) | FRJ(freg) | FRK(freg)));
+					FAIL_IF(push_inst(compiler, VOR_V | (sljit_ins)1 << 26 | FRD(TMP_FREG1) | FRJ(vreg) | FRK(vreg)));
 					if (lane_index >= (2 << (3 - elem_size))) {
-						FAIL_IF(push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(TMP_FREG1) | FRJ(freg) | IMM_I8(1)));
+						FAIL_IF(push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(TMP_FREG1) | FRJ(vreg) | IMM_I8(1)));
 						FAIL_IF(push_inst(compiler, VINSGR2VR | ins | FRD(TMP_FREG1) | RJ(srcdst) | IMM_V(lane_index % (2 << (3 - elem_size)))));
-						return push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(freg) | FRJ(TMP_FREG1) | IMM_I8(2));
+						return push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(vreg) | FRJ(TMP_FREG1) | IMM_I8(2));
 					} else {
-						FAIL_IF(push_inst(compiler, VINSGR2VR | ins | FRD(freg) | RJ(srcdst) | IMM_V(lane_index)));
-						return push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(freg) | FRJ(TMP_FREG1) | IMM_I8(18));
+						FAIL_IF(push_inst(compiler, VINSGR2VR | ins | FRD(vreg) | RJ(srcdst) | IMM_V(lane_index)));
+						return push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(vreg) | FRJ(TMP_FREG1) | IMM_I8(18));
 					}
 				} else
 					ins = (sljit_ins)(0x3f ^ (0x3f >> elem_size)) << 10 | (sljit_ins)1 << 26;
 			}
 
-			return push_inst(compiler, VINSGR2VR | ins | FRD(freg) | RJ(srcdst) | IMM_V(lane_index));
+			return push_inst(compiler, VINSGR2VR | ins | FRD(vreg) | RJ(srcdst) | IMM_V(lane_index));
 		}
 	}
 
@@ -3344,11 +3344,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 		ins = (reg_size == 5) ? (sljit_ins)(0x3f ^ (0x3f >> elem_size)) << 10 | (sljit_ins)1 << 26 : (sljit_ins)(0x3f ^ (0x1f >> elem_size)) << 10;
 
 		if (type & SLJIT_SIMD_STORE) {
-			FAIL_IF(push_inst(compiler, VPICKVE2GR_U | ins | RD(TMP_REG1) | FRJ(freg) | IMM_V(lane_index)));
+			FAIL_IF(push_inst(compiler, VPICKVE2GR_U | ins | RD(TMP_REG1) | FRJ(vreg) | IMM_V(lane_index)));
 			return push_inst(compiler, VINSGR2VR | ins | FRD(srcdst) | RJ(TMP_REG1) | IMM_V(0));
 		} else {
 			FAIL_IF(push_inst(compiler, VPICKVE2GR_U | ins | RD(TMP_REG1) | FRJ(srcdst) | IMM_V(0)));
-			return push_inst(compiler, VINSGR2VR | ins | FRD(freg) | RJ(TMP_REG1) | IMM_V(lane_index));
+			return push_inst(compiler, VINSGR2VR | ins | FRD(vreg) | RJ(TMP_REG1) | IMM_V(lane_index));
 		}
 	}
 
@@ -3373,8 +3373,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 					else
 						ins |= VPICKVE2GR_U;
 
-					FAIL_IF(push_inst(compiler, VOR_V | (sljit_ins)1 << 26 | FRD(TMP_FREG1) | FRJ(freg) | FRK(freg)));
-					FAIL_IF(push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(TMP_FREG1) | FRJ(freg) | IMM_I8(1)));
+					FAIL_IF(push_inst(compiler, VOR_V | (sljit_ins)1 << 26 | FRD(TMP_FREG1) | FRJ(vreg) | FRK(vreg)));
+					FAIL_IF(push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(TMP_FREG1) | FRJ(vreg) | IMM_I8(1)));
 					return push_inst(compiler, ins | RD(srcdst) | FRJ(TMP_FREG1) | IMM_V(lane_index % (2 << (3 - elem_size))));
 				}
 			} else {
@@ -3383,33 +3383,33 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 			}
 		}
 
-		return push_inst(compiler, ins | RD(srcdst) | FRJ(freg) | IMM_V(lane_index));
+		return push_inst(compiler, ins | RD(srcdst) | FRJ(vreg) | IMM_V(lane_index));
 	} else {
 		ins = (sljit_ins)(0x3f ^ (0x1f >> elem_size)) << 10;
 
 		if (reg_size == 5) {
 			if (elem_size < 2) {
-				FAIL_IF(push_inst(compiler, VOR_V | (sljit_ins)1 << 26 | FRD(TMP_FREG1) | FRJ(freg) | FRK(freg)));
+				FAIL_IF(push_inst(compiler, VOR_V | (sljit_ins)1 << 26 | FRD(TMP_FREG1) | FRJ(vreg) | FRK(vreg)));
 				if (lane_index >= (2 << (3 - elem_size))) {
-					FAIL_IF(push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(TMP_FREG1) | FRJ(freg) | IMM_I8(1)));
+					FAIL_IF(push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(TMP_FREG1) | FRJ(vreg) | IMM_I8(1)));
 					FAIL_IF(push_inst(compiler, VINSGR2VR | ins | FRD(TMP_FREG1) | RJ(srcdst) | IMM_V(lane_index % (2 << (3 - elem_size)))));
-					return push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(freg) | FRJ(TMP_FREG1) | IMM_I8(2));
+					return push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(vreg) | FRJ(TMP_FREG1) | IMM_I8(2));
 				} else {
-					FAIL_IF(push_inst(compiler, VINSGR2VR | ins | FRD(freg) | RJ(srcdst) | IMM_V(lane_index)));
-					return push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(freg) | FRJ(TMP_FREG1) | IMM_I8(18));
+					FAIL_IF(push_inst(compiler, VINSGR2VR | ins | FRD(vreg) | RJ(srcdst) | IMM_V(lane_index)));
+					return push_inst(compiler, XVPERMI | (sljit_ins)1 << 18 | FRD(vreg) | FRJ(TMP_FREG1) | IMM_I8(18));
 				}
 			} else
 				ins = (sljit_ins)(0x3f ^ (0x3f >> elem_size)) << 10 | (sljit_ins)1 << 26;
 		}
 
-		return push_inst(compiler, VINSGR2VR | ins | FRD(freg) | RJ(srcdst) | IMM_V(lane_index));
+		return push_inst(compiler, VINSGR2VR | ins | FRD(vreg) | RJ(srcdst) | IMM_V(lane_index));
 	}
 
 	return SLJIT_ERR_UNSUPPORTED;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg,
+	sljit_s32 vreg,
 	sljit_s32 src, sljit_s32 src_lane_index)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
@@ -3417,7 +3417,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 	sljit_ins ins = 0;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_lane_replicate(compiler, type, freg, src, src_lane_index));
+	CHECK(check_sljit_emit_simd_lane_replicate(compiler, type, vreg, src, src_lane_index));
 
 	if (reg_size != 5 && reg_size != 4)
 		return SLJIT_ERR_UNSUPPORTED;
@@ -3431,18 +3431,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 	ins = (sljit_ins)(0x3f ^ (0x1f >> elem_size)) << 10;
 
 	if (reg_size == 5) {
-		FAIL_IF(push_inst(compiler, VREPLVEI | (sljit_ins)1 << 26 | ins | FRD(freg) | FRJ(src) | IMM_V(src_lane_index % (2 << (3 - elem_size)))));
+		FAIL_IF(push_inst(compiler, VREPLVEI | (sljit_ins)1 << 26 | ins | FRD(vreg) | FRJ(src) | IMM_V(src_lane_index % (2 << (3 - elem_size)))));
 
 		ins = (src_lane_index < (2 << (3 - elem_size))) ? (sljit_ins)(0x44 << 10) : (sljit_ins)(0xee << 10);
 
-		return push_inst(compiler, XVPERMI | ins | FRD(freg) | FRJ(freg));
+		return push_inst(compiler, XVPERMI | ins | FRD(vreg) | FRJ(vreg));
 	}
 
-	return push_inst(compiler, VREPLVEI | ins | FRD(freg) | FRJ(src) | IMM_V(src_lane_index));
+	return push_inst(compiler, VREPLVEI | ins | FRD(vreg) | FRJ(src) | IMM_V(src_lane_index));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg,
+	sljit_s32 vreg,
 	sljit_s32 src, sljit_sw srcw)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
@@ -3451,7 +3451,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 	sljit_ins ins = 0;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_extend(compiler, type, freg, src, srcw));
+	CHECK(check_sljit_emit_simd_extend(compiler, type, vreg, src, srcw));
 
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
@@ -3471,12 +3471,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 			ins = (type & SLJIT_SIMD_STORE) ? XVST : XVLD;
 
 		if (FAST_IS_REG(src) && src >= 0 && (srcw >= I12_MIN && srcw <= I12_MAX))
-			FAIL_IF(push_inst(compiler, ins | FRD(freg) | RJ(src) | IMM_I12(srcw)));
+			FAIL_IF(push_inst(compiler, ins | FRD(vreg) | RJ(src) | IMM_I12(srcw)));
 		else {
 			FAIL_IF(sljit_emit_simd_mem_offset(compiler, &src, srcw));
-			FAIL_IF(push_inst(compiler, ins | FRD(freg) | RJ(src) | IMM_I12(0)));
+			FAIL_IF(push_inst(compiler, ins | FRD(vreg) | RJ(src) | IMM_I12(0)));
 		}
-		src = freg;
+		src = vreg;
 	}
 
 	if (type & SLJIT_SIMD_FLOAT) {
@@ -3489,7 +3489,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 			FAIL_IF(push_inst(compiler, XVPERMI | FRD(src) | FRJ(src) | IMM_I8(16)));
 		}
 
-		return push_inst(compiler, VFCVTL_D_S | ins | FRD(freg) | FRJ(src));
+		return push_inst(compiler, VFCVTL_D_S | ins | FRD(vreg) | FRJ(src));
 	}
 
 	ins = (type & SLJIT_SIMD_EXTEND_SIGNED) ? VSLLWIL : (VSLLWIL | (sljit_ins)1 << 18);
@@ -3501,15 +3501,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 		if (reg_size == 5)
 			FAIL_IF(push_inst(compiler, XVPERMI | FRD(src) | FRJ(src) | IMM_I8(16)));
 
-		FAIL_IF(push_inst(compiler, ins | ((sljit_ins)1 << (13 + elem_size)) | FRD(freg) | FRJ(src)));
-		src = freg;
+		FAIL_IF(push_inst(compiler, ins | ((sljit_ins)1 << (13 + elem_size)) | FRD(vreg) | FRJ(src)));
+		src = vreg;
 	} while (++elem_size < elem2_size);
 
 	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 freg,
+	sljit_s32 vreg,
 	sljit_s32 dst, sljit_sw dstw)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
@@ -3518,7 +3518,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 	sljit_s32 dst_r;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_sign(compiler, type, freg, dst, dstw));
+	CHECK(check_sljit_emit_simd_sign(compiler, type, vreg, dst, dstw));
 
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
@@ -3539,7 +3539,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 	if (reg_size == 5)
 		ins = (sljit_ins)1 << 26;
 
-	FAIL_IF(push_inst(compiler, VMSKLTZ | ins | (sljit_ins)(elem_size << 10) | FRD(TMP_FREG1) | FRJ(freg)));
+	FAIL_IF(push_inst(compiler, VMSKLTZ | ins | (sljit_ins)(elem_size << 10) | FRD(TMP_FREG1) | FRJ(vreg)));
 
 	FAIL_IF(push_inst(compiler, VPICKVE2GR_U | (sljit_ins)(0x3c << 10) | RD(dst_r) | FRJ(TMP_FREG1)));
 
@@ -3556,14 +3556,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 dst_freg, sljit_s32 src1_freg, sljit_s32 src2_freg)
+	sljit_s32 dst_vreg, sljit_s32 src1_vreg, sljit_s32 src2_vreg)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
 	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
 	sljit_ins ins = 0;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_op2(compiler, type, dst_freg, src1_freg, src2_freg));
+	CHECK(check_sljit_emit_simd_op2(compiler, type, dst_vreg, src1_vreg, src2_vreg));
 
 	if (reg_size != 5 && reg_size != 4)
 		return SLJIT_ERR_UNSUPPORTED;
@@ -3592,7 +3592,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *co
 	if (reg_size == 5)
 		ins |= (sljit_ins)1 << 26;
 
-	return push_inst(compiler, ins | FRD(dst_freg) | FRJ(src1_freg) | FRK(src2_freg));
+	return push_inst(compiler, ins | FRD(dst_vreg) | FRJ(src1_vreg) | FRK(src2_vreg));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler,
