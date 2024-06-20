@@ -4233,6 +4233,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
 	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV_S8:
+	case SLJIT_MOV_S16:
+	case SLJIT_MOV_S32:
+		return SLJIT_ERR_UNSUPPORTED;
+
 	case SLJIT_MOV_U8:
 		ins = LDREXB;
 		break;
@@ -4243,6 +4248,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 		ins = LDREX;
 		break;
 	}
+
+	if (op & SLJIT_ATOMIC_TEST)
+		return SLJIT_SUCCESS;
 
 	return push_inst32(compiler, ins | RN4(mem_reg) | RT4(dst_reg));
 }
@@ -4261,6 +4269,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
 
 	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV_S8:
+	case SLJIT_MOV_S16:
+	case SLJIT_MOV_S32:
+		return SLJIT_ERR_UNSUPPORTED;
+
 	case SLJIT_MOV_U8:
 		ins = STREXB | RM4(TMP_REG1);
 		break;
@@ -4271,6 +4284,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 		ins = STREX | RD4(TMP_REG1);
 		break;
 	}
+
+	if (op & SLJIT_ATOMIC_TEST)
+		return SLJIT_SUCCESS;
 
 	FAIL_IF(push_inst32(compiler, ins | RN4(mem_reg) | RT4(src_reg)));
 	if (op & SLJIT_SET_ATOMIC_STORED)

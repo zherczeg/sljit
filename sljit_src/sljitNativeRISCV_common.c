@@ -116,6 +116,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define LD		(F3(0x3) | OPC(0x3))
 #define LUI		(OPC(0x37))
 #define LW		(F3(0x2) | OPC(0x3))
+#define LR		(F7(0x8) | OPC(0x2f))
 #define MUL		(F7(0x1) | F3(0x0) | OPC(0x33))
 #define MULH		(F7(0x1) | F3(0x1) | OPC(0x33))
 #define MULHU		(F7(0x1) | F3(0x3) | OPC(0x33))
@@ -123,6 +124,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define ORI		(F3(0x6) | OPC(0x13))
 #define REM		(F7(0x1) | F3(0x6) | OPC(0x33))
 #define REMU		(F7(0x1) | F3(0x7) | OPC(0x33))
+#define SC		(F7(0xc) | OPC(0x2f))
 #define SD		(F3(0x3) | OPC(0x23))
 #define SLL		(F7(0x0) | F3(0x1) | OPC(0x33))
 #define SLLI		(IMM_I(0x0) | F3(0x1) | OPC(0x13))
@@ -650,6 +652,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 	case SLJIT_HAS_COPY_F64:
 #endif /* !SLJIT_CONFIG_RISCV_64 */
+	case SLJIT_HAS_ATOMIC:
 		return 1;
 	default:
 		return 0;
@@ -2573,6 +2576,7 @@ static sljit_ins get_jump_instruction(sljit_s32 type)
 	case SLJIT_SIG_GREATER:
 	case SLJIT_OVERFLOW:
 	case SLJIT_CARRY:
+	case SLJIT_ATOMIC_NOT_STORED:
 	case SLJIT_F_EQUAL:
 	case SLJIT_ORDERED_EQUAL:
 	case SLJIT_ORDERED_NOT_EQUAL:
@@ -2591,6 +2595,7 @@ static sljit_ins get_jump_instruction(sljit_s32 type)
 	case SLJIT_SIG_LESS_EQUAL:
 	case SLJIT_NOT_OVERFLOW:
 	case SLJIT_NOT_CARRY:
+	case SLJIT_ATOMIC_STORED:
 	case SLJIT_F_NOT_EQUAL:
 	case SLJIT_UNORDERED_OR_NOT_EQUAL:
 	case SLJIT_UNORDERED_OR_EQUAL:
@@ -2862,6 +2867,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 			src_r = dst_r;
 			invert ^= 0x1;
 			break;
+		case SLJIT_ATOMIC_STORED:
+		case SLJIT_ATOMIC_NOT_STORED:
+			invert ^= 0x1;
+			break;
 		}
 	} else {
 		invert = 0;
@@ -3065,6 +3074,72 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 }
 
 #undef TO_ARGW_HI
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_reg,
+	sljit_s32 mem_reg)
+{
+	sljit_ins ins;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV:
+	case SLJIT_MOV_P:
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+		ins = LR | (3 << 12);
+		break;
+#endif /* SLJIT_CONFIG_RISCV_64 */
+	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
+		ins = LR | (2 << 12);
+		break;
+
+	default:
+		return SLJIT_ERR_UNSUPPORTED;
+	}
+
+	if (op & SLJIT_ATOMIC_TEST)
+		return SLJIT_SUCCESS;
+
+	return push_inst(compiler, ins | RD(dst_reg) | RS1(mem_reg));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 src_reg,
+	sljit_s32 mem_reg,
+	sljit_s32 temp_reg)
+{
+	sljit_ins ins;
+
+	/* temp_reg == mem_reg is undefined so use another temp register */
+	SLJIT_UNUSED_ARG(temp_reg);
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV:
+	case SLJIT_MOV_P:
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+		ins = SC | (3 << 12);
+		break;
+#endif /* SLJIT_CONFIG_RISCV_64 */
+	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
+		ins = SC | (2 << 12);
+		break;
+
+	default:
+		return SLJIT_ERR_UNSUPPORTED;
+	}
+
+	if (op & SLJIT_ATOMIC_TEST)
+		return SLJIT_SUCCESS;
+
+	return push_inst(compiler, ins | RD(OTHER_FLAG) | RS1(mem_reg) | RS2(src_reg));
+}
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
 {

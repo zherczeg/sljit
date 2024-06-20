@@ -4789,6 +4789,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
+	if (GET_OPCODE(op) == SLJIT_MOV_S8 || GET_OPCODE(op) == SLJIT_MOV_S16 || GET_OPCODE(op) == SLJIT_MOV_S32)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (op & SLJIT_ATOMIC_TEST)
+		return SLJIT_SUCCESS;
+
 	SLJIT_SKIP_CHECKS(compiler);
 	return sljit_emit_op1(compiler, op, dst_reg, 0, SLJIT_MEM1(mem_reg), 0);
 }
@@ -4814,6 +4820,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	SLJIT_ASSERT(FAST_IS_REG(temp_reg) || temp_reg == SLJIT_MEM1(SLJIT_SP));
 
 	op = GET_OPCODE(op);
+
+	if (op == SLJIT_MOV_S8 || op == SLJIT_MOV_S16 || op == SLJIT_MOV_S32)
+		return SLJIT_ERR_UNSUPPORTED;
+
+	if (op & SLJIT_ATOMIC_TEST)
+		return SLJIT_SUCCESS;
+
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 	if ((src_reg & SLJIT_MEM) || (op == SLJIT_MOV_U8 && reg_map[src_reg] >= 4)) {
 		/* Src is virtual register or its low byte is not accessible. */

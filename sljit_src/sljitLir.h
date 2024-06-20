@@ -761,7 +761,7 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    a simd operation represents the same 128 bit register, and both SLJIT_FR0
    and SLJIT_FR1 are overwritten. */
 #define SLJIT_SIMD_REGS_ARE_PAIRS	13
-/* [Not emulated] Atomic support is available (fine-grained). */
+/* [Not emulated] Atomic support is available. */
 #define SLJIT_HAS_ATOMIC      14
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
@@ -2135,7 +2135,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 	sljit_s32 vreg,
 	sljit_s32 dst, sljit_sw dstw);
 
-/* The following options are used by sljit_emit_simd_op2(). */
+/* The following operations are used by sljit_emit_simd_op2(). */
 
 /* Binary 'and' operation */
 #define SLJIT_SIMD_OP2_AND		0x000001
@@ -2164,6 +2164,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 dst_vreg, sljit_s32 src1_vreg, sljit_s32 src2, sljit_sw src2w);
 
+/* The following operations are used by sljit_emit_atomic_load() and
+   sljit_emit_atomic_store() operations. */
+
+/* Tests whether the atomic operation is available (does not generate
+   any instructions). When a load from is allowed, its corresponding
+   store form is allowed and vice versa. */
+#define SLJIT_ATOMIC_TEST (SLJIT_SET_Z)
+
 /* The sljit_emit_atomic_load and sljit_emit_atomic_store operation pair
    can perform an atomic read-modify-write operation. First, an unsigned
    value must be loaded from memory using sljit_emit_atomic_load. Then,
@@ -2178,16 +2186,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *co
    is undefined:
      - the address provided in mem_reg must be divisible by the size of
        the value (only naturally aligned updates are supported)
-     - no memory writes are allowed between the load and store operations
-       regardless of its target address (currently read operations are
-       allowed, but this might change in the future)
+     - no memory operations are allowed between the load and store operations
      - the memory operation (op) and the base address (stored in mem_reg)
        passed to the load/store operations must be the same (the mem_reg
        can be a different register, only its value must be the same)
-     - an store must always follow a load for the same transaction.
+     - a store must always follow a load for the same transaction.
 
-   op must be between SLJIT_MOV and SLJIT_MOV_P, excluding all
-     signed loads such as SLJIT_MOV32_S16
+   op must be between SLJIT_MOV and SLJIT_MOV_P
    dst_reg is the register where the data will be loaded into
    mem_reg is the base address of the memory load (it cannot be
      SLJIT_SP or a virtual register on x86-32)
@@ -2201,8 +2206,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
    allows performing an atomic read-modify-write operation. See the
    description of sljit_emit_atomic_load.
 
-   op must be between SLJIT_MOV and SLJIT_MOV_P, excluding all signed
-     loads such as SLJIT_MOV32_S16
+   op must be between SLJIT_MOV and SLJIT_MOV_P
    src_reg is the register which value is stored into the memory
    mem_reg is the base address of the memory store (it cannot be
      SLJIT_SP or a virtual register on x86-32)
