@@ -249,6 +249,8 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define LDL		(HI(26))
 #define LDR		(HI(27))
 #define LDC1		(HI(53))
+#define LL		(HI(48))
+#define LLD		(HI(52))
 #define LUI		(HI(15))
 #define LW		(HI(35))
 #define LWL		(HI(34))
@@ -288,6 +290,8 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define ROTR		(HI(0) | (1 << 21) | LO(2))
 #define ROTRV		(HI(0) | (1 << 6) | LO(6))
 #endif /* SLJIT_MIPS_REV >= 2 */
+#define SC		(HI(56))
+#define SCD		(HI(60))
 #define SD		(HI(63))
 #define SDL		(HI(44))
 #define SDR		(HI(45))
@@ -857,6 +861,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_CMOV:
 	case SLJIT_HAS_PREFETCH:
+	case SLJIT_HAS_ATOMIC:
 		return 1;
 
 	case SLJIT_HAS_CTZ:
@@ -3312,6 +3317,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	case SLJIT_SIG_GREATER:
 	case SLJIT_OVERFLOW:
 	case SLJIT_CARRY:
+	case SLJIT_ATOMIC_STORED:
 		BR_Z(OTHER_FLAG);
 		break;
 	case SLJIT_GREATER_EQUAL:
@@ -3320,6 +3326,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	case SLJIT_SIG_LESS_EQUAL:
 	case SLJIT_NOT_OVERFLOW:
 	case SLJIT_NOT_CARRY:
+	case SLJIT_ATOMIC_NOT_STORED:
 		BR_NZ(OTHER_FLAG);
 		break;
 	case SLJIT_F_NOT_EQUAL:
@@ -4208,6 +4215,74 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 #undef MEM_CHECK_UNALIGNED
 
 #undef TO_ARGW_HI
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst_reg,
+	sljit_s32 mem_reg)
+{
+	sljit_ins ins;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV:
+	case SLJIT_MOV_P:
+#if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+		ins = LLD;
+		break;
+#endif /* SLJIT_CONFIG_RISCV_64 */
+	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
+		ins = LL;
+		break;
+
+	default:
+		return SLJIT_ERR_UNSUPPORTED;
+	}
+
+	if (op & SLJIT_ATOMIC_TEST)
+		return SLJIT_SUCCESS;
+
+	return push_inst(compiler, ins | T(dst_reg) | S(mem_reg), DR(dst_reg));
+}
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 src_reg,
+	sljit_s32 mem_reg,
+	sljit_s32 temp_reg)
+{
+	sljit_ins ins;
+
+	/* temp_reg == mem_reg is undefined so use another temp register */
+	SLJIT_UNUSED_ARG(temp_reg);
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV:
+	case SLJIT_MOV_P:
+#if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
+		ins = SCD;
+		break;
+#endif /* SLJIT_CONFIG_RISCV_64 */
+	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
+		op |= SLJIT_32;
+		ins = SC;
+		break;
+
+	default:
+		return SLJIT_ERR_UNSUPPORTED;
+	}
+
+	if (op & SLJIT_ATOMIC_TEST)
+		return SLJIT_SUCCESS;
+
+	FAIL_IF(push_inst(compiler, SELECT_OP(DADDU, ADDU) | S(src_reg) | TA(0) | DA(OTHER_FLAG), OTHER_FLAG));
+	return push_inst(compiler, ins | TA(OTHER_FLAG) | S(mem_reg), OTHER_FLAG);
+}
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
 {

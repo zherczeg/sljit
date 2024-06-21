@@ -2179,9 +2179,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *co
    sljit_emit_atomic_store. A thread can only perform a single atomic
    operation at a time.
 
-   Note: atomic operations are experimental, and not implemented
-         for all cpus.
-
    The following conditions must be satisfied, or the operation
    is undefined:
      - the address provided in mem_reg must be divisible by the size of
@@ -2215,8 +2212,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
      corresponding sljit_emit_atomic_load operation, or the operation
      is undefined
 
-   Flags: ATOMIC_STORED is set if the operation is successful,
-     otherwise the memory remains unchanged. */
+   Flags: ATOMIC_STORED
+     if ATOMIC_STORED flag is set, it represents that the memory
+     is updated with a new value. Otherwise the memory is unchanged. */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 src_reg,
 	sljit_s32 mem_reg,
