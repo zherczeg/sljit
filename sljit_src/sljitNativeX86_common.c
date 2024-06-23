@@ -401,6 +401,11 @@ static sljit_u32 cpu_feature_list = 0;
 #include <intrin.h>
 #endif
 
+#if (defined(_MSC_VER) && _MSC_VER >= 1400) || defined(__INTEL_COMPILER) \
+	|| (defined(__INTEL_LLVM_COMPILER) && defined(__XSAVE__))
+#include <immintrin.h>
+#endif
+
 /******************************************************/
 /*    Unaligned-store functions                       */
 /******************************************************/
@@ -496,11 +501,32 @@ static sljit_u32 execute_get_xcr0_low(void)
 {
 	sljit_u32 xcr0;
 
-#if defined(_MSC_VER) && _MSC_VER >= 1400
+#if (defined(_MSC_VER) && _MSC_VER >= 1400) || defined(__INTEL_COMPILER) \
+	|| (defined(__INTEL_LLVM_COMPILER) && defined(__XSAVE__))
 
 	xcr0 = (sljit_u32)_xgetbv(0);
 
-#elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C) || defined(__TINYC__)
+#elif defined(__TINYC__)
+
+	__asm__ (
+		"xorl %%ecx, %%ecx\n"
+		".byte 0x0f\n"
+		".byte 0x01\n"
+		".byte 0xd0\n"
+		"movl %%eax, %0\n"
+		: "+m" (xcr0)
+		:
+#if defined(SLJIT_CONFIG_X86_32) && SLJIT_CONFIG_X86_32
+		: "eax", "ecx", "edx"
+#else /* !SLJIT_CONFIG_X86_32 */
+		: "rax", "rcx", "rdx"
+#endif /* SLJIT_CONFIG_X86_32 */
+	);
+
+#elif (defined(__INTEL_LLVM_COMPILER) && __INTEL_LLVM_COMPILER < 20220100) \
+	|| (defined(__clang__) && __clang_major__ < 14) \
+	|| (defined(__GNUC__) && __GNUC__ < 3) \
+	|| defined(__SUNPRO_C) || defined(__SUNPRO_CC)
 
 	/* AT&T syntax. */
 	__asm__ (
@@ -508,23 +534,37 @@ static sljit_u32 execute_get_xcr0_low(void)
 		"xgetbv\n"
 		: "=a" (xcr0)
 		:
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+#if defined(SLJIT_CONFIG_X86_32) && SLJIT_CONFIG_X86_32
 		: "ecx", "edx"
 #else /* !SLJIT_CONFIG_X86_32 */
 		: "rcx", "rdx"
 #endif /* SLJIT_CONFIG_X86_32 */
 	);
 
-#else /* _MSC_VER < 1400 */
+#elif defined(_MSC_VER)
 
 	/* Intel syntax. */
 	__asm {
-		mov ecx, 0
+		xor ecx, ecx
 		xgetbv
 		mov xcr0, eax
 	}
 
-#endif /* _MSC_VER && _MSC_VER >= 1400 */
+#else
+
+	__asm__ (
+		"xor{l %%ecx, %%ecx | ecx, ecx}\n"
+		"xgetbv\n"
+		: "=a" (xcr0)
+		:
+#if defined(SLJIT_CONFIG_X86_32) && SLJIT_CONFIG_X86_32
+		: "ecx", "edx"
+#else /* !SLJIT_CONFIG_X86_32 */
+		: "rcx", "rdx"
+#endif /* SLJIT_CONFIG_X86_32 */
+	);
+
+#endif
 	return xcr0;
 }
 
