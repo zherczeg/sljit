@@ -399,6 +399,8 @@ static sljit_u32 cpu_feature_list = 0;
 #include <cmnintrin.h>
 #elif defined(_MSC_VER) && _MSC_VER >= 1400
 #include <intrin.h>
+#elif defined(__INTEL_COMPILER)
+#include <cpuid.h>
 #endif
 
 #if (defined(_MSC_VER) && _MSC_VER >= 1400) || defined(__INTEL_COMPILER) \
@@ -431,49 +433,20 @@ static SLJIT_INLINE void sljit_unaligned_store_sw(void *addr, sljit_sw value)
 
 static void execute_cpu_id(sljit_u32 info[4])
 {
-#if defined(_MSC_VER) && _MSC_VER >= 1400
+#if (defined(_MSC_VER) && _MSC_VER >= 1400) \
+	|| (defined(__INTEL_COMPILER) && __INTEL_COMPILER == 2021 && __INTEL_COMPILER_UPDATE >= 7)
 
 	__cpuidex((int*)info, (int)info[0], (int)info[2]);
 
-#elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_C) || defined(__TINYC__)
+#elif (defined(__INTEL_COMPILER) && __INTEL_COMPILER >= 1900)
 
-	/* AT&T syntax. */
-	__asm__ (
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		"movl %0, %%esi\n"
-		"movl (%%esi), %%eax\n"
-		"movl 8(%%esi), %%ecx\n"
-		"pushl %%ebx\n"
-		"cpuid\n"
-		"movl %%eax, (%%esi)\n"
-		"movl %%ebx, 4(%%esi)\n"
-		"popl %%ebx\n"
-		"movl %%ecx, 8(%%esi)\n"
-		"movl %%edx, 12(%%esi)\n"
-#else /* !SLJIT_CONFIG_X86_32 */
-		"movq %0, %%rsi\n"
-		"movl (%%rsi), %%eax\n"
-		"movl 8(%%rsi), %%ecx\n"
-		"cpuid\n"
-		"movl %%eax, (%%rsi)\n"
-		"movl %%ebx, 4(%%rsi)\n"
-		"movl %%ecx, 8(%%rsi)\n"
-		"movl %%edx, 12(%%rsi)\n"
-#endif /* SLJIT_CONFIG_X86_32 */
-		:
-		: "r" (info)
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
-		: "memory", "eax", "ecx", "edx", "esi"
-#else /* !SLJIT_CONFIG_X86_32 */
-		: "memory", "rax", "rbx", "rcx", "rdx", "rsi"
-#endif /* SLJIT_CONFIG_X86_32 */
-	);
+	__get_cpuid_count(info[0], info[2], info, info + 1, info + 2, info + 3);
 
-#else /* _MSC_VER < 1400 */
+#elif (defined(_MSC_VER) || defined(__INTEL_COMPILER)) \
+	&& (defined(SLJIT_CONFIG_X86_32) && SLJIT_CONFIG_X86_32)
 
 	/* Intel syntax. */
 	__asm {
-#if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		mov esi, info
 		mov eax, [esi]
 		mov ecx, [esi + 8]
@@ -482,19 +455,17 @@ static void execute_cpu_id(sljit_u32 info[4])
 		mov [esi + 4], ebx
 		mov [esi + 8], ecx
 		mov [esi + 12], edx
-#else /* !SLJIT_CONFIG_X86_32 */
-		mov rsi, info
-		mov eax, [rsi]
-		mov ecx, [rsi + 8]
-		cpuid
-		mov [rsi], eax
-		mov [rsi + 4], ebx
-		mov [rsi + 8], ecx
-		mov [rsi + 12], edx
-#endif /* SLJIT_CONFIG_X86_32 */
 	}
 
-#endif /* _MSC_VER && _MSC_VER >= 1400 */
+#else
+
+	__asm__ __volatile__ (
+		"cpuid\n"
+		: "=a" (info[0]), "=b" (info[1]), "=c" (info[2]), "=d" (info[3])
+		: "0" (info[0]), "2" (info[2])
+	);
+
+#endif
 }
 
 static sljit_u32 execute_get_xcr0_low(void)
@@ -513,13 +484,12 @@ static sljit_u32 execute_get_xcr0_low(void)
 		".byte 0x0f\n"
 		".byte 0x01\n"
 		".byte 0xd0\n"
-		"movl %%eax, %0\n"
-		: "+m" (xcr0)
+		: "=a" (xcr0)
 		:
 #if defined(SLJIT_CONFIG_X86_32) && SLJIT_CONFIG_X86_32
-		: "eax", "ecx", "edx"
+		: "ecx", "edx"
 #else /* !SLJIT_CONFIG_X86_32 */
-		: "rax", "rcx", "rdx"
+		: "rcx", "rdx"
 #endif /* SLJIT_CONFIG_X86_32 */
 	);
 
