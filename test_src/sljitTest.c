@@ -8116,8 +8116,8 @@ static void test70(void)
 		sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 0, 1, SLJIT_NUMBER_OF_FLOAT_REGISTERS, 0, 0);
 
 		i = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_64 | SLJIT_SIMD_FLOAT | SLJIT_SIMD_MEM_ALIGNED_64;
-		sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | i, SLJIT_TMP_FR0, SLJIT_MEM1(SLJIT_S0), 0);
-		sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | i, SLJIT_TMP_FR0, SLJIT_MEM1(SLJIT_S0), 16);
+		sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | i, SLJIT_TMP_VR0, SLJIT_MEM1(SLJIT_S0), 0);
+		sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | i, SLJIT_TMP_VR0, SLJIT_MEM1(SLJIT_S0), 16);
 
 		sljit_emit_return_void(compiler);
 
