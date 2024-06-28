@@ -348,6 +348,7 @@ lower parts in the instruction word, denoted by the “L” and “H” suffixes
 #define VREPLGR2VR OPC_2R(0x1ca7c0)
 #define VREPLVE OPC_3R(0xe244)
 #define VREPLVEI OPC_2R(0x1cbde0)
+#define VSHUF_B OPC_4R(0xd5)
 #define XVPERMI OPC_2RI8(0x1dfa)
 
 #define I12_MAX (0x7ff)
@@ -3556,14 +3557,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *compiler, sljit_s32 type,
-	sljit_s32 dst_vreg, sljit_s32 src1_vreg, sljit_s32 src2_vreg)
+	sljit_s32 dst_vreg, sljit_s32 src1_vreg, sljit_s32 src2, sljit_sw src2w)
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
 	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
 	sljit_ins ins = 0;
 
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_simd_op2(compiler, type, dst_vreg, src1_vreg, src2_vreg));
+	CHECK(check_sljit_emit_simd_op2(compiler, type, dst_vreg, src1_vreg, src2, src2w));
+	ADJUST_LOCAL_OFFSET(src2, src2w);
 
 	if (reg_size != 5 && reg_size != 4)
 		return SLJIT_ERR_UNSUPPORTED;
@@ -3577,6 +3579,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *co
 	if (type & SLJIT_SIMD_TEST)
 		return SLJIT_SUCCESS;
 
+	if (src2 & SLJIT_MEM) {
+		FAIL_IF(sljit_emit_simd_mem_offset(compiler, &src2, src2w));
+		FAIL_IF(push_inst(compiler, (reg_size == 4 ? VLD : XVLD) | FRD(TMP_FREG1) | RJ(src2) | IMM_I12(0)));
+		src2 = TMP_FREG1;
+	}
+
 	switch (SLJIT_SIMD_GET_OPCODE(type)) {
 	case SLJIT_SIMD_OP2_AND:
 		ins = VAND_V;
@@ -3587,12 +3595,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *co
 	case SLJIT_SIMD_OP2_XOR:
 		ins = VXOR_V;
 		break;
+	case SLJIT_SIMD_OP2_SHUFFLE:
+		if (reg_size != 4)
+			return SLJIT_ERR_UNSUPPORTED;
+
+		return push_inst(compiler, VSHUF_B | FRD(dst_vreg) | FRJ(src1_vreg) | FRK(src1_vreg) | FRA(src2));
 	}
 
 	if (reg_size == 5)
 		ins |= (sljit_ins)1 << 26;
 
-	return push_inst(compiler, ins | FRD(dst_vreg) | FRJ(src1_vreg) | FRK(src2_vreg));
+	return push_inst(compiler, ins | FRD(dst_vreg) | FRJ(src1_vreg) | FRK(src2));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler,
