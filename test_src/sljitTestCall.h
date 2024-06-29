@@ -254,7 +254,7 @@ static void test_call3(void)
 {
 	/* Check function calls with floating point arguments. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	struct sljit_jump* jump = NULL;
 	sljit_f64 dbuf[7];
 	sljit_f32 sbuf[7];
@@ -270,6 +270,7 @@ static void test_call3(void)
 		return;
 	}
 
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	dbuf[0] = 5.25;
