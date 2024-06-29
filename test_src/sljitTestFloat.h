@@ -2623,7 +2623,7 @@ static void test_float21(void)
 {
 	/* Test f64 as f32 register pair access. */
 	executable_code code;
-	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	struct sljit_compiler* compiler;
 	sljit_f32 buf[10];
 	sljit_sw num;
 	sljit_s32 i;
@@ -2638,6 +2638,7 @@ static void test_float21(void)
 		return;
 	}
 
+	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = -45.25;
