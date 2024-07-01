@@ -3900,7 +3900,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 		}
 	}
 
-	if (use_vex && elem_size >= 2) {
+	if ((cpu_feature_list & CPU_FEATURE_AVX2) && use_vex && elem_size >= 2) {
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 		op = VPBROADCASTD_x_xm;
 #else /* !SLJIT_CONFIG_X86_32 */
