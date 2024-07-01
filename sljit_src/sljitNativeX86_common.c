@@ -3692,7 +3692,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 {
 	sljit_s32 reg_size = SLJIT_SIMD_GET_REG_SIZE(type);
 	sljit_s32 elem_size = SLJIT_SIMD_GET_ELEM_SIZE(type);
-	sljit_s32 use_vex = (cpu_feature_list & CPU_FEATURE_AVX) && (compiler->options & SLJIT_ENTER_USE_VEX);
+	sljit_s32 use_vex = (cpu_feature_list & CPU_FEATURE_AVX2) && (compiler->options & SLJIT_ENTER_USE_VEX);
 	sljit_u8 *inst;
 	sljit_u8 opcode = 0;
 	sljit_uw op;
