@@ -560,6 +560,10 @@ static void get_cpu_features(void)
 
 	if (max_id >= 1) {
 		info[0] = 1;
+#if defined(SLJIT_CONFIG_X86_32) && SLJIT_CONFIG_X86_32
+		/* Winchip 2 and Cyrix MII bugs */
+		info[1] = info[2] = 0;
+#endif
 		execute_cpu_id(info);
 
 		if (info[2] & 0x80000)
@@ -576,11 +580,17 @@ static void get_cpu_features(void)
 			feature_list |= CPU_FEATURE_CMOV;
 	}
 
-	info[0] = 0x80000001;
+	info[0] = 0x80000000;
 	execute_cpu_id(info);
+	max_id = info[0];
 
-	if (info[2] & 0x20)
-		feature_list |= CPU_FEATURE_LZCNT;
+	if (max_id >= 0x80000001) {
+		info[0] = 0x80000001;
+		execute_cpu_id(info);
+
+		if (info[2] & 0x20)
+			feature_list |= CPU_FEATURE_LZCNT;
+	}
 
 	if ((feature_list & CPU_FEATURE_OSXSAVE) && (execute_get_xcr0_low() & 0x4) == 0)
 		feature_list &= ~(sljit_u32)(CPU_FEATURE_AVX | CPU_FEATURE_AVX2);
