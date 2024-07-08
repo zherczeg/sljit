@@ -3283,41 +3283,50 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
+#ifndef __ARM_FEATURE_ATOMICS
+	if (op & SLJIT_ATOMIC_USE_CAS)
+		return SLJIT_ERR_UNSUPPORTED;
+#endif /* ARM_FEATURE_ATOMICS */
+
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV_S8:
 	case SLJIT_MOV_S16:
 	case SLJIT_MOV_S32:
 		return SLJIT_ERR_UNSUPPORTED;
 
+	case SLJIT_MOV32:
+	case SLJIT_MOV_U32:
 #ifdef __ARM_FEATURE_ATOMICS
-	case SLJIT_MOV32:
-	case SLJIT_MOV_U32:
-		ins = LDR ^ (1 << 30);
-		break;
-	case SLJIT_MOV_U16:
-		ins = LDRH;
-		break;
-	case SLJIT_MOV_U8:
-		ins = LDRB;
-		break;
-	default:
-		ins = LDR;
-		break;
-#else /* !__ARM_FEATURE_ATOMICS */
-	case SLJIT_MOV32:
-	case SLJIT_MOV_U32:
-		ins = LDXR ^ (1 << 30);
-		break;
-	case SLJIT_MOV_U8:
-		ins = LDXRB;
-		break;
-	case SLJIT_MOV_U16:
-		ins = LDXRH;
-		break;
-	default:
-		ins = LDXR;
-		break;
+		if (!(op & SLJIT_ATOMIC_USE_LS))
+			ins = LDR ^ (1 << 30);
+		else
 #endif /* ARM_FEATURE_ATOMICS */
+			ins = LDXR ^ (1 << 30);
+		break;
+	case SLJIT_MOV_U8:
+#ifdef __ARM_FEATURE_ATOMICS
+		if (!(op & SLJIT_ATOMIC_USE_LS))
+			ins = LDRB;
+		else
+#endif /* ARM_FEATURE_ATOMICS */
+			ins = LDXRB;
+		break;
+	case SLJIT_MOV_U16:
+#ifdef __ARM_FEATURE_ATOMICS
+		if (!(op & SLJIT_ATOMIC_USE_LS))
+			ins = LDRH;
+		else
+#endif /* ARM_FEATURE_ATOMICS */
+			ins = LDXRH;
+		break;
+	default:
+#ifdef __ARM_FEATURE_ATOMICS
+		if (!(op & SLJIT_ATOMIC_USE_LS))
+			ins = LDR;
+		else
+#endif /* ARM_FEATURE_ATOMICS */
+			ins = LDXR;
+		break;
 	}
 
 	if (op & SLJIT_ATOMIC_TEST)
@@ -3338,44 +3347,50 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
 
 #ifdef __ARM_FEATURE_ATOMICS
-	if (op & SLJIT_SET_ATOMIC_STORED)
-		cmp = (SUBS ^ W_OP) | RD(TMP_ZERO);
+	if (!(op & SLJIT_ATOMIC_USE_LS)) {
+		if (op & SLJIT_SET_ATOMIC_STORED)
+			cmp = (SUBS ^ W_OP) | RD(TMP_ZERO);
 
-	switch (GET_OPCODE(op)) {
-	case SLJIT_MOV_S8:
-	case SLJIT_MOV_S16:
-	case SLJIT_MOV_S32:
-		return SLJIT_ERR_UNSUPPORTED;
+		switch (GET_OPCODE(op)) {
+		case SLJIT_MOV_S8:
+		case SLJIT_MOV_S16:
+		case SLJIT_MOV_S32:
+			return SLJIT_ERR_UNSUPPORTED;
 
-	case SLJIT_MOV32:
-	case SLJIT_MOV_U32:
-		ins = CAS ^ (1 << 30);
-		break;
-	case SLJIT_MOV_U16:
-		ins = CASH;
-		break;
-	case SLJIT_MOV_U8:
-		ins = CASB;
-		break;
-	default:
-		ins = CAS;
+		case SLJIT_MOV32:
+		case SLJIT_MOV_U32:
+			ins = CAS ^ (1 << 30);
+			break;
+		case SLJIT_MOV_U16:
+			ins = CASH;
+			break;
+		case SLJIT_MOV_U8:
+			ins = CASB;
+			break;
+		default:
+			ins = CAS;
+			if (cmp)
+				cmp ^= W_OP;
+			break;
+		}
+
+		if (op & SLJIT_ATOMIC_TEST)
+			return SLJIT_SUCCESS;
+
 		if (cmp)
-			cmp ^= W_OP;
-		break;
+			FAIL_IF(push_inst(compiler, ((MOV ^ W_OP) ^ (cmp & W_OP)) | RM(temp_reg) | RD(TMP_REG1)));
+
+		FAIL_IF(push_inst(compiler, ins | RM(temp_reg) | RN(mem_reg) | RD(src_reg)));
+		if (!cmp)
+			return SLJIT_SUCCESS;
+
+		return push_inst(compiler, cmp | RM(TMP_REG1) | RN(temp_reg));
 	}
-
-	if (op & SLJIT_ATOMIC_TEST)
-		return SLJIT_SUCCESS;
-
-	if (cmp)
-		FAIL_IF(push_inst(compiler, ((MOV ^ W_OP) ^ (cmp & W_OP)) | RM(temp_reg) | RD(TMP_REG1)));
-
-	FAIL_IF(push_inst(compiler, ins | RM(temp_reg) | RN(mem_reg) | RD(src_reg)));
-	if (!cmp)
-		return SLJIT_SUCCESS;
-
-	return push_inst(compiler, cmp | RM(TMP_REG1) | RN(temp_reg));
 #else /* !__ARM_FEATURE_ATOMICS */
+	if (op & SLJIT_ATOMIC_USE_CAS)
+		return SLJIT_ERR_UNSUPPORTED;
+#endif /* __ARM_FEATURE_ATOMICS */
+
 	if (op & SLJIT_SET_ATOMIC_STORED)
 		cmp = (SUBI ^ W_OP) | (1 << 29);
 
@@ -3407,7 +3422,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	if (!cmp)
 		return SLJIT_SUCCESS;
 	return push_inst(compiler, cmp | RD(TMP_ZERO) | RN(TMP_REG2));
-#endif /* __ARM_FEATURE_ATOMICS */
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_local_base(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw offset)

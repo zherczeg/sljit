@@ -2170,7 +2170,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *co
 /* Tests whether the atomic operation is available (does not generate
    any instructions). When a load from is allowed, its corresponding
    store form is allowed and vice versa. */
-#define SLJIT_ATOMIC_TEST (SLJIT_SET_Z)
+#define SLJIT_ATOMIC_TEST 0x10000
+/* The compiler must generate compare and swap instruction.
+   When this bit is set, calling sljit_emit_atomic_load() is optional. */
+#define SLJIT_ATOMIC_USE_CAS 0x20000
+/* The compiler must generate load-acquire and store-release instructions.
+   When this bit is set, the temp_reg for sljit_emit_atomic_store is not used. */
+#define SLJIT_ATOMIC_USE_LS 0x40000
 
 /* The sljit_emit_atomic_load and sljit_emit_atomic_store operation pair
    can perform an atomic read-modify-write operation. First, an unsigned

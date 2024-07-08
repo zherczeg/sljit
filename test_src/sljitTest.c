@@ -7507,8 +7507,8 @@ static void test69(void)
 	struct sljit_compiler *compiler;
 	struct sljit_label *label;
 	struct sljit_jump *jump;
-	sljit_u8 supported[9];
-	sljit_sw buf[48];
+	sljit_u8 supported[11];
+	sljit_sw buf[52];
 	sljit_s32 i;
 
 	if (verbose)
@@ -7547,6 +7547,8 @@ static void test69(void)
 #endif /* IS_64BIT */
 	buf[41] = WCONST(0x37b57b57b57b57b5, 0x37b57b57);
 	((sljit_s32*)(buf + 46))[0] = -8241;
+	buf[48] = 98765;
+	buf[50] = 87654;
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 5, 5, 0, 0, 2 * sizeof(sljit_sw));
 
@@ -7554,14 +7556,27 @@ static void test69(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 0);
 	supported[0] = sljit_emit_atomic_load(compiler, SLJIT_MOV | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R1) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[0] == (sljit_emit_atomic_store(compiler, SLJIT_MOV | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R1, SLJIT_R2) != SLJIT_ERR_UNSUPPORTED));
 	supported[1] = sljit_emit_atomic_load(compiler, SLJIT_MOV_U8 | SLJIT_ATOMIC_TEST, SLJIT_R2, SLJIT_R1) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[1] == (sljit_emit_atomic_store(compiler, SLJIT_MOV_U8 | SLJIT_ATOMIC_TEST, SLJIT_R2, SLJIT_R1, SLJIT_R0) != SLJIT_ERR_UNSUPPORTED));
 	supported[2] = sljit_emit_atomic_load(compiler, SLJIT_MOV32_U8 | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R0) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[2] == (sljit_emit_atomic_store(compiler, SLJIT_MOV32_U8 | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R0, SLJIT_R1) != SLJIT_ERR_UNSUPPORTED));
 	supported[3] = sljit_emit_atomic_load(compiler, SLJIT_MOV_U16 | SLJIT_ATOMIC_TEST, SLJIT_R1, SLJIT_R2) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[3] == (sljit_emit_atomic_store(compiler, SLJIT_MOV_U16 | SLJIT_ATOMIC_TEST, SLJIT_R1, SLJIT_R2, SLJIT_R0) != SLJIT_ERR_UNSUPPORTED));
 	supported[4] = sljit_emit_atomic_load(compiler, SLJIT_MOV32_U16 | SLJIT_ATOMIC_TEST, SLJIT_R1, SLJIT_R0) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[4] == (sljit_emit_atomic_store(compiler, SLJIT_MOV32_U16 | SLJIT_ATOMIC_TEST, SLJIT_R1, SLJIT_R0, SLJIT_R2) != SLJIT_ERR_UNSUPPORTED));
 	supported[5] = sljit_emit_atomic_load(compiler, SLJIT_MOV_U32 | SLJIT_ATOMIC_TEST, SLJIT_R2, SLJIT_R0) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[5] == (sljit_emit_atomic_store(compiler, SLJIT_MOV_U32 | SLJIT_ATOMIC_TEST, SLJIT_R2, SLJIT_R0, SLJIT_R1) != SLJIT_ERR_UNSUPPORTED));
 	supported[6] = sljit_emit_atomic_load(compiler, SLJIT_MOV_S32 | SLJIT_ATOMIC_TEST, SLJIT_R2, SLJIT_R0) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[6] == (sljit_emit_atomic_store(compiler, SLJIT_MOV_S32 | SLJIT_ATOMIC_TEST, SLJIT_R2, SLJIT_R0, SLJIT_R1) != SLJIT_ERR_UNSUPPORTED));
 	supported[7] = sljit_emit_atomic_load(compiler, SLJIT_MOV32 | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R1) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[7] == (sljit_emit_atomic_store(compiler, SLJIT_MOV32 | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R1, SLJIT_R2) != SLJIT_ERR_UNSUPPORTED));
 	supported[8] = sljit_emit_atomic_load(compiler, SLJIT_MOV_P | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R2) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[8] == (sljit_emit_atomic_store(compiler, SLJIT_MOV_P | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R2, SLJIT_R1) != SLJIT_ERR_UNSUPPORTED));
+	supported[9] = sljit_emit_atomic_load(compiler, SLJIT_MOV | SLJIT_ATOMIC_USE_CAS | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R1) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[9] == (sljit_emit_atomic_store(compiler, SLJIT_MOV | SLJIT_ATOMIC_USE_CAS | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R1, SLJIT_R2) != SLJIT_ERR_UNSUPPORTED));
+	supported[10] = sljit_emit_atomic_load(compiler, SLJIT_MOV | SLJIT_ATOMIC_USE_LS | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R1) != SLJIT_ERR_UNSUPPORTED;
+	SLJIT_ASSERT(supported[10] == (sljit_emit_atomic_store(compiler, SLJIT_MOV | SLJIT_ATOMIC_USE_LS | SLJIT_ATOMIC_TEST, SLJIT_R0, SLJIT_R1, SLJIT_R2) != SLJIT_ERR_UNSUPPORTED));
 	SLJIT_ASSERT(supported[0] != 0 && supported[7] != 0);
 
 	if (supported[0]) {
@@ -7855,6 +7870,30 @@ static void test69(void)
 		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 47 * sizeof(sljit_sw), SLJIT_S1, 0);
 	}
 
+	if (supported[9]) {
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 98765);
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R1, 0, SLJIT_S0, 0, SLJIT_IMM, 48 * sizeof(sljit_sw));
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, -76543);
+		label = sljit_emit_label(compiler);
+		/* buf[48] */
+		sljit_emit_atomic_store(compiler, SLJIT_MOV | SLJIT_ATOMIC_USE_CAS | SLJIT_SET_ATOMIC_STORED, SLJIT_R2, SLJIT_R1, SLJIT_R0);
+		sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
+		/* buf[49] */
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 49 * sizeof(sljit_sw), SLJIT_R0, 0);
+	}
+
+	if (supported[10]) {
+		sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_S1, 0, SLJIT_S0, 0, SLJIT_IMM, 50 * sizeof(sljit_sw));
+		label = sljit_emit_label(compiler);
+		sljit_emit_atomic_load(compiler, SLJIT_MOV | SLJIT_ATOMIC_USE_LS, SLJIT_R2, SLJIT_S1);
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, -65432);
+		/* buf[50] */
+		sljit_emit_atomic_store(compiler, SLJIT_MOV | SLJIT_ATOMIC_USE_LS | SLJIT_SET_ATOMIC_STORED, SLJIT_R1, SLJIT_S1, SLJIT_R1);
+		sljit_set_label(sljit_emit_jump(compiler, SLJIT_ATOMIC_NOT_STORED), label);
+		/* buf[51] */
+		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 51 * sizeof(sljit_sw), SLJIT_R2, 0);
+	}
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);
@@ -7970,6 +8009,14 @@ static void test69(void)
 		FAILED(((sljit_s32*)(buf + 46))[1] != 0x55555555, "test69 case 62 failed\n");
 #endif /* IS_64BIT */
 		FAILED(buf[47] != -8241, "test69 case 63 failed\n");
+	}
+	if (supported[9]) {
+		FAILED(buf[48] != -76543, "test69 case 64 failed\n");
+		FAILED(buf[49] != 98765, "test69 case 65 failed\n");
+	}
+	if (supported[10]) {
+		FAILED(buf[50] != -65432, "test69 case 66 failed\n");
+		FAILED(buf[51] != 87654, "test69 case 67 failed\n");
 	}
 
 	sljit_free_code(code.code, NULL);

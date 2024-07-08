@@ -3124,6 +3124,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
+	if (op & SLJIT_ATOMIC_USE_CAS)
+		return SLJIT_ERR_UNSUPPORTED;
+
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
 	case SLJIT_MOV_P:
@@ -3158,6 +3161,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
+
+	if (op & SLJIT_ATOMIC_USE_CAS)
+		return SLJIT_ERR_UNSUPPORTED;
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
