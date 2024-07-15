@@ -8797,6 +8797,20 @@ static void test74(void)
 	/* buf[15] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 15 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0x7c29c29c29c29c29, 0x7c29c29c));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 0xffff00);
+	/* Only SUB and AND supported for op2u. */
+	sljit_emit_op2u(compiler, SLJIT_AND | SLJIT_SET_Z, SLJIT_R1, 0, SLJIT_IMM, 12);
+	/* Not all target registers are supported. */
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_NOT_ZERO);
+	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_LESS, SLJIT_R1, 0, SLJIT_IMM, 12);
+	/* buf[16] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 16 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+	/* buf[17] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 17 * sizeof(sljit_sw), SLJIT_R0, 0);
+	/* buf[18] */
+	sljit_emit_op_flags(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 18 * sizeof(sljit_sw), SLJIT_LESS);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);
@@ -8821,6 +8835,9 @@ static void test74(void)
 	FAILED(buf[13] != WCONST(0x4752752752752752, 0x47527527), "test74 case 14 failed\n");
 	FAILED(buf[14] != WCONST(0x53c43c43c43c43c4, 0x53c43c43), "test74 case 15 failed\n");
 	FAILED(buf[15] != WCONST(0x5f82f82f82f82f82, 0x5f82f82f), "test74 case 16 failed\n");
+	FAILED(buf[16] != WCONST(0x7c29c29c29c29c29, 0x7c29c29c), "test74 case 17 failed\n");
+	FAILED(buf[17] != 0, "test74 case 18 failed\n");
+	FAILED(buf[18] != 0, "test74 case 18 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
