@@ -140,7 +140,9 @@
 #define REG_PAIR_SECOND(reg)	((reg) >> 8)
 
 /* Mask for sljit_emit_enter. */
-#define SLJIT_KEPT_SAVEDS_COUNT(options) ((options) & 0x3)
+#define ENTER_GET_REGS(regs)			((regs) & 0xff)
+#define ENTER_GET_FLOAT_REGS(regs)		(((regs) >> 8) & 0xff)
+#define SLJIT_KEPT_SAVEDS_COUNT(options)	((options) & 0x3)
 
 /* Getters for simd operations, which returns with log2(size). */
 #define SLJIT_SIMD_GET_OPCODE(type)		((type) & 0xff)
@@ -754,17 +756,17 @@ static SLJIT_INLINE sljit_uw sljit_get_next_min(sljit_uw next_label_size,
 #endif /* !SLJIT_CONFIG_X86 */
 
 static SLJIT_INLINE void set_emit_enter(struct sljit_compiler *compiler,
-	sljit_s32 options, sljit_s32 args, sljit_s32 scratches, sljit_s32 saveds,
-	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
+	sljit_s32 options, sljit_s32 args,
+	sljit_s32 scratches, sljit_s32 saveds, sljit_s32 local_size)
 {
 	SLJIT_UNUSED_ARG(args);
 	SLJIT_UNUSED_ARG(local_size);
 
 	compiler->options = options;
-	compiler->scratches = scratches;
-	compiler->saveds = saveds;
-	compiler->fscratches = fscratches;
-	compiler->fsaveds = fsaveds;
+	compiler->scratches = ENTER_GET_REGS(scratches);
+	compiler->saveds = ENTER_GET_REGS(saveds);
+	compiler->fscratches = ENTER_GET_FLOAT_REGS(scratches);
+	compiler->fsaveds = ENTER_GET_FLOAT_REGS(saveds);
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	compiler->last_return = args & SLJIT_ARG_MASK;
 	compiler->logical_local_size = local_size;
@@ -772,17 +774,17 @@ static SLJIT_INLINE void set_emit_enter(struct sljit_compiler *compiler,
 }
 
 static SLJIT_INLINE void set_set_context(struct sljit_compiler *compiler,
-	sljit_s32 options, sljit_s32 args, sljit_s32 scratches, sljit_s32 saveds,
-	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
+	sljit_s32 options, sljit_s32 args,
+	sljit_s32 scratches, sljit_s32 saveds, sljit_s32 local_size)
 {
 	SLJIT_UNUSED_ARG(args);
 	SLJIT_UNUSED_ARG(local_size);
 
 	compiler->options = options;
-	compiler->scratches = scratches;
-	compiler->saveds = saveds;
-	compiler->fscratches = fscratches;
-	compiler->fsaveds = fsaveds;
+	compiler->scratches = ENTER_GET_REGS(scratches);
+	compiler->saveds = ENTER_GET_REGS(saveds);
+	compiler->fscratches = ENTER_GET_FLOAT_REGS(scratches);
+	compiler->fsaveds = ENTER_GET_FLOAT_REGS(saveds);
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	compiler->last_return = args & SLJIT_ARG_MASK;
 	compiler->logical_local_size = local_size;
@@ -1270,9 +1272,15 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_generate_code(struct sljit_com
 #endif /* !SLJIT_CONFIG_X86 */
 
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compiler *compiler,
-	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
-	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
+	sljit_s32 options, sljit_s32 arg_types,
+	sljit_s32 scratches, sljit_s32 saveds, sljit_s32 local_size)
 {
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	sljit_s32 real_scratches = ENTER_GET_REGS(scratches);
+	sljit_s32 real_saveds = ENTER_GET_REGS(saveds);
+	sljit_s32 real_fscratches = ENTER_GET_FLOAT_REGS(scratches);
+	sljit_s32 real_fsaveds = ENTER_GET_FLOAT_REGS(saveds);
+#endif
 	SLJIT_UNUSED_ARG(compiler);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
@@ -1282,15 +1290,17 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 		CHECK_ARGUMENT((options & ~SLJIT_ENTER_CPU_SPECIFIC_OPTIONS) == 0);
 	}
 	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 3 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
-	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
-	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
-	CHECK_ARGUMENT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
-	CHECK_ARGUMENT(fscratches >= 0 && fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
-	CHECK_ARGUMENT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
-	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
+	CHECK_ARGUMENT((scratches & ~0xffff) == 0 && (saveds & ~0xffff) == 0);
+	CHECK_ARGUMENT(real_scratches >= 0 && real_scratches <= SLJIT_NUMBER_OF_REGISTERS);
+	CHECK_ARGUMENT(real_saveds >= 0 && real_saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
+	CHECK_ARGUMENT(real_scratches + real_saveds <= SLJIT_NUMBER_OF_REGISTERS);
+	CHECK_ARGUMENT(real_fscratches >= 0 && real_fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
+	CHECK_ARGUMENT(real_fsaveds >= 0 && real_fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
+	CHECK_ARGUMENT(real_fscratches + real_fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	CHECK_ARGUMENT((arg_types & SLJIT_ARG_FULL_MASK) <= SLJIT_ARG_TYPE_F32);
-	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, (options & SLJIT_ENTER_REG_ARG) ? 0 : saveds, fscratches));
+	CHECK_ARGUMENT(function_check_arguments(arg_types, real_scratches,
+		(options & SLJIT_ENTER_REG_ARG) ? 0 : real_saveds, real_fscratches));
 
 	compiler->last_flags = 0;
 #endif
@@ -1326,16 +1336,22 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 #endif /* !SLJIT_CONFIG_X86 */
 
 		fprintf(compiler->verbose, " scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
-			scratches, saveds, fscratches, fsaveds, local_size);
+			ENTER_GET_REGS(scratches), ENTER_GET_REGS(saveds), ENTER_GET_FLOAT_REGS(scratches), ENTER_GET_FLOAT_REGS(saveds), local_size);
 	}
 #endif
 	CHECK_RETURN_OK;
 }
 
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compiler *compiler,
-	sljit_s32 options, sljit_s32 arg_types, sljit_s32 scratches, sljit_s32 saveds,
-	sljit_s32 fscratches, sljit_s32 fsaveds, sljit_s32 local_size)
+	sljit_s32 options, sljit_s32 arg_types,
+	sljit_s32 scratches, sljit_s32 saveds, sljit_s32 local_size)
 {
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	sljit_s32 real_scratches = ENTER_GET_REGS(scratches);
+	sljit_s32 real_saveds = ENTER_GET_REGS(saveds);
+	sljit_s32 real_fscratches = ENTER_GET_FLOAT_REGS(scratches);
+	sljit_s32 real_fsaveds = ENTER_GET_FLOAT_REGS(saveds);
+#endif
 	SLJIT_UNUSED_ARG(compiler);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
@@ -1345,15 +1361,17 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 		CHECK_ARGUMENT((options & ~SLJIT_ENTER_CPU_SPECIFIC_OPTIONS) == 0);
 	}
 	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 3 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
-	CHECK_ARGUMENT(scratches >= 0 && scratches <= SLJIT_NUMBER_OF_REGISTERS);
-	CHECK_ARGUMENT(saveds >= 0 && saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
-	CHECK_ARGUMENT(scratches + saveds <= SLJIT_NUMBER_OF_REGISTERS);
-	CHECK_ARGUMENT(fscratches >= 0 && fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
-	CHECK_ARGUMENT(fsaveds >= 0 && fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
-	CHECK_ARGUMENT(fscratches + fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
+	CHECK_ARGUMENT((scratches & ~0xffff) == 0 && (saveds & ~0xffff) == 0);
+	CHECK_ARGUMENT(real_scratches >= 0 && real_scratches <= SLJIT_NUMBER_OF_REGISTERS);
+	CHECK_ARGUMENT(real_saveds >= 0 && real_saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
+	CHECK_ARGUMENT(real_scratches + real_saveds <= SLJIT_NUMBER_OF_REGISTERS);
+	CHECK_ARGUMENT(real_fscratches >= 0 && real_fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
+	CHECK_ARGUMENT(real_fsaveds >= 0 && real_fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
+	CHECK_ARGUMENT(real_fscratches + real_fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	CHECK_ARGUMENT((arg_types & SLJIT_ARG_FULL_MASK) < SLJIT_ARG_TYPE_F64);
-	CHECK_ARGUMENT(function_check_arguments(arg_types, scratches, (options & SLJIT_ENTER_REG_ARG) ? 0 : saveds, fscratches));
+	CHECK_ARGUMENT(function_check_arguments(arg_types, real_scratches,
+		(options & SLJIT_ENTER_REG_ARG) ? 0 : real_saveds, real_fscratches));
 
 	compiler->last_flags = 0;
 #endif
@@ -1389,7 +1407,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 #endif /* !SLJIT_CONFIG_X86 */
 
 		fprintf(compiler->verbose, " scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
-			scratches, saveds, fscratches, fsaveds, local_size);
+			ENTER_GET_REGS(scratches), ENTER_GET_REGS(saveds), ENTER_GET_FLOAT_REGS(scratches), ENTER_GET_FLOAT_REGS(saveds), local_size);
 	}
 #endif
 	CHECK_RETURN_OK;
