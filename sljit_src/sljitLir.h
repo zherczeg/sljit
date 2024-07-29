@@ -2244,10 +2244,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
    src_reg is the register which value is stored into the memory
    mem_reg is the base address of the memory store (it cannot be
      SLJIT_SP or a virtual register on x86-32)
-   temp_reg is a not preserved scratch register, which must be
-     initialized with the value loaded into the dst_reg during the
-     corresponding sljit_emit_atomic_load operation, or the operation
-     is undefined
+   temp_reg is a scratch register, which must be initialized with
+     the value loaded into the dst_reg during the corresponding
+     sljit_emit_atomic_load operation, or the operation is undefined.
+     The temp_reg register preserves its value, if the memory store
+     is successful. Otherwise, its value is undefined.
 
    Flags: ATOMIC_STORED
      if ATOMIC_STORED flag is set, it represents that the memory

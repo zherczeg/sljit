@@ -3386,13 +3386,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 			return SLJIT_SUCCESS;
 
 		if (cmp)
-			FAIL_IF(push_inst(compiler, ((MOV ^ W_OP) ^ (cmp & W_OP)) | RM(temp_reg) | RD(TMP_REG1)));
+			FAIL_IF(push_inst(compiler, ((MOV ^ W_OP) ^ (cmp & W_OP)) | RM(temp_reg) | RD(TMP_REG2)));
 
 		FAIL_IF(push_inst(compiler, ins | RM(temp_reg) | RN(mem_reg) | RD(src_reg)));
 		if (!cmp)
 			return SLJIT_SUCCESS;
 
-		return push_inst(compiler, cmp | RM(TMP_REG1) | RN(temp_reg));
+		return push_inst(compiler, cmp | RM(TMP_REG2) | RN(temp_reg));
 	}
 #else /* !__ARM_FEATURE_ATOMICS */
 	if (op & SLJIT_ATOMIC_USE_CAS)
