@@ -562,7 +562,7 @@ determine the next executed instruction after return. */
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size);
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr);
-SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void);
+/* Note: sljitLir.h also defines sljit_free_unused_memory_exec() function. */
 #define SLJIT_BUILTIN_MALLOC_EXEC(size, exec_allocator_data) sljit_malloc_exec(size)
 #define SLJIT_BUILTIN_FREE_EXEC(ptr, exec_allocator_data) sljit_free_exec(ptr)
 
