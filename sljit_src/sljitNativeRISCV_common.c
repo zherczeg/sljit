@@ -116,6 +116,7 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define EBREAK		(F12(0x1) | F3(0x0) | OPC(0x73))
 #define FADD_S		(F7(0x0) | F3(0x7) | OPC(0x53))
 #define FDIV_S		(F7(0xc) | F3(0x7) | OPC(0x53))
+#define FENCE		(F3(0x0) | OPC(0xf))
 #define FEQ_S		(F7(0x50) | F3(0x2) | OPC(0x53))
 #define FLD		(F3(0x3) | OPC(0x7))
 #define FLE_S		(F7(0x50) | F3(0x0) | OPC(0x53))
@@ -727,6 +728,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_COPY_F64:
 #endif /* !SLJIT_CONFIG_RISCV_64 */
 	case SLJIT_HAS_ATOMIC:
+	case SLJIT_HAS_MEMORY_BARRIER:
 #ifdef __riscv_vector
 	case SLJIT_HAS_SIMD:
 #endif
@@ -2056,6 +2058,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 		return push_inst(compiler, DIVU | WORD | RD(SLJIT_R0) | RS1(SLJIT_R0) | RS2(SLJIT_R1));
 	case SLJIT_DIV_SW:
 		return push_inst(compiler, DIV | WORD | RD(SLJIT_R0) | RS1(SLJIT_R0) | RS2(SLJIT_R1));
+	case SLJIT_MEMORY_BARRIER:
+		return push_inst(compiler, FENCE | 0x0ff00000);
 	case SLJIT_ENDBR:
 	case SLJIT_SKIP_FRAMES_BEFORE_RETURN:
 		return SLJIT_SUCCESS;

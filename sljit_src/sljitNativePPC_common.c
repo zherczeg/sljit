@@ -249,6 +249,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define SUBFC		(HI(31) | LO(8))
 #define SUBFE		(HI(31) | LO(136))
 #define SUBFIC		(HI(8))
+#define SYNC		(HI(31) | LO(598))
 #define XOR		(HI(31) | LO(316))
 #define XORI		(HI(26))
 #define XORIS		(HI(27))
@@ -753,6 +754,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_PREFETCH:
 	case SLJIT_HAS_ATOMIC:
+	case SLJIT_HAS_MEMORY_BARRIER:
 		return 1;
 
 	case SLJIT_HAS_CTZ:
@@ -1413,6 +1415,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 #else
 		return push_inst(compiler, (op == SLJIT_DIV_UW ? DIVWU : DIVW) | D(SLJIT_R0) | A(SLJIT_R0) | B(SLJIT_R1));
 #endif
+	case SLJIT_MEMORY_BARRIER:
+		return push_inst(compiler, SYNC);
 	case SLJIT_ENDBR:
 	case SLJIT_SKIP_FRAMES_BEFORE_RETURN:
 		return SLJIT_SUCCESS;

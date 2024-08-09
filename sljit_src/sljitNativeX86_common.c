@@ -1038,6 +1038,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_COPY_F32:
 	case SLJIT_HAS_COPY_F64:
 	case SLJIT_HAS_ATOMIC:
+	case SLJIT_HAS_MEMORY_BARRIER:
 		return 1;
 
 #if !(defined SLJIT_IS_FPU_AVAILABLE) || SLJIT_IS_FPU_AVAILABLE
@@ -1497,6 +1498,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 			EMIT_MOV(compiler, SLJIT_R1, 0, TMP_REG1, 0);
 #endif
 		break;
+	case SLJIT_MEMORY_BARRIER:
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + 3);
+		FAIL_IF(!inst);
+		INC_SIZE(3);
+		inst[0] = GROUP_0F;
+		inst[1] = 0xae;
+		inst[2] = 0xf0;
+		return SLJIT_SUCCESS;
 	case SLJIT_ENDBR:
 		return emit_endbranch(compiler);
 	case SLJIT_SKIP_FRAMES_BEFORE_RETURN:

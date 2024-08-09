@@ -762,7 +762,9 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    and SLJIT_FR1 are overwritten. */
 #define SLJIT_SIMD_REGS_ARE_PAIRS	13
 /* [Not emulated] Atomic support is available. */
-#define SLJIT_HAS_ATOMIC      14
+#define SLJIT_HAS_ATOMIC		14
+/* [Not emulated] Memory barrier support is available. */
+#define SLJIT_HAS_MEMORY_BARRIER		15
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 /* [Not emulated] AVX support is available on x86. */
@@ -1170,15 +1172,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
 #define SLJIT_DIV_SW			(SLJIT_OP0_BASE + 7)
 #define SLJIT_DIV_S32			(SLJIT_DIV_SW | SLJIT_32)
 /* Flags: - (does not modify flags)
+   May return with SLJIT_ERR_UNSUPPORTED if SLJIT_HAS_MEMORY_BARRIER
+   feature is not supported (calling sljit_has_cpu_feature() with
+   this feature option returns with 0). */
+#define SLJIT_MEMORY_BARRIER		(SLJIT_OP0_BASE + 8)
+/* Flags: - (does not modify flags)
    ENDBR32 instruction for x86-32 and ENDBR64 instruction for x86-64
    when Intel Control-flow Enforcement Technology (CET) is enabled.
    No instructions are emitted for other architectures. */
-#define SLJIT_ENDBR			(SLJIT_OP0_BASE + 8)
+#define SLJIT_ENDBR			(SLJIT_OP0_BASE + 9)
 /* Flags: - (may destroy flags)
    Skip stack frames before return when Intel Control-flow
    Enforcement Technology (CET) is enabled. No instructions
    are emitted for other architectures. */
-#define SLJIT_SKIP_FRAMES_BEFORE_RETURN	(SLJIT_OP0_BASE + 9)
+#define SLJIT_SKIP_FRAMES_BEFORE_RETURN	(SLJIT_OP0_BASE + 10)
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op);
 

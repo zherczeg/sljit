@@ -2559,6 +2559,9 @@ static void test25(void)
 	/* buf[3] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_sw), SLJIT_S4, 0);
 
+	if (sljit_has_cpu_feature(SLJIT_HAS_MEMORY_BARRIER) != 0)
+		SLJIT_ASSERT(sljit_emit_op0(compiler, SLJIT_MEMORY_BARRIER) != SLJIT_ERR_UNSUPPORTED);
+
 	const1 = sljit_emit_const(compiler, SLJIT_S3, 0, 0);
 	sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_S3, 0);
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_S3, 0, SLJIT_S3, 0, SLJIT_IMM, 100);

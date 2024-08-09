@@ -312,6 +312,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define SWL		(HI(42))
 #define SWR		(HI(46))
 #define SWC1		(HI(57))
+#define SYNC		(HI(0) | LO(15))
 #define TRUNC_W_S	(HI(17) | FMT_S | LO(13))
 #if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 #define WSBH		(HI(31) | (2 << 6) | LO(32))
@@ -862,6 +863,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_CMOV:
 	case SLJIT_HAS_PREFETCH:
 	case SLJIT_HAS_ATOMIC:
+	case SLJIT_HAS_MEMORY_BARRIER:
 		return 1;
 
 	case SLJIT_HAS_CTZ:
@@ -2478,6 +2480,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 		FAIL_IF(push_inst(compiler, MFLO | D(SLJIT_R0), DR(SLJIT_R0)));
 		return (op >= SLJIT_DIV_UW) ? SLJIT_SUCCESS : push_inst(compiler, MFHI | D(SLJIT_R1), DR(SLJIT_R1));
 #endif /* SLJIT_MIPS_REV >= 6 */
+	case SLJIT_MEMORY_BARRIER:
+#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 1)
+		return push_inst(compiler, SYNC, UNMOVABLE_INS);
+#else /* SLJIT_MIPS_REV < 1 */
+		return SLJIT_ERR_UNSUPPORTED;
+#endif /* SLJIT_MIPS_REV >= 1 */
 	case SLJIT_ENDBR:
 	case SLJIT_SKIP_FRAMES_BEFORE_RETURN:
 		return SLJIT_SUCCESS;
