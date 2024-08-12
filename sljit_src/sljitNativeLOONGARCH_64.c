@@ -250,6 +250,9 @@ lower parts in the instruction word, denoted by the “L” and “H” suffixes
 #define AMCAS_W OPC_3R(0x70B2)
 #define AMCAS_D OPC_3R(0x70B3)
 
+/* Memory barrier instructions */
+#define DBAR OPC_3R(0x70e4)
+
 /* Other instructions */
 #define BREAK OPC_3R(0x54)
 #define DBGCALL OPC_3R(0x55)
@@ -815,6 +818,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_COPY_F32:
 	case SLJIT_HAS_COPY_F64:
 	case SLJIT_HAS_ATOMIC:
+	case SLJIT_HAS_MEMORY_BARRIER:
 		return 1;
 
 	default:
@@ -1894,6 +1898,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 		return push_inst(compiler, ((op & SLJIT_32)? DIV_WU: DIV_DU) | RD(SLJIT_R0) | RJ(SLJIT_R0) | RK(SLJIT_R1));
 	case SLJIT_DIV_SW:
 		return push_inst(compiler, INST(DIV, op) | RD(SLJIT_R0) | RJ(SLJIT_R0) | RK(SLJIT_R1));
+	case SLJIT_MEMORY_BARRIER:
+		return push_inst(compiler, DBAR);
 	case SLJIT_ENDBR:
 	case SLJIT_SKIP_FRAMES_BEFORE_RETURN:
 		return SLJIT_SUCCESS;
@@ -3752,8 +3758,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 		return SLJIT_SUCCESS;
 
 	if (op & SLJIT_SET_ATOMIC_STORED) {
-		FAIL_IF(push_inst(compiler, XOR | RD(TMP_REG1) | RJ(temp_reg) | RK(TMP_ZERO)));
-		tmp = TMP_REG1;
+		FAIL_IF(push_inst(compiler, XOR | RD(TMP_REG3) | RJ(temp_reg) | RK(TMP_ZERO)));
+		tmp = TMP_REG3;
 	}
 	FAIL_IF(push_inst(compiler, ins | RD(tmp) | RJ(mem_reg) | RK(src_reg)));
 	if (!(op & SLJIT_SET_ATOMIC_STORED))
