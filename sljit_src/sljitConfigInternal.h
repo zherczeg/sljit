@@ -600,7 +600,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_TMP_DEST_REG SLJIT_TMP_R0
 #define SLJIT_TMP_MEM_REG SLJIT_TMP_R0
 #define SLJIT_TMP_DEST_FREG SLJIT_TMP_FR0
-#define SLJIT_LOCALS_OFFSET_BASE (8 * SSIZE_OF(sw))
+#define SLJIT_LOCALS_OFFSET_BASE (8 * (sljit_s32)sizeof(sljit_sw))
 #define SLJIT_PREF_SHIFT_REG SLJIT_R2
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
@@ -618,7 +618,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #else /* _WIN64 */
 #define SLJIT_NUMBER_OF_SAVED_REGISTERS 8
 #define SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS 10
-#define SLJIT_LOCALS_OFFSET_BASE (4 * SSIZE_OF(sw))
+#define SLJIT_LOCALS_OFFSET_BASE (4 * (sljit_s32)sizeof(sljit_sw))
 #endif /* !_WIN64 */
 #define SLJIT_TMP_DEST_REG SLJIT_TMP_R0
 #define SLJIT_TMP_MEM_REG SLJIT_TMP_R0
