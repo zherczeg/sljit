@@ -2249,7 +2249,7 @@ static void test24(void)
 	/* Playing with conditional flags. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
-	sljit_u8 buf[43];
+	sljit_u8 buf[45];
 	sljit_u32 i;
 #ifdef SLJIT_PREF_SHIFT_REG
 	sljit_s32 shift_reg = SLJIT_PREF_SHIFT_REG;
@@ -2456,6 +2456,14 @@ static void test24(void)
 	/* buf[41] */
 	SET_NEXT_BYTE(SLJIT_SIG_LESS);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 1);
+	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_LESS, SLJIT_R1, 0, SLJIT_IMM, -1);
+	/* buf[42] */
+	SET_NEXT_BYTE(SLJIT_LESS);
+	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_GREATER, SLJIT_R1, 0, SLJIT_IMM, -1);
+	/* buf[43] */
+	SET_NEXT_BYTE(SLJIT_GREATER);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);
@@ -2514,7 +2522,9 @@ static void test24(void)
 
 	FAILED(buf[40] != 2, "test24 case 42 failed\n");
 	FAILED(buf[41] != 1, "test24 case 43 failed\n");
-	FAILED(buf[42] != 0xaa, "test24 case 44 failed\n");
+	FAILED(buf[42] != 1, "test24 case 44 failed\n");
+	FAILED(buf[43] != 2, "test24 case 45 failed\n");
+	FAILED(buf[44] != 0xaa, "test24 case 46 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;

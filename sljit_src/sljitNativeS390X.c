@@ -2483,14 +2483,9 @@ static sljit_s32 sljit_emit_sub(struct sljit_compiler *compiler, sljit_s32 op,
 					ins = (op & SLJIT_32) ? 0xc20d00000000 /* cfi */ : 0xc20c00000000 /* cgfi */;
 					return emit_ri(compiler, ins, src1, src1, src1w, src2w, RIL_A);
 				}
-			}
-			else {
-				if ((op & SLJIT_32) || is_u32(src2w)) {
-					ins = (op & SLJIT_32) ? 0xc20f00000000 /* clfi */ : 0xc20e00000000 /* clgfi */;
-					return emit_ri(compiler, ins, src1, src1, src1w, src2w, RIL_A);
-				}
-				if (is_s16(src2w))
-					return emit_rie_d(compiler, 0xec00000000db /* alghsik */, (sljit_s32)tmp0, src1, src1w, src2w);
+			} else if ((op & SLJIT_32) || is_u32(src2w)) {
+				ins = (op & SLJIT_32) ? 0xc20f00000000 /* clfi */ : 0xc20e00000000 /* clgfi */;
+				return emit_ri(compiler, ins, src1, src1, src1w, src2w, RIL_A);
 			}
 		}
 		else if (src2 & SLJIT_MEM) {
