@@ -118,7 +118,7 @@ static void *SLJIT_FUNC my_alloc(size_t size, size_t n)
 
 static void SLJIT_FUNC my_putchar(long c)
 {
-	putchar(c);
+	putchar((int)c);
 }
 
 static long SLJIT_FUNC my_getchar(void)
