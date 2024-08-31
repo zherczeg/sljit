@@ -86,7 +86,7 @@ static int add3(sljit_sw a, sljit_sw b, sljit_sw c)<br>
 {<br>
    <ul>
     void *code;<br>
-    sljit_sw len;<br>
+    sljit_uw len;<br>
     func3_t func;<br>
    <br>
     /* Create a SLJIT compiler */<br>
@@ -115,7 +115,7 @@ static int add3(sljit_sw a, sljit_sw b, sljit_sw c)<br>
    <br>
     /* Execute code */<br>
     func = (func3_t)code;<br>
-    printf("func return %ld\n", func(a, b, c));<br>
+    printf("func return %ld\n", (long)func(a, b, c));<br>
    <br>
     /* dump_code(code, len); */<br>
    <br>
@@ -247,7 +247,7 @@ static int branch(sljit_sw a, sljit_sw b, sljit_sw c)<br>
    <br>
     /* Execute code */<br>
     func = (func3_t)code;<br>
-    printf("func return %ld\n", func(a, b, c));<br>
+    printf("func return %ld\n", (long)func(a, b, c));<br>
    <br>
     /* dump_code(code, len); */<br>
    <br>
@@ -404,9 +404,9 @@ SLJIT use SLJIT_MEM1 to implement [Reg + offset] memory access.<br>
 struct point_st {<br>
     <ul>
     sljit_sw x;<br>
-    int y;<br>
-    short z;<br>
-    char d;<br>
+    sljit_s32 y;<br>
+    sljit_s16 z;<br>
+    sljit_s8 d;<br>
     </ul>
 };<br>
 <br>

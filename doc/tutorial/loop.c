@@ -3,15 +3,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef long (SLJIT_FUNC *func2_t)(long a, long b);
+typedef sljit_sw (SLJIT_FUNC *func2_t)(sljit_sw a, sljit_sw b);
 
 /*
   This example, we generate a function like this:
 
-long func(long a, long b)
+sljit_sw func(sljit_sw a, sljit_sw b)
 {
-	long i;
-	long ret = 0;
+	sljit_sw i;
+	sljit_sw ret = 0;
 	for (i = 0; i < a; ++i) {
 		ret += b;
 	}
@@ -19,10 +19,10 @@ long func(long a, long b)
 }
 */
 
-static int loop(long a, long b)
+static int loop(sljit_sw a, sljit_sw b)
 {
 	void *code;
-	unsigned long len;
+	sljit_uw len;
 	func2_t func;
 
 	struct sljit_label *loopstart;
@@ -60,7 +60,7 @@ static int loop(long a, long b)
 
 	/* Execute code */
 	func = (func2_t)code;
-	printf("func return %ld\n", func(a, b));
+	printf("func return %ld\n", (long)func(a, b));
 
 	/* dump_code(code, len); */
 

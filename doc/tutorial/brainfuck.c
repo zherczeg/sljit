@@ -116,12 +116,12 @@ static void *SLJIT_FUNC my_alloc(size_t size, size_t n)
 	return calloc(size, n);
 }
 
-static void SLJIT_FUNC my_putchar(long c)
+static void SLJIT_FUNC my_putchar(sljit_sw c)
 {
 	putchar((int)c);
 }
 
-static long SLJIT_FUNC my_getchar(void)
+static sljit_sw SLJIT_FUNC my_getchar(void)
 {
 	return getchar();
 }
@@ -134,7 +134,7 @@ static void SLJIT_FUNC my_free(void *mem)
 #define loop_empty()		(loop_sp == 0)
 
 /* compile bf source to a void func() */
-static void *compile(FILE *src, unsigned long *lcode)
+static void *compile(FILE *src, sljit_uw *lcode)
 {
 	void *code = NULL;
 	int chr;

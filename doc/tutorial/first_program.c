@@ -3,12 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef long (SLJIT_FUNC *func3_t)(long a, long b, long c);
+typedef sljit_sw (SLJIT_FUNC *func3_t)(sljit_sw a, sljit_sw b, sljit_sw c);
 
-static int add3(long a, long b, long c)
+static int add3(sljit_sw a, sljit_sw b, sljit_sw c)
 {
 	void *code;
-	unsigned long len;
+	sljit_uw len;
 	func3_t func;
 
 	/* Create a SLJIT compiler */
@@ -37,7 +37,7 @@ static int add3(long a, long b, long c)
 
 	/* Execute code */
 	func = (func3_t)code;
-	printf("func return %ld\n", func(a, b, c));
+	printf("func return %ld\n", (long)func(a, b, c));
 
 	/* dump_code(code, len); */
 
