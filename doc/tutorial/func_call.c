@@ -32,9 +32,9 @@ static int func_call(long a, long b, long c)
 	struct sljit_jump *print_c;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 
-	sljit_emit_enter(C, 0, SLJIT_ARGS3(W, W, W, W), 3, 3, 0, 0, 0);
+	sljit_emit_enter(C, 0, SLJIT_ARGS3(W, W, W, W), 3, 3, 0);
 
 	/*  a & 1 --> R0 */
 	sljit_emit_op2(C, SLJIT_AND, SLJIT_R0, 0, SLJIT_S0, 0, SLJIT_IMM, 1);
@@ -59,7 +59,7 @@ static int func_call(long a, long b, long c)
 	sljit_emit_return(C, SLJIT_MOV, SLJIT_R0, 0);
 
 	/* Generate machine code */
-	code = sljit_generate_code(C);
+	code = sljit_generate_code(C, 0, NULL);
 	len = sljit_get_generated_code_size(C);
 
 	/* Execute code */

@@ -29,10 +29,10 @@ static int loop(long a, long b)
 	struct sljit_jump *out;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 
 	/* 2 arg, 2 temp reg, 2 saved reg */
-	sljit_emit_enter(C, 0, SLJIT_ARGS2(W, W, W), 2, 2, 0, 0, 0);
+	sljit_emit_enter(C, 0, SLJIT_ARGS2(W, W, W), 2, 2, 0);
 
 	/* R0 = 0 */
 	sljit_emit_op2(C, SLJIT_XOR, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_R1, 0);
@@ -55,7 +55,7 @@ static int loop(long a, long b)
 	sljit_emit_return(C, SLJIT_MOV, SLJIT_RETURN_REG, 0);
 
 	/* Generate machine code */
-	code = sljit_generate_code(C);
+	code = sljit_generate_code(C, 0, NULL);
 	len = sljit_get_generated_code_size(C);
 
 	/* Execute code */

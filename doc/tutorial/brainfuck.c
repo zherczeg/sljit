@@ -140,7 +140,7 @@ static void *compile(FILE *src, unsigned long *lcode)
 	int chr;
 	int nchr;
 
-	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 	struct sljit_jump *end;
 	struct sljit_label *loop_start;
 	struct sljit_jump *loop_end;
@@ -148,8 +148,8 @@ static void *compile(FILE *src, unsigned long *lcode)
 	int SP = SLJIT_S0;			/* bf SP */
 	int CELLS = SLJIT_S1;		/* bf array */
 
-	sljit_emit_enter(C, 0, SLJIT_ARGS2V(W, W), 2, 2, 0, 0, 0);
-	/*                  opt arg                R  S  FR FS local_size */
+	sljit_emit_enter(C, 0, SLJIT_ARGS2V(W, W), 2, 2, 0);
+	/*                  opt arg                R  S  local_size */
 
 	/* SP = 0 */
 	sljit_emit_op2(C, SLJIT_XOR, SP, 0, SP, 0, SP, 0);
@@ -217,7 +217,7 @@ static void *compile(FILE *src, unsigned long *lcode)
 	sljit_set_label(end, sljit_emit_label(C));
 	sljit_emit_return_void(C);
 
-	code = sljit_generate_code(C);
+	code = sljit_generate_code(C, 0, NULL);
 	if (lcode)
 		*lcode = sljit_get_generated_code_size(C);
 

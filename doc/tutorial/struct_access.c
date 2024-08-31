@@ -42,10 +42,10 @@ static int struct_access()
 	};
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 
-	sljit_emit_enter(C, 0, SLJIT_ARGS1(W, W), 1, 1, 0, 0, 0);
-	/*                  opt arg               R  S  FR FS local_size */
+	sljit_emit_enter(C, 0, SLJIT_ARGS1(W, W), 1, 1, 0);
+	/*                  opt arg               R  S  local_size */
 
 	/* S0->x --> R0; print_num(R0) */
 	sljit_emit_op1(C, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSETOF(struct point_st, x));
@@ -67,7 +67,7 @@ static int struct_access()
 	sljit_emit_return(C, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSETOF(struct point_st, x));
 
 	/* Generate machine code */
-	code = sljit_generate_code(C);
+	code = sljit_generate_code(C, 0, NULL);
 	len = sljit_get_generated_code_size(C);
 
 	/* Execute code */

@@ -12,10 +12,10 @@ static int add3(long a, long b, long c)
 	func3_t func;
 
 	/* Create a SLJIT compiler */
-	struct sljit_compiler *C = sljit_create_compiler(NULL, NULL);
+	struct sljit_compiler *C = sljit_create_compiler(NULL);
 
 	/* Start a context(function entry), have 3 arguments, discuss later */
-	sljit_emit_enter(C, 0, SLJIT_ARGS3(W, W, W, W), 1, 3, 0, 0, 0);
+	sljit_emit_enter(C, 0, SLJIT_ARGS3(W, W, W, W), 1, 3, 0);
 
 	/* The first arguments of function is register SLJIT_S0, 2nd, SLJIT_S1, etc.  */
 	/* R0 = first */
@@ -32,7 +32,7 @@ static int add3(long a, long b, long c)
 	sljit_emit_return(C, SLJIT_MOV, SLJIT_R0, 0);
 
 	/* Generate machine code */
-	code = sljit_generate_code(C);
+	code = sljit_generate_code(C, 0, NULL);
 	len = sljit_get_generated_code_size(C);
 
 	/* Execute code */
