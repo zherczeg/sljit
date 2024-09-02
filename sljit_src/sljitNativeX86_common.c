@@ -3496,6 +3496,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	sljit_u8 cond_set;
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	sljit_s32 reg;
+	sljit_uw size;
 #endif /* !SLJIT_CONFIG_X86_64 */
 	/* ADJUST_LOCAL_OFFSET and CHECK_EXTRA_REGS might overwrite these values. */
 	sljit_s32 dst_save = dst;
@@ -3512,35 +3513,52 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	if (GET_OPCODE(op) == SLJIT_OR && !GET_ALL_FLAGS(op) && FAST_IS_REG(dst)) {
-		inst = (sljit_u8*)ensure_buf(compiler, 1 + 4 + 3);
+		size = 3 + 2;
+		if (reg_map[TMP_REG1] >= 4)
+			size += 1 + 1;
+		else if (reg_map[dst] >= 4)
+			size++;
+
+		inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
 		FAIL_IF(!inst);
-		INC_SIZE(4 + 3);
+		INC_SIZE(size);
 		/* Set low register to conditional flag. */
-		inst[0] = (reg_map[TMP_REG1] <= 7) ? REX : REX_B;
-		inst[1] = GROUP_0F;
-		inst[2] = cond_set;
-		inst[3] = MOD_REG | reg_lmap[TMP_REG1];
-		inst[4] = U8(REX | (reg_map[TMP_REG1] <= 7 ? 0 : REX_R) | (reg_map[dst] <= 7 ? 0 : REX_B));
-		inst[5] = OR_rm8_r8;
-		inst[6] = U8(MOD_REG | (reg_lmap[TMP_REG1] << 3) | reg_lmap[dst]);
+		if (reg_map[TMP_REG1] >= 4)
+			*inst++ = (reg_map[TMP_REG1] <= 7) ? REX : REX_B;
+
+		inst[0] = GROUP_0F;
+		inst[1] = cond_set;
+		inst[2] = MOD_REG | reg_lmap[TMP_REG1];
+		inst += 3;
+
+		if (reg_map[TMP_REG1] >= 4 || reg_map[dst] >= 4)
+			*inst++ = U8(REX | (reg_map[TMP_REG1] <= 7 ? 0 : REX_R) | (reg_map[dst] <= 7 ? 0 : REX_B));
+
+		inst[0] = OR_rm8_r8;
+		inst[1] = U8(MOD_REG | (reg_lmap[TMP_REG1] << 3) | reg_lmap[dst]);
 		return SLJIT_SUCCESS;
 	}
 
 	reg = (GET_OPCODE(op) < SLJIT_ADD && FAST_IS_REG(dst)) ? dst : TMP_REG1;
 
-	inst = (sljit_u8*)ensure_buf(compiler, 1 + 4 + 4);
+	size = 3 + (reg_map[reg] >= 4) + 4;
+	inst = (sljit_u8*)ensure_buf(compiler, 1 + size);
 	FAIL_IF(!inst);
-	INC_SIZE(4 + 4);
+	INC_SIZE(size);
 	/* Set low register to conditional flag. */
-	inst[0] = (reg_map[reg] <= 7) ? REX : REX_B;
-	inst[1] = GROUP_0F;
-	inst[2] = cond_set;
-	inst[3] = MOD_REG | reg_lmap[reg];
-	inst[4] = REX_W | (reg_map[reg] <= 7 ? 0 : (REX_B | REX_R));
+
+	if (reg_map[reg] >= 4)
+		*inst++ = (reg_map[reg] <= 7) ? REX : REX_B;
+
+	inst[0] = GROUP_0F;
+	inst[1] = cond_set;
+	inst[2] = MOD_REG | reg_lmap[reg];
+
+	inst[3] = REX_W | (reg_map[reg] <= 7 ? 0 : (REX_B | REX_R));
 	/* The movzx instruction does not affect flags. */
-	inst[5] = GROUP_0F;
-	inst[6] = MOVZX_r_rm8;
-	inst[7] = U8(MOD_REG | (reg_lmap[reg] << 3) | reg_lmap[reg]);
+	inst[4] = GROUP_0F;
+	inst[5] = MOVZX_r_rm8;
+	inst[6] = U8(MOD_REG | (reg_lmap[reg] << 3) | reg_lmap[reg]);
 
 	if (reg != TMP_REG1)
 		return SLJIT_SUCCESS;
