@@ -529,6 +529,12 @@ struct sljit_compiler {
 	sljit_s32 fscratches;
 	/* Available float saved registers. */
 	sljit_s32 fsaveds;
+#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
+	/* Available vector scratch registers. */
+	sljit_s32 vscratches;
+	/* Available vector saved registers. */
+	sljit_s32 vsaveds;
+#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 	/* Local stack size. */
 	sljit_s32 local_size;
 	/* Maximum code size. */

@@ -2383,10 +2383,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 type, slji
 	if (type == SLJIT_GP_REGISTER)
 		return reg_map[reg];
 
-	if (type != SLJIT_FLOAT_REGISTER)
-		return -1;
+	if (type == SLJIT_FLOAT_REGISTER)
+		return freg_map[reg];
 
-	return freg_map[reg];
+	return vreg_map[reg];
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
