@@ -1,0 +1,136 @@
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Scan Substring in PCRE2</title>
+
+  <style type="text/css">
+    body {
+      background-color: #707070;
+      color: black;
+      font-family: "garamond"
+    }
+    td.main {
+      background-color: white;
+      color: black;
+      font-family: "garamond"
+    }
+    table.results {
+      background-color: #B0B0B0;
+    }
+    th {
+      background-color: #B0C4DE;
+    }
+    td.pattern {
+      background-color: #F0E68C;
+      text-align:left;
+    }
+    td.cpattern {
+      background-color: #40E0D0;
+      text-align:left;
+    }
+    td.time {
+      background-color: #E0FFFF;
+      text-align:right;
+    }
+    td.ratio {
+      background-color: #DEB887;
+      text-align:right;
+    }
+    td.separator {
+      /* background-color: #B0C4DE; */
+      background-color: #B0B0B0;
+    }
+    a {
+       font-weight:bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<center>
+<table width="760" cellspacing=0 cellpadding=0>
+<tr height=20><td width=20 class="main"></td><td width=720 class="main"></td><td width=20 class="main"></td></tr>
+<tr><td width=20 class="main"></td><td width=720 class="main">
+
+<h1><center><b>Scan Substring in PCRE2</b></center></h1>
+
+<h3>About</h3>
+
+Scan substring (scs for short) is a new type of non-atomic assertion supported by PCRE2 from
+version 10.45. It allows rematching the content of a capture block using a regular expression
+pattern.<br>
+
+<h3>Syntax:</h3>
+<b><pre>(*scan_substring:(CAPTURE_LIST)PATTERN)</pre></b>
+<b><pre>(*scs:(CAPTURE_LIST)PATTERN)</pre></b>
+
+<h3>Description:</h3>
+
+Scan substring is an assertion, so it matches to an empty string and captures the
+<b><code>(*ACCEPT)</code></b> control verb. Since it is a non-atomic assertion, backtracking
+into its <b><code>PATTERN</code></b> is possible after a successful match, similar to the
+<b><code>(*napla:PATTERN)</code></b> assertion. Scan substring can be made atomic by using
+an atomic block: <b><code>(?>(*scs:(CAPTURE_LIST)PATTERN))</code></b>.<br>
+<br>
+Unlike most other assertions, scan substring has an argument called capture list. This argument
+is enclosed in parenthesis and must be placed right after <b><code>(*scan_substring:</code></b>
+or <b><code>(*scs:</code></b> pattern strings. The capture list is a comma separated list of
+capturing block references. These references can be absolute or relative numbers, or capturing
+block names, e.g.: <b><code>(7,+5,-2)</code></b> or <b><code>(&lt;NAME1&gt;,'NAME2')</code></b>.
+The capture references are checked in declaration order. The first capturing block which is
+set (it was successfully matched before) is used as the substring for the scan substring
+assertion even if the substring is an empty string. In the last example the <b><code>NAME1</code></b>
+group is checked first, and if it is not set, then the <b><code>NAME2</code></b> group is
+checked. If no capturing group in the list is set, the scan substring assertion fails to match.<br>
+<br>
+If the substring is successfully found, the sub-pattern represented by the <b><code>PATTERN</code></b>
+is matched from the beginning of the substring. Furthermore, the end of the substring is used
+as the end of the subject (input) string, so the <b><code>PATTERN</code></b> cannot match to
+any character beyond that. This limitation affects the <b><code>PATTERN</code></b> only.
+When scan substring assertions are nested, they are independent from each other and they can
+use different subject ends depending on their substring. Lookbehind assertions can check
+the characters before the beginning of the substring.<br>
+
+<h3>Examples:</h3>
+
+The following pattern searches <b><code>//...</code></b> and <b><code>/*...*/</code></b>
+comments in a text, and then checks that AA, and BB strings are present in the comments:
+
+<b><pre>/(?:\/\/(.*)|\/\*((?s).*?)\*\/)(*SKIP)(?s)(*scs:(1,2).*?AA)(*scs:(1,2).*?BB)/</pre></b>
+
+The <b><code>\/\/(.*)</code></b> searches for <b><code>//...</code></b> comments,
+and the text inside the comment is captured by capturing group 1. Similarly,
+<b><code>\/\*((?s).*?)\*\/</code></b> searches for <b><code>/*...*/</code></b>
+comments, and the text inside the comment is captured by capturing group 2.
+The <b><code>(*SKIP)</code></b> control verb ensures, that
+<b><code>/*../*..*/</code></b> comments are processed as a single comment,
+not as multiple comments. The <b><code>(*scs:(1,2).*AA)</code></b>
+searches AA inside the comment text, regardless which type of comment is found.
+The order of AA and BB in the comment text does not matter, since scan substring
+is used twice.<br>
+<br>
+
+The next pattern searches for a "Password" string enclosed in
+<b><code>&lt;table&gt;&lt;/table&gt;</code></b> tags. The enclosed
+text may contain other, nested tags, including other table tags.
+
+<b><pre>/(&lt;(?=table&gt;)((\w+)&gt;([^&lt;]*+&lt;(?!\/)(?2))*[^&lt;]*+&lt;\/\3&gt;))(*SKIP)(*scs:(1)(?s).*?Password)/</pre></b>
+
+This pattern uses recursion. Recursions restore capturing groups when they
+are matched, so extracting information from a recursion is difficult. Instead,
+the scan substring assertion is used to search the enclosed text, which is
+stored in a capturing group.<br>
+<br>
+
+<table width="100%" cellspacing=0 cellpadding=0>
+<tr><td align=right>Last modification: 05.10.2024</td></tr></table>
+
+</td><td width=20 class="main"></td></tr>
+<tr height=20><td width=20 class="main"></td><td width=720 class="main"></td><td width=20 class="main"></td></tr>
+</table>
+</center>
+
+</body>
+</html>
