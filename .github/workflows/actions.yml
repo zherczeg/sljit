@@ -237,8 +237,8 @@ jobs:
       run: |
           sudo apt update
           sudo apt install -y make wget ninja-build
-          wget https://github.com/loongson/build-tools/releases/download/2024.06.01/x86_64-cross-tools-loongarch64-binutils_2.42-gcc_14.1.0-glibc_2.39.tar.xz
-          tar -xvf x86_64-cross-tools-loongarch64-binutils_2.42-gcc_14.1.0-glibc_2.39.tar.xz
+          wget https://github.com/loongson/build-tools/releases/download/2024.11.01/x86_64-cross-tools-loongarch64-binutils_2.43.1-gcc_14.2.0-glibc_2.40.tar.xz
+          tar -xvf x86_64-cross-tools-loongarch64-binutils_2.43.1-gcc_14.2.0-glibc_2.40.tar.xz
     - name: Install qemu
       run: |
           wget https://download.qemu.org/qemu-9.0.2.tar.xz
@@ -248,7 +248,7 @@ jobs:
           make -j4
     - name: Build and test
       env:
-        CROSS_COMPILER: ./cross-tools/bin/loongarch64-unknown-linux-gnu-gcc-14.1.0
+        CROSS_COMPILER: ./cross-tools/bin/loongarch64-unknown-linux-gnu-gcc-14.2.0
         CFLAGS: -march=la464
         EXTRA_LDFLAGS: -static
       run: |
