@@ -51,7 +51,7 @@ jobs:
       with:
         submodules: true
     - name: Build in armt2 container
-      uses: uraimo/run-on-arch-action@v2.7.2
+      uses: uraimo/run-on-arch-action@v2.8.1
       with:
         arch: armv7
         distro: ubuntu_latest
@@ -74,7 +74,7 @@ jobs:
       with:
         submodules: true
     - name: Build in arm32 container
-      uses: uraimo/run-on-arch-action@v2.7.2
+      uses: uraimo/run-on-arch-action@v2.8.1
       with:
         arch: armv7
         distro: ubuntu_latest
@@ -99,7 +99,7 @@ jobs:
       with:
         submodules: true
     - name: Build in arm64 container
-      uses: uraimo/run-on-arch-action@v2.7.2
+      uses: uraimo/run-on-arch-action@v2.8.1
 
       with:
         arch: aarch64
@@ -262,7 +262,7 @@ jobs:
       with:
         submodules: true
     - name: Build in s390x container
-      uses: uraimo/run-on-arch-action@v2.7.2
+      uses: uraimo/run-on-arch-action@v2.8.1
       with:
         arch: s390x
         distro: ubuntu_latest
