@@ -9025,6 +9025,95 @@ static void test75(void)
 	successful_tests++;
 }
 
+static void test76(void)
+{
+	/* Test atomic load and store with SLJIT_TMP_DEST_REG. */
+	executable_code code;
+	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
+	sljit_sw buf[6];
+
+	if (verbose)
+		printf("Run test76\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	buf[0] = 0;
+	buf[1] = 0;
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 3, 3, 0);
+
+#if (defined SLJIT_UPPER_BITS_ZEROED && SLJIT_UPPER_BITS_ZEROED) \
+	+ (defined SLJIT_UPPER_BITS_SIGN_EXTENDED && SLJIT_UPPER_BITS_SIGN_EXTENDED) \
+	+ (defined SLJIT_UPPER_BITS_PRESERVED && SLJIT_UPPER_BITS_PRESERVED) > 1
+#error "Invalid upper bits defintion"
+#endif
+
+#if IS_64BIT
+#if (defined SLJIT_UPPER_BITS_IGNORED && SLJIT_UPPER_BITS_IGNORED)
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(0x123456fdf08a71));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, SLJIT_W(0x12000003e8));
+	sljit_emit_op0(compiler, SLJIT_DIVMOD_SW);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_R1, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(0x123456fdf08a71));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, SLJIT_W(0x12000003e8));
+	sljit_emit_op0(compiler, SLJIT_DIVMOD_S32);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_sw), SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_sw), SLJIT_R1, 0);
+#endif
+#if (defined SLJIT_UPPER_BITS_ZEROED && SLJIT_UPPER_BITS_ZEROED)
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 123456789);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 234567890);
+	sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_sw), SLJIT_R0, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 123456789);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 234567890);
+	sljit_emit_op2(compiler, SLJIT_MUL32, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_sw), SLJIT_R0, 0);
+#endif
+#if (defined SLJIT_UPPER_BITS_SIGN_EXTENDED && SLJIT_UPPER_BITS_SIGN_EXTENDED)
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, -123456789);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 234567890);
+	sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_sw), SLJIT_R0, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, -123456789);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 234567890);
+	sljit_emit_op2(compiler, SLJIT_MUL32, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_sw), SLJIT_R0, 0);
+#endif
+#endif
+
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler, 0, NULL);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)&buf);
+
+#if IS_64BIT
+#if (defined SLJIT_UPPER_BITS_IGNORED && SLJIT_UPPER_BITS_IGNORED)
+	FAILED(buf[0] != 66280, "test76 case 1 failed\n");
+	FAILED(buf[1] != SLJIT_W(29963923505), "test76 case 2 failed\n");
+	FAILED(*(sljit_s32*)(buf + 2) != -34567, "test76 case 3 failed\n");
+	FAILED(*(sljit_s32*)(buf + 3) != -567, "test76 case 4 failed\n");
+#endif
+#if (defined SLJIT_UPPER_BITS_ZEROED && SLJIT_UPPER_BITS_ZEROED)
+	FAILED(buf[4] != SLJIT_W(28958998501905210), "test76 case 5 failed\n");
+	FAILED(buf[5] != 1119998778, "test76 case 6 failed\n");
+#endif
+#if (defined SLJIT_UPPER_BITS_SIGN_EXTENDED && SLJIT_UPPER_BITS_SIGN_EXTENDED)
+	FAILED(buf[4] != SLJIT_W(-28958998501905210), "test76 case 7 failed\n");
+	FAILED(buf[5] != -1119998778, "test76 case 8 failed\n");
+#endif
+#endif
+
+	sljit_free_code(code.code, NULL);
+	successful_tests++;
+}
 
 #include "sljitTestCall.h"
 #include "sljitTestFloat.h"
@@ -9119,6 +9208,7 @@ int sljit_test(int argc, char* argv[])
 	test73();
 	test74();
 	test75();
+	test76();
 
 	if (verbose)
 		printf("---- Call tests ----\n");
@@ -9199,7 +9289,7 @@ int sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif
 
-#	define TEST_COUNT 124
+#	define TEST_COUNT 125
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

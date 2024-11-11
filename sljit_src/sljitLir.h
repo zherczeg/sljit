@@ -726,7 +726,9 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
    support while others (e.g. move with update) are emulated if not available.
    However, even when a feature is emulated, specialized code paths may be
    faster than the emulation. Some limitations are emulated as well so their
-   general case is supported but it has extra performance costs. */
+   general case is supported but it has extra performance costs.
+
+   Note: sljitConfigInternal.h also provides several feature detection macros. */
 
 /* [Not emulated] Floating-point support is available. */
 #define SLJIT_HAS_FPU			0

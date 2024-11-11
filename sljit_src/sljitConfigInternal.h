@@ -27,20 +27,6 @@
 #ifndef SLJIT_CONFIG_INTERNAL_H_
 #define SLJIT_CONFIG_INTERNAL_H_
 
-#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
-	|| (defined SLJIT_DEBUG && SLJIT_DEBUG && (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)))
-#include <stdio.h>
-#endif
-
-#if (defined SLJIT_DEBUG && SLJIT_DEBUG \
-	&& (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE) || !defined(SLJIT_HALT_PROCESS)))
-#include <stdlib.h>
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*
    SLJIT defines the following architecture dependent types and macros:
 
@@ -64,6 +50,10 @@ extern "C" {
      SLJIT_MASKED_SHIFT : all word shifts are always masked
      SLJIT_MASKED_SHIFT32 : all 32 bit shifts are always masked
      SLJIT_INDIRECT_CALL : see SLJIT_FUNC_ADDR() for more information
+     SLJIT_UPPER_BITS_IGNORED : 32 bit operations ignores the upper bits of source registers
+     SLJIT_UPPER_BITS_ZEROED : 32 bit operations clears the upper bits of destination registers
+     SLJIT_UPPER_BITS_SIGN_EXTENDED : 32 bit operations replicates the sign bit in the upper bits of destination registers
+     SLJIT_UPPER_BITS_PRESERVED : 32 bit operations preserves the upper bits of destination registers
 
    Constants:
      SLJIT_NUMBER_OF_REGISTERS : number of available registers
@@ -116,6 +106,20 @@ extern "C" {
      SLJIT_F64_SECOND(reg) : provides the register index of the second 32 bit part of a 64 bit
                              floating point register when SLJIT_HAS_F64_AS_F32_PAIR returns non-zero
 */
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
+	|| (defined SLJIT_DEBUG && SLJIT_DEBUG && (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)))
+#include <stdio.h>
+#endif
+
+#if (defined SLJIT_DEBUG && SLJIT_DEBUG \
+	&& (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE) || !defined(SLJIT_HALT_PROCESS)))
+#include <stdlib.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /***********************************************************/
 /* Intel Control-flow Enforcement Technology (CET) spport. */
@@ -604,6 +608,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_PREF_SHIFT_REG SLJIT_R2
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
+#define SLJIT_UPPER_BITS_IGNORED 1
+#define SLJIT_UPPER_BITS_ZEROED 1
 
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 
@@ -626,6 +632,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_PREF_SHIFT_REG SLJIT_R3
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
+#define SLJIT_UPPER_BITS_IGNORED 1
+#define SLJIT_UPPER_BITS_ZEROED 1
 
 #elif (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
 
@@ -654,6 +662,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_LOCALS_OFFSET_BASE (2 * (sljit_s32)sizeof(sljit_sw))
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
+#define SLJIT_UPPER_BITS_IGNORED 1
+#define SLJIT_UPPER_BITS_ZEROED 1
 
 #elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 
@@ -674,6 +684,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #else
 #define SLJIT_LOCALS_OFFSET_BASE (3 * (sljit_s32)sizeof(sljit_sw))
 #endif /* SLJIT_CONFIG_PPC_64 || _AIX */
+#define SLJIT_UPPER_BITS_IGNORED 1
 
 #elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 
@@ -695,6 +706,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_TMP_DEST_FREG SLJIT_TMP_FR0
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
+#define SLJIT_UPPER_BITS_SIGN_EXTENDED 1
 
 #elif (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 
@@ -715,6 +727,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_LOCALS_OFFSET_BASE 0
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
+#define SLJIT_UPPER_BITS_IGNORED 1
+#define SLJIT_UPPER_BITS_SIGN_EXTENDED 1
 
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 
