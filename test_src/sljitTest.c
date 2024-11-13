@@ -3861,7 +3861,7 @@ static void test38(void)
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	sljit_s32 i;
-	sljit_sw buf[7 + 4 + 8 + 8];
+	sljit_sw buf[7 + 4 + 8 + 8 + 2];
 
 	if (verbose)
 		printf("Run test38\n");
@@ -4016,6 +4016,12 @@ static void test38(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 26 * sizeof(sljit_sw), SLJIT_R1, 0);
 #endif /* IS_64BIT */
 
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, -1000123);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R1, 0, SLJIT_IMM, 1000);
+	sljit_emit_op0(compiler, SLJIT_DIVMOD_S32);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S0), 27 * sizeof(sljit_sw), SLJIT_R0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S0), 28 * sizeof(sljit_sw), SLJIT_R1, 0);
+
 	/* buf[0-6] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_R2, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_R3, 0);
@@ -4064,6 +4070,9 @@ static void test38(void)
 	FAILED(buf[24] != (sljit_sw)0xf2906b14, "test38 case 25 failed\n");
 	FAILED(buf[25] != -0x8, "test38 case 26 failed\n");
 	FAILED(buf[26] != -0xa63c923, "test38 case 27 failed\n");
+
+	FAILED(*(sljit_s32*)(buf + 27) != -1000, "test38 case 28 failed\n");
+	FAILED(*(sljit_s32*)(buf + 28) != -123, "test38 case 29 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -9042,12 +9051,6 @@ static void test76(void)
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 3, 3, 0);
 
-#if (defined SLJIT_UPPER_BITS_ZEROED && SLJIT_UPPER_BITS_ZEROED) \
-	+ (defined SLJIT_UPPER_BITS_SIGN_EXTENDED && SLJIT_UPPER_BITS_SIGN_EXTENDED) \
-	+ (defined SLJIT_UPPER_BITS_PRESERVED && SLJIT_UPPER_BITS_PRESERVED) > 1
-#error "Invalid upper bits defintion"
-#endif
-
 #if IS_64BIT
 #if (defined SLJIT_UPPER_BITS_IGNORED && SLJIT_UPPER_BITS_IGNORED)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(0x123456fdf08a71));
@@ -9084,6 +9087,17 @@ static void test76(void)
 	sljit_emit_op2(compiler, SLJIT_MUL32, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_sw), SLJIT_R0, 0);
 #endif
+#if (defined SLJIT_UPPER_BITS_PRESERVED && SLJIT_UPPER_BITS_PRESERVED)
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(0x12345678f8a432eb) /* -123456789 */);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 234567890);
+	sljit_emit_op2(compiler, SLJIT_MUL, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_sw), SLJIT_R0, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, SLJIT_W(0x12345678f8a432eb) /* -123456789 */);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 234567890);
+	sljit_emit_op2(compiler, SLJIT_MUL32, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_sw), SLJIT_R0, 0);
+#endif
 #endif
 
 	sljit_emit_return_void(compiler);
@@ -9108,6 +9122,10 @@ static void test76(void)
 #if (defined SLJIT_UPPER_BITS_SIGN_EXTENDED && SLJIT_UPPER_BITS_SIGN_EXTENDED)
 	FAILED(buf[4] != SLJIT_W(-28958998501905210), "test76 case 7 failed\n");
 	FAILED(buf[5] != -1119998778, "test76 case 8 failed\n");
+#endif
+#if (defined SLJIT_UPPER_BITS_PRESERVED && SLJIT_UPPER_BITS_PRESERVED)
+	FAILED(buf[4] != SLJIT_W(5698607360772025542), "test76 case 9 failed\n");
+	FAILED(buf[5] != SLJIT_W(0x12345678bd3e2cc6), "test76 case 10 failed\n");
 #endif
 #endif
 

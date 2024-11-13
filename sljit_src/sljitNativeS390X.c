@@ -1929,7 +1929,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 		return SLJIT_SUCCESS;
 	case SLJIT_DIV_S32:
 	case SLJIT_DIVMOD_S32:
-		FAIL_IF(push_inst(compiler, lhi(tmp0, 0)));
+		FAIL_IF(push_inst(compiler, 0xeb00000000dc /* srak */ | R36A(tmp0) | R32A(arg0) | (31 << 16)));
 		FAIL_IF(push_inst(compiler, lr(tmp1, arg0)));
 		FAIL_IF(push_inst(compiler, dr(tmp0, arg1)));
 		FAIL_IF(push_inst(compiler, lr(arg0, tmp1))); /* quotient */

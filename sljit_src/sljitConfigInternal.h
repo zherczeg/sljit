@@ -764,6 +764,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_TMP_DEST_FREG SLJIT_TMP_FR0
 #define SLJIT_LOCALS_OFFSET_BASE SLJIT_S390X_DEFAULT_STACK_FRAME_SIZE
 #define SLJIT_MASKED_SHIFT 1
+#define SLJIT_UPPER_BITS_IGNORED 1
+#define SLJIT_UPPER_BITS_PRESERVED 1
 
 #elif (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 
@@ -813,6 +815,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 
 #define SLJIT_NUMBER_OF_SCRATCH_VECTOR_REGISTERS \
 	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS)
+
+#if (defined SLJIT_UPPER_BITS_ZEROED && SLJIT_UPPER_BITS_ZEROED) \
+	+ (defined SLJIT_UPPER_BITS_SIGN_EXTENDED && SLJIT_UPPER_BITS_SIGN_EXTENDED) \
+	+ (defined SLJIT_UPPER_BITS_PRESERVED && SLJIT_UPPER_BITS_PRESERVED) > 1
+#error "Invalid upper bits defintion"
+#endif
+
+#if (defined SLJIT_UPPER_BITS_PRESERVED && SLJIT_UPPER_BITS_PRESERVED) \
+	&& !(defined SLJIT_UPPER_BITS_IGNORED && SLJIT_UPPER_BITS_IGNORED)
+#error "Upper bits preserved requires bits ignored"
+#endif
 
 /**********************************/
 /* Temporary register management. */
