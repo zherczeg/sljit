@@ -51,7 +51,7 @@
      SLJIT_MASKED_SHIFT32 : all 32 bit shifts are always masked
      SLJIT_INDIRECT_CALL : see SLJIT_FUNC_ADDR() for more information
      SLJIT_UPPER_BITS_IGNORED : 32 bit operations ignores the upper bits of source registers
-     SLJIT_UPPER_BITS_ZEROED : 32 bit operations clears the upper bits of destination registers
+     SLJIT_UPPER_BITS_ZERO_EXTENDED : 32 bit operations clears the upper bits of destination registers
      SLJIT_UPPER_BITS_SIGN_EXTENDED : 32 bit operations replicates the sign bit in the upper bits of destination registers
      SLJIT_UPPER_BITS_PRESERVED : 32 bit operations preserves the upper bits of destination registers
 
@@ -609,7 +609,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
 #define SLJIT_UPPER_BITS_IGNORED 1
-#define SLJIT_UPPER_BITS_ZEROED 1
+#define SLJIT_UPPER_BITS_ZERO_EXTENDED 1
 
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 
@@ -633,7 +633,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
 #define SLJIT_UPPER_BITS_IGNORED 1
-#define SLJIT_UPPER_BITS_ZEROED 1
+#define SLJIT_UPPER_BITS_ZERO_EXTENDED 1
 
 #elif (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
 
@@ -663,7 +663,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
 #define SLJIT_UPPER_BITS_IGNORED 1
-#define SLJIT_UPPER_BITS_ZEROED 1
+#define SLJIT_UPPER_BITS_ZERO_EXTENDED 1
 
 #elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 
@@ -816,7 +816,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_NUMBER_OF_SCRATCH_VECTOR_REGISTERS \
 	(SLJIT_NUMBER_OF_VECTOR_REGISTERS - SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS)
 
-#if (defined SLJIT_UPPER_BITS_ZEROED && SLJIT_UPPER_BITS_ZEROED) \
+#if (defined SLJIT_UPPER_BITS_ZERO_EXTENDED && SLJIT_UPPER_BITS_ZERO_EXTENDED) \
 	+ (defined SLJIT_UPPER_BITS_SIGN_EXTENDED && SLJIT_UPPER_BITS_SIGN_EXTENDED) \
 	+ (defined SLJIT_UPPER_BITS_PRESERVED && SLJIT_UPPER_BITS_PRESERVED) > 1
 #error "Invalid upper bits defintion"
