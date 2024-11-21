@@ -529,6 +529,12 @@ struct sljit_compiler {
 	sljit_s32 fscratches;
 	/* Available float saved registers. */
 	sljit_s32 fsaveds;
+#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
+	/* Available vector scratch registers. */
+	sljit_s32 vscratches;
+	/* Available vector saved registers. */
+	sljit_s32 vsaveds;
+#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 	/* Local stack size. */
 	sljit_s32 local_size;
 	/* Maximum code size. */
@@ -893,6 +899,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type);
 /* Floating point scratch and saved registers can be
    specified by SLJIT_ENTER_FLOAT. */
 #define SLJIT_ENTER_FLOAT(regs)		((regs) << 8)
+
+/* Vector scratch and saved registers can be specified
+   by SLJIT_ENTER_VECTOR. */
+#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
+#define SLJIT_ENTER_VECTOR(regs)		((regs) << 16)
+#else /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
+#define SLJIT_ENTER_VECTOR(regs)		SLJIT_ENTER_FLOAT(regs)
+#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 
 /* The local_size must be >= 0 and <= SLJIT_MAX_LOCAL_SIZE. */
 #define SLJIT_MAX_LOCAL_SIZE		1048576
