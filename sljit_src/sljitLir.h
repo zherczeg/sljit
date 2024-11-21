@@ -87,7 +87,7 @@ of sljitConfigInternal.h */
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 /* Version numbers. */
 #define SLJIT_MAJOR_VERSION	0
@@ -686,7 +686,7 @@ static SLJIT_INLINE void* sljit_compiler_get_user_data(struct sljit_compiler *co
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 /* Passing NULL disables verbose. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *compiler, FILE* verbose);
-#endif
+#endif /* SLJIT_VERBOSE */
 
 /* Option bits for sljit_generate_code. */
 
@@ -779,12 +779,12 @@ static SLJIT_INLINE sljit_uw sljit_get_generated_code_size(struct sljit_compiler
 #define SLJIT_HAS_AVX			100
 /* [Not emulated] AVX2 support is available on x86. */
 #define SLJIT_HAS_AVX2			101
-#endif
+#endif /* SLJIT_CONFIG_X86 */
 
 #if (defined SLJIT_CONFIG_LOONGARCH)
 /* [Not emulated] LASX support is available on LoongArch */
 #define SLJIT_HAS_LASX        201
-#endif
+#endif /* SLJIT_CONFIG_LOONGARCH */
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type);
 
@@ -2570,10 +2570,10 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct
    it is sometimes desired to free all unused memory regions, e.g.
    before the application terminates. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void);
-#endif
+#endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
 #ifdef __cplusplus
 } /* extern "C" */
-#endif
+#endif /* __cplusplus */
 
 #endif /* SLJIT_LIR_H_ */
