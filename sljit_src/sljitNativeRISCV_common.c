@@ -153,7 +153,7 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define REV8		(F12(0x698) | F3(0x5) | OPC(0x13))
 #elif defined SLJIT_CONFIG_RISCV_64
 #define REV8		(F12(0x6b8) | F3(0x5) | OPC(0x13))
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 #define ROL		(F7(0x30) | F3(0x1) | OPC(0x33))
 #define ROR		(F7(0x30) | F3(0x5) | OPC(0x33))
 #define RORI		(F7(0x30) | F3(0x5) | OPC(0x13))
@@ -213,7 +213,7 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define ZEXTH		(F7(0x4) | F3(0x4) | OPC(0x33))
 #elif defined SLJIT_CONFIG_RISCV_64
 #define ZEXTH		(F7(0x4) | F3(0x4) | OPC(0x3B))
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 #endif /* __riscv_zbb */
 
 #define SIMM_MAX	(0x7ff)
@@ -228,7 +228,7 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define S32_MIN		(-0x80000000l)
 #define S44_MAX		(0x7fffffff7ffl)
 #define S52_MAX		(0x7ffffffffffffl)
-#endif
+#endif /* SLJIT_CONFIG_RISCV_64 */
 
 static sljit_s32 push_inst(struct sljit_compiler *compiler, sljit_ins ins)
 {
@@ -286,9 +286,9 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 		if (jump->flags & IS_COND) {
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 			code_ptr[-1] -= (sljit_ins)(1 * sizeof(sljit_ins)) << 7;
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 			code_ptr[-1] -= (sljit_ins)(5 * sizeof(sljit_ins)) << 7;
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 		}
 
 		jump->flags |= PATCH_J;
@@ -331,16 +331,16 @@ static SLJIT_INLINE sljit_ins* detect_jump_type(struct sljit_jump *jump, sljit_i
 		code_ptr[4] = code_ptr[0];
 		return code_ptr + 4;
 	}
-#endif
+#endif /* SLJIT_CONFIG_RISCV_64 */
 
 exit:
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 	code_ptr[1] = code_ptr[0];
 	return code_ptr + 1;
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 	code_ptr[5] = code_ptr[0];
 	return code_ptr + 5;
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 }
 
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
@@ -402,7 +402,7 @@ static SLJIT_INLINE void load_addr_to_reg(struct sljit_jump *jump, sljit_sw exec
 	sljit_u32 reg = (flags & JUMP_MOV_ADDR) ? *ins : TMP_REG1;
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 	sljit_sw high;
-#endif
+#endif /* SLJIT_CONFIG_RISCV_64 */
 	SLJIT_UNUSED_ARG(executable_offset);
 
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
@@ -423,7 +423,7 @@ static SLJIT_INLINE void load_addr_to_reg(struct sljit_jump *jump, sljit_sw exec
 			ins[1] = ADDI | RD(reg) | RS1(reg) | IMM_I(addr);
 		return;
 	}
-#endif
+#endif /* SLJIT_CONFIG_RISCV_64 */
 
 	if ((addr & 0x800) != 0)
 		addr += 0x1000;
@@ -735,7 +735,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return (SLJIT_IS_FPU_AVAILABLE) != 0;
 #elif defined(__riscv_float_abi_soft)
 		return 0;
-#else
+#else /* !SLJIT_IS_FPU_AVAILABLE && !__riscv_float_abi_soft */
 		return 1;
 #endif /* SLJIT_IS_FPU_AVAILABLE */
 	case SLJIT_HAS_ZERO_REGISTER:
@@ -747,7 +747,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_MEMORY_BARRIER:
 #ifdef __riscv_vector
 	case SLJIT_HAS_SIMD:
-#endif
+#endif /* __riscv_vector */
 		return 1;
 #ifdef __riscv_zbb
 	case SLJIT_HAS_CLZ:
@@ -755,7 +755,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_REV:
 	case SLJIT_HAS_ROT:
 		return 1;
-#endif
+#endif /* __riscv_zbb */
 	default:
 		return 0;
 	}
@@ -813,16 +813,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 #define STACK_STORE	SW
 #define STACK_LOAD	LW
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 #define STACK_STORE	SD
 #define STACK_LOAD	LD
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 #include "sljitNativeRISCV_32.c"
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 #include "sljitNativeRISCV_64.c"
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 
 #define STACK_MAX_DISTANCE (-SIMM_MIN)
 
@@ -850,9 +850,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			local_size += SSIZE_OF(sw);
 		local_size += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, f64);
 	}
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 	local_size += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, f64);
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 	local_size = (local_size + SLJIT_LOCALS_OFFSET + 15) & ~0xf;
 	compiler->local_size = local_size;
 
@@ -887,7 +887,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	/* This alignment is valid because offset is not used after storing FPU regs. */
 	if ((offset & SSIZE_OF(sw)) != 0)
 		offset -= SSIZE_OF(sw);
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 
 	tmp = SLJIT_FS0 - fsaveds;
 	for (i = SLJIT_FS0; i > tmp; i--) {
@@ -949,9 +949,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 			local_size += SSIZE_OF(sw);
 		local_size += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, f64);
 	}
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 	local_size += GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, f64);
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 	compiler->local_size = (local_size + SLJIT_LOCALS_OFFSET + 15) & ~0xf;
 
 	return SLJIT_SUCCESS;
@@ -997,7 +997,7 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 	/* This alignment is valid because offset is not used after storing FPU regs. */
 	if ((offset & SSIZE_OF(sw)) != 0)
 		offset -= SSIZE_OF(sw);
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 
 	tmp = SLJIT_FS0 - compiler->fsaveds;
 	for (i = SLJIT_FS0; i > tmp; i--) {
@@ -1053,9 +1053,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
 
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 #define ARCH_32_64(a, b)	a
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 #define ARCH_32_64(a, b)	b
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 
 static const sljit_ins data_transfer_insts[16 + 4] = {
 /* u w s */ ARCH_32_64(F3(0x2) | OPC(0x23) /* sw */, F3(0x3) | OPC(0x23) /* sd */),
@@ -2098,7 +2098,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 	if (op & SLJIT_32)
 		flags = INT_DATA | SIGNED_DATA;
-#endif
+#endif /* SLJIT_CONFIG_RISCV_64 */
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
@@ -2106,7 +2106,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV_S32:
 	case SLJIT_MOV32:
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 	case SLJIT_MOV_P:
 		return emit_op(compiler, SLJIT_MOV, WORD_DATA | MOVE_OP, dst, dstw, TMP_ZERO, 0, src, srcw);
 
@@ -2118,7 +2118,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	/* Logical operators have no W variant, so sign extended input is necessary for them. */
 	case SLJIT_MOV32:
 		return emit_op(compiler, SLJIT_MOV_S32, INT_DATA | SIGNED_DATA | MOVE_OP, dst, dstw, TMP_ZERO, 0, src, (src == SLJIT_IMM) ? (sljit_s32)srcw : srcw);
-#endif
+#endif /* SLJIT_CONFIG_RISCV_64 */
 
 	case SLJIT_MOV_U8:
 		return emit_op(compiler, op, BYTE_DATA | MOVE_OP, dst, dstw, TMP_ZERO, 0, src, (src == SLJIT_IMM) ? (sljit_u8)srcw : srcw);
@@ -2171,7 +2171,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		if (src2 == SLJIT_IMM)
 			src2w = (sljit_s32)src2w;
 	}
-#endif
+#endif /* SLJIT_CONFIG_RISCV_64 */
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
@@ -2429,9 +2429,9 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 {
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 #	define flags (sljit_u32)0
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 	sljit_u32 flags = ((sljit_u32)(GET_OPCODE(op) == SLJIT_CONV_SW_FROM_F64)) << 21;
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 	sljit_s32 dst_r = FAST_IS_REG(dst) ? dst : TMP_REG2;
 
 	if (src & SLJIT_MEM) {
@@ -2445,15 +2445,15 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 	if (dst & SLJIT_MEM) {
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 		return emit_op_mem2(compiler, WORD_DATA, TMP_REG2, dst, dstw, 0, 0);
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 		return emit_op_mem2(compiler, flags ? WORD_DATA : INT_DATA, TMP_REG2, dst, dstw, 0, 0);
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 	}
 	return SLJIT_SUCCESS;
 
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 #	undef flags
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 }
 
 static sljit_s32 sljit_emit_fop1_conv_f64_from_w(struct sljit_compiler *compiler, sljit_ins ins,
@@ -2751,9 +2751,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 #define BRANCH_LENGTH	((sljit_ins)(3 * sizeof(sljit_ins)) << 7)
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 #define BRANCH_LENGTH	((sljit_ins)(7 * sizeof(sljit_ins)) << 7)
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 
 static sljit_ins get_jump_instruction(sljit_s32 type)
 {
@@ -3022,9 +3022,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	sljit_s32 saved_op = op;
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 	sljit_s32 mem_type = WORD_DATA;
-#else
+#else /* !SLJIT_CONFIG_RISCV_32 */
 	sljit_s32 mem_type = ((op & SLJIT_32) || op == SLJIT_MOV32) ? (INT_DATA | SIGNED_DATA) : WORD_DATA;
-#endif
+#endif /* SLJIT_CONFIG_RISCV_32 */
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, type));
