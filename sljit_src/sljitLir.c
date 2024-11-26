@@ -142,9 +142,7 @@
 /* Mask for sljit_emit_enter. */
 #define ENTER_GET_REGS(regs)			((regs) & 0xff)
 #define ENTER_GET_FLOAT_REGS(regs)		(((regs) >> 8) & 0xff)
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
-#define ENTER_GET_VECTOR_REGS(regs) 	(((regs) >> 16) & 0xff)
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
+#define ENTER_GET_VECTOR_REGS(regs)		(((regs) >> 16) & 0xff)
 #define SLJIT_KEPT_SAVEDS_COUNT(options)	((options) & 0x3)
 
 /* Getters for simd operations, which returns with log2(size). */
@@ -314,12 +312,6 @@
 #define GET_SAVED_FLOAT_REGISTERS_SIZE(fscratches, fsaveds, type) \
 	(((fscratches < SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS ? 0 : (fscratches - SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS)) + \
 		(fsaveds)) * SSIZE_OF(type))
-
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
-#define GET_SAVED_VECTOR_REGISTERS_SIZE(vscratches, vsaveds, type) \
-	(((vscratches < SLJIT_NUMBER_OF_SCRATCH_VECTOR_REGISTERS ? 0 : (vscratches - SLJIT_NUMBER_OF_SCRATCH_VECTOR_REGISTERS)) + \
-		(vsaveds)) * SSIZE_OF(type))
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 
 #define ADJUST_LOCAL_OFFSET(p, i) \
 	if ((p) == (SLJIT_MEM1(SLJIT_SP))) \
@@ -768,6 +760,25 @@ static SLJIT_INLINE sljit_uw sljit_get_next_min(sljit_uw next_label_size,
 
 #endif /* !SLJIT_CONFIG_X86 */
 
+#if !(defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
+
+static void update_float_register_count(struct sljit_compiler *compiler, sljit_s32 scratches, sljit_s32 saveds)
+{
+	sljit_s32 vscratches = ENTER_GET_VECTOR_REGS(scratches);
+	sljit_s32 vsaveds = ENTER_GET_VECTOR_REGS(saveds);
+
+	if (compiler->fscratches < vscratches)
+		compiler->fscratches = vscratches;
+
+	if (compiler->fsaveds < vsaveds)
+		compiler->fsaveds = vsaveds;
+
+	if (compiler->fsaveds + compiler->fscratches > SLJIT_NUMBER_OF_FLOAT_REGISTERS)
+		compiler->fscratches = SLJIT_NUMBER_OF_FLOAT_REGISTERS - compiler->fsaveds;
+}
+
+#endif /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
+
 static SLJIT_INLINE void set_emit_enter(struct sljit_compiler *compiler,
 	sljit_s32 options, sljit_s32 args,
 	sljit_s32 scratches, sljit_s32 saveds, sljit_s32 local_size)
@@ -783,6 +794,8 @@ static SLJIT_INLINE void set_emit_enter(struct sljit_compiler *compiler,
 #if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
 	compiler->vscratches = ENTER_GET_VECTOR_REGS(scratches);
 	compiler->vsaveds = ENTER_GET_VECTOR_REGS(saveds);
+#else /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
+	update_float_register_count(compiler, scratches, saveds);
 #endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	compiler->last_return = args & SLJIT_ARG_MASK;
@@ -805,6 +818,8 @@ static SLJIT_INLINE void set_set_context(struct sljit_compiler *compiler,
 #if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
 	compiler->vscratches = ENTER_GET_VECTOR_REGS(scratches);
 	compiler->vsaveds = ENTER_GET_VECTOR_REGS(saveds);
+#else /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
+	update_float_register_count(compiler, scratches, saveds);
 #endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	compiler->last_return = args & SLJIT_ARG_MASK;
@@ -1003,22 +1018,9 @@ static sljit_s32 function_check_dst(struct sljit_compiler *compiler, sljit_s32 p
 	function_check_is_freg(compiler, (fr), (is_32))
 
 static sljit_s32 function_check_is_freg(struct sljit_compiler *compiler, sljit_s32 fr, sljit_s32 is_32);
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
-#define FUNCTION_CHECK_IS_VREG(vr, is_32) \
-	function_check_is_vreg(compiler, (vr), (is_32))
-
-static sljit_s32 function_check_is_vreg(struct sljit_compiler *compiler, sljit_s32 vr, sljit_s32 is_32);
-#else /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
-#define FUNCTION_CHECK_IS_VREG(vr, is_32) \
-	function_check_is_freg(compiler, (vr), (is_32))
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 
 #define FUNCTION_FCHECK(p, i, is_32) \
 	CHECK_ARGUMENT(function_fcheck(compiler, (p), (i), (is_32)));
-
-#define FUNCTION_VCHECK(p, i, is_32) 		FUNCTION_FCHECK(p, i, is_32)
-
-#define FUNCTION_FVCHECK(p, i, is_32)		FUNCTION_FCHECK(p, i, is_32)
 
 static sljit_s32 function_fcheck(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i, sljit_s32 is_32)
 {
@@ -1044,23 +1046,6 @@ static sljit_s32 function_check_is_freg(struct sljit_compiler *compiler, sljit_s
 		|| (fr > (SLJIT_FS0 - compiler->fsaveds) && fr <= SLJIT_FS0)
 		|| (fr >= SLJIT_TMP_FREGISTER_BASE && fr < (SLJIT_TMP_FREGISTER_BASE + SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS));
 }
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
-#define FUNCTION_CHECK_IS_VREG(vr, is_32) \
-	function_check_is_vreg(compiler, (vr))
-
-static sljit_s32 function_check_is_vreg(struct sljit_compiler *compiler, sljit_s32 vr)
-{
-	if (compiler->scratches == -1)
-		return 0;
-
-	return (vr >= SLJIT_VR0 && vr < (SLJIT_VR0 + compiler->vscratches))
-		|| (vr > (SLJIT_VS0 - compiler->vsaveds) && vr <= SLJIT_VS0)
-		|| (vr >= SLJIT_TMP_VREGISTER_BASE && vr < (SLJIT_TMP_VREGISTER_BASE + SLJIT_NUMBER_OF_TEMPORARY_VECTOR_REGISTERS));
-}
-#else /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
-#define FUNCTION_CHECK_IS_VREG(vr, is_32) \
-	function_check_is_freg(compiler, (vr))
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 
 #define FUNCTION_FCHECK(p, i, is_32) \
 	CHECK_ARGUMENT(function_fcheck(compiler, (p), (i)));
@@ -1078,9 +1063,26 @@ static sljit_s32 function_fcheck(struct sljit_compiler *compiler, sljit_s32 p, s
 	return function_check_src_mem(compiler, p, i);
 }
 
+#endif /* SLJIT_CONFIG_ARM_32 || SLJIT_CONFIG_MIPS_32 */
+
 #if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
-#define FUNCTION_VCHECK(p, i, is_32) \
+
+#define FUNCTION_CHECK_IS_VREG(vr) \
+	function_check_is_vreg(compiler, (vr))
+
+static sljit_s32 function_check_is_vreg(struct sljit_compiler *compiler, sljit_s32 vr)
+{
+	if (compiler->scratches == -1)
+		return 0;
+
+	return (vr >= SLJIT_VR0 && vr < (SLJIT_VR0 + compiler->vscratches))
+		|| (vr > (SLJIT_VS0 - compiler->vsaveds) && vr <= SLJIT_VS0)
+		|| (vr >= SLJIT_TMP_VREGISTER_BASE && vr < (SLJIT_TMP_VREGISTER_BASE + SLJIT_NUMBER_OF_TEMPORARY_VECTOR_REGISTERS));
+}
+
+#define FUNCTION_VCHECK(p, i) \
 	CHECK_ARGUMENT(function_vcheck(compiler, (p), (i)))
+
 static sljit_s32 function_vcheck(struct sljit_compiler *compiler, sljit_s32 p, sljit_sw i)
 {
 	if (compiler->scratches == -1)
@@ -1093,14 +1095,13 @@ static sljit_s32 function_vcheck(struct sljit_compiler *compiler, sljit_s32 p, s
 
 	return function_check_src_mem(compiler, p, i);
 }
-#define FUNCTION_FVCHECK(p, i, is_32) \
-	CHECK_ARGUMENT(function_fcheck(compiler, (p), (i)) || function_vcheck(compiler, (p), (i)));
-#else /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
-#define FUNCTION_VCHECK(p, i, is_32) 		FUNCTION_FCHECK(p, i, is_32)
-#define FUNCTION_FVCHECK(p, i, is_32)		FUNCTION_FCHECK(p, i, is_32)
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 
-#endif /* SLJIT_CONFIG_ARM_32 || SLJIT_CONFIG_MIPS_32 */
+#else /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
+
+#define FUNCTION_CHECK_IS_VREG(vr) FUNCTION_CHECK_IS_FREG((vr), 0)
+#define FUNCTION_VCHECK(p, i) FUNCTION_FCHECK((p), (i), 0)
+
+#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 
 #endif /* SLJIT_ARGUMENT_CHECKS */
 
@@ -1353,10 +1354,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 	sljit_s32 real_saveds = ENTER_GET_REGS(saveds);
 	sljit_s32 real_fscratches = ENTER_GET_FLOAT_REGS(scratches);
 	sljit_s32 real_fsaveds = ENTER_GET_FLOAT_REGS(saveds);
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
 	sljit_s32 real_vscratches = ENTER_GET_VECTOR_REGS(scratches);
 	sljit_s32 real_vsaveds = ENTER_GET_VECTOR_REGS(saveds);
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 #endif /* SLJIT_ARGUMENT_CHECKS */
 	SLJIT_UNUSED_ARG(compiler);
 
@@ -1374,11 +1373,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 	CHECK_ARGUMENT(real_fscratches >= 0 && real_fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(real_fsaveds >= 0 && real_fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(real_fscratches + real_fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
 	CHECK_ARGUMENT(real_vscratches >= 0 && real_vscratches <= SLJIT_NUMBER_OF_VECTOR_REGISTERS);
 	CHECK_ARGUMENT(real_vsaveds >= 0 && real_vsaveds <= SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS);
 	CHECK_ARGUMENT(real_vscratches + real_vsaveds <= SLJIT_NUMBER_OF_VECTOR_REGISTERS);
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	CHECK_ARGUMENT((arg_types & SLJIT_ARG_FULL_MASK) <= SLJIT_ARG_TYPE_F32);
 	CHECK_ARGUMENT(function_check_arguments(arg_types, real_scratches,
@@ -1417,14 +1414,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_enter(struct sljit_compil
 		}
 #endif /* !SLJIT_CONFIG_X86 */
 
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
 		fprintf(compiler->verbose, " scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, vscratches:%d, vsaveds:%d, local_size:%d\n",
 			ENTER_GET_REGS(scratches), ENTER_GET_REGS(saveds), ENTER_GET_FLOAT_REGS(scratches), ENTER_GET_FLOAT_REGS(saveds),
 			ENTER_GET_VECTOR_REGS(scratches), ENTER_GET_VECTOR_REGS(saveds), local_size);
-#else /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
-		fprintf(compiler->verbose, " scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
-			ENTER_GET_REGS(scratches), ENTER_GET_REGS(saveds), ENTER_GET_FLOAT_REGS(scratches), ENTER_GET_FLOAT_REGS(saveds), local_size);
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 	}
 #endif /* SLJIT_VERBOSE */
 	CHECK_RETURN_OK;
@@ -1439,10 +1431,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 	sljit_s32 real_saveds = ENTER_GET_REGS(saveds);
 	sljit_s32 real_fscratches = ENTER_GET_FLOAT_REGS(scratches);
 	sljit_s32 real_fsaveds = ENTER_GET_FLOAT_REGS(saveds);
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
 	sljit_s32 real_vscratches = ENTER_GET_VECTOR_REGS(scratches);
 	sljit_s32 real_vsaveds = ENTER_GET_VECTOR_REGS(saveds);
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 #endif /* SLJIT_ARGUMENT_CHECKS */
 	SLJIT_UNUSED_ARG(compiler);
 
@@ -1453,18 +1443,16 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 		CHECK_ARGUMENT((options & ~SLJIT_ENTER_CPU_SPECIFIC_OPTIONS) == 0);
 	}
 	CHECK_ARGUMENT(SLJIT_KEPT_SAVEDS_COUNT(options) <= 3 && SLJIT_KEPT_SAVEDS_COUNT(options) <= saveds);
-	CHECK_ARGUMENT((scratches & ~0xffff) == 0 && (saveds & ~0xffff) == 0);
+	CHECK_ARGUMENT((scratches & ~0xffffff) == 0 && (saveds & ~0xffffff) == 0);
 	CHECK_ARGUMENT(real_scratches >= 0 && real_scratches <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(real_saveds >= 0 && real_saveds <= SLJIT_NUMBER_OF_SAVED_REGISTERS);
 	CHECK_ARGUMENT(real_scratches + real_saveds <= SLJIT_NUMBER_OF_REGISTERS);
 	CHECK_ARGUMENT(real_fscratches >= 0 && real_fscratches <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(real_fsaveds >= 0 && real_fsaveds <= SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS);
 	CHECK_ARGUMENT(real_fscratches + real_fsaveds <= SLJIT_NUMBER_OF_FLOAT_REGISTERS);
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
 	CHECK_ARGUMENT(real_vscratches >= 0 && real_vscratches <= SLJIT_NUMBER_OF_VECTOR_REGISTERS);
 	CHECK_ARGUMENT(real_vsaveds >= 0 && real_vsaveds <= SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS);
 	CHECK_ARGUMENT(real_vscratches + real_vsaveds <= SLJIT_NUMBER_OF_VECTOR_REGISTERS);
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 	CHECK_ARGUMENT(local_size >= 0 && local_size <= SLJIT_MAX_LOCAL_SIZE);
 	CHECK_ARGUMENT((arg_types & SLJIT_ARG_FULL_MASK) < SLJIT_ARG_TYPE_F64);
 	CHECK_ARGUMENT(function_check_arguments(arg_types, real_scratches,
@@ -1503,14 +1491,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_set_context(struct sljit_compi
 		}
 #endif /* !SLJIT_CONFIG_X86 */
 
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
 		fprintf(compiler->verbose, " scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, vscratches:%d, vsaveds:%d, local_size:%d\n",
 			ENTER_GET_REGS(scratches), ENTER_GET_REGS(saveds), ENTER_GET_FLOAT_REGS(scratches), ENTER_GET_FLOAT_REGS(saveds),
 			ENTER_GET_VECTOR_REGS(scratches), ENTER_GET_VECTOR_REGS(saveds), local_size);
-#else /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
-		fprintf(compiler->verbose, " scratches:%d, saveds:%d, fscratches:%d, fsaveds:%d, local_size:%d\n",
-			ENTER_GET_REGS(scratches), ENTER_GET_REGS(saveds), ENTER_GET_FLOAT_REGS(scratches), ENTER_GET_FLOAT_REGS(saveds), local_size);
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
 	}
 #endif /* SLJIT_VERBOSE */
 	CHECK_RETURN_OK;
@@ -2046,8 +2029,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_fop1(struct sljit_compile
 	CHECK_ARGUMENT(sljit_has_cpu_feature(SLJIT_HAS_FPU));
 	CHECK_ARGUMENT(SLJIT_CHECK_OPCODE(op, 0) >= SLJIT_MOV_F64 && SLJIT_CHECK_OPCODE(op, 0) <= SLJIT_ABS_F64);
 	CHECK_ARGUMENT(!(op & (SLJIT_SET_Z | VARIABLE_FLAG_MASK)));
-	FUNCTION_FVCHECK(src, srcw, op & SLJIT_32);
-	FUNCTION_FVCHECK(dst, dstw, op & SLJIT_32);
+	FUNCTION_FCHECK(src, srcw, op & SLJIT_32);
+	FUNCTION_FCHECK(dst, dstw, op & SLJIT_32);
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -2877,8 +2860,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_mov(struct sljit_com
 	CHECK_ARGUMENT(SLJIT_SIMD_CHECK_REG(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) <= SLJIT_SIMD_GET_REG_SIZE(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM2_SIZE(type) <= (srcdst & SLJIT_MEM) ? SLJIT_SIMD_GET_REG_SIZE(type) : 0);
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg, 0));
-	FUNCTION_VCHECK(srcdst, srcdstw, 0);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg));
+	FUNCTION_VCHECK(srcdst, srcdstw);
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -2918,13 +2901,13 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_replicate(struct slj
 	CHECK_ARGUMENT((type & SLJIT_SIMD_TYPE_MASK(0)) == 0);
 	CHECK_ARGUMENT(SLJIT_SIMD_CHECK_REG(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg, 0));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg));
 
 	if (type & SLJIT_SIMD_FLOAT) {
 		if (src == SLJIT_IMM) {
 			CHECK_ARGUMENT(srcw == 0);
 		} else {
-			FUNCTION_VCHECK(src, srcw, SLJIT_SIMD_GET_ELEM_SIZE(type) == 2);
+			FUNCTION_FCHECK(src, srcw, SLJIT_SIMD_GET_ELEM_SIZE(type) == 2);
 		}
 	} else if (src != SLJIT_IMM) {
 		FUNCTION_CHECK_DST(src, srcw);
@@ -2969,11 +2952,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_lane_mov(struct slji
 	CHECK_ARGUMENT(SLJIT_SIMD_CHECK_REG(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
 	CHECK_ARGUMENT(!(type & SLJIT_32) || SLJIT_SIMD_GET_ELEM_SIZE(type) <= 2);
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg, 0));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg));
 	CHECK_ARGUMENT(lane_index >= 0 && lane_index < (1 << (SLJIT_SIMD_GET_REG_SIZE(type) - SLJIT_SIMD_GET_ELEM_SIZE(type))));
 
 	if (type & SLJIT_SIMD_FLOAT) {
-		FUNCTION_VCHECK(srcdst, srcdstw, SLJIT_SIMD_GET_ELEM_SIZE(type) == 2);
+		FUNCTION_FCHECK(srcdst, srcdstw, SLJIT_SIMD_GET_ELEM_SIZE(type) == 2);
 	} else if ((type & SLJIT_SIMD_STORE) || srcdst != SLJIT_IMM) {
 		FUNCTION_CHECK_DST(srcdst, srcdstw);
 	}
@@ -3017,8 +3000,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_lane_replicate(struc
 	CHECK_ARGUMENT((type & SLJIT_SIMD_TYPE_MASK(0)) == 0);
 	CHECK_ARGUMENT(SLJIT_SIMD_CHECK_REG(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg, 0));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(src, 0));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(src));
 	CHECK_ARGUMENT(src_lane_index >= 0 && src_lane_index < (1 << (SLJIT_SIMD_GET_REG_SIZE(type) - SLJIT_SIMD_GET_ELEM_SIZE(type))));
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -3055,8 +3038,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_extend(struct sljit_
 	CHECK_ARGUMENT(SLJIT_SIMD_CHECK_REG(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM2_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_ELEM2_SIZE(type));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg, 0));
-	FUNCTION_VCHECK(src, srcw, SLJIT_SIMD_GET_ELEM_SIZE(type) == 2);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg));
+	FUNCTION_VCHECK(src, srcw);
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
@@ -3093,7 +3076,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_sign(struct sljit_co
 	CHECK_ARGUMENT((type & SLJIT_SIMD_TYPE_MASK(SLJIT_32)) == SLJIT_SIMD_STORE);
 	CHECK_ARGUMENT(SLJIT_SIMD_CHECK_REG(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) < SLJIT_SIMD_GET_REG_SIZE(type));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg, 0));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(vreg));
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
@@ -3130,9 +3113,9 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_simd_op2(struct sljit_com
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM_SIZE(type) <= SLJIT_SIMD_GET_REG_SIZE(type));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_OPCODE(type) != SLJIT_SIMD_OP2_SHUFFLE || (SLJIT_SIMD_GET_ELEM_SIZE(type) == 0 && !(type & SLJIT_SIMD_FLOAT)));
 	CHECK_ARGUMENT(SLJIT_SIMD_GET_ELEM2_SIZE(type) <= (src2 & SLJIT_MEM) ? SLJIT_SIMD_GET_REG_SIZE(type) : 0);
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(dst_vreg, 0));
-	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(src1_vreg, 0));
-	FUNCTION_VCHECK(src2, src2w, 0);
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(dst_vreg));
+	CHECK_ARGUMENT(FUNCTION_CHECK_IS_VREG(src1_vreg));
+	FUNCTION_VCHECK(src2, src2w);
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {

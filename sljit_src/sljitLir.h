@@ -902,11 +902,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type);
 
 /* Vector scratch and saved registers can be specified
    by SLJIT_ENTER_VECTOR. */
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
-#define SLJIT_ENTER_VECTOR(regs)		((regs) << 16)
-#else /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
-#define SLJIT_ENTER_VECTOR(regs)		SLJIT_ENTER_FLOAT(regs)
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
+#define SLJIT_ENTER_VECTOR(regs)	((regs) << 16)
 
 /* The local_size must be >= 0 and <= SLJIT_MAX_LOCAL_SIZE. */
 #define SLJIT_MAX_LOCAL_SIZE		1048576
