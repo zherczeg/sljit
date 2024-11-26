@@ -3187,7 +3187,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_register_index(sljit_s32 type, slji
 	if (type == SLJIT_GP_REGISTER)
 		return (sljit_s32)gpr(reg);
 
-	if (type != SLJIT_FLOAT_REGISTER)
+	if (type != SLJIT_FLOAT_REGISTER && type != SLJIT_SIMD_REG_128)
 		return -1;
 
 	return (sljit_s32)freg_map[reg];

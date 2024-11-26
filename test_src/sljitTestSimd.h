@@ -81,6 +81,12 @@ static void test_simd1(void)
 	sljit_u8 data[63 + 880];
 	sljit_s32 vs0 = SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS > 0 ? SLJIT_VS0 : SLJIT_VR5;
 
+	SLJIT_ASSERT(sljit_get_register_index(SLJIT_SIMD_REG_128, SLJIT_VR0) != -1
+		&& sljit_get_register_index(SLJIT_SIMD_REG_128, SLJIT_TMP_DEST_VREG) != -1);
+
+	SLJIT_ASSERT(SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS == 0
+		|| sljit_get_register_index(SLJIT_SIMD_REG_128, SLJIT_VS0) != -1);
+
 	if (verbose)
 		printf("Run test_simd1\n");
 
@@ -235,6 +241,8 @@ static void test_simd1(void)
 	FAILED(!check_simd_mov(buf + 288, 239, 16), "test_simd1 case 6 failed\n");
 	FAILED(!check_simd_mov(buf + 344, 176, 16), "test_simd1 case 7 failed\n");
 #if IS_ARM
+	SLJIT_ASSERT(sljit_get_register_index(SLJIT_SIMD_REG_64, SLJIT_VR0) != -1
+		&& sljit_get_register_index(SLJIT_SIMD_REG_64, SLJIT_TMP_DEST_VREG) != -1);
 	FAILED(!check_simd_mov(buf + 384, 88, 8), "test_simd1 case 8 failed\n");
 	FAILED(!check_simd_mov(buf + 402, 197, 8), "test_simd1 case 9 failed\n");
 #endif /* IS_ARM */
@@ -247,6 +255,8 @@ static void test_simd1(void)
 #endif /* IS_ARM */
 
 	if (supported[0]) {
+		SLJIT_ASSERT(sljit_get_register_index(SLJIT_SIMD_REG_256, SLJIT_VR0) != -1
+			&& sljit_get_register_index(SLJIT_SIMD_REG_256, SLJIT_TMP_DEST_VREG) != -1);
 		FAILED(!check_simd_mov(buf + 768, 85, 32), "test_simd1 case 15 failed\n");
 		FAILED(!check_simd_mov(buf + 834, 215, 32), "test_simd1 case 16 failed\n");
 	}
