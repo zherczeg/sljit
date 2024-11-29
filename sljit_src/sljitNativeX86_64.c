@@ -651,7 +651,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 
 	CHECK_ERROR();
 	CHECK(check_sljit_set_context(compiler, options, arg_types, scratches, saveds, local_size));
-	set_set_context(compiler, options, arg_types, scratches, saveds, local_size);
+	set_emit_enter(compiler, options, arg_types, scratches, saveds, local_size);
 
 	scratches = ENTER_GET_REGS(scratches);
 
