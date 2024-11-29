@@ -200,9 +200,26 @@ static sljit_s32 function_check_is_freg(struct sljit_compiler *compiler, sljit_s
 	if (is_32 && fr >= SLJIT_F64_SECOND(SLJIT_FR0))
 		fr -= SLJIT_F64_SECOND(0);
 
-	return (fr >= SLJIT_FR0 && fr < (SLJIT_FR0 + compiler->fscratches))
-		|| (fr > (SLJIT_FS0 - compiler->fsaveds) && fr <= SLJIT_FS0)
+	return (fr >= SLJIT_FR0 && fr < (SLJIT_FR0 + compiler->real_fscratches))
+		|| (fr > (SLJIT_FS0 - compiler->real_fsaveds) && fr <= SLJIT_FS0)
 		|| (fr >= SLJIT_TMP_FREGISTER_BASE && fr < (SLJIT_TMP_FREGISTER_BASE + SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS));
+}
+
+static sljit_s32 function_check_is_vreg(struct sljit_compiler *compiler, sljit_s32 vr, sljit_s32 type)
+{
+	sljit_s32 vr_low = vr;
+
+	if (compiler->scratches == -1)
+		return 0;
+
+	if (SLJIT_SIMD_GET_REG_SIZE(type) == 4) {
+		vr += (vr & 0x1);
+		vr_low = vr - 1;
+	}
+
+	return (vr >= SLJIT_VR0 && vr < (SLJIT_VR0 + compiler->vscratches))
+		|| (vr_low > (SLJIT_VS0 - compiler->vsaveds) && vr_low <= SLJIT_VS0)
+		|| (vr >= SLJIT_TMP_VREGISTER_BASE && vr < (SLJIT_TMP_VREGISTER_BASE + SLJIT_NUMBER_OF_TEMPORARY_VECTOR_REGISTERS));
 }
 
 #endif /* SLJIT_ARGUMENT_CHECKS */
@@ -1434,7 +1451,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_set_context(struct sljit_compiler *comp
 
 	CHECK_ERROR();
 	CHECK(check_sljit_set_context(compiler, options, arg_types, scratches, saveds, local_size));
-	set_set_context(compiler, options, arg_types, scratches, saveds, local_size);
+	set_emit_enter(compiler, options, arg_types, scratches, saveds, local_size);
 
 	scratches = ENTER_GET_REGS(scratches);
 	saveds = ENTER_GET_REGS(saveds);

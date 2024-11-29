@@ -529,12 +529,15 @@ struct sljit_compiler {
 	sljit_s32 fscratches;
 	/* Available float saved registers. */
 	sljit_s32 fsaveds;
-#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
+#if (defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS) \
+		|| (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
+		|| (defined SLJIT_DEBUG && SLJIT_DEBUG) \
+		|| (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	/* Available vector scratch registers. */
 	sljit_s32 vscratches;
 	/* Available vector saved registers. */
 	sljit_s32 vsaveds;
-#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS */
+#endif /* SLJIT_SEPARATE_VECTOR_REGISTERS || SLJIT_ARGUMENT_CHECKS || SLJIT_DEBUG || SLJIT_VERBOSE */
 	/* Local stack size. */
 	sljit_s32 local_size;
 	/* Maximum code size. */
@@ -615,6 +618,7 @@ struct sljit_compiler {
 	FILE* verbose;
 #endif /* SLJIT_VERBOSE */
 
+	/* Note: SLJIT_DEBUG enables SLJIT_ARGUMENT_CHECKS. */
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
 		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	/* Flags specified by the last arithmetic instruction.
@@ -629,6 +633,13 @@ struct sljit_compiler {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
 		|| (defined SLJIT_DEBUG && SLJIT_DEBUG) \
 		|| (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+#if !(defined SLJIT_SEPARATE_VECTOR_REGISTERS && SLJIT_SEPARATE_VECTOR_REGISTERS)
+	/* Available float scratch registers. */
+	sljit_s32 real_fscratches;
+	/* Available float saved registers. */
+	sljit_s32 real_fsaveds;
+#endif /* !SLJIT_SEPARATE_VECTOR_REGISTERS */
+
 	/* Trust arguments when an API function is called.
 	   Used internally for calling API functions. */
 	sljit_s32 skip_checks;
