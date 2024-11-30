@@ -3467,6 +3467,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_local_base(struct sljit_compiler *c
 
 	CHECK_ERROR();
 	CHECK(check_sljit_get_local_base(compiler, dst, dstw, offset));
+	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(SLJIT_MEM1(SLJIT_SP), offset);
 
 	dst_reg = FAST_IS_REG(dst) ? dst : TMP_REG1;

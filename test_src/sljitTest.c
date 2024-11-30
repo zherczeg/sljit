@@ -1571,7 +1571,7 @@ static void test17(void)
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
 	struct sljit_jump* jump;
 	struct sljit_label* label;
-	sljit_sw buf[6];
+	sljit_sw buf[7];
 	sljit_sw offset_value = WCONST(0x1234567812345678, 0x12345678);
 
 	if (verbose)
@@ -1583,7 +1583,7 @@ static void test17(void)
 	buf[2] = 0;
 	buf[3] = 0;
 	buf[4] = 111;
-	buf[5] = -12345;
+	buf[6] = -12345;
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1(W, P), 5, 5, 4 * sizeof(sljit_sw));
 	/* buf[0] */
@@ -1603,8 +1603,12 @@ static void test17(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_MEM1(SLJIT_S0), 0);
 	/* buf[4] */
 	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_uw), SLJIT_MEM1(SLJIT_R0), offset_value, SLJIT_MEM1(SLJIT_R1), 0x1234 + sizeof(sljit_sw));
+	sljit_get_local_base(compiler, SLJIT_MEM1(SLJIT_SP), 0, 8);
+	sljit_get_local_base(compiler, SLJIT_R0, 0, 4);
 	/* buf[5] */
-	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_uw));
+	sljit_emit_op2(compiler, SLJIT_SUB, SLJIT_MEM1(SLJIT_S0), 5 * sizeof(sljit_uw), SLJIT_MEM1(SLJIT_SP), 0, SLJIT_R0, 0);
+	/* buf[6] */
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_uw));
 	/* Dummy last instructions. */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S0, 0, SLJIT_IMM, 23);
 	sljit_emit_label(compiler);
@@ -1618,6 +1622,7 @@ static void test17(void)
 	FAILED(buf[2] != 60, "test17 case 2 failed\n");
 	FAILED(buf[3] != 17, "test17 case 3 failed\n");
 	FAILED(buf[4] != 7, "test17 case 4 failed\n");
+	FAILED(buf[5] != 4, "test17 case 5 failed\n");
 
 	sljit_free_code(code.code, NULL);
 
