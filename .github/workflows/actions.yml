@@ -125,14 +125,14 @@ jobs:
     - name: Install compiler
       run: |
           sudo apt update
-          sudo apt install -y make wget ninja-build
+          sudo apt install -y make wget ninja-build libglib2.0-dev
           wget https://toolchains.bootlin.com/downloads/releases/toolchains/riscv32-ilp32d/tarballs/riscv32-ilp32d--glibc--bleeding-edge-2024.02-1.tar.bz2
           tar -xvf riscv32-ilp32d--glibc--bleeding-edge-2024.02-1.tar.bz2
     - name: Install qemu
       run: |
-          wget https://download.qemu.org/qemu-9.0.2.tar.xz
-          tar -xvf qemu-9.0.2.tar.xz
-          cd qemu-9.0.2
+          wget -q https://download.qemu.org/qemu-9.2.0.tar.xz
+          tar -xvf qemu-9.2.0.tar.xz
+          cd qemu-9.2.0
           ./configure --target-list="riscv32-linux-user"
           make -j4
     - name: Build and test in riscv32
@@ -142,7 +142,7 @@ jobs:
         EXTRA_LDFLAGS: -static
       run: |
         make all
-        ./qemu-9.0.2/build/qemu-riscv32 ./bin/sljit_test -v
+        ./qemu-9.2.0/build/qemu-riscv32 ./bin/sljit_test -v
 
   build-test-on-riscv32-extensions:
     runs-on: ubuntu-latest
@@ -153,14 +153,14 @@ jobs:
     - name: Install compiler
       run: |
           sudo apt update
-          sudo apt install -y make wget ninja-build
+          sudo apt install -y make wget ninja-build libglib2.0-dev
           wget https://toolchains.bootlin.com/downloads/releases/toolchains/riscv32-ilp32d/tarballs/riscv32-ilp32d--glibc--bleeding-edge-2024.02-1.tar.bz2
           tar -xvf riscv32-ilp32d--glibc--bleeding-edge-2024.02-1.tar.bz2
     - name: Install qemu
       run: |
-          wget https://download.qemu.org/qemu-9.0.2.tar.xz
-          tar -xvf qemu-9.0.2.tar.xz
-          cd qemu-9.0.2
+          wget -q https://download.qemu.org/qemu-9.2.0.tar.xz
+          tar -xvf qemu-9.2.0.tar.xz
+          cd qemu-9.2.0
           ./configure --target-list="riscv32-linux-user"
           make -j4
     - name: Build and test
@@ -170,7 +170,7 @@ jobs:
         EXTRA_LDFLAGS: -static
       run: |
         make all
-        ./qemu-9.0.2/build/qemu-riscv32 ./bin/sljit_test -v
+        ./qemu-9.2.0/build/qemu-riscv32 ./bin/sljit_test -v
   build-test-on-riscv64:
     runs-on: ubuntu-latest
     steps:
@@ -180,14 +180,14 @@ jobs:
     - name: Install compiler
       run: |
           sudo apt update
-          sudo apt install -y make wget ninja-build
+          sudo apt install -y make wget ninja-build libglib2.0-dev
           wget https://toolchains.bootlin.com/downloads/releases/toolchains/riscv64-lp64d/tarballs/riscv64-lp64d--glibc--stable-2024.02-1.tar.bz2
           tar -xvf riscv64-lp64d--glibc--stable-2024.02-1.tar.bz2
     - name: Install qemu
       run: |
-          wget https://download.qemu.org/qemu-9.0.2.tar.xz
-          tar -xvf qemu-9.0.2.tar.xz
-          cd qemu-9.0.2
+          wget -q https://download.qemu.org/qemu-9.2.0.tar.xz
+          tar -xvf qemu-9.2.0.tar.xz
+          cd qemu-9.2.0
           ./configure --target-list="riscv64-linux-user"
           make -j4
     - name: Build and test
@@ -197,7 +197,7 @@ jobs:
         EXTRA_LDFLAGS: -static
       run: |
         make all
-        ./qemu-9.0.2/build/qemu-riscv64 ./bin/sljit_test -v
+        ./qemu-9.2.0/build/qemu-riscv64 ./bin/sljit_test -v
 
   build-test-on-riscv64-extensions:
     runs-on: ubuntu-latest
@@ -208,14 +208,14 @@ jobs:
     - name: Install compiler
       run: |
           sudo apt update
-          sudo apt install -y make wget ninja-build
+          sudo apt install -y make wget ninja-build libglib2.0-dev
           wget https://toolchains.bootlin.com/downloads/releases/toolchains/riscv64-lp64d/tarballs/riscv64-lp64d--glibc--stable-2024.02-1.tar.bz2
           tar -xvf riscv64-lp64d--glibc--stable-2024.02-1.tar.bz2
     - name: Install qemu
       run: |
-          wget https://download.qemu.org/qemu-9.0.2.tar.xz
-          tar -xvf qemu-9.0.2.tar.xz
-          cd qemu-9.0.2
+          wget -q https://download.qemu.org/qemu-9.2.0.tar.xz
+          tar -xvf qemu-9.2.0.tar.xz
+          cd qemu-9.2.0
           ./configure --target-list="riscv64-linux-user"
           make -j4
     - name: Build and test
@@ -225,7 +225,7 @@ jobs:
         EXTRA_LDFLAGS: -static
       run: |
         make all
-        ./qemu-9.0.2/build/qemu-riscv64 ./bin/sljit_test -v
+        ./qemu-9.2.0/build/qemu-riscv64 ./bin/sljit_test -v
 
   build-test-on-loongarch64:
     runs-on: ubuntu-latest
@@ -236,14 +236,14 @@ jobs:
     - name: Install compiler
       run: |
           sudo apt update
-          sudo apt install -y make wget ninja-build
+          sudo apt install -y make wget ninja-build libglib2.0-dev
           wget https://github.com/loongson/build-tools/releases/download/2024.11.01/x86_64-cross-tools-loongarch64-binutils_2.43.1-gcc_14.2.0-glibc_2.40.tar.xz
           tar -xvf x86_64-cross-tools-loongarch64-binutils_2.43.1-gcc_14.2.0-glibc_2.40.tar.xz
     - name: Install qemu
       run: |
-          wget https://download.qemu.org/qemu-9.0.2.tar.xz
-          tar -xvf qemu-9.0.2.tar.xz
-          cd qemu-9.0.2
+          wget -q https://download.qemu.org/qemu-9.2.0.tar.xz
+          tar -xvf qemu-9.2.0.tar.xz
+          cd qemu-9.2.0
           ./configure --target-list="loongarch64-linux-user"
           make -j4
     - name: Build and test
@@ -253,7 +253,7 @@ jobs:
         EXTRA_LDFLAGS: -static
       run: |
         make all
-        ./qemu-9.0.2/build/qemu-loongarch64 ./bin/sljit_test -v
+        ./qemu-9.2.0/build/qemu-loongarch64 ./bin/sljit_test -v
 
   build-test-on-s390x:
     runs-on: ubuntu-latest
