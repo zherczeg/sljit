@@ -35,7 +35,7 @@ BINDIR = bin
 SRCDIR = sljit_src
 TESTDIR = test_src
 REGEXDIR = regex_src
-EXAMPLEDIR = doc/tutorial
+EXAMPLEDIR = docs/tutorial
 
 TARGET = $(BINDIR)/sljit_test $(BINDIR)/regex_test
 EXAMPLE_TARGET = $(BINDIR)/func_call $(BINDIR)/first_program $(BINDIR)/branch $(BINDIR)/loop $(BINDIR)/array_access $(BINDIR)/func_call $(BINDIR)/struct_access $(BINDIR)/temp_var $(BINDIR)/brainfuck
