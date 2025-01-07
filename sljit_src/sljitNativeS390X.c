@@ -169,10 +169,10 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 	switch (type) {
 	case SLJIT_EQUAL:
 		if (SLJIT_ADD_SUB_NO_COMPARE(compiler->status_flags_state)) {
-			sljit_s32 type = GET_FLAG_TYPE(compiler->status_flags_state);
-			if (type >= SLJIT_SIG_LESS && type <= SLJIT_SIG_LESS_EQUAL)
+			sljit_s32 flag_type = GET_FLAG_TYPE(compiler->status_flags_state);
+			if (flag_type >= SLJIT_SIG_LESS && flag_type <= SLJIT_SIG_LESS_EQUAL)
 				return cc0;
-			if (type == SLJIT_OVERFLOW)
+			if (flag_type == SLJIT_OVERFLOW)
 				return (cc0 | cc3);
 			return (cc0 | cc2);
 		}
@@ -185,10 +185,10 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 
 	case SLJIT_NOT_EQUAL:
 		if (SLJIT_ADD_SUB_NO_COMPARE(compiler->status_flags_state)) {
-			sljit_s32 type = GET_FLAG_TYPE(compiler->status_flags_state);
-			if (type >= SLJIT_SIG_LESS && type <= SLJIT_SIG_LESS_EQUAL)
+			sljit_s32 flag_type = GET_FLAG_TYPE(compiler->status_flags_state);
+			if (flag_type >= SLJIT_SIG_LESS && flag_type <= SLJIT_SIG_LESS_EQUAL)
 				return (cc1 | cc2 | cc3);
-			if (type == SLJIT_OVERFLOW)
+			if (flag_type == SLJIT_OVERFLOW)
 				return (cc1 | cc2);
 			return (cc1 | cc3);
 		}
@@ -333,7 +333,7 @@ static SLJIT_INLINE int have_facility_static(facility_bit x)
 	return 0;
 }
 
-static SLJIT_INLINE unsigned long get_hwcap()
+static SLJIT_INLINE unsigned long get_hwcap(void)
 {
 	static unsigned long hwcap = 0;
 	if (SLJIT_UNLIKELY(!hwcap)) {
@@ -343,7 +343,7 @@ static SLJIT_INLINE unsigned long get_hwcap()
 	return hwcap;
 }
 
-static SLJIT_INLINE int have_stfle()
+static SLJIT_INLINE int have_stfle(void)
 {
 	if (have_facility_static(STORE_FACILITY_LIST_EXTENDED_FACILITY))
 		return 1;
@@ -2243,7 +2243,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		}
 		/* STORE and STORE IMMEDIATE */
 		if ((dst & SLJIT_MEM) && (FAST_IS_REG(src) || src == SLJIT_IMM)) {
-			struct addr mem;
 			sljit_gpr reg = FAST_IS_REG(src) ? gpr(src) : tmp0;
 
 			if (src == SLJIT_IMM) {
@@ -2276,7 +2275,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 		#undef LEVAL
 		/* MOVE CHARACTERS */
 		if ((dst & SLJIT_MEM) && (src & SLJIT_MEM)) {
-			struct addr mem;
 			FAIL_IF(make_addr_bxy(compiler, &mem, src, srcw, tmp1));
 			switch (opcode) {
 			case SLJIT_MOV_U8:
