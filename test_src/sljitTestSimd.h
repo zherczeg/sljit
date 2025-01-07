@@ -2068,9 +2068,9 @@ static void test_simd7(void)
 	sljit_s32 i, type;
 	sljit_u8 supported[1];
 	sljit_u8* buf;
-	sljit_u8 data[63 + 288];
+	sljit_u8 data[63 + 320];
 	sljit_s32 vs0 = SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS > 0 ? SLJIT_VS0 : SLJIT_VR5;
-	sljit_uw resw[9];
+	sljit_uw resw[10];
 	sljit_u32 res32[7];
 
 	if (verbose)
@@ -2081,7 +2081,7 @@ static void test_simd7(void)
 	/* Buffer is 64 byte aligned. */
 	buf = (sljit_u8*)(((sljit_sw)data + (sljit_sw)63) & ~(sljit_sw)63);
 
-	for (i = 0; i < 9; i++)
+	for (i = 0; i < 10; i++)
 		resw[i] = (sljit_uw)-1;
 	for (i = 0; i < 7; i++)
 		res32[i] = (sljit_u32)-1;
@@ -2094,15 +2094,18 @@ static void test_simd7(void)
 	init_simd_sign(buf + 80, 16, 4, 0x5);
 	init_simd_sign(buf + 96, 16, 8, 0x2);
 	init_simd_sign(buf + 112, 16, 8, 0x1);
+	init_simd_sign(buf + 128, 16, 1, 0x0);
+	memset(buf + 128, 0, 8);
+	memset(buf + 136, 255, 8);
 
-	init_simd_sign(buf + 128, 8, 1, 0x45);
-	init_simd_sign(buf + 136, 8, 2, 0x9);
-	init_simd_sign(buf + 144, 8, 4, 0x1);
+	init_simd_sign(buf + 144, 8, 1, 0x45);
+	init_simd_sign(buf + 152, 8, 2, 0x9);
+	init_simd_sign(buf + 160, 8, 4, 0x1);
 
-	init_simd_sign(buf + 160, 32, 1, 0x51e83b71);
-	init_simd_sign(buf + 192, 32, 2, 0xc90d);
-	init_simd_sign(buf + 224, 32, 4, 0xa5);
-	init_simd_sign(buf + 256, 32, 8, 0x9);
+	init_simd_sign(buf + 192, 32, 1, 0x51e83b71);
+	init_simd_sign(buf + 224, 32, 2, 0xc90d);
+	init_simd_sign(buf + 256, 32, 4, 0xa5);
+	init_simd_sign(buf + 288, 32, 8, 0x9);
 
 	compiler = sljit_create_compiler(NULL);
 	FAILED(!compiler, "cannot create compiler\n");
@@ -2153,42 +2156,47 @@ static void test_simd7(void)
 	/* resw[4] */
 	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type, vs0, SLJIT_MEM0(), (sljit_sw)(resw + 4));
 
-	type = SLJIT_SIMD_REG_64 | SLJIT_SIMD_ELEM_8;
-	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR2, SLJIT_MEM1(SLJIT_S0), 128);
-	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type, SLJIT_VR2, SLJIT_R0, 0);
+	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_8;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR1, SLJIT_MEM1(SLJIT_S0), 128);
 	/* resw[5] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), 5 * sizeof(sljit_uw), SLJIT_R0, 0);
+	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type, SLJIT_VR1, SLJIT_MEM1(SLJIT_S1), 5 * sizeof(sljit_uw));
+
+	type = SLJIT_SIMD_REG_64 | SLJIT_SIMD_ELEM_8;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR2, SLJIT_MEM1(SLJIT_S0), 144);
+	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type, SLJIT_VR2, SLJIT_R0, 0);
+	/* resw[6] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), 6 * sizeof(sljit_uw), SLJIT_R0, 0);
 
 	type = SLJIT_SIMD_REG_64 | SLJIT_SIMD_ELEM_16;
-	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR0, SLJIT_MEM1(SLJIT_S0), 136);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR0, SLJIT_MEM1(SLJIT_S0), 152);
 	/* res32[4] */
 	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type | SLJIT_32, SLJIT_VR0, SLJIT_MEM1(SLJIT_S2), 4 * sizeof(sljit_u32));
 
 	type = SLJIT_SIMD_REG_64 | SLJIT_SIMD_ELEM_32;
-	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, vs0, SLJIT_MEM1(SLJIT_S0), 144);
-	/* resw[6] */
-	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type, vs0, SLJIT_MEM1(SLJIT_S1), 6 * sizeof(sljit_uw));
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, vs0, SLJIT_MEM1(SLJIT_S0), 160);
+	/* resw[7] */
+	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type, vs0, SLJIT_MEM1(SLJIT_S1), 7 * sizeof(sljit_uw));
 
 	type = SLJIT_SIMD_REG_256 | SLJIT_SIMD_ELEM_8;
-	supported[0] = sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR2, SLJIT_MEM1(SLJIT_S0), 160) != SLJIT_ERR_UNSUPPORTED;
+	supported[0] = sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR2, SLJIT_MEM1(SLJIT_S0), 192) != SLJIT_ERR_UNSUPPORTED;
 	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type | SLJIT_32, SLJIT_VR2, SLJIT_R2, 0);
 	/* res32[5] */
 	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_MEM1(SLJIT_S2), 5 * sizeof(sljit_u32), SLJIT_R2, 0);
 
 	type = SLJIT_SIMD_REG_256 | SLJIT_SIMD_ELEM_16;
-	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, vs0, SLJIT_MEM1(SLJIT_S0), 192);
-	/* resw[7] */
-	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type, vs0, SLJIT_MEM1(SLJIT_S1), 7 * sizeof(sljit_uw));
-
-	type = SLJIT_SIMD_REG_256 | SLJIT_SIMD_ELEM_32;
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_S1, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, sizeof(sljit_uw));
-	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR3, SLJIT_MEM1(SLJIT_S0), 224);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, vs0, SLJIT_MEM1(SLJIT_S0), 224);
 	/* resw[8] */
-	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type, SLJIT_VR3, SLJIT_MEM2(SLJIT_R2, SLJIT_R1), 3);
+	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type, vs0, SLJIT_MEM2(SLJIT_R2, SLJIT_R1), 3);
+
+	type = SLJIT_SIMD_REG_256 | SLJIT_SIMD_ELEM_32;
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR3, SLJIT_MEM1(SLJIT_S0), 256);
+	/* resw[9] */
+	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type, SLJIT_VR3, SLJIT_MEM1(SLJIT_S1), 9 * sizeof(sljit_uw));
 
 	type = SLJIT_SIMD_REG_256 | SLJIT_SIMD_ELEM_64 | SLJIT_SIMD_FLOAT;
-	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR0, SLJIT_MEM1(SLJIT_S0), 256);
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR0, SLJIT_MEM1(SLJIT_S0), 288);
 	/* res32[6] */
 	sljit_emit_simd_sign(compiler, SLJIT_SIMD_STORE | type | SLJIT_32, SLJIT_VR0, SLJIT_MEM0(), (sljit_sw)(res32 + 6));
 
@@ -2210,17 +2218,18 @@ static void test_simd7(void)
 	FAILED(res32[3] != (sljit_u32)-1, "test_simd7 case 7 failed\n");
 	FAILED(resw[3] != 0x2, "test_simd7 case 8 failed\n");
 	FAILED(resw[4] != 0x1, "test_simd7 case 9 failed\n");
+	FAILED(resw[5] != LITTLE_BIG(0xff00, 0xff), "test_simd7 case 10 failed\n");
 #if IS_ARM
-	FAILED(resw[5] != 0x45, "test_simd7 case 10 failed\n");
-	FAILED(res32[4] != 0x9, "test_simd7 case 11 failed\n");
-	FAILED(resw[6] != 0x1, "test_simd7 case 12 failed\n");
+	FAILED(resw[6] != 0x45, "test_simd7 case 11 failed\n");
+	FAILED(res32[4] != 0x9, "test_simd7 case 12 failed\n");
+	FAILED(resw[7] != 0x1, "test_simd7 case 13 failed\n");
 #endif /* IS_ARM */
 
 	if (supported[0]) {
-		FAILED(res32[5] != 0x51e83b71, "test_simd7 case 13 failed\n");
-		FAILED(resw[7] != 0xc90d, "test_simd7 case 14 failed\n");
-		FAILED(resw[8] != 0xa5, "test_simd7 case 15 failed\n");
-		FAILED(res32[6] != 0x9, "test_simd7 case 16 failed\n");
+		FAILED(res32[5] != 0x51e83b71, "test_simd7 case 14 failed\n");
+		FAILED(resw[8] != 0xc90d, "test_simd7 case 15 failed\n");
+		FAILED(resw[9] != 0xa5, "test_simd7 case 16 failed\n");
+		FAILED(res32[6] != 0x9, "test_simd7 case 17 failed\n");
 	}
 
 	SIMD_RUN_END

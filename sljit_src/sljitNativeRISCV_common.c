@@ -3749,7 +3749,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 
 	FAIL_IF(sljit_emit_vsetivli(compiler, type, 0));
 	FAIL_IF(push_inst(compiler, VMV_VI | VRD(TMP_VREG1) | (0x0 << 15)));
-	FAIL_IF(push_inst(compiler, VMSLE_VI | VRD(TMP_VREG1) | (0x0 << 15) | VRS2(vreg)));
+	FAIL_IF(push_inst(compiler, VMSLE_VI | VRD(TMP_VREG1) | (0x1f << 15) | VRS2(vreg)));
 
 	FAIL_IF(sljit_emit_vsetivli_size(compiler, 2, 2));
 	FAIL_IF(push_inst(compiler, VMV_XS | RD(dst_r) | VRS2(TMP_VREG1)));
