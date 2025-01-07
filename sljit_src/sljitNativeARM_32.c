@@ -779,7 +779,7 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 	struct sljit_jump *jump;
 	struct sljit_const *const_;
 	SLJIT_NEXT_DEFINE_TYPES;
-	sljit_uw total_size;
+	sljit_uw jump_total_size;
 	sljit_uw size_reduce = 0;
 	sljit_sw diff;
 
@@ -813,7 +813,7 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 		jump->addr -= size_reduce;
 		if (!(jump->flags & JUMP_MOV_ADDR)) {
-			total_size = JUMP_MAX_SIZE - 1;
+			jump_total_size = JUMP_MAX_SIZE - 1;
 
 			if (!(jump->flags & (SLJIT_REWRITABLE_JUMP | JUMP_ADDR))) {
 				/* Unit size: instruction. */
@@ -824,13 +824,13 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 				}
 
 				if (diff <= (0x01ffffff / SSIZE_OF(ins)) && diff >= (-0x02000000 / SSIZE_OF(ins)))
-					total_size = 1 - 1;
+					jump_total_size = 1 - 1;
 			}
 
-			size_reduce += JUMP_MAX_SIZE - 1 - total_size;
+			size_reduce += JUMP_MAX_SIZE - 1 - jump_total_size;
 		} else {
 			/* Real size minus 1. Unit size: instruction. */
-			total_size = 1;
+			jump_total_size = 1;
 
 			if (!(jump->flags & JUMP_ADDR)) {
 				diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
@@ -840,13 +840,13 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 				}
 
 				if (diff <= 0xff + 2 && diff >= -0xff + 2)
-					total_size = 0;
+					jump_total_size = 0;
 			}
 
-			size_reduce += 1 - total_size;
+			size_reduce += 1 - jump_total_size;
 		}
 
-		jump->flags |= total_size << JUMP_SIZE_SHIFT;
+		jump->flags |= jump_total_size << JUMP_SIZE_SHIFT;
 		jump = jump->next;
 		next_jump_addr = SLJIT_GET_NEXT_ADDRESS(jump);
 	}

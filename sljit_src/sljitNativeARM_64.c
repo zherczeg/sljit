@@ -391,7 +391,7 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 	struct sljit_jump *jump;
 	struct sljit_const *const_;
 	SLJIT_NEXT_DEFINE_TYPES;
-	sljit_uw total_size;
+	sljit_uw jump_total_size;
 	sljit_uw size_reduce = 0;
 	sljit_sw diff;
 
@@ -425,14 +425,14 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 		jump->addr -= size_reduce;
 		if (!(jump->flags & JUMP_MOV_ADDR)) {
-			total_size = JUMP_MAX_SIZE;
+			jump_total_size = JUMP_MAX_SIZE;
 
 			if (!(jump->flags & SLJIT_REWRITABLE_JUMP)) {
 				if (jump->flags & JUMP_ADDR) {
 					if (jump->u.target < 0x100000000l)
-						total_size = 3;
+						jump_total_size = 3;
 					else if (jump->u.target < 0x1000000000000l)
-						total_size = 4;
+						jump_total_size = 4;
 				} else {
 					/* Unit size: instruction. */
 					diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
@@ -442,18 +442,18 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 					}
 
 					if ((jump->flags & IS_COND) && (diff + 1) <= (0xfffff / SSIZE_OF(ins)) && (diff + 1) >= (-0x100000 / SSIZE_OF(ins)))
-						total_size = 0;
+						jump_total_size = 0;
 					else if (diff <= (0x7ffffff / SSIZE_OF(ins)) && diff >= (-0x8000000 / SSIZE_OF(ins)))
-						total_size = 1;
+						jump_total_size = 1;
 					else if (diff <= (0xfffff000l / SSIZE_OF(ins)) && diff >= (-0x100000000l / SSIZE_OF(ins)))
-						total_size = 3;
+						jump_total_size = 3;
 				}
 			}
 
-			size_reduce += JUMP_MAX_SIZE - total_size;
+			size_reduce += JUMP_MAX_SIZE - jump_total_size;
 		} else {
 			/* Real size minus 1. Unit size: instruction. */
-			total_size = 3;
+			jump_total_size = 3;
 
 			if (!(jump->flags & JUMP_ADDR)) {
 				diff = (sljit_sw)jump->u.label->size - (sljit_sw)jump->addr;
@@ -463,18 +463,18 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 				}
 
 				if (diff <= (0xfffff / SSIZE_OF(ins)) && diff >= (-0x100000 / SSIZE_OF(ins)))
-					total_size = 0;
+					jump_total_size = 0;
 				else if (diff <= (0xfffff000l / SSIZE_OF(ins)) && diff >= (-0x100000000l / SSIZE_OF(ins)))
-					total_size = 1;
+					jump_total_size = 1;
 			} else if (jump->u.target < 0x100000000l)
-				total_size = 1;
+				jump_total_size = 1;
 			else if (jump->u.target < 0x1000000000000l)
-				total_size = 2;
+				jump_total_size = 2;
 
-			size_reduce += 3 - total_size;
+			size_reduce += 3 - jump_total_size;
 		}
 
-		jump->flags |= total_size << JUMP_SIZE_SHIFT;
+		jump->flags |= jump_total_size << JUMP_SIZE_SHIFT;
 		jump = jump->next;
 		next_jump_addr = SLJIT_GET_NEXT_ADDRESS(jump);
 	}

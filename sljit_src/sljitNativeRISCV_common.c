@@ -490,7 +490,7 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 	struct sljit_jump *jump;
 	struct sljit_const *const_;
 	SLJIT_NEXT_DEFINE_TYPES;
-	sljit_uw total_size;
+	sljit_uw jump_total_size;
 	sljit_uw size_reduce = 0;
 	sljit_sw diff;
 
@@ -524,17 +524,17 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 		jump->addr -= size_reduce;
 		if (!(jump->flags & JUMP_MOV_ADDR)) {
-			total_size = JUMP_MAX_SIZE;
+			jump_total_size = JUMP_MAX_SIZE;
 
 			if (!(jump->flags & SLJIT_REWRITABLE_JUMP)) {
 				if (jump->flags & JUMP_ADDR) {
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 					if (jump->u.target <= S32_MAX)
-						total_size = 2;
+						jump_total_size = 2;
 					else if (jump->u.target <= S44_MAX)
-						total_size = 4;
+						jump_total_size = 4;
 					else if (jump->u.target <= S52_MAX)
-						total_size = 5;
+						jump_total_size = 5;
 #endif /* SLJIT_CONFIG_RISCV_64 */
 				} else {
 					/* Unit size: instruction. */
@@ -545,21 +545,21 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 					}
 
 					if ((jump->flags & IS_COND) && (diff + 1) <= (BRANCH_MAX / SSIZE_OF(ins)) && (diff + 1) >= (BRANCH_MIN / SSIZE_OF(ins)))
-						total_size = 0;
+						jump_total_size = 0;
 					else if (diff >= (JUMP_MIN / SSIZE_OF(ins)) && diff <= (JUMP_MAX / SSIZE_OF(ins)))
-						total_size = 1;
+						jump_total_size = 1;
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 					else if (diff >= (S32_MIN / SSIZE_OF(ins)) && diff <= (S32_MAX / SSIZE_OF(ins)))
-						total_size = 2;
+						jump_total_size = 2;
 #endif /* SLJIT_CONFIG_RISCV_64 */
 				}
 			}
 
-			size_reduce += JUMP_MAX_SIZE - total_size;
-			jump->flags |= total_size << JUMP_SIZE_SHIFT;
+			size_reduce += JUMP_MAX_SIZE - jump_total_size;
+			jump->flags |= jump_total_size << JUMP_SIZE_SHIFT;
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 		} else {
-			total_size = 5;
+			jump_total_size = 5;
 
 			if (!(jump->flags & JUMP_ADDR)) {
 				/* Real size minus 1. Unit size: instruction. */
@@ -570,16 +570,16 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 				}
 
 				if (diff >= (S32_MIN / SSIZE_OF(ins)) && diff <= (S32_MAX / SSIZE_OF(ins)))
-					total_size = 1;
+					jump_total_size = 1;
 			} else if (jump->u.target < S32_MAX)
-				total_size = 1;
+				jump_total_size = 1;
 			else if (jump->u.target < S44_MAX)
-				total_size = 3;
+				jump_total_size = 3;
 			else if (jump->u.target <= S52_MAX)
-				total_size = 4;
+				jump_total_size = 4;
 
-			size_reduce += 5 - total_size;
-			jump->flags |= total_size << JUMP_SIZE_SHIFT;
+			size_reduce += 5 - jump_total_size;
+			jump->flags |= jump_total_size << JUMP_SIZE_SHIFT;
 #endif /* !SLJIT_CONFIG_RISCV_64 */
 		}
 
