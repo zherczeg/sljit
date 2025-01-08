@@ -510,7 +510,7 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 	struct sljit_jump *jump;
 	struct sljit_const *const_;
 	SLJIT_NEXT_DEFINE_TYPES;
-	sljit_uw total_size;
+	sljit_uw jump_total_size;
 	sljit_uw size_reduce = 0;
 	sljit_sw diff;
 
@@ -544,17 +544,17 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 		jump->addr -= size_reduce;
 		if (!(jump->flags & JUMP_MOV_ADDR)) {
-			total_size = JUMP_MAX_SIZE - 1;
+			jump_total_size = JUMP_MAX_SIZE - 1;
 
 			if (!(jump->flags & SLJIT_REWRITABLE_JUMP)) {
 				if (jump->flags & JUMP_ADDR) {
 					if (jump->u.target <= 0x01ffffff)
-						total_size = 1 - 1;
+						jump_total_size = 1 - 1;
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 					else if (jump->u.target < 0x80000000l)
-						total_size = 4 - 1;
+						jump_total_size = 4 - 1;
 					else if (jump->u.target < 0x800000000000l)
-						total_size = 6 - 1;
+						jump_total_size = 6 - 1;
 #endif /* SLJIT_CONFIG_PPC_64 */
 				} else {
 					/* Unit size: instruction. */
@@ -566,30 +566,30 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 					if (jump->flags & IS_COND) {
 						if (diff <= (0x7fff / SSIZE_OF(ins)) && diff >= (-0x8000 / SSIZE_OF(ins)))
-							total_size = 1 - 1;
+							jump_total_size = 1 - 1;
 						else if ((diff - 1) <= (0x01ffffff / SSIZE_OF(ins)) && (diff - 1) >= (-0x02000000 / SSIZE_OF(ins)))
-							total_size = 2 - 1;
+							jump_total_size = 2 - 1;
 					} else if (diff <= (0x01ffffff / SSIZE_OF(ins)) && diff >= (-0x02000000 / SSIZE_OF(ins)))
-						total_size = 1 - 1;
+						jump_total_size = 1 - 1;
 				}
 			}
 
-			size_reduce += (JUMP_MAX_SIZE - 1) - total_size;
-			jump->flags |= total_size << JUMP_SIZE_SHIFT;
+			size_reduce += (JUMP_MAX_SIZE - 1) - jump_total_size;
+			jump->flags |= jump_total_size << JUMP_SIZE_SHIFT;
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		} else {
-			total_size = (sljit_uw)4 << JUMP_SIZE_SHIFT;
+			jump_total_size = (sljit_uw)4 << JUMP_SIZE_SHIFT;
 
 			if (jump->flags & JUMP_ADDR) {
 				if (jump->u.target < 0x80000000l) {
-					total_size = (sljit_uw)1 << JUMP_SIZE_SHIFT;
+					jump_total_size = (sljit_uw)1 << JUMP_SIZE_SHIFT;
 					size_reduce += 3;
 				} else if (jump->u.target < 0x800000000000l) {
-					total_size = (sljit_uw)3 << JUMP_SIZE_SHIFT;
+					jump_total_size = (sljit_uw)3 << JUMP_SIZE_SHIFT;
 					size_reduce += 1;
 				}
 			}
-			jump->flags |= total_size;
+			jump->flags |= jump_total_size;
 #endif /* SLJIT_CONFIG_PPC_64 */
 		}
 
