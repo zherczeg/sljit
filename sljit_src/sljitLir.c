@@ -275,17 +275,18 @@
 
 #	define PATCH_B		0x010
 #	define PATCH_J		0x020
+#	define PATCH_J16	0x040
 
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
-#	define PATCH_REL32	0x040
-#	define PATCH_ABS32	0x080
-#	define PATCH_ABS44	0x100
-#	define PATCH_ABS52	0x200
+#	define PATCH_REL32	0x080
+#	define PATCH_ABS32	0x100
+#	define PATCH_ABS44	0x200
+#	define PATCH_ABS52	0x400
 #	define JUMP_SIZE_SHIFT	58
-#	define JUMP_MAX_SIZE	((sljit_uw)6)
+#	define JUMP_MAX_SIZE	((sljit_uw)12)
 #else /* !SLJIT_CONFIG_RISCV_64 */
 #	define JUMP_SIZE_SHIFT	26
-#	define JUMP_MAX_SIZE	((sljit_uw)2)
+#	define JUMP_MAX_SIZE	((sljit_uw)4)
 #endif /* SLJIT_CONFIG_RISCV_64 */
 #endif /* SLJIT_CONFIG_RISCV */
 
@@ -2005,12 +2006,12 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_custom(struct sljit_co
 
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	CHECK_ARGUMENT(size > 0 && size < 16);
-#elif (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
+#elif (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2) || (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 	CHECK_ARGUMENT((size == 2 && (((sljit_sw)instruction) & 0x1) == 0)
 		|| (size == 4 && (((sljit_sw)instruction) & 0x3) == 0));
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	CHECK_ARGUMENT(size == 2 || size == 4 || size == 6);
-#else /* !SLJIT_CONFIG_X86 && !SLJIT_CONFIG_ARM_THUMB2 && !SLJIT_CONFIG_S390X */
+#else /* !SLJIT_CONFIG_X86 && !SLJIT_CONFIG_ARM_THUMB2 && !SLJIT_CONFIG_RISCV && !SLJIT_CONFIG_S390X */
 	CHECK_ARGUMENT(size == 4 && (((sljit_sw)instruction) & 0x3) == 0);
 #endif /* SLJIT_CONFIG_X86 */
 
