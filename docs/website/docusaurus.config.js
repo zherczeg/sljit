@@ -19,17 +19,13 @@ const config = {
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/sljit/',
 
-  // GitHub pages deployment config.
-  // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'zherczeg', // Usually your GitHub org/user name.
-  projectName: 'sljit', // Usually your repo name.
+  // GitHub pages deployment config
+  organizationName: 'zherczeg', // GitHub org/user
+  projectName: 'sljit', // Repo
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
 
-  // Even if you don't use internationalization, you can use this field to set
-  // useful metadata like html lang. For example, if your site is Chinese, you
-  // may want to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
@@ -43,9 +39,9 @@ const config = {
         docs: {
           path: '..', // '.' would be the website folder itself
           include: [
-            'api/*.{md,mdx}',
-            'general/*.{md,mdx}',
-            'tutorial/*.{md,mdx}'
+            'api/**/*.{md,mdx}',
+            'general/**/*.{md,mdx}',
+            'tutorial/**/*.{md,mdx}'
           ],
           sidebarPath: './sidebars.js',
           // Please change this to your repo.

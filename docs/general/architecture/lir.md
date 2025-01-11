@@ -9,4 +9,4 @@ Those instruction forms and features which are supported on many (but not necess
 These features are also emulated by the remaining architectures with low overhead.
 For example, SLJIT supports various memory addressing modes and setting status register bits.
 
-This approach is very effective for byte-code interpreters since their machine independent byte code (middle level representation) typically contains instructions which either can be easly translated to machine code, or does not worth to translate them at all.
+This approach is very effective for byte-code interpreters since their machine independent byte code (middle level representation) typically contains instructions which either can be easly translated to machine code, or which are not worth to translate to machine code in the first place.

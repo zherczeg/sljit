@@ -17,7 +17,7 @@ The LIR code can be compiled to many CPU architectures, and the performance of t
 Although SLJIT does not support higher level features such as automatic register allocation, it can be a code generation backend for other JIT compiler libraries.
 Developing these intermediate libraries on top of SLJIT takes far less time, because they only need to support a single backend.
 
-If you want to jump right in and see SLJIT in action, take a look at the [Tutorial](/docs/tutorial/overview.md).
+If you want to jump right in and see SLJIT in action, take a look at the [Tutorial](/docs/tutorial/overview).
 
 
 ## Features
