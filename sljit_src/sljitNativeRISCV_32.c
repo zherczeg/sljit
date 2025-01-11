@@ -123,20 +123,21 @@ static SLJIT_INLINE sljit_s32 emit_const(struct sljit_compiler *compiler, sljit_
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset)
 {
-	sljit_ins *inst = (sljit_ins*)addr;
+	sljit_u16 *inst = (sljit_u16*)addr;
 	SLJIT_UNUSED_ARG(executable_offset);
 
 	if ((new_target & 0x800) != 0)
 		new_target += 0x1000;
 
-	SLJIT_UPDATE_WX_FLAGS(inst, inst + 5, 0);
+	SLJIT_UPDATE_WX_FLAGS(inst, inst + 4, 0);
 
 	SLJIT_ASSERT((inst[0] & 0x7f) == LUI);
-	inst[0] = (inst[0] & 0xfff) | (sljit_ins)((sljit_sw)new_target & ~0xfff);
-	SLJIT_ASSERT((inst[1] & 0x707f) == ADDI || (inst[1] & 0x707f) == JALR);
-	inst[1] = (inst[1] & 0xfffff) | IMM_I(new_target);
+	inst[0] = (sljit_u16)((inst[0] & 0xfff) | (new_target & ~(sljit_uw)0xfff));
+	inst[1] = (sljit_u16)(new_target >> 16);
+	SLJIT_ASSERT((inst[2] & 0x707f) == ADDI || (inst[2] & 0x707f) == JALR);
+	inst[3] = (sljit_u16)((inst[3] & 0xf) | (new_target << 4));
 
-	SLJIT_UPDATE_WX_FLAGS(inst, inst + 5, 1);
-	inst = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
-	SLJIT_CACHE_FLUSH(inst, inst + 5);
+	SLJIT_UPDATE_WX_FLAGS(inst, inst + 4, 1);
+	inst = (sljit_u16 *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
+	SLJIT_CACHE_FLUSH(inst, inst + 4);
 }

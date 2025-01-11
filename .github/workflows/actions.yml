@@ -166,7 +166,7 @@ jobs:
     - name: Build and test
       env:
         CROSS_COMPILER: ./riscv32-ilp32d--glibc--bleeding-edge-2024.02-1/bin/riscv32-buildroot-linux-gnu-gcc-13.2.0.br_real
-        CFLAGS: -march=rv32gv_zba_zbb
+        CFLAGS: -march=rv32gcv_zba_zbb
         EXTRA_LDFLAGS: -static
       run: |
         make all
@@ -221,7 +221,7 @@ jobs:
     - name: Build and test
       env:
         CROSS_COMPILER: ./riscv64-lp64d--glibc--stable-2024.02-1/bin/riscv64-buildroot-linux-gnu-gcc-12.3.0.br_real
-        CFLAGS: -march=rv64gv_zba_zbb
+        CFLAGS: -march=rv64gcv_zba_zbb
         EXTRA_LDFLAGS: -static
       run: |
         make all
