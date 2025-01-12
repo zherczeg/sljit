@@ -34,7 +34,7 @@ In case you want to avoid exposing SLJIT's interface to other translation units,
 // SLJIT can be used in hidden.c, but not in other translation units
 ```
 
-This technique can also be used to generate code for multiple targets at once:
+This technique can also be used to generate code for multiple target architectures in the same binary:
 
 ```c title="x86-32.c"
 #include "sljitLir.h"
@@ -100,3 +100,5 @@ Build the `examples` target with GNU Make:
 ```bash
 make examples
 ```
+
+The different example executables can be found in the `bin` directory.

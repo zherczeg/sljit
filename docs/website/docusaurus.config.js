@@ -60,8 +60,6 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      // Replace with your project's social card
-      image: 'img/docusaurus-social-card.jpg',
       navbar: {
         title: 'SLJIT',
         items: [
@@ -121,8 +119,34 @@ const config = {
               },
             ],
           },
+          {
+            title: 'Attribution',
+            items: [
+              {
+                html: `
+                  <span>
+                    <a href="https://www.figma.com/community/file/1166831539721848736/solar-icons-set">
+                      Solar Icon Set
+                    </a>
+                    by
+                    <a href="https://www.figma.com/@480design">
+                      480 Design
+                    </a>
+                    and
+                    <a href="https://www.figma.com/@voidrainbow">
+                      R4IN80W
+                    </a>
+                    |
+                    <a href="http://creativecommons.org/licenses/by/4.0/">
+                      CC BY 4.0
+                    </a>
+                  </span>
+                `
+              }
+            ]
+          }
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} sljit contributors. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} SLJIT contributors. Built with Docusaurus.`,
       },
       prism: {
         theme: prismThemes.github,

@@ -1,45 +1,46 @@
 import clsx from 'clsx';
 import Heading from '@theme/Heading';
+import { Icon } from '@iconify/react';
 import styles from './styles.module.css';
 
 const FeatureList = [
   {
-    title: 'Easy to Use',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    title: 'Versatile',
+    icon: 'solar:cpu-linear',
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        SLJIT can generate code for a variety of architectures, including
+        <code>x86</code>, <code>ARM</code> and <code>RISC-V</code>.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    title: 'Powerful',
+    icon: 'solar:bolt-linear',
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        SLJIT supports a large number of operations, from basic integer math
+        to tail calls and SIMD.
       </>
     ),
   },
   {
-    title: 'Powered by React',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    title: 'Permissive',
+    icon: 'solar:chat-square-like-linear',
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        Published under a Simplified BSD License, SLJIT can be used with
+        minimal restrictions.
       </>
     ),
   },
 ];
 
-function Feature({Svg, title, description}) {
+function Feature({icon, title, description}) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
+        <Icon icon={icon} height="200px" className={styles.featureIcon} />
       </div>
       <div className="text--center padding-horiz--md">
         <Heading as="h3">{title}</Heading>
