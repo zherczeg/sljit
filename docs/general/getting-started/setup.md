@@ -22,22 +22,20 @@ Compile `sljitLir.c` as a separate translation unit. Be sure to add `sljit_src` 
 
 To use SLJIT, include `sljitLir.h` and link against `sljitLir.o`.
 
-### SLJIT as a Hidden Implementation Detail
+### SLJIT All-in-one
 
 In case you want to avoid exposing SLJIT's interface to other translation units, you can also embed SLJIT as a hidden implementation detail. To do so, define `SLJIT_CONFIG_STATIC` before including `sljitLir.c` (yes, the C file):
 
 ```c title="hidden.c"
-#include "sljitLir.h"
 #define SLJIT_CONFIG_STATIC 1
 #include "sljitLir.c"
 
 // SLJIT can be used in hidden.c, but not in other translation units
 ```
 
-This technique can also be used to generate code for multiple target architectures in the same binary:
+This technique can also be used to generate code for multiple target architectures:
 
 ```c title="x86-32.c"
-#include "sljitLir.h"
 #define SLJIT_CONFIG_STATIC 1
 #define SLJIT_CONFIG_X86_32 1
 #include "sljitLir.c"
@@ -46,7 +44,6 @@ This technique can also be used to generate code for multiple target architectur
 ```
 
 ```c title="x86-64.c"
-#include "sljitLir.h"
 #define SLJIT_CONFIG_STATIC 1
 #define SLJIT_CONFIG_X86_64 1
 #include "sljitLir.c"

@@ -33,8 +33,8 @@ If you want to jump right in and see SLJIT in action, take a look at the [Tutori
     - Atomic operations[^1]
 - Allows direct access to registers (both integer and floating point)
 - Supports stack space allocation for function local variables
-- Supports all-in-one compilation
-- Allows its API to be completely hidden from external use
+- Supports [all-in-one](/docs/general/usage/setup#sljit-all-in-one) compilation
+    - Allows SLJIT's API to be completely hidden from external use
 - Allows serializing the compiler into a byte buffer
     - Useful for ahead-of-time (AOT) compilation
     - Code generation can be resumed after deserialization (partial AOT compilation)

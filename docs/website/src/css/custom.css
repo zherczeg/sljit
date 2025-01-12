@@ -13,6 +13,7 @@
   --ifm-color-primary-light: #433e4d;
   --ifm-color-primary-lighter: #464051;
   --ifm-color-primary-lightest: #4f495b;
+  --ifm-link-color: rgb(17, 15, 192);
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -24,6 +25,7 @@
   --ifm-color-primary-light: #d2d2d0;
   --ifm-color-primary-lighter: #dcdbd9;
   --ifm-color-primary-lightest: #f7f7f7;
+  --ifm-link-color: rgb(140, 140, 255);
 }
 
 .navbar--github-link {
