@@ -1,5 +1,6 @@
 ---
 sidebar_position: 2
+description: Generating machine code from bytecode with SLJIT.
 ---
 
 # Bytecode Interpreters

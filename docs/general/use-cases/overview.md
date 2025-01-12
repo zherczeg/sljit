@@ -1,5 +1,6 @@
 ---
 sidebar_position: 1
+description: Determining when to use JIT compilation.
 ---
 
 # Overview
