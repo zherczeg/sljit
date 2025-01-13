@@ -1,5 +1,6 @@
 ---
 sidebar_position: 3
+description: Comparing the performance of different regex engines.
 ---
 
 # Performance Comparison

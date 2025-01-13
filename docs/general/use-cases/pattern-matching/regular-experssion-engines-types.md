@@ -1,8 +1,9 @@
 ---
 sidebar_position: 2
+description: A comparison of regular experssion engine types.
 ---
 
-# Comparison of Regular Expression Engine Types
+# Regular Expression Engine Types
 
 Matching regular expressions is not considered a complex task and many people think that this problem was solved a long time ago. The reason for this belief is a great deal of misinformation which has been spread across the internet and the education. On the contrary there is no best solution for matching a pattern at the moment, and choosing the right regular expression engine is as difficult as choosing the right programming language. The aim of this page is showing the advantages and disadvantages of different engine types.
 

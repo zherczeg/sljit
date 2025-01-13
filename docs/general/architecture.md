@@ -121,4 +121,11 @@ The `sljit_set_context` function can also set this context without emitting any 
 This context is important since it affects the compiler, so the first instruction after a compiler is created must be either `sljit_emit_enter` or `sljit_set_context`.
 The context can be changed by calling `sljit_emit_enter` or `sljit_set_context` again.
 
-## Types and Macros
+## Types
+
+SLJIT defines several types for representing data on the target platform, often times in both a signed and unsigned variant:
+- Integers of varying size: `sljit_s8` / `sljit_u8`, `sljit_s16` / `sljit_u16`, `sljit_s32` / `sljit_u32`
+- Machine word, capable of holding a pointer: `sljit_sw` / `sljit_uw`, `sljit_sp` / `sljit_up`
+- Floating point types: `f32`, `f64`
+
+It is recommended to use these types instead of the default C types such as `long`, as it improves both the readability and the portability of the code.

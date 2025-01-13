@@ -1,5 +1,6 @@
 ---
 sidebar_position: 1
+description: Adding JIT compilation via SLJIT to the PCRE2 library.
 ---
 
 # Speeding Up PCRE2 With SLJIT
