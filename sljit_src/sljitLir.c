@@ -452,12 +452,12 @@
 /*  Public functions                                                     */
 /* --------------------------------------------------------------------- */
 
-#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
+#if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) || (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 #define SLJIT_NEEDS_COMPILER_INIT 1
 static sljit_s32 compiler_initialized = 0;
 /* A thread safe initialization. */
 static void init_compiler(void);
-#endif /* SLJIT_CONFIG_X86 */
+#endif /* SLJIT_CONFIG_X86 || SLJIT_CONFIG_RISCV */
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data)
 {
