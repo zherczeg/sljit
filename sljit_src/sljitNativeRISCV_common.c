@@ -24,20 +24,105 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* SLJIT_CONFIG_RISCV_COMPRESSED represents version number:
-   0 - disabled, 1 - 1.00, 2 - 2.00, etc. */
+#if !(defined SLJIT_CONFIG_RISCV_ATOMIC) && defined(__riscv_atomic)
+/* Auto detect atomic instruction support. */
+#define SLJIT_CONFIG_RISCV_ATOMIC 200
+#endif /* !SLJIT_CONFIG_RISCV_ATOMIC && __riscv_atomic */
+
+/* SLJIT_CONFIG_RISCV_ATOMIC enables/disables atomic instruction
+   support. Non-zero values represents the highest version of the feature
+   that is supported by the CPU.
+   Allowed values: 0 - disabled, 200 - 2.00 */
+#if (defined SLJIT_CONFIG_RISCV_ATOMIC && SLJIT_CONFIG_RISCV_ATOMIC != 0)
+#if SLJIT_CONFIG_RISCV_ATOMIC != 200
+#error "Unsupported value for SLJIT_CONFIG_RISCV_ATOMIC"
+#endif
+#define RISCV_HAS_ATOMIC(x) ((SLJIT_CONFIG_RISCV_ATOMIC) >= (x))
+#define RISCV_ATOMIC_INFO "a"
+#else /* !SLJIT_CONFIG_RISCV_ATOMIC || SLJIT_CONFIG_RISCV_ATOMIC == 0 */
+#define RISCV_HAS_ATOMIC(x) 0
+#define RISCV_ATOMIC_INFO ""
+#endif /* SLJIT_CONFIG_RISCV_ATOMIC && SLJIT_CONFIG_RISCV_ATOMIC != 0 */
+
 #if !(defined SLJIT_CONFIG_RISCV_COMPRESSED) && defined(__riscv_compressed)
-/* Auto detect compressed instruction stream support. */
-#define SLJIT_CONFIG_RISCV_COMPRESSED 2
+/* Auto detect compressed instruction support. */
+#define SLJIT_CONFIG_RISCV_COMPRESSED 200
 #endif /* !SLJIT_CONFIG_RISCV_COMPRESSED && __riscv_compressed */
 
-#if (defined SLJIT_CONFIG_RISCV_COMPRESSED && SLJIT_CONFIG_RISCV_COMPRESSED)
+/* SLJIT_CONFIG_RISCV_COMPRESSED enables/disables compressed instruction
+   support. Non-zero values represents the highest version of the feature
+   that is supported by the CPU.
+   Allowed values: 0 - disabled, 200 - 2.00 */
+#if (defined SLJIT_CONFIG_RISCV_COMPRESSED && SLJIT_CONFIG_RISCV_COMPRESSED != 0)
+#if SLJIT_CONFIG_RISCV_COMPRESSED != 200
+#error "Unsupported value for SLJIT_CONFIG_RISCV_COMPRESSED"
+#endif
 #define RISCV_HAS_COMPRESSED(x) ((SLJIT_CONFIG_RISCV_COMPRESSED) >= (x))
 #define RISCV_COMPRESSED_INFO "c"
-#else /* !__riscv_compressed && !SLJIT_CONFIG_RISCV_COMPRESSED */
+#else /* !SLJIT_CONFIG_RISCV_COMPRESSED || SLJIT_CONFIG_RISCV_COMPRESSED == 0 */
 #define RISCV_HAS_COMPRESSED(x) 0
 #define RISCV_COMPRESSED_INFO ""
-#endif /* __riscv_compressed || SLJIT_CONFIG_RISCV_COMPRESSED */
+#endif /* SLJIT_CONFIG_RISCV_COMPRESSED && SLJIT_CONFIG_RISCV_COMPRESSED != 0 */
+
+#if !(defined SLJIT_CONFIG_RISCV_VECTOR) && defined(__riscv_vector)
+/* Auto detect vector instruction support. */
+#define SLJIT_CONFIG_RISCV_VECTOR 100
+#endif /* !SLJIT_CONFIG_RISCV_VECTOR && __riscv_vector */
+
+/* SLJIT_CONFIG_RISCV_VECTOR enables/disables vector instruction
+   support. Non-zero values represents the highest version of the feature
+   that is supported by the CPU.
+   Allowed values: 0 - disabled, 100 - 1.00 */
+#if (defined SLJIT_CONFIG_RISCV_VECTOR && SLJIT_CONFIG_RISCV_VECTOR != 0)
+#if SLJIT_CONFIG_RISCV_VECTOR != 100
+#error "Unsupported value for SLJIT_CONFIG_RISCV_VECTOR"
+#endif
+#define RISCV_HAS_VECTOR(x) ((SLJIT_CONFIG_RISCV_VECTOR) >= (x))
+#define RISCV_VECTOR_INFO "v"
+#else /* !SLJIT_CONFIG_RISCV_VECTOR || SLJIT_CONFIG_RISCV_VECTOR == 0 */
+#define RISCV_HAS_VECTOR(x) 0
+#define RISCV_VECTOR_INFO ""
+#endif /* SLJIT_CONFIG_RISCV_VECTOR && SLJIT_CONFIG_RISCV_VECTOR != 0 */
+
+#if !(defined SLJIT_CONFIG_RISCV_BITMANIP_A) && defined(__riscv_zba)
+/* Auto detect bit manipulation extension A instruction support. */
+#define SLJIT_CONFIG_RISCV_BITMANIP_A 93
+#endif /* !SLJIT_CONFIG_RISCV_BITMANIP_A && __riscv_zba */
+
+/* SLJIT_CONFIG_RISCV_BITMANIP_A enables/disables bit manipulation extension A
+   instruction support. Non-zero values represents the highest version of the
+   feature that is supported by the CPU.
+   Allowed values: 0 - disabled, 93 - 0.93 */
+#if (defined SLJIT_CONFIG_RISCV_BITMANIP_A && SLJIT_CONFIG_RISCV_BITMANIP_A != 0)
+#if SLJIT_CONFIG_RISCV_BITMANIP_A != 93
+#error "Unsupported value for SLJIT_CONFIG_RISCV_BITMANIP_A"
+#endif
+#define RISCV_HAS_BITMANIP_A(x) ((SLJIT_CONFIG_RISCV_BITMANIP_A) >= (x))
+#define RISCV_BITMANIP_A_INFO "_zba"
+#else /* !SLJIT_CONFIG_RISCV_BITMANIP_A || SLJIT_CONFIG_RISCV_BITMANIP_A == 0 */
+#define RISCV_HAS_BITMANIP_A(x) 0
+#define RISCV_BITMANIP_A_INFO ""
+#endif /* SLJIT_CONFIG_RISCV_BITMANIP_A && SLJIT_CONFIG_RISCV_BITMANIP_A != 0 */
+
+#if !(defined SLJIT_CONFIG_RISCV_BITMANIP_B) && defined(__riscv_zbb)
+/* Auto detect bit manipulation extension B instruction support. */
+#define SLJIT_CONFIG_RISCV_BITMANIP_B 93
+#endif /* !SLJIT_CONFIG_RISCV_BITMANIP_B && __riscv_zbb */
+
+/* SLJIT_CONFIG_RISCV_BITMANIP_B enables/disables bit manipulation extension B
+   instruction support. Non-zero values represents the highest version of the
+   feature that is supported by the CPU.
+   Allowed values: 0 - disabled, 93 - 0.93 */
+#if (defined SLJIT_CONFIG_RISCV_BITMANIP_B && SLJIT_CONFIG_RISCV_BITMANIP_B != 0)
+#if SLJIT_CONFIG_RISCV_BITMANIP_B != 93
+#error "Unsupported value for SLJIT_CONFIG_RISCV_BITMANIP_B"
+#endif
+#define RISCV_HAS_BITMANIP_B(x) ((SLJIT_CONFIG_RISCV_BITMANIP_B) >= (x))
+#define RISCV_BITMANIP_B_INFO "_zbb"
+#else /* !SLJIT_CONFIG_RISCV_BITMANIP_B || SLJIT_CONFIG_RISCV_BITMANIP_B == 0 */
+#define RISCV_HAS_BITMANIP_B(x) 0
+#define RISCV_BITMANIP_B_INFO ""
+#endif /* SLJIT_CONFIG_RISCV_BITMANIP_B && SLJIT_CONFIG_RISCV_BITMANIP_B != 0 */
 
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 #define RISCV_CHECK_COMPRESSED_JUMP(jump, diff, unit) \
@@ -49,10 +134,11 @@
 
 SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
+	/* The arch string is not entirely correct since 'g' contains 'a'. */
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
-	return "RISC-V-32 (rv32g" RISCV_COMPRESSED_INFO ")" SLJIT_CPUINFO;
+	return "RISC-V-32 (rv32g" RISCV_ATOMIC_INFO RISCV_COMPRESSED_INFO RISCV_VECTOR_INFO RISCV_BITMANIP_A_INFO RISCV_BITMANIP_B_INFO ")" SLJIT_CPUINFO;
 #else /* !SLJIT_CONFIG_RISCV_32 */
-	return "RISC-V-64 (rv64g" RISCV_COMPRESSED_INFO ")" SLJIT_CPUINFO;
+	return "RISC-V-64 (rv64g" RISCV_ATOMIC_INFO RISCV_COMPRESSED_INFO RISCV_VECTOR_INFO RISCV_BITMANIP_A_INFO RISCV_BITMANIP_B_INFO ")" SLJIT_CPUINFO;
 #endif /* SLJIT_CONFIG_RISCV_32 */
 }
 
@@ -131,14 +217,14 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define BGE		(F3(0x5) | OPC(0x63))
 #define BLTU		(F3(0x6) | OPC(0x63))
 #define BGEU		(F3(0x7) | OPC(0x63))
+/* C_*: compressed */
 #define C_J		(C_OPC(0x1, 0x5))
 #if defined SLJIT_CONFIG_RISCV_32
 #define C_JAL		(C_OPC(0x1, 0x1))
 #endif
-#if defined __riscv_zbb
+/* CLZ / CTZ: zbb */
 #define CLZ		(F7(0x30) | F3(0x1) | OPC(0x13))
 #define CTZ		(F7(0x30) | F12(0x1) | F3(0x1) | OPC(0x13))
-#endif /* __riscv_zbb */
 #define DIV		(F7(0x1) | F3(0x4) | OPC(0x33))
 #define DIVU		(F7(0x1) | F3(0x5) | OPC(0x33))
 #define EBREAK		(F12(0x1) | F3(0x0) | OPC(0x73))
@@ -168,6 +254,7 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define LD		(F3(0x3) | OPC(0x3))
 #define LUI		(OPC(0x37))
 #define LW		(F3(0x2) | OPC(0x3))
+/* LR: atomic */
 #define LR		(F7(0x8) | OPC(0x2f))
 #define MUL		(F7(0x1) | F3(0x0) | OPC(0x33))
 #define MULH		(F7(0x1) | F3(0x1) | OPC(0x33))
@@ -176,7 +263,7 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define ORI		(F3(0x6) | OPC(0x13))
 #define REM		(F7(0x1) | F3(0x6) | OPC(0x33))
 #define REMU		(F7(0x1) | F3(0x7) | OPC(0x33))
-#if defined __riscv_zbb
+/* REV8 / ROL / ROR / RORI: zbb */
 #if defined SLJIT_CONFIG_RISCV_32
 #define REV8		(F12(0x698) | F3(0x5) | OPC(0x13))
 #elif defined SLJIT_CONFIG_RISCV_64
@@ -185,18 +272,16 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define ROL		(F7(0x30) | F3(0x1) | OPC(0x33))
 #define ROR		(F7(0x30) | F3(0x5) | OPC(0x33))
 #define RORI		(F7(0x30) | F3(0x5) | OPC(0x13))
-#endif /* __riscv_zbb */
+/* SC: atomic */
 #define SC		(F7(0xc) | OPC(0x2f))
 #define SD		(F3(0x3) | OPC(0x23))
-#if defined __riscv_zbb
+/* SEXTB / SEXTH: zbb */
 #define SEXTB		(F7(0x30) | F12(0x4) | F3(0x1) | OPC(0x13))
 #define SEXTH		(F7(0x30) | F12(0x5) | F3(0x1) | OPC(0x13))
-#endif /* __riscv_zbb */
-#if defined __riscv_zba
+/* SH1ADD / SH2ADD / SH3ADD: zba */
 #define SH1ADD		(F7(0x10) | F3(0x2) | OPC(0x33))
 #define SH2ADD		(F7(0x10) | F3(0x4) | OPC(0x33))
 #define SH3ADD		(F7(0x10) | F3(0x6) | OPC(0x33))
-#endif /* __riscv_zba */
 #define SLL		(F7(0x0) | F3(0x1) | OPC(0x33))
 #define SLLI		(F3(0x1) | OPC(0x13))
 #define SLT		(F7(0x0) | F3(0x2) | OPC(0x33))
@@ -209,6 +294,7 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define SRAI		(F7(0x20) | F3(0x5) | OPC(0x13))
 #define SUB		(F7(0x20) | F3(0x0) | OPC(0x33))
 #define SW		(F3(0x2) | OPC(0x23))
+/* V*: vector */
 #define VAND_VV		(F7(0x13) | OPIVV)
 #define VFMV_FS		(F7(0x21) | OPFVV)
 #define VFMV_SF		(F7(0x21) | OPFVF)
@@ -222,6 +308,7 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define VMV_VX		(F7(0x2f) | OPIVX)
 #define VMV_XS		(F7(0x21) | OPMVV)
 #define VOR_VV		(F7(0x15) | OPIVV)
+#define VSETVLI		(F7(0x0) | F3(0x7) | OPC(0x57))
 #define VSETIVLI	(F7(0x60) | F3(0x7) | OPC(0x57))
 #define VS		(F7(0x1) | OPC(0x27))
 #define VSLIDEDOWN_VX	(F7(0x1f) | OPIVX)
@@ -236,13 +323,12 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define VZEXT_VF8	(F7(0x25) | (0x2 << 15) | OPMVV)
 #define XOR		(F7(0x0) | F3(0x4) | OPC(0x33))
 #define XORI		(F3(0x4) | OPC(0x13))
-#if defined __riscv_zbb
+/* ZEXTH: zbb */
 #if defined SLJIT_CONFIG_RISCV_32
 #define ZEXTH		(F7(0x4) | F3(0x4) | OPC(0x33))
 #elif defined SLJIT_CONFIG_RISCV_64
 #define ZEXTH		(F7(0x4) | F3(0x4) | OPC(0x3B))
 #endif /* SLJIT_CONFIG_RISCV_32 */
-#endif /* __riscv_zbb */
 
 #define SIMM_MAX	(0x7ff)
 #define SIMM_MIN	(-0x800)
@@ -327,7 +413,7 @@ static SLJIT_INLINE sljit_u16* detect_jump_type(struct sljit_jump *jump, sljit_u
 		diff -= SSIZE_OF(ins);
 	}
 
-	if (RISCV_HAS_COMPRESSED(2) && RISCV_CHECK_COMPRESSED_JUMP(jump, diff, u8)) {
+	if (RISCV_HAS_COMPRESSED(200) && RISCV_CHECK_COMPRESSED_JUMP(jump, diff, u8)) {
 		/* A conditional instruction has larger max offset
 		   than a 16 bit jump instruction. */
 		SLJIT_ASSERT(!(jump->flags & IS_COND));
@@ -633,7 +719,7 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 					if ((jump->flags & IS_COND) && (diff + 2) <= (BRANCH_MAX / SSIZE_OF(u16)) && (diff + 2) >= (BRANCH_MIN / SSIZE_OF(u16)))
 						total_size = 0;
-					else if (RISCV_HAS_COMPRESSED(2) && RISCV_CHECK_COMPRESSED_JUMP(jump, diff, u16))
+					else if (RISCV_HAS_COMPRESSED(200) && RISCV_CHECK_COMPRESSED_JUMP(jump, diff, u16))
 						total_size = 1;
 					else if (diff >= (JUMP_MIN / SSIZE_OF(u16)) && diff <= (JUMP_MAX / SSIZE_OF(u16)))
 						total_size = 2;
@@ -797,8 +883,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 				break;
 			}
 
-			SLJIT_ASSERT(RISCV_HAS_COMPRESSED(2) || !(jump->flags & PATCH_J16));
-			if (RISCV_HAS_COMPRESSED(2) && (jump->flags & PATCH_J16)) {
+			SLJIT_ASSERT(RISCV_HAS_COMPRESSED(200) || !(jump->flags & PATCH_J16));
+			if (RISCV_HAS_COMPRESSED(200) && (jump->flags & PATCH_J16)) {
 				SLJIT_ASSERT((sljit_sw)addr >= JUMP_MIN16 && (sljit_sw)addr <= JUMP_MAX16);
 				addr = ((addr & 0xb40) << 1) | ((addr & 0xe) << 2) | ((addr & 0x10) << 7) | ((addr & 0x20) >> 3) | ((addr & 0x80) >> 1) | ((addr & 0x400) >> 2);
 #if defined SLJIT_CONFIG_RISCV_32
@@ -850,18 +936,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_COPY_F64:
 #endif /* !SLJIT_CONFIG_RISCV_64 */
 	case SLJIT_HAS_ATOMIC:
+		return RISCV_HAS_ATOMIC(200) ? 1 : 0;
 	case SLJIT_HAS_MEMORY_BARRIER:
-#ifdef __riscv_vector
-	case SLJIT_HAS_SIMD:
-#endif /* __riscv_vector */
 		return 1;
-#ifdef __riscv_zbb
+	case SLJIT_HAS_SIMD:
+		return RISCV_HAS_VECTOR(100) ? 1 : 0;
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_CTZ:
 	case SLJIT_HAS_REV:
 	case SLJIT_HAS_ROT:
-		return 1;
-#endif /* __riscv_zbb */
+		return RISCV_HAS_BITMANIP_B(93) ? 1 : 0;
 	default:
 		return 0;
 	}
@@ -1254,9 +1338,7 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 	sljit_s32 base = arg & REG_MASK;
 	sljit_s32 tmp_r = (flags & MEM_USE_TMP2) ? TMP_REG2 : TMP_REG1;
 	sljit_sw offset, argw_hi;
-#if defined __riscv_zba
 	sljit_ins ins = ADD;
-#endif /* __riscv_zba */
 
 	SLJIT_ASSERT(arg & SLJIT_MEM);
 	if (!(next_arg & SLJIT_MEM)) {
@@ -1267,20 +1349,22 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 	if (SLJIT_UNLIKELY(arg & OFFS_REG_MASK)) {
 		argw &= 0x3;
 
-#if defined __riscv_zba
-		switch (argw) {
-			case 1:
-				ins = SH1ADD;
-				break;
-			case 2:
-				ins = SH2ADD;
-				break;
-			case 3:
-				ins = SH3ADD;
-				break;
+		if (RISCV_HAS_BITMANIP_A(93)) {
+			switch (argw) {
+				case 1:
+					ins = SH1ADD;
+					break;
+				case 2:
+					ins = SH2ADD;
+					break;
+				case 3:
+					ins = SH3ADD;
+					break;
+			}
+			FAIL_IF(push_inst(compiler, ins | RD(tmp_r) | RS1(OFFS_REG(arg)) | RS2(base)));
+			return push_mem_inst(compiler, flags, reg, tmp_r, 0);
 		}
-		FAIL_IF(push_inst(compiler, ins | RD(tmp_r) | RS1(OFFS_REG(arg)) | RS2(base)));
-#else /* !__riscv_zba */
+
 		/* Using the cache. */
 		if (argw == compiler->cache_argw) {
 			if (arg == compiler->cache_arg)
@@ -1312,7 +1396,6 @@ static sljit_s32 getput_arg(struct sljit_compiler *compiler, sljit_s32 flags, sl
 		}
 		else
 			FAIL_IF(push_inst(compiler, ADD | RD(tmp_r) | RS1(base) | RS2(!argw ? OFFS_REG(arg) : TMP_REG3)));
-#endif /* __riscv_zba */
 
 		return push_mem_inst(compiler, flags, reg, tmp_r, 0);
 	}
@@ -1400,7 +1483,7 @@ static SLJIT_INLINE sljit_s32 emit_op_mem2(struct sljit_compiler *compiler, slji
 #define WORD_32 0x08
 #define IMM_EXTEND(v) (IMM_I((op & SLJIT_32) ? (v) : (32 + (v))))
 #endif /* SLJIT_CONFIG_RISCV_32 */
-#ifndef __riscv_zbb
+
 static sljit_s32 emit_clz_ctz(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 dst, sljit_sw src)
 {
 	sljit_s32 is_clz = (GET_OPCODE(op) == SLJIT_CLZ);
@@ -1475,6 +1558,7 @@ static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op, sljit_s
 	}
 #endif /* SLJIT_CONFIG_RISCV_64 */
 
+
 	FAIL_IF(push_inst(compiler, SRLI | WORD_32 | RD(TMP_REG1) | RS1(src) | IMM_I(16)));
 	FAIL_IF(push_inst(compiler, LUI | RD(OTHER_FLAG) | 0xff0000));
 	FAIL_IF(push_inst(compiler, SLLI | WORD_32 | RD(dst) | RS1(src) | IMM_I(16)));
@@ -1484,7 +1568,11 @@ static sljit_s32 emit_rev(struct sljit_compiler *compiler, sljit_s32 op, sljit_s
 	FAIL_IF(push_inst(compiler, SRLI | WORD_32 | RD(TMP_REG1) | RS1(dst) | IMM_I(8)));
 	FAIL_IF(push_inst(compiler, AND | RD(dst) | RS1(dst) | RS2(OTHER_FLAG)));
 	FAIL_IF(push_inst(compiler, AND | RD(TMP_REG1) | RS1(TMP_REG1) | RS2(OTHER_FLAG)));
-	FAIL_IF(push_inst(compiler, SLLI | WORD_32 | RD(dst) | RS1(dst) | IMM_I(8)));
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+	FAIL_IF(push_inst(compiler, SLLI | (GET_OPCODE(op) == SLJIT_REV_S32 ? WORD_32 : 0) | RD(dst) | RS1(dst) | IMM_I(8)));
+#else /* !SLJIT_CONFIG_RISCV_64 */
+	FAIL_IF(push_inst(compiler, SLLI | RD(dst) | RS1(dst) | IMM_I(8)));
+#endif /* SLJIT_CONFIG_RISCV_64 */
 	return push_inst(compiler, OR | RD(dst) | RS1(dst) | RS2(TMP_REG1));
 }
 
@@ -1503,7 +1591,6 @@ static sljit_s32 emit_rev16(struct sljit_compiler *compiler, sljit_s32 op, sljit
 	FAIL_IF(push_inst(compiler, (GET_OPCODE(op) == SLJIT_REV_U16 ? SRLI : SRAI) | WORD | RD(dst) | RS1(dst) | IMM_I(word_size - 16)));
 	return push_inst(compiler, OR | RD(dst) | RS1(dst) | RS2(TMP_REG1));
 }
-#endif /* !__riscv_zbb */
 
 #define EMIT_LOGICAL(op_imm, op_reg) \
 	if (flags & SRC2_IMM) { \
@@ -1549,9 +1636,9 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		return SLJIT_SUCCESS;
 
 	case SLJIT_MOV_S8:
-#if defined __riscv_zbb
-		return push_inst(compiler, SEXTB | RD(dst) | RS1(src2));
-#else /* !__riscv_zbb */
+		if (RISCV_HAS_BITMANIP_B(93))
+			return push_inst(compiler, SEXTB | RD(dst) | RS1(src2));
+
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 			FAIL_IF(push_inst(compiler, SLLI | WORD | RD(dst) | RS1(src2) | IMM_EXTEND(24)));
@@ -1559,12 +1646,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		}
 		SLJIT_ASSERT(dst == src2);
 		return SLJIT_SUCCESS;
-#endif /* __riscv_zbb */
 
 	case SLJIT_MOV_U16:
-#if defined __riscv_zbb
-		return push_inst(compiler, ZEXTH | RD(dst) | RS1(src2));
-#else /* !__riscv_zbb */
+		if (RISCV_HAS_BITMANIP_B(93))
+			return push_inst(compiler, ZEXTH | RD(dst) | RS1(src2));
+
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 			FAIL_IF(push_inst(compiler, SLLI | WORD | RD(dst) | RS1(src2) | IMM_EXTEND(16)));
@@ -1572,12 +1658,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		}
 		SLJIT_ASSERT(dst == src2);
 		return SLJIT_SUCCESS;
-#endif /* __riscv_zbb */
 
 	case SLJIT_MOV_S16:
-#if defined __riscv_zbb
-		return push_inst(compiler, SEXTH | RD(dst) | RS1(src2));
-#else /* !__riscv_zbb */
+		if (RISCV_HAS_BITMANIP_B(93))
+			return push_inst(compiler, SEXTH | RD(dst) | RS1(src2));
+
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
 			FAIL_IF(push_inst(compiler, SLLI | WORD | RD(dst) | RS1(src2) | IMM_EXTEND(16)));
@@ -1585,7 +1670,6 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		}
 		SLJIT_ASSERT(dst == src2);
 		return SLJIT_SUCCESS;
-#endif /* !__riscv_zbb */
 
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 	case SLJIT_MOV_U32:
@@ -1606,67 +1690,44 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 #endif /* SLJIT_CONFIG_RISCV_64 */
 
 	case SLJIT_CLZ:
-#if defined __riscv_zbb
-		return push_inst(compiler, CLZ | WORD | RD(dst) | RS1(src2));
-#endif /* __riscv_zbb */
 	case SLJIT_CTZ:
-#if defined __riscv_zbb
-		return push_inst(compiler, CTZ | WORD | RD(dst) | RS1(src2));
-#else /* !__riscv_zbb */
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
+		if (RISCV_HAS_BITMANIP_B(93))
+			return push_inst(compiler, ((GET_OPCODE(op) == SLJIT_CLZ) ? CLZ : CTZ) | WORD | RD(dst) | RS1(src2));
+
 		return emit_clz_ctz(compiler, op, dst, src2);
-#endif /* __riscv_zbb */
 
 	case SLJIT_REV:
-#if defined __riscv_zbb
-		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
-		FAIL_IF(push_inst(compiler, REV8 | RD(dst) | RS1(src2)));
-#if defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64
-		if (op & SLJIT_32)
-			return push_inst(compiler, SRAI | RD(dst) | RS1(dst) | IMM_I(32));
-		return SLJIT_SUCCESS;
-#else /* !SLJIT_CONFIG_RISCV_64 */
-		return SLJIT_SUCCESS;
-#endif /* SLJIT_CONFIG_RISCV_64 */
-#endif /* __riscv_zbb */
 	case SLJIT_REV_S32:
-#if ((defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32) || defined __riscv_zbb)
 	case SLJIT_REV_U32:
-#endif /* SLJIT_CONFIG_RISCV_32 || __riscv_zbb */
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
-#if defined __riscv_zbb
-		FAIL_IF(push_inst(compiler, REV8 | RD(dst) | RS1(src2)));
+		if (RISCV_HAS_BITMANIP_B(93)) {
 #if defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64
-		return push_inst(compiler, (GET_OPCODE(op) == SLJIT_REV_U32 ? SRLI : SRAI )| RD(dst) | RS1(dst) | IMM_I(32));
+			FAIL_IF(push_inst(compiler, REV8 | RD(dst) | RS1(src2)));
+			if ((op & SLJIT_32) || GET_OPCODE(op) != SLJIT_REV)
+				return push_inst(compiler, (GET_OPCODE(op) == SLJIT_REV_U32 ? SRLI : SRAI)| RD(dst) | RS1(dst) | IMM_I(32));
+			return SLJIT_SUCCESS;
 #else /* !SLJIT_CONFIG_RISCV_64 */
-		return SLJIT_SUCCESS;
+			return push_inst(compiler, REV8 | RD(dst) | RS1(src2));
 #endif /* SLJIT_CONFIG_RISCV_64 */
-#else /* !__riscv_zbb */
+		}
+
 		return emit_rev(compiler, op, dst, src2);
-#endif /* __riscv_zbb */
+
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
-#if defined __riscv_zbb
-		FAIL_IF(push_inst(compiler, REV8 | RD(dst) | RS1(src2)));
+		if (RISCV_HAS_BITMANIP_B(93)) {
+			FAIL_IF(push_inst(compiler, REV8 | RD(dst) | RS1(src2)));
 #if defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64
-		return push_inst(compiler, (GET_OPCODE(op) == SLJIT_REV_U16 ? SRLI : SRAI )| RD(dst) | RS1(dst) | IMM_I(48));
+			return push_inst(compiler, (GET_OPCODE(op) == SLJIT_REV_U16 ? SRLI : SRAI)| RD(dst) | RS1(dst) | IMM_I(48));
 #else /* !SLJIT_CONFIG_RISCV_64 */
-		return push_inst(compiler, (GET_OPCODE(op) == SLJIT_REV_U16 ? SRLI : SRAI) | RD(dst) | RS1(dst) | IMM_I(16));
+			return push_inst(compiler, (GET_OPCODE(op) == SLJIT_REV_U16 ? SRLI : SRAI) | RD(dst) | RS1(dst) | IMM_I(16));
 #endif /* SLJIT_CONFIG_RISCV_64 */
-#else /* !__riscv_zbb */
-		return emit_rev16(compiler, op, dst, src2);
-#endif /* __riscv_zbb */
+		}
 
-#if ((defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64) && !defined __riscv_zbb)
-	case SLJIT_REV_U32:
-		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM) && dst != TMP_REG1);
-		FAIL_IF(emit_rev(compiler, op, dst, src2));
-		if (dst == TMP_REG2)
-			return SLJIT_SUCCESS;
-		FAIL_IF(push_inst(compiler, SLLI | RD(dst) | RS1(dst) | IMM_I(32)));
-		return push_inst(compiler, SRLI | RD(dst) | RS1(dst) | IMM_I(32));
-#endif /* SLJIT_CONFIG_RISCV_64 && !__riscv_zbb */
+		return emit_rev16(compiler, op, dst, src2);
+
 	case SLJIT_ADD:
 		/* Overflow computation (both add and sub): overflow = src1_sign ^ src2_sign ^ result_sign ^ carry_flag */
 		is_overflow = GET_FLAG_TYPE(op) == SLJIT_OVERFLOW;
@@ -1954,16 +2015,18 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_ROTR:
 		if (flags & SRC2_IMM) {
 			SLJIT_ASSERT(src2 != 0);
-#if defined __riscv_zbb
-			if (GET_OPCODE(op) == SLJIT_ROTL) {
+
+			if (RISCV_HAS_BITMANIP_B(93)) {
+				if (GET_OPCODE(op) == SLJIT_ROTL) {
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
-				src2 = ((op & SLJIT_32) ? 32 : 64) - src2;
+					src2 = ((op & SLJIT_32) ? 32 : 64) - src2;
 #else /* !SLJIT_CONFIG_RISCV_64 */
-				src2 = 32 - src2;
+					src2 = 32 - src2;
 #endif /* SLJIT_CONFIG_RISCV_64 */
+				}
+				return push_inst(compiler, RORI | WORD | RD(dst) | RS1(src1) | IMM_I(src2));
 			}
-			return push_inst(compiler, RORI | WORD | RD(dst) | RS1(src1) | IMM_I(src2));
-#else /* !__riscv_zbb */
+
 			op_imm = (GET_OPCODE(op) == SLJIT_ROTL) ? SLLI : SRLI;
 			FAIL_IF(push_inst(compiler, op_imm | WORD | RD(OTHER_FLAG) | RS1(src1) | IMM_I(src2)));
 
@@ -1975,12 +2038,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			op_imm = (GET_OPCODE(op) == SLJIT_ROTL) ? SRLI : SLLI;
 			FAIL_IF(push_inst(compiler, op_imm | WORD | RD(dst) | RS1(src1) | IMM_I(src2)));
 			return push_inst(compiler, OR | RD(dst) | RS1(dst) | RS2(OTHER_FLAG));
-#endif /* !__riscv_zbb */
 		}
 
-#if defined __riscv_zbb
-		return push_inst(compiler, (GET_OPCODE(op) == SLJIT_ROTL ? ROL : ROR) | WORD | RD(dst) | RS1(src1) | RS2(src2));
-#else /* !__riscv_zbb */
+		if (RISCV_HAS_BITMANIP_B(93))
+			return push_inst(compiler, (GET_OPCODE(op) == SLJIT_ROTL ? ROL : ROR) | WORD | RD(dst) | RS1(src1) | RS2(src2));
+
 		if (src2 == TMP_ZERO) {
 			if (dst != src1)
 				return push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(0));
@@ -1993,7 +2055,6 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		op_reg = (GET_OPCODE(op) == SLJIT_ROTL) ? SRL : SLL;
 		FAIL_IF(push_inst(compiler, op_reg | WORD | RD(dst) | RS1(src1) | RS2(EQUAL_FLAG)));
 		return push_inst(compiler, OR | RD(dst) | RS1(dst) | RS2(OTHER_FLAG));
-#endif /* !riscv_zbb */
 	default:
 		SLJIT_UNREACHABLE();
 		return SLJIT_SUCCESS;
@@ -3388,7 +3449,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_load(compiler, op, dst_reg, mem_reg));
 
-	if (op & SLJIT_ATOMIC_USE_CAS)
+	if (!RISCV_HAS_ATOMIC(200) || (op & SLJIT_ATOMIC_USE_CAS))
 		return SLJIT_ERR_UNSUPPORTED;
 
 	switch (GET_OPCODE(op)) {
@@ -3426,7 +3487,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
 
-	if (op & SLJIT_ATOMIC_USE_CAS)
+	if (!RISCV_HAS_ATOMIC(200) || (op & SLJIT_ATOMIC_USE_CAS))
 		return SLJIT_ERR_UNSUPPORTED;
 
 	switch (GET_OPCODE(op)) {
@@ -3451,6 +3512,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	return push_inst(compiler, ins | RD(OTHER_FLAG) | RS1(mem_reg) | RS2(src_reg));
 }
 
+static sljit_s32 sljit_max_vector_length = 0;
+
+static void init_compiler(void)
+{
+	sljit_sw vector_length;
+	sljit_s32 vector_length_log2;
+
+	if (!RISCV_HAS_VECTOR(100))
+		return;
+
+	__asm__ __volatile__ ("csrr %0, 0xc22" : "=r" (vector_length));
+
+	/* Probably something is wrong. */
+	if (vector_length < (1 << 3))
+		return;
+
+	vector_length_log2 = 3;
+	if (vector_length_log2 < 6 && vector_length > (1 << vector_length_log2))
+		vector_length_log2++;
+	sljit_max_vector_length = vector_length_log2;
+}
+
 /*
   SEW = Selected element width
   LMUL = Vector register group multiplier
@@ -3471,13 +3554,22 @@ static SLJIT_INLINE sljit_s32 sljit_emit_vsetivli(struct sljit_compiler *compile
 	sljit_ins elem_size = (sljit_ins)SLJIT_SIMD_GET_ELEM_SIZE(type);
 	sljit_ins avl = (sljit_ins)1 << (SLJIT_SIMD_GET_REG_SIZE(type) - elem_size);
 
-	return push_inst(compiler, VSETIVLI | RD(TMP_REG1) | (elem_size << 23) | (vlmul << 20) | (avl << 15));
+	if (avl < 31)
+		return push_inst(compiler, VSETIVLI | RD(TMP_REG1) | (elem_size << 23) | (vlmul << 20) | (avl << 15));
+
+	FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG1) | RS1(TMP_ZERO) | IMM_I(avl)));
+	return push_inst(compiler, VSETVLI | RD(TMP_REG1) | (elem_size << 23) | (vlmul << 20) | RS1(TMP_REG1));
 }
 
 static SLJIT_INLINE sljit_s32 sljit_emit_vsetivli_size(struct sljit_compiler *compiler, sljit_s32 reg_size, sljit_s32 elem_size)
 {
 	sljit_ins avl = (sljit_ins)1 << (reg_size - elem_size);
-	return push_inst(compiler, VSETIVLI | RD(TMP_REG1) | ((sljit_ins)elem_size << 23) | (avl << 15));
+
+	if (avl < 31)
+		return push_inst(compiler, VSETIVLI | RD(TMP_REG1) | ((sljit_ins)elem_size << 23) | (avl << 15));
+
+	FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG1) | RS1(TMP_ZERO) | IMM_I(avl)));
+	return push_inst(compiler, VSETVLI | RD(TMP_REG1) | ((sljit_ins)elem_size << 23) | RS1(TMP_REG1));
 }
 
 static sljit_s32 sljit_emit_vmem(struct sljit_compiler *compiler, sljit_ins ins, sljit_s32 elem_size, sljit_s32 mem, sljit_sw memw)
@@ -3527,7 +3619,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_mov(struct sljit_compiler *co
 
 	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
-	if (reg_size != 4)
+	if (reg_size < 3 || reg_size > sljit_max_vector_length)
 		return SLJIT_ERR_UNSUPPORTED;
 
 	if (type & SLJIT_SIMD_TEST)
@@ -3596,7 +3688,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	if (reg_size != 4)
+	if (reg_size < 3 || reg_size > sljit_max_vector_length)
 		return SLJIT_ERR_UNSUPPORTED;
 
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
@@ -3654,7 +3746,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_mov(struct sljit_compile
 
 	ADJUST_LOCAL_OFFSET(srcdst, srcdstw);
 
-	if (reg_size != 4)
+	if (reg_size < 3 || reg_size > sljit_max_vector_length)
 		return SLJIT_ERR_UNSUPPORTED;
 
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
@@ -3757,7 +3849,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_simd_lane_replicate(compiler, type, vreg, src, src_lane_index));
 
-	if (reg_size != 4)
+	if (reg_size < 3 || reg_size > sljit_max_vector_length)
 		return SLJIT_ERR_UNSUPPORTED;
 
 	if (((type & SLJIT_SIMD_FLOAT) && elem_size < 2) || elem_size > 3)
@@ -3788,7 +3880,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_extend(struct sljit_compiler 
 
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-	if (reg_size != 4)
+	if (reg_size < 3 || reg_size > sljit_max_vector_length)
 		return SLJIT_ERR_UNSUPPORTED;
 
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
@@ -3853,7 +3945,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_sign(struct sljit_compiler *c
 
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
-	if (reg_size != 4)
+	if (reg_size < 3 || reg_size > sljit_max_vector_length)
 		return SLJIT_ERR_UNSUPPORTED;
 
 	if (((type & SLJIT_SIMD_FLOAT) && elem_size < 2) || elem_size > 3)
@@ -3883,7 +3975,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_op2(struct sljit_compiler *co
 
 	ADJUST_LOCAL_OFFSET(src2, src2w);
 
-	if (reg_size != 4)
+	if (reg_size < 3 || reg_size > sljit_max_vector_length)
 		return SLJIT_ERR_UNSUPPORTED;
 
 	if ((type & SLJIT_SIMD_FLOAT) && (elem_size < 2 || elem_size > 3))
