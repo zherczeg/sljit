@@ -11,7 +11,7 @@ import { themes as prismThemes } from 'prism-react-renderer';
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'SLJIT',
-  tagline: 'Platform independent low-level JIT compiler',
+  tagline: 'Platform-independent low-level JIT compiler',
 
   // Set the production url of your site here
   url: 'https://zherczeg.github.com',

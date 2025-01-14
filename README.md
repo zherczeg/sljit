@@ -2,7 +2,7 @@
 
 # SLJIT
 
-Platform independent low-level JIT compiler
+Platform-independent low-level JIT compiler
 
 https://zherczeg.github.io/sljit/
 

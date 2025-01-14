@@ -11,7 +11,7 @@ SLJIT is a stack-less, low-level and platform-independent JIT compiler.
 Perhaps *platform-independent assembler* describes it even better.
 Its core design principle is that it does not try to be smarter than the developer.
 This principle is achieved by providing control over the generated machine code like you would have in other assembly languages.
-Unlike other assembly languages however, SLJIT utilizes a *low-level intermediate representation* (LIR) that is platform independent, which greatly improves portability.
+Unlike other assembly languages however, SLJIT utilizes a *low-level intermediate representation* (LIR) that is platform-independent, which greatly improves portability.
 
 SLJIT tries to strike a good balance between performance and maintainability.
 The LIR code can be compiled to many CPU architectures, and the performance of the generated code is very close to code written in native assembly languages.
