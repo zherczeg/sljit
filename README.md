@@ -47,7 +47,7 @@ Copy the `sljit_src` directory into your project's source directory and include 
 ```c
 #include "sljitLir.h"
 
-typedef void (SLJIT_FUNC *passthrough_func_t)(sljit_sw arg);
+typedef sljit_sw (SLJIT_FUNC *passthrough_func_t)(sljit_sw arg);
 
 int main()
 {
