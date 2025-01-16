@@ -191,7 +191,20 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define IMM_S(imm)	((((sljit_ins)(imm) & 0xfe0) << 20) | (((sljit_ins)(imm) & 0x1f) << 7))
 #define C_RD(rd)	((sljit_u16)((sljit_u16)reg_map[rd] << 7))
 #define C_RS2(rd)	((sljit_u16)((sljit_u16)reg_map[rd] << 2))
-#define CIMM_I(imm)	((sljit_u16)(((imm) & 0x1f) << 2) | ((imm) & 0x20) << 7)
+#define C_FRD(rd)	((sljit_u16)((sljit_u16)freg_map[rd] << 7))
+#define C_FRS2(rd)	((sljit_u16)((sljit_u16)freg_map[rd] << 2))
+#define C_RS1_R3(rs1)	((sljit_u16)((sljit_u16)(reg_map[rs1] & 0x7) << 7))
+#define C_RS2_R3(rs2)	((sljit_u16)((sljit_u16)(reg_map[rs2] & 0x7) << 2))
+#define C_FRS2_R3(rs2)	((sljit_u16)((sljit_u16)(freg_map[rs2] & 0x7) << 2))
+#define C_IS_R3(r)	((reg_map[r] & 0x18) == 0x08)
+#define C_IS_FR3(r)	((freg_map[r] & 0x18) == 0x08)
+#define CIMM_I(imm)	((sljit_u16)((((imm) & 0x1f) << 2) | (((imm) & 0x20) << 7)))
+#define C_LD32_SP(imm)	((sljit_u16)((((imm) & 0x1c) << 2) | (((imm) & 0x20) << 7) | (((imm) & 0xc0) >> 4)))
+#define C_ST32_SP(imm)	((sljit_u16)((((imm) & 0x3c) << 7) | (((imm) & 0xc0) << 1)))
+#define C_LD64_SP(imm)	((sljit_u16)((((imm) & 0x18) << 2) | (((imm) & 0x20) << 7) | (((imm) & 0x1c0) >> 4)))
+#define C_ST64_SP(imm)	((sljit_u16)((((imm) & 0x38) << 7) | (((imm) & 0x1c0) << 1)))
+#define C_MEM32(imm)	((sljit_u16)((((imm) & 0x4) << 4) | (((imm) & 0x38) << 7) | (((imm) & 0x40) >> 1)))
+#define C_MEM64(imm)	((sljit_u16)((((imm) & 0x38) << 7) | (((imm) & 0xc0) >> 1)))
 
 /* Represents funct(i) parts of the instructions. */
 #define OPC(o)		((sljit_ins)(o))
@@ -226,6 +239,12 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define C_ADDIW		(C_OPC(0x1, 0x1))
 #define C_ADDI16SP	(C_OPC(0x1, 0x3) | (sljit_u16)(2 << 7))
 #define C_EBREAK	(C_OPC(0x2, 0x4) | (sljit_u16)(1 << 12))
+#define C_FLDSP		(C_OPC(0x2, 0x1))
+#define C_FLWSP		(C_OPC(0x2, 0x3))
+#define C_FSD		(C_OPC(0x0, 0x5))
+#define C_FSDSP		(C_OPC(0x2, 0x5))
+#define C_FSW		(C_OPC(0x0, 0x7))
+#define C_FSWSP		(C_OPC(0x2, 0x7))
 #define C_J		(C_OPC(0x1, 0x5))
 #define C_JR		(C_OPC(0x2, 0x4))
 #if defined SLJIT_CONFIG_RISCV_32
@@ -234,9 +253,15 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define C_JALR		(C_OPC(0x2, 0x4) | (sljit_u16)(1 << 12))
 #define C_LI		(C_OPC(0x1, 0x2))
 #define C_LUI		(C_OPC(0x1, 0x3))
+#define C_LDSP		(C_OPC(0x2, 0x3))
+#define C_LWSP		(C_OPC(0x2, 0x2))
 #define C_MV		(C_OPC(0x2, 0x4))
 #define C_NOP		(C_OPC(0x1, 0x0))
 #define C_SLLI		(C_OPC(0x2, 0x0))
+#define C_SD		(C_OPC(0x0, 0x7))
+#define C_SDSP		(C_OPC(0x2, 0x7))
+#define C_SW		(C_OPC(0x0, 0x6))
+#define C_SWSP		(C_OPC(0x2, 0x6))
 /* CLZ / CTZ: zbb */
 #define CLZ		(F7(0x30) | F3(0x1) | OPC(0x13))
 #define CTZ		(F7(0x30) | F12(0x1) | F3(0x1) | OPC(0x13))
@@ -1022,9 +1047,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_cmp_info(sljit_s32 type)
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
 #define STACK_STORE	SW
 #define STACK_LOAD	LW
+#define C_STACK_OFFSET_CHECK(offset) ((offset) <= 0xfc)
+#define C_STACK_LOAD(offset) (C_LWSP | C_LD32_SP(offset))
+#define C_STACK_STORE(offset) (C_SWSP | C_ST32_SP(offset))
 #else /* !SLJIT_CONFIG_RISCV_32 */
 #define STACK_STORE	SD
 #define STACK_LOAD	LD
+#define C_STACK_OFFSET_CHECK(offset) ((offset) <= 0x1f8)
+#define C_STACK_LOAD(offset) (C_LDSP | C_LD64_SP(offset))
+#define C_STACK_STORE(offset) (C_SDSP | C_ST64_SP(offset))
 #endif /* SLJIT_CONFIG_RISCV_32 */
 
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
@@ -1084,17 +1115,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 		offset = STACK_MAX_DISTANCE - SSIZE_OF(sw);
 	}
 
-	FAIL_IF(push_imm_s_inst(compiler, STACK_STORE | RS1(SLJIT_SP) | RS2(RETURN_ADDR_REG), offset));
+	if (RISCV_HAS_COMPRESSED(200) && C_STACK_OFFSET_CHECK(offset))
+		FAIL_IF(push_inst16(compiler, C_STACK_STORE(offset) | C_RS2(RETURN_ADDR_REG)));
+	else
+		FAIL_IF(push_imm_s_inst(compiler, STACK_STORE | RS1(SLJIT_SP) | RS2(RETURN_ADDR_REG), offset));
 
 	tmp = SLJIT_S0 - saveds;
 	for (i = SLJIT_S0 - saved_arg_count; i > tmp; i--) {
 		offset -= SSIZE_OF(sw);
-		FAIL_IF(push_imm_s_inst(compiler, STACK_STORE | RS1(SLJIT_SP) | RS2(i), offset));
+		if (RISCV_HAS_COMPRESSED(200) && C_STACK_OFFSET_CHECK(offset))
+			FAIL_IF(push_inst16(compiler, C_STACK_STORE(offset) | C_RS2(i)));
+		else
+			FAIL_IF(push_imm_s_inst(compiler, STACK_STORE | RS1(SLJIT_SP) | RS2(i), offset));
 	}
 
 	for (i = scratches; i >= SLJIT_FIRST_SAVED_REG; i--) {
 		offset -= SSIZE_OF(sw);
-		FAIL_IF(push_imm_s_inst(compiler, STACK_STORE | RS1(SLJIT_SP) | RS2(i), offset));
+		if (RISCV_HAS_COMPRESSED(200) && C_STACK_OFFSET_CHECK(offset))
+			FAIL_IF(push_inst16(compiler, C_STACK_STORE(offset) | C_RS2(i)));
+		else
+			FAIL_IF(push_imm_s_inst(compiler, STACK_STORE | RS1(SLJIT_SP) | RS2(i), offset));
 	}
 
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
@@ -1106,12 +1146,18 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	tmp = SLJIT_FS0 - fsaveds;
 	for (i = SLJIT_FS0; i > tmp; i--) {
 		offset -= SSIZE_OF(f64);
-		FAIL_IF(push_imm_s_inst(compiler, FSD | RS1(SLJIT_SP) | FRS2(i), offset));
+		if (RISCV_HAS_COMPRESSED(200) && offset <= 0x1f8)
+			FAIL_IF(push_inst16(compiler, C_FSDSP | C_FRS2(i) | C_ST64_SP(offset)));
+		else
+			FAIL_IF(push_imm_s_inst(compiler, FSD | RS1(SLJIT_SP) | FRS2(i), offset));
 	}
 
 	for (i = fscratches; i >= SLJIT_FIRST_SAVED_FLOAT_REG; i--) {
 		offset -= SSIZE_OF(f64);
-		FAIL_IF(push_imm_s_inst(compiler, FSD | RS1(SLJIT_SP) | FRS2(i), offset));
+		if (RISCV_HAS_COMPRESSED(200) && offset <= 0x1f8)
+			FAIL_IF(push_inst16(compiler, C_FSDSP | C_FRS2(i) | C_ST64_SP(offset)));
+		else
+			FAIL_IF(push_imm_s_inst(compiler, FSD | RS1(SLJIT_SP) | FRS2(i), offset));
 	}
 
 	if (local_size > STACK_MAX_DISTANCE)
@@ -1196,18 +1242,28 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 	SLJIT_ASSERT(local_size > 0);
 
 	offset = local_size - SSIZE_OF(sw);
-	if (!is_return_to)
-		FAIL_IF(push_inst(compiler, STACK_LOAD | RD(RETURN_ADDR_REG) | RS1(SLJIT_SP) | IMM_I(offset)));
+	if (!is_return_to) {
+		if (RISCV_HAS_COMPRESSED(200) && C_STACK_OFFSET_CHECK(offset))
+			FAIL_IF(push_inst16(compiler, C_STACK_LOAD(offset) | C_RD(RETURN_ADDR_REG)));
+		else
+			FAIL_IF(push_inst(compiler, STACK_LOAD | RD(RETURN_ADDR_REG) | RS1(SLJIT_SP) | IMM_I(offset)));
+	}
 
 	tmp = SLJIT_S0 - compiler->saveds;
 	for (i = SLJIT_S0 - SLJIT_KEPT_SAVEDS_COUNT(compiler->options); i > tmp; i--) {
 		offset -= SSIZE_OF(sw);
-		FAIL_IF(push_inst(compiler, STACK_LOAD | RD(i) | RS1(SLJIT_SP) | IMM_I(offset)));
+		if (RISCV_HAS_COMPRESSED(200) && C_STACK_OFFSET_CHECK(offset))
+			FAIL_IF(push_inst16(compiler, C_STACK_LOAD(offset) | C_RD(i)));
+		else
+			FAIL_IF(push_inst(compiler, STACK_LOAD | RD(i) | RS1(SLJIT_SP) | IMM_I(offset)));
 	}
 
 	for (i = compiler->scratches; i >= SLJIT_FIRST_SAVED_REG; i--) {
 		offset -= SSIZE_OF(sw);
-		FAIL_IF(push_inst(compiler, STACK_LOAD | RD(i) | RS1(SLJIT_SP) | IMM_I(offset)));
+		if (RISCV_HAS_COMPRESSED(200) && C_STACK_OFFSET_CHECK(offset))
+			FAIL_IF(push_inst16(compiler, C_STACK_LOAD(offset) | C_RD(i)));
+		else
+			FAIL_IF(push_inst(compiler, STACK_LOAD | RD(i) | RS1(SLJIT_SP) | IMM_I(offset)));
 	}
 
 #if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
@@ -1219,12 +1275,18 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 	tmp = SLJIT_FS0 - compiler->fsaveds;
 	for (i = SLJIT_FS0; i > tmp; i--) {
 		offset -= SSIZE_OF(f64);
-		FAIL_IF(push_inst(compiler, FLD | FRD(i) | RS1(SLJIT_SP) | IMM_I(offset)));
+		if (RISCV_HAS_COMPRESSED(200) && offset <= 0x1f8)
+			FAIL_IF(push_inst16(compiler, C_FLDSP | C_FRD(i) | C_LD64_SP(offset)));
+		else
+			FAIL_IF(push_inst(compiler, FLD | FRD(i) | RS1(SLJIT_SP) | IMM_I(offset)));
 	}
 
 	for (i = compiler->fscratches; i >= SLJIT_FIRST_SAVED_FLOAT_REG; i--) {
 		offset -= SSIZE_OF(f64);
-		FAIL_IF(push_inst(compiler, FLD | FRD(i) | RS1(SLJIT_SP) | IMM_I(offset)));
+		if (RISCV_HAS_COMPRESSED(200) && offset <= 0x1f8)
+			FAIL_IF(push_inst16(compiler, C_FLDSP | C_FRD(i) | C_LD64_SP(offset)));
+		else
+			FAIL_IF(push_inst(compiler, FLD | FRD(i) | RS1(SLJIT_SP) | IMM_I(offset)));
 	}
 
 	if (RISCV_HAS_COMPRESSED(200) && local_size <= 0x1f0) {
@@ -1309,14 +1371,80 @@ static const sljit_ins data_transfer_insts[16 + 4] = {
 static sljit_s32 push_mem_inst(struct sljit_compiler *compiler, sljit_s32 flags, sljit_s32 reg, sljit_s32 base, sljit_sw offset)
 {
 	sljit_ins ins;
+	sljit_s32 signed_flags;
+	sljit_s32 load_flags;
 
 	SLJIT_ASSERT(FAST_IS_REG(base) && offset <= 0xfff && offset >= SIMM_MIN);
 
-	ins = data_transfer_insts[flags & MEM_MASK] | RS1(base);
+	flags &= MEM_MASK;
+
+	if (RISCV_HAS_COMPRESSED(200) && offset >= 0) {
+		if (base == SLJIT_SP) {
+			signed_flags = flags | SIGNED_DATA;
+
+			if ((offset & 0x3) == 0 && offset <= 0xfc) {
+#if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
+				if ((signed_flags == (SIGNED_DATA | LOAD_DATA) || signed_flags == (INT_DATA | SIGNED_DATA | LOAD_DATA)))
+					return push_inst16(compiler, C_LWSP | C_RD(reg) | C_LD32_SP(offset));
+				if ((signed_flags == SIGNED_DATA || signed_flags == (INT_DATA | SIGNED_DATA)))
+					return push_inst16(compiler, C_SWSP | C_RS2(reg) | C_ST32_SP(offset));
+				if (flags == (SINGLE_DATA | LOAD_DATA))
+					return push_inst16(compiler, C_FLWSP | C_FRD(reg) | C_LD32_SP(offset));
+				if (flags == SINGLE_DATA)
+					return push_inst16(compiler, C_FSWSP | C_FRS2(reg) | C_ST32_SP(offset));
+#else /* !SLJIT_CONFIG_RISCV_32 */
+				if (flags == (INT_DATA | SIGNED_DATA | LOAD_DATA))
+					return push_inst16(compiler, C_LWSP | C_RD(reg) | C_LD32_SP(offset));
+				if (signed_flags == (INT_DATA | SIGNED_DATA))
+					return push_inst16(compiler, C_SWSP | C_RS2(reg) | C_ST32_SP(offset));
+#endif /* SLJIT_CONFIG_RISCV_32 */
+			}
+
+			if ((offset & 0x7) == 0 && offset <= 0x1f8) {
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+				if (signed_flags == (SIGNED_DATA | LOAD_DATA))
+					return push_inst16(compiler, C_LDSP | C_RD(reg) | C_LD64_SP(offset));
+				if (signed_flags == SIGNED_DATA)
+					return push_inst16(compiler, C_SDSP | C_RS2(reg) | C_ST64_SP(offset));
+#endif /* SLJIT_CONFIG_RISCV_64 */
+				if (flags == (DOUBLE_DATA | LOAD_DATA))
+					return push_inst16(compiler, C_FLDSP | C_FRD(reg) | C_LD64_SP(offset));
+				if (flags == DOUBLE_DATA)
+					return push_inst16(compiler, C_FSDSP | C_FRS2(reg) | C_ST64_SP(offset));
+			}
+		} else if (C_IS_R3(base) && (flags <= GPR_REG ? C_IS_R3(reg) : C_IS_FR3(reg))) {
+			SLJIT_COMPILE_ASSERT(LOAD_DATA == 1, load_data_bit_error);
+			signed_flags = flags | LOAD_DATA | SIGNED_DATA;
+			load_flags = flags | LOAD_DATA;
+
+			if ((offset & 0x3) == 0 && offset <= 0x7c) {
+#if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
+				if (signed_flags == (SIGNED_DATA | LOAD_DATA) || signed_flags == (INT_DATA | SIGNED_DATA | LOAD_DATA))
+					return push_inst16(compiler, (C_SW ^ (sljit_u16)((flags & LOAD_DATA) << 15)) | C_RS1_R3(base) | C_RS2_R3(reg) | C_MEM32(offset));
+				if (load_flags == (SINGLE_DATA | LOAD_DATA))
+					return push_inst16(compiler, (C_FSW ^ (sljit_u16)((flags & LOAD_DATA) << 15)) | C_RS1_R3(base) | C_FRS2_R3(reg) | C_MEM32(offset));
+#else /* !SLJIT_CONFIG_RISCV_32 */
+				if (load_flags == (INT_DATA | SIGNED_DATA | LOAD_DATA))
+					return push_inst16(compiler, (C_SW ^ (sljit_u16)((flags & LOAD_DATA) << 15)) | C_RS1_R3(base) | C_RS2_R3(reg) | C_MEM32(offset));
+#endif /* SLJIT_CONFIG_RISCV_32 */
+			}
+
+			if ((offset & 0x7) == 0 && offset <= 0xf8) {
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+				if (signed_flags == (SIGNED_DATA | LOAD_DATA))
+					return push_inst16(compiler, (C_SD ^ (sljit_u16)((flags & LOAD_DATA) << 15)) | C_RS1_R3(base) | C_RS2_R3(reg) | C_MEM64(offset));
+#endif /* SLJIT_CONFIG_RISCV_64 */
+				if (load_flags == (DOUBLE_DATA | LOAD_DATA))
+					return push_inst16(compiler, (C_FSD ^ (sljit_u16)((flags & LOAD_DATA) << 15)) | C_RS1_R3(base) | C_FRS2_R3(reg) | C_MEM64(offset));
+			}
+		}
+	}
+
+	ins = data_transfer_insts[flags] | RS1(base);
 	if (flags & LOAD_DATA)
-		ins |= ((flags & MEM_MASK) <= GPR_REG ? RD(reg) : FRD(reg)) | IMM_I(offset);
+		ins |= (flags <= GPR_REG ? RD(reg) : FRD(reg)) | IMM_I(offset);
 	else
-		ins |= ((flags & MEM_MASK) <= GPR_REG ? RS2(reg) : FRS2(reg)) | IMM_S(offset);
+		ins |= (flags <= GPR_REG ? RS2(reg) : FRS2(reg)) | IMM_S(offset);
 
 	return push_inst(compiler, ins);
 }
