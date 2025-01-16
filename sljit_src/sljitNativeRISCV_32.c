@@ -28,16 +28,27 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 {
 	SLJIT_UNUSED_ARG(tmp_r);
 
+	if (RISCV_HAS_COMPRESSED(200) && imm <= SIMM16_MAX && imm >= SIMM16_MIN)
+		return push_inst16(compiler, C_LI | C_RD(dst_r) | CIMM_I(imm));
+
 	if (imm <= SIMM_MAX && imm >= SIMM_MIN)
 		return push_inst(compiler, ADDI | RD(dst_r) | RS1(TMP_ZERO) | IMM_I(imm));
 
 	if (imm & 0x800)
 		imm += 0x1000;
 
-	FAIL_IF(push_inst(compiler, LUI | RD(dst_r) | (sljit_ins)(imm & ~0xfff)));
+	if (RISCV_HAS_COMPRESSED(200) && imm <= 0x1ffff && imm >= -0x20000)
+		FAIL_IF(push_inst16(compiler, C_LUI | C_RD(dst_r) | ((sljit_u16)(((imm) & 0x1f000) >> 10) | ((imm) & 0x20000) >> 5)));
+	else
+		FAIL_IF(push_inst(compiler, LUI | RD(dst_r) | (sljit_ins)(imm & ~0xfff)));
 
-	if ((imm & 0xfff) == 0)
+	imm &= 0xfff;
+
+	if (imm == 0)
 		return SLJIT_SUCCESS;
+
+	if (RISCV_HAS_COMPRESSED(200) && (imm <= 0x1f || imm >= 0xfe0))
+		return push_inst16(compiler, C_ADDI | C_RD(dst_r) | CIMM_I(imm));
 
 	return push_inst(compiler, ADDI | RD(dst_r) | RS1(dst_r) | IMM_I(imm));
 }

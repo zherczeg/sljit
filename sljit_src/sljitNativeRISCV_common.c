@@ -126,10 +126,10 @@
 
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 #define RISCV_CHECK_COMPRESSED_JUMP(jump, diff, unit) \
-	(!((jump)->flags & IS_CALL) && (diff) >= (JUMP_MIN16 / SSIZE_OF(unit)) && (diff) <= (JUMP_MAX16 / SSIZE_OF(unit)))
+	(!((jump)->flags & IS_CALL) && (diff) >= (JUMP16_MIN / SSIZE_OF(unit)) && (diff) <= (JUMP16_MAX / SSIZE_OF(unit)))
 #else /* !SLJIT_CONFIG_RISCV_64 */
 #define RISCV_CHECK_COMPRESSED_JUMP(jump, diff, unit) \
-	((diff) >= (JUMP_MIN16 / SSIZE_OF(unit)) && (diff) <= (JUMP_MAX16 / SSIZE_OF(unit)))
+	((diff) >= (JUMP16_MIN / SSIZE_OF(unit)) && (diff) <= (JUMP16_MAX / SSIZE_OF(unit)))
 #endif /* SLJIT_CONFIG_RISCV_64 */
 
 SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
@@ -189,6 +189,9 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define VRS2(rs2)	((sljit_ins)vreg_map[rs2] << 20)
 #define IMM_I(imm)	((sljit_ins)(imm) << 20)
 #define IMM_S(imm)	((((sljit_ins)(imm) & 0xfe0) << 20) | (((sljit_ins)(imm) & 0x1f) << 7))
+#define C_RD(rd)	((sljit_u16)((sljit_u16)reg_map[rd] << 7))
+#define C_RS2(rd)	((sljit_u16)((sljit_u16)reg_map[rd] << 2))
+#define CIMM_I(imm)	((sljit_u16)(((imm) & 0x1f) << 2) | ((imm) & 0x20) << 7)
 
 /* Represents funct(i) parts of the instructions. */
 #define OPC(o)		((sljit_ins)(o))
@@ -218,10 +221,22 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define BLTU		(F3(0x6) | OPC(0x63))
 #define BGEU		(F3(0x7) | OPC(0x63))
 /* C_*: compressed */
+#define C_ADD		(C_OPC(0x2, 0x4) | (sljit_u16)(1 << 12))
+#define C_ADDI		(C_OPC(0x1, 0x0))
+#define C_ADDIW		(C_OPC(0x1, 0x1))
+#define C_ADDI16SP	(C_OPC(0x1, 0x3) | (sljit_u16)(2 << 7))
+#define C_EBREAK	(C_OPC(0x2, 0x4) | (sljit_u16)(1 << 12))
 #define C_J		(C_OPC(0x1, 0x5))
+#define C_JR		(C_OPC(0x2, 0x4))
 #if defined SLJIT_CONFIG_RISCV_32
 #define C_JAL		(C_OPC(0x1, 0x1))
 #endif
+#define C_JALR		(C_OPC(0x2, 0x4) | (sljit_u16)(1 << 12))
+#define C_LI		(C_OPC(0x1, 0x2))
+#define C_LUI		(C_OPC(0x1, 0x3))
+#define C_MV		(C_OPC(0x2, 0x4))
+#define C_NOP		(C_OPC(0x1, 0x0))
+#define C_SLLI		(C_OPC(0x2, 0x0))
 /* CLZ / CTZ: zbb */
 #define CLZ		(F7(0x30) | F3(0x1) | OPC(0x13))
 #define CTZ		(F7(0x30) | F12(0x1) | F3(0x1) | OPC(0x13))
@@ -332,12 +347,14 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 
 #define SIMM_MAX	(0x7ff)
 #define SIMM_MIN	(-0x800)
+#define SIMM16_MAX	(0x1f)
+#define SIMM16_MIN	(-0x20)
 #define BRANCH_MAX	(0xfff)
 #define BRANCH_MIN	(-0x1000)
 #define JUMP_MAX	(0xfffff)
 #define JUMP_MIN	(-0x100000)
-#define JUMP_MAX16	SIMM_MAX
-#define JUMP_MIN16	SIMM_MIN
+#define JUMP16_MAX	SIMM_MAX
+#define JUMP16_MIN	SIMM_MIN
 
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 #define S32_MAX		(0x7ffff7ffl)
@@ -345,6 +362,8 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define S44_MAX		(0x7fffffff7ffl)
 #define S52_MAX		(0x7ffffffffffffl)
 #endif /* SLJIT_CONFIG_RISCV_64 */
+
+#define C_ADDI_W(word)	(C_ADDI | (sljit_u16)((word) << 10))
 
 static sljit_s32 push_inst(struct sljit_compiler *compiler, sljit_ins ins)
 {
@@ -885,7 +904,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 			SLJIT_ASSERT(RISCV_HAS_COMPRESSED(200) || !(jump->flags & PATCH_J16));
 			if (RISCV_HAS_COMPRESSED(200) && (jump->flags & PATCH_J16)) {
-				SLJIT_ASSERT((sljit_sw)addr >= JUMP_MIN16 && (sljit_sw)addr <= JUMP_MAX16);
+				SLJIT_ASSERT((sljit_sw)addr >= JUMP16_MIN && (sljit_sw)addr <= JUMP16_MAX);
 				addr = ((addr & 0xb40) << 1) | ((addr & 0xe) << 2) | ((addr & 0x10) << 7) | ((addr & 0x20) >> 3) | ((addr & 0x80) >> 1) | ((addr & 0x400) >> 2);
 #if defined SLJIT_CONFIG_RISCV_32
 				ins = ((jump->flags & IS_CALL) ? C_JAL : C_J) | (sljit_ins)addr;
@@ -1048,8 +1067,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 
 	if (local_size <= STACK_MAX_DISTANCE) {
 		/* Frequent case. */
-		FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_SP) | RS1(SLJIT_SP) | IMM_I(-local_size)));
 		offset = local_size - SSIZE_OF(sw);
+		local_size = -local_size;
+		if (RISCV_HAS_COMPRESSED(200) && local_size >= -0x200) {
+			SLJIT_ASSERT((local_size & 0x200) != 0 && (local_size & 0xf) == 0);
+			FAIL_IF(push_inst16(compiler, C_ADDI16SP | (sljit_u16)(((local_size & 0x10) << 2) | ((local_size & 0x20) >> 3) | ((local_size & 0x40) >> 1) | ((local_size & 0x180) >> 4) | (1 << 12))));
+		} else
+			FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_SP) | RS1(SLJIT_SP) | IMM_I(local_size)));
 		local_size = 0;
 	} else {
 		FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_SP) | RS1(SLJIT_SP) | IMM_I(STACK_MAX_DISTANCE)));
@@ -1105,7 +1129,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 	while (arg_types > 0) {
 		if ((arg_types & SLJIT_ARG_MASK) < SLJIT_ARG_TYPE_F64) {
 			if (!(arg_types & SLJIT_ARG_TYPE_SCRATCH_REG)) {
-				FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_S0 - saved_arg_count) | RS1(tmp) | IMM_I(0)));
+				if (RISCV_HAS_COMPRESSED(200))
+					FAIL_IF(push_inst16(compiler, C_MV | C_RD(SLJIT_S0 - saved_arg_count) | C_RS2(tmp)));
+				else
+					FAIL_IF(push_inst(compiler, ADDI | RD(SLJIT_S0 - saved_arg_count) | RS1(tmp) | IMM_I(0)));
 				saved_arg_count++;
 			}
 			tmp++;
@@ -1198,6 +1225,11 @@ static sljit_s32 emit_stack_frame_release(struct sljit_compiler *compiler, sljit
 	for (i = compiler->fscratches; i >= SLJIT_FIRST_SAVED_FLOAT_REG; i--) {
 		offset -= SSIZE_OF(f64);
 		FAIL_IF(push_inst(compiler, FLD | FRD(i) | RS1(SLJIT_SP) | IMM_I(offset)));
+	}
+
+	if (RISCV_HAS_COMPRESSED(200) && local_size <= 0x1f0) {
+		SLJIT_ASSERT((local_size & 0xf) == 0);
+		return push_inst16(compiler, C_ADDI16SP | (sljit_u16)(((local_size & 0x10) << 2) | ((local_size & 0x20) >> 3) | ((local_size & 0x40) >> 1) | ((local_size & 0x180) >> 4)));
 	}
 
 	return push_inst(compiler, ADDI | RD(SLJIT_SP) | RS1(SLJIT_SP) | IMM_I(local_size));
@@ -1624,9 +1656,16 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV:
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
-		if (dst != src2)
+		if (dst == src2)
+			return SLJIT_SUCCESS;
+
+		if (!RISCV_HAS_COMPRESSED(200))
 			return push_inst(compiler, ADDI | RD(dst) | RS1(src2) | IMM_I(0));
-		return SLJIT_SUCCESS;
+
+		/* Revert the x0 to immediate 0. */
+		if (src2 == 0)
+			return push_inst16(compiler, C_LI | C_RD(dst));
+		return push_inst16(compiler, C_MV | C_RD(dst) | C_RS2(src2));
 
 	case SLJIT_MOV_U8:
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
@@ -1683,8 +1722,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 	case SLJIT_MOV_S32:
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
-		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE))
+		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
+			if (RISCV_HAS_COMPRESSED(200) && dst == src2)
+				return push_inst16(compiler, C_ADDIW | C_RD(dst));
 			return push_inst(compiler, ADDI | 0x8 | RD(dst) | RS1(src2) | IMM_I(0));
+		}
 		SLJIT_ASSERT(dst == src2);
 		return SLJIT_SUCCESS;
 #endif /* SLJIT_CONFIG_RISCV_64 */
@@ -1735,19 +1777,26 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 		if (flags & SRC2_IMM) {
 			if (is_overflow) {
-				if (src2 >= 0)
-					FAIL_IF(push_inst(compiler, ADDI | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(0)));
-				else
+				if (src2 >= 0) {
+					if (RISCV_HAS_COMPRESSED(200))
+						FAIL_IF(push_inst16(compiler, C_MV | C_RD(EQUAL_FLAG) | C_RS2(src1)));
+					else
+						FAIL_IF(push_inst(compiler, ADDI | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(0)));
+				} else
 					FAIL_IF(push_inst(compiler, XORI | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(-1)));
 			}
 			else if (op & SLJIT_SET_Z)
 				FAIL_IF(push_inst(compiler, ADDI | WORD | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(src2)));
 
 			/* Only the zero flag is needed. */
-			if (!(flags & UNUSED_DEST) || (op & VARIABLE_FLAG_MASK))
-				FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(src2)));
-		}
-		else {
+			if (!(flags & UNUSED_DEST) || (op & VARIABLE_FLAG_MASK)) {
+				SLJIT_ASSERT(src2 != 0);
+				if (RISCV_HAS_COMPRESSED(200) && dst == src1 && src2 <= SIMM16_MAX && src2 >= SIMM16_MIN)
+					FAIL_IF(push_inst16(compiler, C_ADDI_W(WORD) | C_RD(dst) | CIMM_I(src2)));
+				else
+					FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(src2)));
+			}
+		} else {
 			if (is_overflow)
 				FAIL_IF(push_inst(compiler, XOR | RD(EQUAL_FLAG) | RS1(src1) | RS2(src2)));
 			else if (op & SLJIT_SET_Z)
@@ -1765,8 +1814,12 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			}
 
 			/* Only the zero flag is needed. */
-			if (!(flags & UNUSED_DEST) || (op & VARIABLE_FLAG_MASK))
-				FAIL_IF(push_inst(compiler, ADD | WORD | RD(dst) | RS1(src1) | RS2(src2)));
+			if (!(flags & UNUSED_DEST) || (op & VARIABLE_FLAG_MASK)) {
+				if (RISCV_HAS_COMPRESSED(200) && WORD == 0 && dst == src1 && src2 != 0)
+					FAIL_IF(push_inst16(compiler,  C_ADD | C_RD(dst) | C_RS2(src2)));
+				else
+					FAIL_IF(push_inst(compiler, ADD | WORD | RD(dst) | RS1(src1) | RS2(src2)));
+			}
 		}
 
 		/* Carry is zero if a + b >= a or a + b >= b, otherwise it is 1. */
@@ -1781,8 +1834,12 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			return SLJIT_SUCCESS;
 
 		FAIL_IF(push_inst(compiler, XOR | RD(TMP_REG1) | RS1(dst) | RS2(EQUAL_FLAG)));
-		if (op & SLJIT_SET_Z)
-			FAIL_IF(push_inst(compiler, ADDI | RD(EQUAL_FLAG) | RS1(dst) | IMM_I(0)));
+		if (op & SLJIT_SET_Z) {
+			if (RISCV_HAS_COMPRESSED(200))
+				FAIL_IF(push_inst16(compiler, C_MV | C_RD(EQUAL_FLAG) | C_RS2(dst)));
+			else
+				FAIL_IF(push_inst(compiler, ADDI | RD(EQUAL_FLAG) | RS1(dst) | IMM_I(0)));
+		}
 		FAIL_IF(push_inst(compiler, SRLI | WORD | RD(TMP_REG1) | RS1(TMP_REG1) | IMM_EXTEND(31)));
 		return push_inst(compiler, XOR | RD(OTHER_FLAG) | RS1(TMP_REG1) | RS2(OTHER_FLAG));
 
@@ -1790,7 +1847,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 		carry_src_r = GET_FLAG_TYPE(op) == SLJIT_CARRY;
 
 		if (flags & SRC2_IMM) {
-			FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(src2)));
+			SLJIT_ASSERT(src2 != 0);
+			if (RISCV_HAS_COMPRESSED(200) && dst == src1 && src2 <= SIMM16_MAX && src2 >= SIMM16_MIN)
+				FAIL_IF(push_inst16(compiler, C_ADDI_W(WORD) | C_RD(dst) | CIMM_I(src2)));
+			else
+				FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(src2)));
 		} else {
 			if (carry_src_r != 0) {
 				if (src1 != dst)
@@ -1798,12 +1859,18 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 				else if (src2 != dst)
 					carry_src_r = (sljit_s32)src2;
 				else {
-					FAIL_IF(push_inst(compiler, ADDI | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(0)));
+					if (RISCV_HAS_COMPRESSED(200))
+						FAIL_IF(push_inst16(compiler, C_MV | C_RD(EQUAL_FLAG) | C_RS2(src1)));
+					else
+						FAIL_IF(push_inst(compiler, ADDI | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(0)));
 					carry_src_r = EQUAL_FLAG;
 				}
 			}
 
-			FAIL_IF(push_inst(compiler, ADD | WORD | RD(dst) | RS1(src1) | RS2(src2)));
+			if (RISCV_HAS_COMPRESSED(200) && WORD == 0 && dst == src1 && src2 != 0)
+				FAIL_IF(push_inst16(compiler,  C_ADD | C_RD(dst) | C_RS2(src2)));
+			else
+				FAIL_IF(push_inst(compiler, ADD | WORD | RD(dst) | RS1(src1) | RS2(src2)));
 		}
 
 		/* Carry is zero if a + b >= a or a + b >= b, otherwise it is 1. */
@@ -1814,7 +1881,10 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 				FAIL_IF(push_inst(compiler, SLTU | RD(EQUAL_FLAG) | RS1(dst) | RS2(carry_src_r)));
 		}
 
-		FAIL_IF(push_inst(compiler, ADD | WORD | RD(dst) | RS1(dst) | RS2(OTHER_FLAG)));
+		if (RISCV_HAS_COMPRESSED(200) && WORD == 0)
+			FAIL_IF(push_inst16(compiler,  C_ADD | C_RD(dst) | C_RS2(OTHER_FLAG)));
+		else
+			FAIL_IF(push_inst(compiler, ADD | WORD | RD(dst) | RS1(dst) | RS2(OTHER_FLAG)));
 
 		if (carry_src_r == 0)
 			return SLJIT_SUCCESS;
@@ -1837,8 +1907,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			if (GET_FLAG_TYPE(op) == SLJIT_LESS) {
 				FAIL_IF(push_inst(compiler, SLTUI | RD(OTHER_FLAG) | RS1(src1) | IMM_I(src2)));
 				is_handled = 1;
-			}
-			else if (GET_FLAG_TYPE(op) == SLJIT_SIG_LESS) {
+			} else if (GET_FLAG_TYPE(op) == SLJIT_SIG_LESS) {
 				FAIL_IF(push_inst(compiler, SLTI | RD(OTHER_FLAG) | RS1(src1) | IMM_I(src2)));
 				is_handled = 1;
 			}
@@ -1849,7 +1918,11 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 			if (flags & SRC2_IMM) {
 				reg = (src1 == TMP_REG1) ? TMP_REG2 : TMP_REG1;
-				FAIL_IF(push_inst(compiler, ADDI | RD(reg) | RS1(TMP_ZERO) | IMM_I(src2)));
+				if (RISCV_HAS_COMPRESSED(200) && src2 <= SIMM16_MAX && src2 >= SIMM16_MIN)
+					FAIL_IF(push_inst16(compiler, C_LI | C_RD(reg) | CIMM_I(src2)));
+				else
+					FAIL_IF(push_inst(compiler, ADDI | RD(reg) | RS1(TMP_ZERO) | IMM_I(src2)));
+
 				src2 = reg;
 				flags &= ~SRC2_IMM;
 			}
@@ -1874,10 +1947,14 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			if (flags & SRC2_IMM) {
 				if (op & SLJIT_SET_Z)
 					FAIL_IF(push_inst(compiler, ADDI | WORD | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(-src2)));
-				if (!(flags & UNUSED_DEST))
-					return push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(-src2));
-			}
-			else {
+				if (!(flags & UNUSED_DEST)) {
+					src2 = -src2;
+					if (RISCV_HAS_COMPRESSED(200) && dst == src1 && src2 <= SIMM16_MAX && src2 >= SIMM16_MIN)
+						return push_inst16(compiler, C_ADDI_W(WORD) | C_RD(dst) | CIMM_I(src2));
+
+					return push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(src2));
+				}
+			} else {
 				if (op & SLJIT_SET_Z)
 					FAIL_IF(push_inst(compiler, SUB | WORD | RD(EQUAL_FLAG) | RS1(src1) | RS2(src2)));
 				if (!(flags & UNUSED_DEST))
@@ -1891,22 +1968,28 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 		if (flags & SRC2_IMM) {
 			if (is_overflow) {
-				if (src2 >= 0)
-					FAIL_IF(push_inst(compiler, ADDI | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(0)));
-				else
+				if (src2 >= 0) {
+					if (RISCV_HAS_COMPRESSED(200))
+						FAIL_IF(push_inst16(compiler, C_MV | C_RD(EQUAL_FLAG) | C_RS2(src1)));
+					else
+						FAIL_IF(push_inst(compiler, ADDI | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(0)));
+				} else
 					FAIL_IF(push_inst(compiler, XORI | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(-1)));
-			}
-			else if (op & SLJIT_SET_Z)
+			} else if (op & SLJIT_SET_Z)
 				FAIL_IF(push_inst(compiler, ADDI | WORD | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(-src2)));
 
 			if (is_overflow || is_carry)
 				FAIL_IF(push_inst(compiler, SLTUI | RD(OTHER_FLAG) | RS1(src1) | IMM_I(src2)));
 
 			/* Only the zero flag is needed. */
-			if (!(flags & UNUSED_DEST) || (op & VARIABLE_FLAG_MASK))
-				FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(-src2)));
-		}
-		else {
+			if (!(flags & UNUSED_DEST) || (op & VARIABLE_FLAG_MASK)) {
+				src2 = -src2;
+				if (RISCV_HAS_COMPRESSED(200) && dst == src1 && src2 <= SIMM16_MAX && src2 >= SIMM16_MIN)
+					FAIL_IF(push_inst16(compiler, C_ADDI_W(WORD) | C_RD(dst) | CIMM_I(src2)));
+				else
+					FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(src2)));
+			}
+		} else {
 			if (is_overflow)
 				FAIL_IF(push_inst(compiler, XOR | RD(EQUAL_FLAG) | RS1(src1) | RS2(src2)));
 			else if (op & SLJIT_SET_Z)
@@ -1924,8 +2007,12 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			return SLJIT_SUCCESS;
 
 		FAIL_IF(push_inst(compiler, XOR | RD(TMP_REG1) | RS1(dst) | RS2(EQUAL_FLAG)));
-		if (op & SLJIT_SET_Z)
-			FAIL_IF(push_inst(compiler, ADDI | RD(EQUAL_FLAG) | RS1(dst) | IMM_I(0)));
+		if (op & SLJIT_SET_Z) {
+			if (RISCV_HAS_COMPRESSED(200))
+				FAIL_IF(push_inst16(compiler, C_MV | C_RD(EQUAL_FLAG) | C_RS2(dst)));
+			else
+				FAIL_IF(push_inst(compiler, ADDI | RD(EQUAL_FLAG) | RS1(dst) | IMM_I(0)));
+		}
 		FAIL_IF(push_inst(compiler, SRLI | WORD | RD(TMP_REG1) | RS1(TMP_REG1) | IMM_EXTEND(31)));
 		return push_inst(compiler, XOR | RD(OTHER_FLAG) | RS1(TMP_REG1) | RS2(OTHER_FLAG));
 
@@ -1942,9 +2029,12 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			if (is_carry)
 				FAIL_IF(push_inst(compiler, SLTUI | RD(EQUAL_FLAG) | RS1(src1) | IMM_I(src2)));
 
-			FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(-src2)));
-		}
-		else {
+			src2 = -src2;
+			if (RISCV_HAS_COMPRESSED(200) && dst == src1 && src2 <= SIMM16_MAX && src2 >= SIMM16_MIN)
+				FAIL_IF(push_inst16(compiler, C_ADDI_W(WORD) | C_RD(dst) | CIMM_I(src2)));
+			else
+				FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst) | RS1(src1) | IMM_I(src2)));
+		} else {
 			if (is_carry)
 				FAIL_IF(push_inst(compiler, SLTU | RD(EQUAL_FLAG) | RS1(src1) | RS2(src2)));
 
@@ -1998,6 +2088,8 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 
 	case SLJIT_SHL:
 	case SLJIT_MSHL:
+		if (RISCV_HAS_COMPRESSED(200) && dst == src1 && (flags & SRC2_IMM))
+			return push_inst16(compiler, C_SLLI | C_RD(dst) | CIMM_I(src2));
 		EMIT_SHIFT(SLLI, SLL);
 		break;
 
@@ -2218,8 +2310,12 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 
 	switch (GET_OPCODE(op)) {
 	case SLJIT_BREAKPOINT:
+		if (RISCV_HAS_COMPRESSED(200))
+			return push_inst16(compiler, C_EBREAK);
 		return push_inst(compiler, EBREAK);
 	case SLJIT_NOP:
+		if (RISCV_HAS_COMPRESSED(200))
+			return push_inst16(compiler, C_NOP);
 		return push_inst(compiler, ADDI | RD(TMP_ZERO) | RS1(TMP_ZERO) | IMM_I(0));
 	case SLJIT_LMUL_UW:
 		FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG1) | RS1(SLJIT_R1) | IMM_I(0)));
@@ -3136,6 +3232,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compi
 			FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, TMP_REG1, src, srcw));
 			src = TMP_REG1;
 		}
+
+		if (RISCV_HAS_COMPRESSED(200))
+			return push_inst16(compiler, ((type >= SLJIT_FAST_CALL) ? C_JALR : C_JR) | C_RD(src));
+
 		return push_inst(compiler, JALR | RD((type >= SLJIT_FAST_CALL) ? RETURN_ADDR_REG : TMP_ZERO) | RS1(src) | IMM_I(0));
 	}
 
