@@ -983,6 +983,8 @@ static void test_float9(void)
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_f32), SLJIT_FR5, 0);
 #if (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 	result = (compiler->size - size3) == 2 && (size3 - size2) == 1 && (size2 - size1) == 2;
+#elif (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
+	result = ((compiler->size - size3) == 1 || (compiler->size - size3) == 2) && ((size3 - size2) == 1 || (size3 - size2) == 2) && ((size2 - size1) == 1 || (size2 - size1) == 2);
 #elif !IS_X86
 	result = (compiler->size - size3) == (size3 - size2) && (size3 - size2) == (size2 - size1);
 #endif
