@@ -58,7 +58,7 @@ static sljit_s32 load_immediate32(struct sljit_compiler *compiler, sljit_s32 dst
 		return SLJIT_SUCCESS;
 
 	if (RISCV_HAS_COMPRESSED(200) && (imm <= 0x1f || imm >= 0xfe0))
-		return push_inst16(compiler, C_ADDI | C_RD(dst_r) | CIMM_I(imm));
+		return push_inst16(compiler, C_ADDI | C_RD(dst_r) | C_IMM_I(imm));
 
 	return push_inst(compiler, ADDI | RD(dst_r) | RS1(dst_r) | IMM_I(imm));
 }
@@ -68,7 +68,7 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 	sljit_sw high;
 
 	if (RISCV_HAS_COMPRESSED(200) && imm <= SIMM16_MAX && imm >= SIMM16_MIN)
-		return push_inst16(compiler, C_LI | C_RD(dst_r) | CIMM_I(imm));
+		return push_inst16(compiler, C_LI | C_RD(dst_r) | C_IMM_I(imm));
 
 	if (imm <= SIMM_MAX && imm >= SIMM_MIN)
 		return push_inst(compiler, ADDI | RD(dst_r) | RS1(TMP_ZERO) | IMM_I(imm));
@@ -118,7 +118,7 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 
 	if (imm <= SIMM_MAX && imm >= SIMM_MIN) {
 		if (RISCV_HAS_COMPRESSED(200) && imm <= 0x1f && imm >= -0x20)
-			FAIL_IF(push_inst16(compiler, C_LI | C_RD(dst_r) | CIMM_I(imm)));
+			FAIL_IF(push_inst16(compiler, C_LI | C_RD(dst_r) | C_IMM_I(imm)));
 		else
 			FAIL_IF(push_inst(compiler, ADDI | RD(dst_r) | RS1(TMP_ZERO) | IMM_I(imm)));
 		imm = 0;
@@ -141,7 +141,7 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 	if ((high & 0xfff) != 0) {
 		SLJIT_ASSERT(high <= 0xfff);
 		if (RISCV_HAS_COMPRESSED(200) && (high <= 0x1f || high >= 0xfe0))
-			FAIL_IF(push_inst16(compiler, C_ADDI | C_RD(tmp_r) | CIMM_I(high)));
+			FAIL_IF(push_inst16(compiler, C_ADDI | C_RD(tmp_r) | C_IMM_I(high)));
 		else
 			FAIL_IF(push_inst(compiler, ADDI | RD(tmp_r) | RS1(tmp_r) | IMM_I(high)));
 	}
@@ -151,7 +151,7 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 	else if (imm != 0) {
 		SLJIT_ASSERT(imm <= 0xfff);
 		if (RISCV_HAS_COMPRESSED(200) && (imm <= 0x1f || imm >= 0xfe0))
-			FAIL_IF(push_inst16(compiler, C_ADDI | C_RD(dst_r) | CIMM_I(imm)));
+			FAIL_IF(push_inst16(compiler, C_ADDI | C_RD(dst_r) | C_IMM_I(imm)));
 		else
 			FAIL_IF(push_inst(compiler, ADDI | RD(dst_r) | RS1(dst_r) | IMM_I(imm)));
 	}

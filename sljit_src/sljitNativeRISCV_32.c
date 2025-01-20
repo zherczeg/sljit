@@ -29,7 +29,7 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 	SLJIT_UNUSED_ARG(tmp_r);
 
 	if (RISCV_HAS_COMPRESSED(200) && imm <= SIMM16_MAX && imm >= SIMM16_MIN)
-		return push_inst16(compiler, C_LI | C_RD(dst_r) | CIMM_I(imm));
+		return push_inst16(compiler, C_LI | C_RD(dst_r) | C_IMM_I(imm));
 
 	if (imm <= SIMM_MAX && imm >= SIMM_MIN)
 		return push_inst(compiler, ADDI | RD(dst_r) | RS1(TMP_ZERO) | IMM_I(imm));
@@ -48,7 +48,7 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 		return SLJIT_SUCCESS;
 
 	if (RISCV_HAS_COMPRESSED(200) && (imm <= 0x1f || imm >= 0xfe0))
-		return push_inst16(compiler, C_ADDI | C_RD(dst_r) | CIMM_I(imm));
+		return push_inst16(compiler, C_ADDI | C_RD(dst_r) | C_IMM_I(imm));
 
 	return push_inst(compiler, ADDI | RD(dst_r) | RS1(dst_r) | IMM_I(imm));
 }
