@@ -270,18 +270,19 @@
 #endif /* SLJIT_CONFIG_MIPS */
 
 #if (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
-#	define IS_COND		0x004
-#	define IS_CALL		0x008
+#	define IS_COND		0x0004
+#	define IS_CALL		0x0008
 
-#	define PATCH_B		0x010
-#	define PATCH_J		0x020
-#	define PATCH_J16	0x040
+#	define IS_COND16	0x0010
+#	define PATCH_B		0x0020
+#	define PATCH_J		0x0040
+#	define PATCH_16		0x0080
 
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
-#	define PATCH_REL32	0x080
-#	define PATCH_ABS32	0x100
-#	define PATCH_ABS44	0x200
-#	define PATCH_ABS52	0x400
+#	define PATCH_REL32	0x0100
+#	define PATCH_ABS32	0x0200
+#	define PATCH_ABS44	0x0400
+#	define PATCH_ABS52	0x0800
 #	define JUMP_SIZE_SHIFT	58
 #	define JUMP_MAX_SIZE	((sljit_uw)12)
 #else /* !SLJIT_CONFIG_RISCV_64 */

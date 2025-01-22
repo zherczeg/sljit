@@ -58,9 +58,11 @@
 #error "Unsupported value for SLJIT_CONFIG_RISCV_COMPRESSED"
 #endif
 #define RISCV_HAS_COMPRESSED(x) ((SLJIT_CONFIG_RISCV_COMPRESSED) >= (x))
+#define RISCV_COMPRESSED_CHECK(x) (x)
 #define RISCV_COMPRESSED_INFO "c"
 #else /* !SLJIT_CONFIG_RISCV_COMPRESSED || SLJIT_CONFIG_RISCV_COMPRESSED == 0 */
 #define RISCV_HAS_COMPRESSED(x) 0
+#define RISCV_COMPRESSED_CHECK(x) 0
 #define RISCV_COMPRESSED_INFO ""
 #endif /* SLJIT_CONFIG_RISCV_COMPRESSED && SLJIT_CONFIG_RISCV_COMPRESSED != 0 */
 
@@ -205,6 +207,8 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define C_ST64_SP(imm)	((sljit_u16)((((imm) & 0x38) << 7) | (((imm) & 0x1c0) << 1)))
 #define C_MEM32(imm)	((sljit_u16)((((imm) & 0x4) << 4) | (((imm) & 0x38) << 7) | (((imm) & 0x40) >> 1)))
 #define C_MEM64(imm)	((sljit_u16)((((imm) & 0x38) << 7) | (((imm) & 0xc0) >> 1)))
+#define C_BRN16(imm)	((sljit_u16)((((imm) & 0x6) << 2) | (((imm) & 0x18) << 7) | (((imm) & 0x20) >> 3) | (((imm) & 0xc0) >> 1) | (((imm) & 0x100) << 4)))
+#define C_JMP16(imm)	((sljit_u16)((((imm) & 0xb40) << 1) | (((imm) & 0xe) << 2) | (((imm) & 0x10) << 7) | (((imm) & 0x20) >> 3) | (((imm) & 0x80) >> 1) | (((imm) & 0x400) >> 2)))
 
 /* Represents funct(i) parts of the instructions. */
 #define OPC(o)		((sljit_ins)(o))
@@ -241,6 +245,8 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define C_ADDI16SP	(C_OPC(0x1, 0x3) | (sljit_u16)(2 << 7))
 #define C_AND		(C_OPC(0x1, 0x4) | (sljit_u16)(3 << 10) | (sljit_u16)(3 << 5))
 #define C_ANDI		(C_OPC(0x1, 0x4) | (sljit_u16)(2 << 10))
+#define C_BEQZ		(C_OPC(0x1, 0x6))
+#define C_BNEZ		(C_OPC(0x1, 0x7))
 #define C_EBREAK	(C_OPC(0x2, 0x4) | (sljit_u16)(1 << 12))
 #define C_FLDSP		(C_OPC(0x2, 0x1))
 #define C_FLWSP		(C_OPC(0x2, 0x3))
@@ -384,6 +390,8 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 #define SIMM16_MIN	(-0x20)
 #define BRANCH_MAX	(0xfff)
 #define BRANCH_MIN	(-0x1000)
+#define BRANCH16_MAX	(0xff)
+#define BRANCH16_MIN	(-0x100)
 #define JUMP_MAX	(0xfffff)
 #define JUMP_MIN	(-0x100000)
 #define JUMP16_MAX	SIMM_MAX
@@ -398,6 +406,14 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 
 #define C_ADDI_W(word)	(C_ADDI | (sljit_u16)((word) << 10))
 #define C_SUB_W(word)	(C_SUB | (sljit_u16)((word) << 9))
+
+#if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
+#define BRANCH_LENGTH		((sljit_ins)(3 * sizeof(sljit_ins)) << 7)
+#define BRANCH16_LENGTH		C_BRN16(5 * sizeof(sljit_u16))
+#else /* !SLJIT_CONFIG_RISCV_32 */
+#define BRANCH_LENGTH		((sljit_ins)(7 * sizeof(sljit_ins)) << 7)
+#define BRANCH16_LENGTH		C_BRN16(13 * sizeof(sljit_u16))
+#endif /* SLJIT_CONFIG_RISCV_32 */
 
 static sljit_s32 push_inst(struct sljit_compiler *compiler, sljit_ins ins)
 {
@@ -425,7 +441,7 @@ static sljit_s32 push_imm_s_inst(struct sljit_compiler *compiler, sljit_ins ins,
 
 static SLJIT_INLINE sljit_u16* detect_jump_type(struct sljit_jump *jump, sljit_u16 *code_ptr, sljit_u16 *code, sljit_sw executable_offset)
 {
-	sljit_sw diff;
+	sljit_sw diff, cond_diff;
 	sljit_uw target_addr;
 	sljit_uw jump_addr = (sljit_uw)code_ptr;
 	sljit_uw orig_addr = jump->addr;
@@ -452,35 +468,54 @@ static SLJIT_INLINE sljit_u16* detect_jump_type(struct sljit_jump *jump, sljit_u
 	diff = (sljit_sw)target_addr - (sljit_sw)SLJIT_ADD_EXEC_OFFSET(jump_addr, executable_offset);
 
 	if (jump->flags & IS_COND) {
-		diff += SSIZE_OF(ins);
+		cond_diff = diff + SSIZE_OF(ins);
 
-		if (diff >= BRANCH_MIN && diff <= BRANCH_MAX) {
-			code_ptr -= 2;
-			code_ptr[0] = (sljit_u16)((code_ptr[0] & 0xf07f) ^ 0x1000);
-			code_ptr[1] = (sljit_u16)(code_ptr[1] & 0x1ff);
+		if (RISCV_COMPRESSED_CHECK((jump->flags & IS_COND16))) {
+			SLJIT_ASSERT((code_ptr[-1] & 0xe003) == C_BEQZ || (code_ptr[-1] & 0xe003) == C_BNEZ);
+
+			cond_diff = diff + SSIZE_OF(u16);
+
+			if (diff >= BRANCH16_MIN && diff <= BRANCH16_MAX) {
+				code_ptr--;
+				code_ptr[0] = (sljit_u16)((code_ptr[0] & 0xe383) ^ 0x2000);
+				jump->flags |= PATCH_B | PATCH_16;
+				jump->addr = (sljit_uw)code_ptr;
+				return code_ptr;
+			}
+		}
+
+		if (cond_diff >= BRANCH_MIN && cond_diff <= BRANCH_MAX) {
+			if (RISCV_COMPRESSED_CHECK((jump->flags & IS_COND16))) {
+				/* Converting 16 bit branch to 32 bit branch. */
+				code_ptr--;
+				code_ptr[1] = (sljit_u16)(((code_ptr[0] & 0x300) >> 8) | 0x4);
+				code_ptr[0] = (sljit_u16)((BNE ^ ((code_ptr[0] & 0x2000) >> 1)) | ((code_ptr[0] & 0x80) << 8));
+			} else {
+				code_ptr -= 2;
+				code_ptr[0] = (sljit_u16)((code_ptr[0] & 0xf07f) ^ 0x1000);
+				code_ptr[1] = (sljit_u16)(code_ptr[1] & 0x1ff);
+			}
+
 			jump->flags |= PATCH_B;
 			jump->addr = (sljit_uw)code_ptr;
 			return code_ptr + 1;
 		}
-
-		diff -= SSIZE_OF(ins);
 	}
 
 	if (RISCV_HAS_COMPRESSED(200) && RISCV_CHECK_COMPRESSED_JUMP(jump, diff, u8)) {
 		/* A conditional instruction has larger max offset
 		   than a 16 bit jump instruction. */
 		SLJIT_ASSERT(!(jump->flags & IS_COND));
-		jump->flags |= PATCH_J | PATCH_J16;
+		jump->flags |= PATCH_J | PATCH_16;
 		return code_ptr;
 	}
 
 	if (diff >= JUMP_MIN && diff <= JUMP_MAX) {
 		if (jump->flags & IS_COND) {
-#if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
-			code_ptr[-2] = (sljit_u16)(code_ptr[-2] - (sljit_u16)(1 * sizeof(sljit_ins) << 7));
-#else /* !SLJIT_CONFIG_RISCV_32 */
-			code_ptr[-2] = (sljit_u16)(code_ptr[-2] - (sljit_u16)(5 * sizeof(sljit_ins) << 7));
-#endif /* SLJIT_CONFIG_RISCV_32 */
+			if (RISCV_COMPRESSED_CHECK((jump->flags & IS_COND16)))
+				code_ptr[-1] ^= (sljit_u16)(BRANCH16_LENGTH ^ C_BRN16(3 * sizeof(sljit_u16)));
+			else
+				code_ptr[-2] ^= (sljit_u16)(BRANCH_LENGTH ^ (2 * sizeof(sljit_ins) << 7));
 		}
 
 		jump->flags |= PATCH_J;
@@ -489,26 +524,42 @@ static SLJIT_INLINE sljit_u16* detect_jump_type(struct sljit_jump *jump, sljit_u
 
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 	if (diff >= S32_MIN && diff <= S32_MAX) {
-		if (jump->flags & IS_COND)
-			code_ptr[-2] = (sljit_u16)(code_ptr[-2] - (sljit_u16)(4 * sizeof(sljit_ins) << 7));
+		if (jump->flags & IS_COND) {
+			if (RISCV_COMPRESSED_CHECK((jump->flags & IS_COND16)))
+				code_ptr[-1] ^= (sljit_u16)(BRANCH16_LENGTH ^ C_BRN16(5 * sizeof(sljit_u16)));
+			else
+				code_ptr[-2] ^= (sljit_u16)(BRANCH_LENGTH ^ (3 * sizeof(sljit_ins) << 7));
+		}
 
 		jump->flags |= PATCH_REL32;
 		jalr_offset = 3;
 	} else if (target_addr <= (sljit_uw)S32_MAX) {
-		if (jump->flags & IS_COND)
-			code_ptr[-2] = (sljit_u16)(code_ptr[-2] - (sljit_u16)(4 * sizeof(sljit_ins) << 7));
+		if (jump->flags & IS_COND) {
+			if (RISCV_COMPRESSED_CHECK((jump->flags & IS_COND16)))
+				code_ptr[-1] ^= (sljit_u16)(BRANCH16_LENGTH ^ C_BRN16(5 * sizeof(sljit_u16)));
+			else
+				code_ptr[-2] ^= (sljit_u16)(BRANCH_LENGTH ^ (3 * sizeof(sljit_ins) << 7));
+		}
 
 		jump->flags |= PATCH_ABS32;
 		jalr_offset = 3;
 	} else if (target_addr <= S44_MAX) {
-		if (jump->flags & IS_COND)
-			code_ptr[-2] = (sljit_u16)(code_ptr[-2] - (sljit_u16)(2 * sizeof(sljit_ins) << 7));
+		if (jump->flags & IS_COND) {
+			if (RISCV_COMPRESSED_CHECK((jump->flags & IS_COND16)))
+				code_ptr[-1] ^= (sljit_u16)(BRANCH16_LENGTH ^ C_BRN16(9 * sizeof(sljit_u16)));
+			else
+				code_ptr[-2] ^= (sljit_u16)(BRANCH_LENGTH ^ (5 * sizeof(sljit_ins) << 7));
+		}
 
 		jump->flags |= PATCH_ABS44;
 		jalr_offset = 7;
 	} else if (target_addr <= S52_MAX) {
-		if (jump->flags & IS_COND)
-			code_ptr[-2] = (sljit_u16)(code_ptr[-2] - (sljit_u16)(1 * sizeof(sljit_ins) << 7));
+		if (jump->flags & IS_COND) {
+			if (RISCV_COMPRESSED_CHECK((jump->flags & IS_COND16)))
+				code_ptr[-1] ^= (sljit_u16)(BRANCH16_LENGTH ^ C_BRN16(11 * sizeof(sljit_u16)));
+			else
+				code_ptr[-2] ^= (sljit_u16)(BRANCH_LENGTH ^ (6 * sizeof(sljit_ins) << 7));
+		}
 
 		jump->flags |= PATCH_ABS52;
 		jalr_offset = 9;
@@ -718,7 +769,7 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 	SLJIT_NEXT_DEFINE_TYPES;
 	sljit_uw total_size;
 	sljit_uw size_reduce = 0;
-	sljit_sw diff;
+	sljit_sw diff, cond_size, cond_diff;
 
 	label = compiler->labels;
 	jump = compiler->jumps;
@@ -770,8 +821,13 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 						diff -= (sljit_sw)size_reduce;
 					}
 
-					if ((jump->flags & IS_COND) && (diff + 2) <= (BRANCH_MAX / SSIZE_OF(u16)) && (diff + 2) >= (BRANCH_MIN / SSIZE_OF(u16)))
+					cond_size = RISCV_COMPRESSED_CHECK((jump->flags & IS_COND16) != 0);
+					cond_diff = diff + 2 - cond_size;
+
+					if (RISCV_COMPRESSED_CHECK(cond_size) && diff >= (BRANCH16_MIN / SSIZE_OF(u16)) && diff <= (BRANCH16_MAX / SSIZE_OF(u16)))
 						total_size = 0;
+					else if ((jump->flags & IS_COND) && cond_diff <= (BRANCH_MAX / SSIZE_OF(u16)) && cond_diff >= (BRANCH_MIN / SSIZE_OF(u16)))
+						total_size = (sljit_uw)cond_size;
 					else if (RISCV_HAS_COMPRESSED(200) && RISCV_CHECK_COMPRESSED_JUMP(jump, diff, u16))
 						total_size = 1;
 					else if (diff >= (JUMP_MIN / SSIZE_OF(u16)) && diff <= (JUMP_MAX / SSIZE_OF(u16)))
@@ -930,21 +986,27 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 			addr -= (sljit_uw)SLJIT_ADD_EXEC_OFFSET(buf_ptr, executable_offset);
 
 			if (jump->flags & PATCH_B) {
+				SLJIT_ASSERT(RISCV_HAS_COMPRESSED(200) || !(jump->flags & PATCH_16));
 				SLJIT_ASSERT((sljit_sw)addr >= BRANCH_MIN && (sljit_sw)addr <= BRANCH_MAX);
+
+				if (RISCV_COMPRESSED_CHECK(jump->flags & PATCH_16)) {
+					buf_ptr[0] |= C_BRN16(addr);
+					break;
+				}
+
 				buf_ptr[0] |= (sljit_u16)(((addr & 0x800) >> 4) | ((addr & 0x1e) << 7));
 				buf_ptr[1] |= (sljit_u16)(((addr & 0x7e0) << 4) | ((addr & 0x1000) << 3));
 				break;
 			}
 
-			SLJIT_ASSERT(RISCV_HAS_COMPRESSED(200) || !(jump->flags & PATCH_J16));
-			if (RISCV_HAS_COMPRESSED(200) && (jump->flags & PATCH_J16)) {
+			SLJIT_ASSERT(RISCV_HAS_COMPRESSED(200) || !(jump->flags & PATCH_16));
+			if (RISCV_COMPRESSED_CHECK(jump->flags & PATCH_16)) {
 				SLJIT_ASSERT((sljit_sw)addr >= JUMP16_MIN && (sljit_sw)addr <= JUMP16_MAX);
-				addr = ((addr & 0xb40) << 1) | ((addr & 0xe) << 2) | ((addr & 0x10) << 7) | ((addr & 0x20) >> 3) | ((addr & 0x80) >> 1) | ((addr & 0x400) >> 2);
 #if defined SLJIT_CONFIG_RISCV_32
-				ins = ((jump->flags & IS_CALL) ? C_JAL : C_J) | (sljit_ins)addr;
+				ins = ((jump->flags & IS_CALL) ? C_JAL : C_J) | C_JMP16(addr);
 #else /* !SLJIT_CONFIG_RISCV_32 */
 				SLJIT_ASSERT(!(jump->flags & IS_CALL));
-				ins = C_J | (sljit_ins)addr;
+				ins = C_J | C_JMP16(addr);
 #endif /* SLJIT_CONFIG_RISCV_32 */
 				buf_ptr[0] = (sljit_u16)ins;
 				break;
@@ -3194,12 +3256,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 	return label;
 }
 
-#if (defined SLJIT_CONFIG_RISCV_32 && SLJIT_CONFIG_RISCV_32)
-#define BRANCH_LENGTH	((sljit_ins)(3 * sizeof(sljit_ins)) << 7)
-#else /* !SLJIT_CONFIG_RISCV_32 */
-#define BRANCH_LENGTH	((sljit_ins)(7 * sizeof(sljit_ins)) << 7)
-#endif /* SLJIT_CONFIG_RISCV_32 */
-
 static sljit_ins get_jump_instruction(sljit_s32 type)
 {
 	switch (type) {
@@ -3355,9 +3411,37 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 
 	switch (type) {
 	case SLJIT_EQUAL:
+		if (RISCV_HAS_COMPRESSED(200)) {
+			if (src1 == TMP_ZERO && C_IS_R3(src2)) {
+				inst = C_BNEZ | C_RS1_R3(src2) | BRANCH16_LENGTH;
+				jump->flags |= IS_COND16;
+				break;
+			}
+
+			if (src2 == TMP_ZERO && C_IS_R3(src1)) {
+				inst = C_BNEZ | C_RS1_R3(src1) | BRANCH16_LENGTH;
+				jump->flags |= IS_COND16;
+				break;
+			}
+		}
+
 		inst = BNE | RS1(src1) | RS2(src2) | BRANCH_LENGTH;
 		break;
 	case SLJIT_NOT_EQUAL:
+		if (RISCV_HAS_COMPRESSED(200)) {
+			if (src1 == TMP_ZERO && C_IS_R3(src2)) {
+				inst = C_BEQZ | C_RS1_R3(src2) | BRANCH16_LENGTH;
+				jump->flags |= IS_COND16;
+				break;
+			}
+
+			if (src2 == TMP_ZERO && C_IS_R3(src1)) {
+				inst = C_BEQZ | C_RS1_R3(src1) | BRANCH16_LENGTH;
+				jump->flags |= IS_COND16;
+				break;
+			}
+		}
+
 		inst = BEQ | RS1(src1) | RS2(src2) | BRANCH_LENGTH;
 		break;
 	case SLJIT_LESS:
@@ -3386,7 +3470,11 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 		break;
 	}
 
-	PTR_FAIL_IF(push_inst(compiler, inst));
+	SLJIT_COMPILE_ASSERT((C_BEQZ & 0x2) == 0 && (C_BNEZ & 0x2) == 0, branch16_bit_error);
+	if (RISCV_COMPRESSED_CHECK((inst & 0x2) == 0))
+		PTR_FAIL_IF(push_inst16(compiler, (sljit_u16)inst));
+	else
+		PTR_FAIL_IF(push_inst(compiler, inst));
 
 	jump->addr = compiler->size;
 	PTR_FAIL_IF(push_inst16(compiler, 0));
@@ -3395,8 +3483,6 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 	compiler->size += JUMP_MAX_SIZE - 1;
 	return jump;
 }
-
-#undef BRANCH_LENGTH
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 src, sljit_sw srcw)
 {
