@@ -3465,7 +3465,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler
 	case SLJIT_SIG_GREATER:
 		inst = BGE | RS1(src2) | RS2(src1) | BRANCH_LENGTH;
 		break;
-	case SLJIT_SIG_LESS_EQUAL:
+	default: /* SLJIT_SIG_LESS_EQUAL */
 		inst = BLT | RS1(src2) | RS2(src1) | BRANCH_LENGTH;
 		break;
 	}
