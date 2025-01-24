@@ -65,7 +65,7 @@ static sljit_s32 load_immediate32(struct sljit_compiler *compiler, sljit_s32 dst
 
 static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r, sljit_sw imm, sljit_s32 tmp_r)
 {
-	sljit_sw high;
+	sljit_sw high, shift;
 
 	if (RISCV_HAS_COMPRESSED(200) && imm <= SIMM16_MAX && imm >= SIMM16_MIN)
 		return push_inst16(compiler, C_LI | C_RD(dst_r) | C_IMM_I(imm));
@@ -75,6 +75,38 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 
 	if (imm <= 0x7fffffffl && imm >= S32_MIN)
 		return load_immediate32(compiler, dst_r, imm);
+
+	/* Shifted small immediates. */
+
+	high = imm;
+	shift = 0;
+	while ((high & 0xff) == 0) {
+		high >>= 8;
+		shift += 8;
+	}
+
+	if ((high & 0xf) == 0) {
+		high >>= 4;
+		shift += 4;
+	}
+
+	if ((high & 0x3) == 0) {
+		high >>= 2;
+		shift += 2;
+	}
+
+	if ((high & 0x1) == 0) {
+		high >>= 1;
+		shift += 1;
+	}
+
+	if (high <= 0x7fffffffl && high >= S32_MIN) {
+		load_immediate(compiler, dst_r, high, tmp_r);
+
+		if (RISCV_HAS_COMPRESSED(200))
+			return push_inst16(compiler, C_SLLI | C_RD(dst_r) | C_IMM_I(shift));
+		return push_inst(compiler, SLLI | RD(dst_r) | RS1(dst_r) | IMM_I(shift));
+	}
 
 	/* Trailing zeroes could be used to produce shifted immediates. */
 
@@ -91,10 +123,8 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 		else
 			FAIL_IF(push_inst(compiler, SLLI | RD(dst_r) | RS1(dst_r) | IMM_I(12)));
 
-		if ((imm & 0xfff) != 0)
-			return push_inst(compiler, XORI | RD(dst_r) | RS1(dst_r) | IMM_I(imm));
-
-		return SLJIT_SUCCESS;
+		SLJIT_ASSERT((imm & 0xfff) != 0);
+		return push_inst(compiler, XORI | RD(dst_r) | RS1(dst_r) | IMM_I(imm));
 	}
 
 	SLJIT_ASSERT(dst_r != tmp_r);
