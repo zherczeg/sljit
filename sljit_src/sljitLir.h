@@ -1757,13 +1757,13 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_CALL_REG_ARG		39
 
 /* The target can be changed during runtime (see: sljit_set_jump_addr). */
-#define SLJIT_REWRITABLE_JUMP		0x1000
+#define SLJIT_REWRITABLE_JUMP		0x10000
 /* When this flag is passed, the execution of the current function ends and
    the called function returns to the caller of the current function. The
    stack usage is reduced before the call, but it is not necessarily reduced
    to zero. In the latter case the compiler needs to allocate space for some
    arguments and the return address must be stored on the stack as well. */
-#define SLJIT_CALL_RETURN		0x2000
+#define SLJIT_CALL_RETURN		0x20000
 
 /* Emit a jump instruction. The destination is not set, only the type of the jump.
     type must be between SLJIT_EQUAL and SLJIT_FAST_CALL
@@ -1780,28 +1780,53 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
    Flags: destroy all flags. */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type, sljit_s32 arg_types);
 
-/* Basic arithmetic comparison. In most architectures it is implemented as
-   a compare operation followed by a sljit_emit_jump. However some
-   architectures (i.e: ARM64 or MIPS) may employ special optimizations
-   here. It is suggested to use this comparison form when appropriate.
+/* Integer comparison operation. In most architectures it is implemented
+   as a compare (sljit_emit_op2u with SLJIT_SUB) operation followed by
+   an sljit_emit_jump. However, some architectures (e.g: ARM64 or RISCV)
+   may optimize the generated code further. It is suggested to use this
+   comparison form when appropriate.
     type must be between SLJIT_EQUAL and SLJIT_SIG_LESS_EQUAL
-    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
+    type can be combined (or'ed) with SLJIT_32 or SLJIT_REWRITABLE_JUMP
 
    Flags: may destroy flags. */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w);
 
-/* Basic floating point comparison. In most architectures it is implemented as
-   a SLJIT_CMP_F32/64 operation (setting appropriate flags) followed by a
-   sljit_emit_jump. However some architectures (i.e: MIPS) may employ
-   special optimizations here. It is suggested to use this comparison form
-   when appropriate.
+/* Floating point comparison operation. In most architectures it is
+   implemented as a SLJIT_CMP_F32/64 operation (setting appropriate
+   flags) followed by a sljit_emit_jump. However, some architectures
+   (e.g: MIPS) may optimize the generated code further. It is suggested
+   to use this comparison form when appropriate.
     type must be between SLJIT_F_EQUAL and SLJIT_ORDERED_LESS_EQUAL
-    type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
+    type can be combined (or'ed) with SLJIT_32 or SLJIT_REWRITABLE_JUMP
+
    Flags: destroy flags.
-   Note: when an operand is NaN the behaviour depends on the comparison type. */
+   Note: when any operand is NaN the behaviour depends on the comparison type. */
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w);
+
+/* The following flags are used by sljit_emit_op2cmpz(). */
+#define SLJIT_JUMP_IF_NON_ZERO		0
+#define SLJIT_JUMP_IF_ZERO		SLJIT_SET_Z
+
+/* Perform an integer arithmetic operation, then its result is compared to
+   zero. In most architectures it is implemented as an sljit_emit_op2
+   followed by an sljit_emit_jump. However, some architectures (e.g: RISCV)
+   may optimize the generated code further. It is suggested to use this
+   operation form when appropriate (e.g. for loops with counters).
+
+   op must be an sljit_emit_op2 operation where zero flag can be set,
+   op can be combined with SLJIT_SET_* status flag setters except
+     SLJIT_SET_Z, SLJIT_REWRITABLE_JUMP or SLJIT_JUMP_IF_* option bits.
+
+   Note: SLJIT_JUMP_IF_NON_ZERO is the default operation if neither
+      SLJIT_JUMP_IF_ZERO or SLJIT_JUMP_IF_NON_ZERO is specified.
+   Flags: sets the variable flag depending on op argument, the
+      zero flag is undefined. */
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_op2cmpz(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w);
 
@@ -2369,12 +2394,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_custom(struct sljit_compiler *c
 
 /* Flags were set by an ADD or ADDC operations. */
 #define SLJIT_CURRENT_FLAGS_ADD			0x01
-/* Flags were set by a SUB, SUBC, or NEG operation. */
+/* Flags were set by a SUB or SUBC operation. */
 #define SLJIT_CURRENT_FLAGS_SUB			0x02
 
 /* Flags were set by sljit_emit_op2u with SLJIT_SUB opcode.
    Must be combined with SLJIT_CURRENT_FLAGS_SUB. */
 #define SLJIT_CURRENT_FLAGS_COMPARE		0x04
+
+/* Flags were set by sljit_emit_op2cmpz operation. */
+#define SLJIT_CURRENT_FLAGS_OP2CMPZ		0x08
 
 /* Define the currently available CPU status flags. It is usually used after
    an sljit_emit_label or sljit_emit_op_custom operations to define which CPU

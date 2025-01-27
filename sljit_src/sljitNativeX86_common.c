@@ -962,7 +962,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 #endif /* SLJIT_CONFIG_X86_32 */
 					}
 
-					SLJIT_ASSERT((sljit_uw)code_ptr - addr <= ((jump->flags >> JUMP_SIZE_SHIFT) & 0x1f));
+					SLJIT_ASSERT((sljit_uw)code_ptr - addr <= ((jump->flags >> JUMP_SIZE_SHIFT) & 0xff));
 					jump = jump->next;
 					break;
 				case SLJIT_INST_MOV_ADDR:
