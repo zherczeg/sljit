@@ -1596,7 +1596,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 				if (src2 >= 0)
 					FAIL_IF(push_inst(compiler, INST(ADDI, op) | RD(EQUAL_FLAG) | RJ(src1) | IMM_I12(0)));
 				else {
-					FAIL_IF(push_inst(compiler, INST(ADDI, op) | RD(EQUAL_FLAG) | RJ(src1) | IMM_I12(-1)));
+					FAIL_IF(push_inst(compiler, INST(ADDI, op) | RD(EQUAL_FLAG) | RJ(TMP_ZERO) | IMM_I12(-1)));
 					FAIL_IF(push_inst(compiler, XOR | RD(EQUAL_FLAG) | RJ(src1) | RK(EQUAL_FLAG)));
 				}
 			} else if (op & SLJIT_SET_Z)

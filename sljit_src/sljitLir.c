@@ -3557,7 +3557,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_fcmp(struct sljit_compile
 }
 
 #if !(defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV) \
-	&& !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
+	&& !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
+	&& !(defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_op2cmpz(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
@@ -3574,7 +3575,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_op2cmpz(struct sljit_comp
 	return sljit_emit_jump(compiler, ((op & SLJIT_JUMP_IF_ZERO) ? SLJIT_ZERO : SLJIT_NOT_ZERO) | (op & SLJIT_REWRITABLE_JUMP));
 }
 
-#else /* SLJIT_CONFIG_RISCV || SLJIT_CONFIG_MIPS */
+#else /* SLJIT_CONFIG_RISCV || SLJIT_CONFIG_MIPS || SLJIT_CONFIG_LOONGARCH */
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_op2cmpz(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw,
@@ -3596,7 +3597,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_op2cmpz(struct sljit_comp
 	return sljit_emit_cmp(compiler, ((op & SLJIT_JUMP_IF_ZERO) ? SLJIT_ZERO : SLJIT_NOT_ZERO) | (op & (SLJIT_32 | SLJIT_REWRITABLE_JUMP)), reg, 0, SLJIT_IMM, 0);
 }
 
-#endif /* !SLJIT_CONFIG_RISCV && !SLJIT_CONFIG_MIPS */
+#endif /* !SLJIT_CONFIG_RISCV && !SLJIT_CONFIG_MIPS && !SLJIT_CONFIG_LOONGARCH */
 
 #if !(defined SLJIT_CONFIG_ARM && SLJIT_CONFIG_ARM) \
 	&& !(defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
