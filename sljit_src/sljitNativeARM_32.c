@@ -1111,17 +1111,23 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	const_ = compiler->consts;
 	while (const_) {
 		buf_ptr = (sljit_ins*)const_->addr;
-		const_->addr = (sljit_uw)code_ptr;
 
-		code_ptr[0] = (sljit_ins)buf_ptr;
-		code_ptr[1] = *buf_ptr;
-		if (*buf_ptr & (1 << 23))
-			buf_ptr += ((*buf_ptr & 0xfff) >> 2) + 2;
-		else
-			buf_ptr += 1;
-		/* Set the value again (can be a simple constant). */
-		set_const_value((sljit_uw)code_ptr, executable_offset, *buf_ptr, 0);
-		code_ptr += 2;
+		/* Note: MVN = (MOV ^ 0x400000) */
+		SLJIT_ASSERT((*buf_ptr & 0xfdb00000) == MOV || (*buf_ptr & 0xfd100000) == LDR);
+
+		if ((*buf_ptr & 0x4000000) != 0) {
+			const_->addr = (sljit_uw)code_ptr;
+
+			code_ptr[0] = (sljit_ins)buf_ptr;
+			code_ptr[1] = *buf_ptr;
+			if (*buf_ptr & (1 << 23))
+				buf_ptr += ((*buf_ptr & 0xfff) >> 2) + 2;
+			else
+				buf_ptr += 1;
+			/* Set the value again (can be a simple constant). */
+			set_const_value((sljit_uw)code_ptr, executable_offset, *buf_ptr, 0);
+			code_ptr += 2;
+		}
 
 		const_ = const_->next;
 	}
@@ -4688,13 +4694,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 	return SLJIT_SUCCESS;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
+#define SLJIT_EMIT_CONST_U8(c) \
+	(((c) & 0x100) != 0 ? (MVN | SRC2_IMM | (~(c) & 0xff)) : (MOV | SRC2_IMM | ((c) & 0xff)))
+
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_sw init_value)
 {
 	struct sljit_const *const_;
 	sljit_s32 dst_r;
+	sljit_s32 mem_flags = WORD_SIZE;
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_const(compiler, dst, dstw, init_value));
+	CHECK_PTR(check_sljit_emit_const(compiler, op, dst, dstw, init_value));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
@@ -4703,16 +4715,22 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG2;
 
+	if (GET_OPCODE(op) == SLJIT_MOV_U8) {
+		PTR_FAIL_IF(push_inst(compiler, SLJIT_EMIT_CONST_U8(init_value) | RD(dst_r)));
+		mem_flags = BYTE_SIZE;
+	} else {
 #if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
-	PTR_FAIL_IF(push_inst_with_unique_literal(compiler,
-		EMIT_DATA_TRANSFER(WORD_SIZE | LOAD_DATA, 1, dst_r, TMP_PC, 0), (sljit_ins)init_value));
-	compiler->patches++;
+		PTR_FAIL_IF(push_inst_with_unique_literal(compiler,
+			EMIT_DATA_TRANSFER(WORD_SIZE | LOAD_DATA, 1, dst_r, TMP_PC, 0), (sljit_ins)init_value));
+		compiler->patches++;
 #else /* !SLJIT_CONFIG_ARM_V6 */
-	PTR_FAIL_IF(emit_imm(compiler, dst_r, init_value));
+		PTR_FAIL_IF(emit_imm(compiler, dst_r, init_value));
 #endif /* SLJIT_CONFIG_ARM_V6 */
+	}
 
 	if (dst & SLJIT_MEM)
-		PTR_FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, dst, dstw, TMP_REG1));
+		PTR_FAIL_IF(emit_op_mem(compiler, mem_flags, TMP_REG2, dst, dstw, TMP_REG1));
+
 	return const_;
 }
 
@@ -4752,7 +4770,21 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ta
 	set_jump_addr(addr, executable_offset, new_target, 1);
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_s32 op, sljit_sw new_constant, sljit_sw executable_offset)
 {
-	set_const_value(addr, executable_offset, (sljit_uw)new_constant, 1);
+	sljit_ins *inst;
+
+	if (GET_OPCODE(op) != SLJIT_MOV_U8) {
+		set_const_value(addr, executable_offset, (sljit_uw)new_constant, 1);
+		return;
+	}
+
+	inst = (sljit_ins*)addr;
+	SLJIT_ASSERT((inst[0] & 0xfff00000) == (MOV | SRC2_IMM) || (inst[0] & 0xfff00000) == (MVN | SRC2_IMM));
+
+	SLJIT_UPDATE_WX_FLAGS(inst, inst + 1, 0);
+	*inst = SLJIT_EMIT_CONST_U8(new_constant) | (*inst & 0xf000);
+	SLJIT_UPDATE_WX_FLAGS(inst, inst + 1, 1);
+	inst = (sljit_ins*)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
+	SLJIT_CACHE_FLUSH(inst, inst + 1);
 }

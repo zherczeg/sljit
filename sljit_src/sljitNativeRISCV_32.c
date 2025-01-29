@@ -40,7 +40,7 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 	if (RISCV_HAS_COMPRESSED(200) && imm <= 0x1ffff && imm >= -0x20000)
 		FAIL_IF(push_inst16(compiler, C_LUI | C_RD(dst_r) | ((sljit_u16)(((imm) & 0x1f000) >> 10) | ((imm) & 0x20000) >> 5)));
 	else
-		FAIL_IF(push_inst(compiler, LUI | RD(dst_r) | (sljit_ins)(imm & ~0xfff)));
+		FAIL_IF(push_inst(compiler, LUI | RD(dst_r) | (sljit_ins)(imm & ~(sljit_sw)0xfff)));
 
 	imm &= 0xfff;
 
@@ -143,7 +143,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ta
 	SLJIT_UPDATE_WX_FLAGS(inst, inst + 4, 0);
 
 	SLJIT_ASSERT((inst[0] & 0x7f) == LUI);
-	inst[0] = (sljit_u16)((inst[0] & 0xfff) | (new_target & ~(sljit_uw)0xfff));
+	inst[0] = (sljit_u16)((inst[0] & 0xfff) | (new_target & 0xf000));
 	inst[1] = (sljit_u16)(new_target >> 16);
 	SLJIT_ASSERT((inst[2] & 0x707f) == ADDI || (inst[2] & 0x707f) == JALR);
 	inst[3] = (sljit_u16)((inst[3] & 0xf) | (new_target << 4));

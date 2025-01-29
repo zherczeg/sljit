@@ -61,7 +61,7 @@ static void test_serialize1(void)
 
 	mov_addr = sljit_emit_mov_addr(compiler, SLJIT_R2, 0);
 	/* buf[0] */
-	sljit_emit_const(compiler, SLJIT_MEM1(SLJIT_S0), 0, -1234);
+	sljit_emit_const(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, -1234);
 
 	sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_R2, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_IMM, -1234);
@@ -119,7 +119,7 @@ static void test_serialize1(void)
 	label_addr = sljit_get_label_addr(label);
 	sljit_free_compiler(compiler);
 
-	sljit_set_const(const_addr, 87654, executable_offset);
+	sljit_set_const(const_addr, SLJIT_MOV, 87654, executable_offset);
 	sljit_set_jump_addr(jump_addr, label_addr, executable_offset);
 
 	code.func1((sljit_sw)&buf);
@@ -275,7 +275,7 @@ static void test_serialize3(void)
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 3, 3, 32);
 
 	sljit_emit_mov_addr(compiler, SLJIT_R0, 0);
-	sljit_emit_const(compiler, SLJIT_R1, 0, 0);
+	sljit_emit_const(compiler, SLJIT_MOV, SLJIT_R1, 0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_S0, 0);
 	jump = sljit_emit_call(compiler, SLJIT_CALL, SLJIT_ARGS3V(W, W, W));
 	/* buf[0], buf[1] */
@@ -291,7 +291,7 @@ static void test_serialize3(void)
 	FAILED(!compiler, "cannot deserialize compiler\n");
 
 	sljit_emit_mov_addr(compiler, SLJIT_R0, 0);
-	sljit_emit_const(compiler, SLJIT_R1, 0, 0);
+	sljit_emit_const(compiler, SLJIT_MOV, SLJIT_R1, 0, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R2, 0, SLJIT_S0, 0, SLJIT_IMM, 2 * sizeof(sljit_sw));
 	jump = sljit_emit_call(compiler, SLJIT_CALL, SLJIT_ARGS3V(W, W, W));
 	/* buf[2], buf[3] */
@@ -307,7 +307,7 @@ static void test_serialize3(void)
 	FAILED(!compiler, "cannot deserialize compiler\n");
 
 	sljit_emit_mov_addr(compiler, SLJIT_R0, 0);
-	sljit_emit_const(compiler, SLJIT_R1, 0, 0);
+	sljit_emit_const(compiler, SLJIT_MOV, SLJIT_R1, 0, 0);
 	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R2, 0, SLJIT_S0, 0, SLJIT_IMM, 4 * sizeof(sljit_sw));
 	jump = sljit_emit_call(compiler, SLJIT_CALL, SLJIT_ARGS3V(W, W, W));
 	/* buf[4], buf[5] */
@@ -342,11 +342,11 @@ static void test_serialize3(void)
 	executable_offset = sljit_get_executable_offset(compiler);
 
 	const_ = sljit_get_first_const(compiler);
-	sljit_set_const(sljit_get_const_addr(const_), 0x5678, executable_offset);
+	sljit_set_const(sljit_get_const_addr(const_), SLJIT_MOV, 0x5678, executable_offset);
 	const_ = sljit_get_next_const(const_);
-	sljit_set_const(sljit_get_const_addr(const_), -0x9876, executable_offset);
+	sljit_set_const(sljit_get_const_addr(const_), SLJIT_MOV, -0x9876, executable_offset);
 	const_ = sljit_get_next_const(const_);
-	sljit_set_const(sljit_get_const_addr(const_), 0x2345, executable_offset);
+	sljit_set_const(sljit_get_const_addr(const_), SLJIT_MOV, 0x2345, executable_offset);
 	SLJIT_ASSERT(sljit_get_next_const(const_) == NULL);
 
 	label_addr = (sljit_sw)sljit_get_label_addr(label);

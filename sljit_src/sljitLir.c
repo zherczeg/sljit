@@ -3231,16 +3231,21 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_get_local_base(struct sljit_co
 	CHECK_RETURN_OK;
 }
 
-static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_sw init_value)
 {
 	SLJIT_UNUSED_ARG(init_value);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT(op == SLJIT_MOV || op == SLJIT_MOV_S32
+		|| op == SLJIT_MOV32 || (op | SLJIT_32) == SLJIT_MOV32_U8);
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  const ");
+		fprintf(compiler->verbose, "  const%s%s ",
+			!(op & SLJIT_32) ? "" : "32", op1_types[GET_OPCODE(op) - SLJIT_OP1_BASE]);
 		sljit_verbose_param(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", #%" SLJIT_PRINT_D "d\n", init_value);
 	}
