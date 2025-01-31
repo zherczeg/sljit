@@ -125,11 +125,6 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2] = {
 #define F32(r) (R32A((sljit_ins)freg_map[r]))
 #define F36(r) (R36A((sljit_ins)freg_map[r]))
 
-struct sljit_s390x_const {
-	struct sljit_const const_; /* must be first */
-	sljit_sw init_value;       /* required to build literal pool */
-};
-
 /* Convert SLJIT register to hardware register. */
 static SLJIT_INLINE sljit_gpr gpr(sljit_s32 r)
 {
@@ -983,6 +978,12 @@ static const sljit_ins store_forms[3] = {
 	0xe30000000024 /* stg */
 };
 
+static const sljit_ins store_byte_forms[3] = {
+	0x42000000 /* stc */,
+	0xe30000000072 /* stcy */,
+	0
+};
+
 static const sljit_ins load_halfword_forms[3] = {
 	0x48000000 /* lh */,
 	0xe30000000078 /* lhy */,
@@ -1019,6 +1020,13 @@ static SLJIT_INLINE sljit_s32 store_word(struct sljit_compiler *compiler, sljit_
 		sljit_s32 is_32bit)
 {
 	return load_store_op(compiler, src_r, dst, dstw, is_32bit, store_forms);
+}
+
+/* May clobber tmp1. */
+static SLJIT_INLINE sljit_s32 store_byte(struct sljit_compiler *compiler, sljit_gpr src_r,
+		sljit_s32 dst, sljit_sw dstw)
+{
+	return load_store_op(compiler, src_r, dst, dstw, 1, store_byte_forms);
 }
 
 #undef WHEN
@@ -1431,12 +1439,6 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 		jump = jump->next;
 	}
 
-	const_ = compiler->consts;
-	while (const_) {
-		pool_size += sizeof(*pool);
-		const_ = const_->next;
-	}
-
 	/* pad code size to 8 bytes so is accessible with half word offsets */
 	/* the literal pool needs to be doubleword aligned */
 	pad_size = ((ins_size + 7UL) & ~7UL) - ins_size;
@@ -1531,24 +1533,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 					jump = jump->next;
 					next_jump_addr = SLJIT_GET_NEXT_ADDRESS(jump);
-				} else  if (next_min_addr == next_const_addr) {
-					/* update instruction with relative address of constant */
-					source = (sljit_sw)code_ptr;
-					offset = (sljit_sw)pool_ptr - source;
-
-					SLJIT_ASSERT(!(offset & 0x1));
-					offset >>= 1; /* halfword (not byte) offset */
-					SLJIT_ASSERT(is_s32(offset));
-
-					ins |= (sljit_ins)offset & 0xffffffff;
-
-					/* update address */
-					const_->addr = (sljit_uw)pool_ptr;
-
-					/* store initial value into pool and update pool address */
-					*(pool_ptr++) = (sljit_uw)(((struct sljit_s390x_const*)const_)->init_value);
-
-					/* move to next constant */
+				} else if (next_min_addr == next_const_addr) {
+					const_->addr = (sljit_uw)code_ptr;
 					const_ = const_->next;
 					next_const_addr = SLJIT_GET_NEXT_ADDRESS(const_);
 				}
@@ -4459,40 +4445,52 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 /*  Other instructions                                                   */
 /* --------------------------------------------------------------------- */
 
-/* On s390x we build a literal pool to hold constants. This has two main
-   advantages:
-
-     1. we only need one instruction in the instruction stream (LGRL)
-     2. we can store 64 bit addresses and use 32 bit offsets
-
-   To retrofit the extra information needed to build the literal pool we
-   add a new sljit_s390x_const struct that contains the initial value but
-   can still be cast to a sljit_const. */
-
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_sw init_value)
 {
-	struct sljit_s390x_const *const_;
+	struct sljit_const *const_;
 	sljit_gpr dst_r;
+	int is_32 = 0;
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_const(compiler, dst, dstw, init_value));
+	CHECK_PTR(check_sljit_emit_const(compiler, op, dst, dstw, init_value));
+	ADJUST_LOCAL_OFFSET(dst, dstw);
 
-	const_ = (struct sljit_s390x_const*)ensure_abuf(compiler,
-					sizeof(struct sljit_s390x_const));
+	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
 	PTR_FAIL_IF(!const_);
 	set_const((struct sljit_const*)const_, compiler);
-	const_->init_value = init_value;
 
 	dst_r = FAST_IS_REG(dst) ? gpr(dst & REG_MASK) : tmp0;
-	if (have_genext())
-		PTR_FAIL_IF(push_inst(compiler, lgrl(dst_r, 0)));
-	else {
-		PTR_FAIL_IF(push_inst(compiler, larl(tmp1, 0)));
-		PTR_FAIL_IF(push_inst(compiler, lg(dst_r, 0, r0, tmp1)));
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV_U8:
+		if (init_value & 0x100)
+			init_value |= 0xff00;
+		else
+			init_value &= 0xff;
+
+		PTR_FAIL_IF(push_inst(compiler, 0xa7090000 /* lghi */ | R20A(dst_r) | (sljit_ins)(init_value & 0xffff)));
+
+		if (dst & SLJIT_MEM)
+			PTR_FAIL_IF(store_byte(compiler, dst_r, dst, dstw));
+		return (struct sljit_const*)const_;
+
+	case SLJIT_MOV32:
+		is_32 = 1;
+		/* fallthrough */
+	case SLJIT_MOV_S32:
+		PTR_FAIL_IF(push_inst(compiler, 0xc00100000000 /* lgfi */ | R36A(dst_r) | (sljit_ins)(init_value & 0xffffffff)));
+		break;
+
+	default:
+		PTR_FAIL_IF(push_inst(compiler, 0xc00f00000000 /* llilf */ | R36A(dst_r) | (sljit_ins)(init_value & 0xffffffff)));
+		PTR_FAIL_IF(push_inst(compiler, 0xc00800000000 /* iihf */ | R36A(dst_r) | (sljit_ins)((init_value >> 32) & 0xffffffff)));
+		break;
 	}
 
 	if (dst & SLJIT_MEM)
-		PTR_FAIL_IF(store_word(compiler, dst_r, dst, dstw, 0 /* always 64-bit */));
+		PTR_FAIL_IF(store_word(compiler, dst_r, dst, dstw, is_32));
 
 	return (struct sljit_const*)const_;
 }
@@ -4509,9 +4507,52 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_ta
 	SLJIT_CACHE_FLUSH(ptr, ptr + 1);
 }
 
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_s32 op, sljit_sw new_constant, sljit_sw executable_offset)
 {
-	sljit_set_jump_addr(addr, (sljit_uw)new_constant, executable_offset);
+	sljit_u16 *inst = (sljit_u16*)addr;
+	SLJIT_UNUSED_ARG(executable_offset);
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MOV_U8:
+		SLJIT_ASSERT((inst[0] & 0xff0f) == 0xa709 /* lghi */);
+
+		if (new_constant & 0x100)
+			new_constant |= 0xff00;
+		else
+			new_constant &= 0xff;
+
+		SLJIT_UPDATE_WX_FLAGS(inst, inst + 2, 0);
+		inst[1] = (sljit_u16)new_constant;
+		SLJIT_UPDATE_WX_FLAGS(inst, inst + 2, 1);
+		inst = (sljit_u16*)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
+		SLJIT_CACHE_FLUSH(inst, inst + 2);
+		return;
+
+	case SLJIT_MOV32:
+	case SLJIT_MOV_S32:
+		SLJIT_ASSERT((inst[0] & 0xff0f) == 0xc001 /* lgfi */);
+
+		SLJIT_UPDATE_WX_FLAGS(inst, inst + 3, 0);
+		inst[1] = (sljit_u16)(new_constant >> 16);
+		inst[2] = (sljit_u16)new_constant;
+		SLJIT_UPDATE_WX_FLAGS(inst, inst + 3, 1);
+		inst = (sljit_u16*)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
+		SLJIT_CACHE_FLUSH(inst, inst + 3);
+		return;
+
+	default:
+		SLJIT_ASSERT((inst[0] & 0xff0f) == 0xc00f /* llilf */ && (inst[3] & 0xff0f) == 0xc008 /* iihf */);
+
+		SLJIT_UPDATE_WX_FLAGS(inst, inst + 6, 0);
+		inst[1] = (sljit_u16)(new_constant >> 16);
+		inst[2] = (sljit_u16)new_constant;
+		inst[4] = (sljit_u16)(new_constant >> 48);
+		inst[5] = (sljit_u16)(new_constant >> 32);
+		SLJIT_UPDATE_WX_FLAGS(inst, inst + 6, 1);
+		inst = (sljit_u16*)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
+		SLJIT_CACHE_FLUSH(inst, inst + 6);
+		return;
+	}
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
