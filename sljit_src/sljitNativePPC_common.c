@@ -3311,7 +3311,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_s32 op, sljit
 		inst[0] = (inst[0] & 0xffff0000) | IMM(new_constant);
 		SLJIT_UPDATE_WX_FLAGS(inst, inst + 1, 1);
 		inst = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
-		SLJIT_CACHE_FLUSH(inst, inst + 2);
+		SLJIT_CACHE_FLUSH(inst, inst + 1);
 		return;
 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
