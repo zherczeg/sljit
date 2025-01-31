@@ -2326,9 +2326,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
    Flags: - (may destroy flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_local_base(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw offset);
 
-/* Store a value that can be changed runtime (see: sljit_get_const_addr / sljit_set_const)
+/* Store a value that can be changed at runtime. The constant
+   can be managed by sljit_get_const_addr and sljit_set_const.
+
+   op must be SLJIT_MOV, SLJIT_MOV32, SLJIT_MOV_S32,
+     SLJIT_MOV_U8, SLJIT_MOV32_U8
+
+   Note: when SLJIT_MOV_U8 is used, and dst is a register,
+         init_value supports a 9 bit signed value between [-256..255]
+
    Flags: - (does not modify flags) */
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw, sljit_sw init_value);
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_sw init_value);
 
 /* Store the value of a label (see: sljit_set_label / sljit_set_target)
    Flags: - (does not modify flags) */
@@ -2345,7 +2355,8 @@ static SLJIT_INLINE sljit_uw sljit_get_const_addr(struct sljit_const *const_) { 
 /* Only the address and executable offset are required to perform dynamic
    code modifications. See sljit_get_executable_offset function. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset);
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset);
+/* The op opcode must be set to the same value that was passed to sljit_emit_const. */
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_s32 op, sljit_sw new_constant, sljit_sw executable_offset);
 
 /* --------------------------------------------------------------------- */
 /*  CPU specific functions                                               */
