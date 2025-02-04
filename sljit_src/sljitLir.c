@@ -150,7 +150,19 @@
 #define SLJIT_SIMD_TYPE_MASK(m) ((sljit_s32)0xff000fff & ~(SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST | (m)))
 #define SLJIT_SIMD_TYPE_MASK2(m) ((sljit_s32)0xc0000fff & ~(SLJIT_SIMD_FLOAT | SLJIT_SIMD_TEST | (m)))
 
-/* Jump flags. */
+/* Label definitions. */
+
+#define SLJIT_LABEL_ALIGNED ((~(sljit_uw)0) - 1)
+
+struct sljit_extended_label {
+	struct sljit_label label;
+	sljit_uw index;
+	sljit_uw data;
+};
+
+/* Jump definitions. */
+
+/* Jump flag bits. */
 #define JUMP_ADDR	0x1
 #define JUMP_MOV_ADDR	0x2
 /* SLJIT_REWRITABLE_JUMP is 0x10000. */
@@ -841,11 +853,21 @@ static SLJIT_INLINE void set_label(struct sljit_label *label, struct sljit_compi
 	label->next = NULL;
 	label->u.index = compiler->label_count++;
 	label->size = compiler->size;
+
 	if (compiler->last_label != NULL)
 		compiler->last_label->next = label;
 	else
 		compiler->labels = label;
+
 	compiler->last_label = label;
+}
+
+static SLJIT_INLINE void set_extended_label(struct sljit_extended_label *ext_label, struct sljit_compiler *compiler, sljit_uw type, sljit_uw data)
+{
+	set_label(&ext_label->label, compiler);
+	ext_label->index = ext_label->label.u.index;
+	ext_label->label.u.index = type;
+	ext_label->data = data;
 }
 
 static SLJIT_INLINE void set_jump(struct sljit_jump *jump, struct sljit_compiler *compiler, sljit_u32 flags)
@@ -853,10 +875,12 @@ static SLJIT_INLINE void set_jump(struct sljit_jump *jump, struct sljit_compiler
 	jump->next = NULL;
 	jump->flags = flags;
 	jump->u.label = NULL;
+
 	if (compiler->last_jump != NULL)
 		compiler->last_jump->next = jump;
 	else
 		compiler->jumps = jump;
+
 	compiler->last_jump = jump;
 }
 
@@ -2353,6 +2377,22 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_label(struct sljit_compil
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose))
 		fprintf(compiler->verbose, "label:\n");
+#endif /* SLJIT_VERBOSE */
+	CHECK_RETURN_OK;
+}
+
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_aligned_label(struct sljit_compiler *compiler, sljit_s32 log2_align)
+{
+	SLJIT_UNUSED_ARG(compiler);
+
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT(log2_align >= SLJIT_LABEL_ALIGN_1 && log2_align <= SLJIT_LABEL_ALIGN_16);
+	compiler->last_flags = 0;
+#endif /* SLJIT_ARGUMENT_CHECKS */
+
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose))
+		fprintf(compiler->verbose, "label.al%d:\n", 1 << log2_align);
 #endif /* SLJIT_VERBOSE */
 	CHECK_RETURN_OK;
 }
