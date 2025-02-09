@@ -780,6 +780,22 @@ static void generate_jump_or_mov_addr(struct sljit_jump *jump, sljit_sw executab
 	}
 }
 
+static sljit_u8 *process_extended_label(sljit_u8 *code_ptr, struct sljit_extended_label *ext_label)
+{
+	sljit_uw mask;
+	sljit_u8 *ptr = code_ptr;
+
+	SLJIT_ASSERT(ext_label->label.u.index == SLJIT_LABEL_ALIGNED);
+	mask = ext_label->data;
+
+	code_ptr = (sljit_u8*)(((sljit_uw)code_ptr + mask) & ~mask);
+
+	while (ptr < code_ptr)
+		*ptr++ = NOP;
+
+	return code_ptr;
+}
+
 static void reduce_code_size(struct sljit_compiler *compiler)
 {
 	struct sljit_label *label;
@@ -944,6 +960,9 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 			} else {
 				switch (len) {
 				case SLJIT_INST_LABEL:
+					if (label->u.index >= SLJIT_LABEL_ALIGNED)
+						code_ptr = process_extended_label(code_ptr, (struct sljit_extended_label*)label);
+
 					label->u.addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 					label->size = (sljit_uw)(code_ptr - code);
 					label = label->next;
@@ -3436,6 +3455,34 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 	inst[0] = SLJIT_INST_LABEL;
 
 	return label;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler, sljit_s32 log2_align)
+{
+	sljit_uw mask;
+	sljit_u8 *inst;
+	struct sljit_extended_label *ext_label;
+
+	CHECK_ERROR_PTR();
+	CHECK_PTR(check_sljit_emit_aligned_label(compiler, log2_align));
+
+	if (log2_align <= SLJIT_LABEL_ALIGN_1) {
+		SLJIT_SKIP_CHECKS(compiler);
+		return sljit_emit_label(compiler);
+	}
+
+	/* The used space is filled with NOPs. */
+	mask = ((sljit_uw)1 << log2_align) - 1;
+	compiler->size += mask;
+
+	inst = (sljit_u8*)ensure_buf(compiler, 1);
+	PTR_FAIL_IF(!inst);
+	inst[0] = SLJIT_INST_LABEL;
+
+	ext_label = (struct sljit_extended_label*)ensure_abuf(compiler, sizeof(struct sljit_extended_label));
+	PTR_FAIL_IF(!ext_label);
+	set_extended_label(ext_label, compiler, SLJIT_LABEL_ALIGNED, mask);
+	return &ext_label->label;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 type)

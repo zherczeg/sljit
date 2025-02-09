@@ -9628,6 +9628,124 @@ static void test78(void)
 	successful_tests++;
 }
 
+static void test79(void)
+{
+	/* Test aligned labels. */
+	executable_code code;
+	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
+	struct sljit_label *label[12];
+	struct sljit_jump *jump[3];
+	sljit_s32 i;
+	sljit_uw buf[8];
+	sljit_uw addr[2];
+
+	if (verbose)
+		printf("Run test79\n");
+
+	for (i = 0; i < 8; i++)
+		buf[i] = ~(sljit_uw)0;
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 5, 5, 2 * sizeof(sljit_sw));
+
+	/* buf[0] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_S0, 0);
+	jump[0] = sljit_emit_mov_addr(compiler, SLJIT_MEM1(SLJIT_R1), 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
+	/* buf[1] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_IMM, 85603);
+
+	label[0] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_16);
+	label[1] = sljit_emit_label(compiler);
+	/* buf[2] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_sw), SLJIT_R0, 0);
+
+	label[2] = sljit_emit_label(compiler);
+	label[3] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_16);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 1000);
+	sljit_set_label(sljit_emit_cmp(compiler, SLJIT_LESS_EQUAL, SLJIT_R0, 0, SLJIT_IMM, 17000), label[1]);
+
+	label[4] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_2);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R4, 0, SLJIT_IMM, 46789);
+
+	/* The SLJIT_JUMP_IF_NON_ZERO is the default. */
+	jump[1] = sljit_emit_op2cmpz(compiler, SLJIT_SUB, SLJIT_S1, 0, SLJIT_R4, 0, SLJIT_IMM, 578);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM0(), 0);
+
+	label[5] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_8);
+	label[6] = sljit_emit_label(compiler);
+	sljit_set_label(jump[1], label[6]);
+
+	/* buf[3] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 3 * sizeof(sljit_sw), SLJIT_R4, 0);
+	/* buf[4] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4 * sizeof(sljit_sw), SLJIT_S1, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_S0, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_S1, 0, SLJIT_IMM, (5 * sizeof(sljit_sw)) >> 1);
+	/* buf[5] */
+	sljit_set_label(sljit_emit_mov_addr(compiler, SLJIT_MEM2(SLJIT_R1, SLJIT_S1), 1), label[3]);
+
+	label[7] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_4);
+	sljit_set_label(jump[0], label[7]);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 69743);
+
+	label[8] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_1);
+	/* buf[6] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_sw), SLJIT_R1, 0);
+
+	label[9] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_16);
+	jump[3] = sljit_emit_jump(compiler, SLJIT_JUMP);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM0(), 0);
+	sljit_set_label(jump[3], sljit_emit_label(compiler));
+
+	/* buf[7] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 7 * sizeof(sljit_sw), SLJIT_IMM, 50923);
+
+	sljit_emit_return_void(compiler);
+
+	label[10] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_8);
+	sljit_emit_op0(compiler, SLJIT_NOP);
+	sljit_emit_op0(compiler, SLJIT_NOP);
+	label[11] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_8);
+
+	code.code = sljit_generate_code(compiler, 0, NULL);
+	CHECK(compiler);
+
+	FAILED((sljit_get_label_abs_addr(label[0]) & 0xf) != 0, "test79 case 1 failed\n");
+	FAILED(label[2] == label[3], "test79 case 2 failed\n");
+	FAILED((sljit_get_label_abs_addr(label[3]) & 0xf) != 0, "test79 case 3 failed\n");
+	FAILED((sljit_get_label_abs_addr(label[4]) & 0x1) != 0, "test79 case 4 failed\n");
+	FAILED((sljit_get_label_abs_addr(label[5]) & 0x7) != 0, "test79 case 5 failed\n");
+	FAILED(label[5] != label[6], "test79 case 6 failed\n");
+	FAILED((sljit_get_label_abs_addr(label[7]) & 0x3) != 0, "test79 case 7 failed\n");
+	FAILED(label[7] == label[8], "test79 case 8 failed\n");
+	FAILED((sljit_get_label_abs_addr(label[9]) & 0xf) != 0, "test79 case 9 failed\n");
+	FAILED((sljit_get_label_abs_addr(label[10]) & 0x7) != 0, "test79 case 10 failed\n");
+	FAILED((sljit_get_label_abs_addr(label[11]) & 0x7) != 0, "test79 case 11 failed\n");
+
+	addr[0] = sljit_get_label_addr(label[7]);
+	addr[1] = sljit_get_label_addr(label[3]);
+
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)&buf);
+
+	FAILED(buf[0] != addr[0], "test79 case 12 failed\n");
+	FAILED(buf[1] != 85603, "test79 case 13 failed\n");
+	FAILED(buf[2] != 17000, "test79 case 14 failed\n");
+	FAILED(buf[3] != 46789, "test79 case 15 failed\n");
+	FAILED(buf[4] != 46211, "test79 case 16 failed\n");
+	FAILED(buf[5] != addr[1], "test79 case 17 failed\n");
+	FAILED(buf[6] != 69743, "test79 case 18 failed\n");
+	FAILED(buf[7] != 50923, "test79 case 19 failed\n");
+
+	sljit_free_code(code.code, NULL);
+	successful_tests++;
+}
+
 #include "sljitTestCall.h"
 #include "sljitTestFloat.h"
 #include "sljitTestSimd.h"
@@ -9724,6 +9842,7 @@ int sljit_test(int argc, char* argv[])
 	test76();
 	test77();
 	test78();
+	test79();
 
 	if (verbose)
 		printf("---- Call tests ----\n");
@@ -9800,12 +9919,13 @@ int sljit_test(int argc, char* argv[])
 	test_serialize1();
 	test_serialize2();
 	test_serialize3();
+	test_serialize4();
 
 #if (defined SLJIT_EXECUTABLE_ALLOCATOR && SLJIT_EXECUTABLE_ALLOCATOR)
 	sljit_free_unused_memory_exec();
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
-#	define TEST_COUNT 128
+#	define TEST_COUNT 130
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

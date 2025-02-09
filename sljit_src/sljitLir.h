@@ -1629,7 +1629,30 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 
 /* Label and jump instructions. */
 
+/* Emits a label which can be the target of jump / mov_addr instructions. */
+
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler);
+
+/* Alignment values for sljit_emit_aligned_label. */
+
+#define SLJIT_LABEL_ALIGN_1	0
+#define SLJIT_LABEL_ALIGN_2	1
+#define SLJIT_LABEL_ALIGN_4	2
+#define SLJIT_LABEL_ALIGN_8	3
+#define SLJIT_LABEL_ALIGN_16	4
+
+/* Emits a label which address is aligned to a power of 2 value. When some
+   extra space needs to be added to align the label, that space is filled
+   with SLJIT_NOP instructions. These labels usually represent the end
+   of a compilation block, and a new function or some read-only data
+   (e.g. a jump table) follows it. In these typocal cases the NOPs are
+   never executed.
+
+   log2_align represents the alignment, and its value can
+              be specified by SLJIT_LABEL_* constants
+
+   Note: the constant pool (if present) may be stored before the label. */
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler, sljit_s32 log2_align);
 
 /* The SLJIT_FAST_CALL is a calling method for creating lightweight function
    calls. This type of calls preserve the values of all registers and stack
@@ -2352,6 +2375,14 @@ static SLJIT_INLINE sljit_uw sljit_get_label_addr(struct sljit_label *label) { r
 static SLJIT_INLINE sljit_uw sljit_get_jump_addr(struct sljit_jump *jump) { return jump->addr; }
 static SLJIT_INLINE sljit_uw sljit_get_const_addr(struct sljit_const *const_) { return const_->addr; }
 
+/* Returns the absolute address of a label. Same as sljit_get_label_addr,
+   except on some architectures which stores data on the lower bits of an address. */
+#if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
+static SLJIT_INLINE sljit_uw sljit_get_label_abs_addr(struct sljit_label *label) { return label->u.addr & ~(sljit_uw)1; }
+#else /* !SLJIT_CONFIG_ARM_THUMB2 */
+static SLJIT_INLINE sljit_uw sljit_get_label_abs_addr(struct sljit_label *label) { return label->u.addr; }
+#endif /* SLJIT_CONFIG_ARM_THUMB2 */
+
 /* Only the address and executable offset are required to perform dynamic
    code modifications. See sljit_get_executable_offset function. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset);
@@ -2444,10 +2475,14 @@ static SLJIT_INLINE struct sljit_const *sljit_get_next_const(struct sljit_const 
 
 /* A number starting from 0 is assigned to each label, which
 represents its creation index. The first label created by the
-compiler has index 0, the second has index 1, the third has
-index 2, and so on. The returned value is unspecified after
-sljit_generate_code() is called. */
-static SLJIT_INLINE sljit_uw sljit_get_label_index(struct sljit_label *label) { return label->u.index; }
+compiler has index 0, the second one has index 1, the third one
+has index 2, and so on. The returned value is unspecified after
+sljit_generate_code() is called.
+
+It is recommended to use this function to get the creation index
+of a label, since sljit_emit_label() may return with the last label,
+if no code is generated since the last sljit_emit_label() call. */
+SLJIT_API_FUNC_ATTRIBUTE sljit_uw sljit_get_label_index(struct sljit_label *label);
 
 /* The sljit_jump_has_label() and sljit_jump_has_target() functions
 returns non-zero value if a label or target is set for the jump

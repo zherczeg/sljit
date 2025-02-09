@@ -385,6 +385,12 @@ static SLJIT_INLINE void generate_jump_or_mov_addr(struct sljit_jump *jump, slji
 		buf_ptr[3] = MOVK | ((sljit_ins)((sljit_uw)addr >> 48) << 5) | (3 << 21) | dst;
 }
 
+static SLJIT_INLINE sljit_ins *process_extended_label(sljit_ins *code_ptr, struct sljit_extended_label *ext_label)
+{
+	SLJIT_ASSERT(ext_label->label.u.index == SLJIT_LABEL_ALIGNED);
+	return (sljit_ins*)((sljit_uw)code_ptr & ~(ext_label->data));
+}
+
 static void reduce_code_size(struct sljit_compiler *compiler)
 {
 	struct sljit_label *label;
@@ -529,6 +535,11 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 
 				/* These structures are ordered by their address. */
 				if (next_min_addr == next_label_size) {
+					if (label->u.index >= SLJIT_LABEL_ALIGNED) {
+						code_ptr = process_extended_label(code_ptr, (struct sljit_extended_label*)label);
+						*code_ptr = buf_ptr[-1];
+					}
+
 					label->u.addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 					label->size = (sljit_uw)(code_ptr - code);
 					label = label->next;
@@ -565,6 +576,9 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	} while (buf);
 
 	if (label && label->size == word_count) {
+		if (label->u.index >= SLJIT_LABEL_ALIGNED)
+			code_ptr = process_extended_label(code_ptr, (struct sljit_extended_label*)label);
+
 		label->u.addr = (sljit_uw)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 		label->size = (sljit_uw)(code_ptr - code);
 		label = label->next;
@@ -2374,6 +2388,31 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 	PTR_FAIL_IF(!label);
 	set_label(label, compiler);
 	return label;
+}
+
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler, sljit_s32 log2_align)
+{
+	sljit_uw mask, i;
+	struct sljit_extended_label *ext_label;
+
+	CHECK_ERROR_PTR();
+	CHECK_PTR(check_sljit_emit_aligned_label(compiler, log2_align));
+
+	if (log2_align <= SLJIT_LABEL_ALIGN_4) {
+		SLJIT_SKIP_CHECKS(compiler);
+		return sljit_emit_label(compiler);
+	}
+
+	/* The used space is filled with NOPs. */
+	mask = ((sljit_uw)1 << log2_align) - sizeof(sljit_ins);
+
+	for (i = (mask >> 2); i != 0; i--)
+		PTR_FAIL_IF(push_inst(compiler, NOP));
+
+	ext_label = (struct sljit_extended_label*)ensure_abuf(compiler, sizeof(struct sljit_extended_label));
+	PTR_FAIL_IF(!ext_label);
+	set_extended_label(ext_label, compiler, SLJIT_LABEL_ALIGNED, mask);
+	return &ext_label->label;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 type)
