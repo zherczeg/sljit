@@ -205,6 +205,8 @@ struct sljit_extended_label {
 /* SLJIT_REWRITABLE_JUMP is 0x10000. */
 #	define IS_COND		0x04
 #	define IS_BL		0x08
+	/* mov_addr does not use IS_BL */
+#	define IS_ABS		IS_BL
 	/* conditional + imm8 */
 #	define PATCH_TYPE1	0x10
 	/* conditional + imm20 */
@@ -2381,18 +2383,33 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_label(struct sljit_compil
 	CHECK_RETURN_OK;
 }
 
-static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_aligned_label(struct sljit_compiler *compiler, sljit_s32 log2_align)
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_aligned_label(struct sljit_compiler *compiler,
+	sljit_s32 alignment, struct sljit_read_only_buffer *buffers)
 {
 	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(buffers);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(log2_align >= SLJIT_LABEL_ALIGN_1 && log2_align <= SLJIT_LABEL_ALIGN_16);
+	CHECK_ARGUMENT(alignment >= SLJIT_LABEL_ALIGN_1 && alignment <= SLJIT_LABEL_ALIGN_16);
 	compiler->last_flags = 0;
 #endif /* SLJIT_ARGUMENT_CHECKS */
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
-	if (SLJIT_UNLIKELY(!!compiler->verbose))
-		fprintf(compiler->verbose, "label.al%d:\n", 1 << log2_align);
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "label.al%d:%s", 1 << alignment, buffers == NULL ? "\n" : " [");
+
+		if (buffers != NULL) {
+			fprintf(compiler->verbose, "%ld", (long int)buffers->size);
+			buffers = buffers->next;
+
+			while (buffers != NULL) {
+				fprintf(compiler->verbose, ", %ld", (long int)buffers->size);
+				buffers = buffers->next;
+			}
+
+			fprintf(compiler->verbose, "]\n");
+		}
+	}
 #endif /* SLJIT_VERBOSE */
 	CHECK_RETURN_OK;
 }
@@ -3293,14 +3310,16 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_const(struct sljit_compil
 	CHECK_RETURN_OK;
 }
 
-static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT(op == SLJIT_MOV_ADDR || op == SLJIT_MOV_ABS_ADDR);
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  mov_addr ");
+		fprintf(compiler->verbose, "  mov_%saddr ", op == SLJIT_MOV_ABS_ADDR ? "abs_" : "");
 		sljit_verbose_param(compiler, dst, dstw);
 		fprintf(compiler->verbose, "\n");
 	}
@@ -3375,6 +3394,14 @@ static sljit_s32 sljit_emit_fmem_unaligned(struct sljit_compiler *compiler, slji
 }
 
 #endif /* (!SLJIT_CONFIG_MIPS || SLJIT_MIPS_REV >= 6) && !SLJIT_CONFIG_ARM */
+
+static void sljit_reset_read_only_buffers(struct sljit_read_only_buffer *buffers)
+{
+	while (buffers != NULL) {
+		buffers->u.label = NULL;
+		buffers = buffers->next;
+	}
+}
 
 /* CPU description section */
 
@@ -3829,5 +3856,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_get_local_base(struct sljit_compiler *c
 }
 
 #endif /* !SLJIT_CONFIG_X86 && !SLJIT_CONFIG_ARM_64 */
+
+SLJIT_API_FUNC_ATTRIBUTE void* sljit_read_only_buffer_start_writing(sljit_uw addr, sljit_uw size, sljit_sw executable_offset)
+{
+	SLJIT_UNUSED_ARG(size);
+	SLJIT_UNUSED_ARG(executable_offset);
+
+	SLJIT_UPDATE_WX_FLAGS((void*)addr, (void*)(addr + size), 0);
+	return SLJIT_ADD_EXEC_OFFSET(addr, -executable_offset);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE void sljit_read_only_buffer_end_writing(sljit_uw addr, sljit_uw size, sljit_sw executable_offset)
+{
+	SLJIT_UNUSED_ARG(addr);
+	SLJIT_UNUSED_ARG(size);
+	SLJIT_UNUSED_ARG(executable_offset);
+
+	SLJIT_UPDATE_WX_FLAGS((void*)addr, (void*)(addr + size), 1);
+	SLJIT_CACHE_FLUSH((void*)addr, (void*)(addr + size));
+}
 
 #endif /* !SLJIT_CONFIG_UNSUPPORTED */
