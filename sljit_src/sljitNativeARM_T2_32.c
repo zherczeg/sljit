@@ -444,6 +444,9 @@ static SLJIT_INLINE void generate_jump_or_mov_addr(struct sljit_jump *jump, slji
 
 	diff = (sljit_sw)((jump->flags & JUMP_ADDR) ? jump->u.target : jump->u.label->u.addr);
 
+	if ((jump->flags & (JUMP_MOV_ADDR | IS_ABS)) == (JUMP_MOV_ADDR | IS_ABS))
+		diff &= ~(sljit_sw)1;
+
 	if (SLJIT_UNLIKELY(type == 0)) {
 		ins = (jump->flags & JUMP_MOV_ADDR) ? *jump_inst : RDN3(TMP_REG1);
 		set_imm32_const((sljit_u16*)jump->addr, ins, (sljit_uw)diff);
@@ -2731,29 +2734,58 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 	return label;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler, sljit_s32 log2_align)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler,
+	sljit_s32 alignment, struct sljit_read_only_buffer *buffers)
 {
 	sljit_uw mask, i;
+	struct sljit_label *label;
+	struct sljit_label *next_label;
 	struct sljit_extended_label *ext_label;
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_aligned_label(compiler, log2_align));
+	CHECK_PTR(check_sljit_emit_aligned_label(compiler, alignment, buffers));
 
-	if (log2_align <= SLJIT_LABEL_ALIGN_2) {
+	sljit_reset_read_only_buffers(buffers);
+
+	if (alignment <= SLJIT_LABEL_ALIGN_2) {
 		SLJIT_SKIP_CHECKS(compiler);
-		return sljit_emit_label(compiler);
+		label = sljit_emit_label(compiler);
+		PTR_FAIL_IF(!label);
+	} else {
+		/* The used space is filled with NOPs. */
+		mask = ((sljit_uw)1 << alignment) - sizeof(sljit_u16);
+
+		for (i = (mask >> 1); i != 0; i--)
+			PTR_FAIL_IF(push_inst16(compiler, NOP));
+
+		ext_label = (struct sljit_extended_label*)ensure_abuf(compiler, sizeof(struct sljit_extended_label));
+		PTR_FAIL_IF(!ext_label);
+		set_extended_label(ext_label, compiler, SLJIT_LABEL_ALIGNED, mask);
+		label = &ext_label->label;
 	}
 
-	/* The used space is filled with NOPs. */
-	mask = ((sljit_uw)1 << log2_align) - sizeof(sljit_u16);
+	if (buffers == NULL)
+		return label;
 
-	for (i = (mask >> 1); i != 0; i--)
-		PTR_FAIL_IF(push_inst16(compiler, NOP));
+	next_label = label;
 
-	ext_label = (struct sljit_extended_label*)ensure_abuf(compiler, sizeof(struct sljit_extended_label));
-	PTR_FAIL_IF(!ext_label);
-	set_extended_label(ext_label, compiler, SLJIT_LABEL_ALIGNED, mask);
-	return &ext_label->label;
+	while (1) {
+		buffers->u.label = next_label;
+
+		for (i = (buffers->size + 1) >> 1; i > 0; i--)
+			PTR_FAIL_IF(push_inst16(compiler, NOP));
+
+		buffers = buffers->next;
+
+		if (buffers == NULL)
+			break;
+
+		SLJIT_SKIP_CHECKS(compiler);
+		next_label = sljit_emit_label(compiler);
+		PTR_FAIL_IF(!next_label);
+	}
+
+	return label;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 type)
@@ -4426,18 +4458,22 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	return const_;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw)
 {
 	struct sljit_jump *jump;
 	sljit_s32 dst_r;
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_mov_addr(compiler, dst, dstw));
+	CHECK_PTR(check_sljit_emit_mov_addr(compiler, op, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	PTR_FAIL_IF(!jump);
 	set_mov_addr(jump, compiler, 0);
+
+	if (op == SLJIT_MOV_ABS_ADDR)
+		jump->flags |= IS_ABS;
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 	PTR_FAIL_IF(push_inst16(compiler, RDN3(dst_r)));

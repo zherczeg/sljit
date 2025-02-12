@@ -503,6 +503,16 @@ struct sljit_generate_code_buffer {
 	sljit_sw executable_offset;
 };
 
+struct sljit_read_only_buffer {
+	struct sljit_read_only_buffer *next;
+	sljit_uw size;
+	/* Label can be replaced by address after sljit_generate_code. */
+	union {
+		struct sljit_label *label;
+		sljit_uw addr;
+	} u;
+};
+
 struct sljit_compiler {
 	sljit_s32 error;
 	sljit_s32 options;
@@ -1640,19 +1650,40 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_LABEL_ALIGN_4	2
 #define SLJIT_LABEL_ALIGN_8	3
 #define SLJIT_LABEL_ALIGN_16	4
+#define SLJIT_LABEL_ALIGN_SW	SLJIT_WORD_SHIFT
 
 /* Emits a label which address is aligned to a power of 2 value. When some
    extra space needs to be added to align the label, that space is filled
-   with SLJIT_NOP instructions. These labels usually represent the end
-   of a compilation block, and a new function or some read-only data
-   (e.g. a jump table) follows it. In these typocal cases the NOPs are
-   never executed.
+   with SLJIT_NOP instructions. These labels usually represent the end of a
+   compilation block, and a new function or some read-only data (e.g. a
+   jump table) follows it. In these typical cases the SLJIT_NOPs are never
+   executed.
 
-   log2_align represents the alignment, and its value can
-              be specified by SLJIT_LABEL_* constants
+   Optionally, buffers for storing read-only data or code can be allocated
+   by this operation. The buffers are passed as a chain list, and a separate
+   memory area is allocated for each item in the list. All buffers are aligned
+   to SLJIT_NOP instruction size, and their starting address is returned as
+   as a label. The sljit_get_label_abs_addr function or the SLJIT_MOV_ABS_ADDR
+   operation can be used to get the real address. The label of the first buffer
+   is always the same as the returned label. The buffers are initially
+   initialized with SLJIT_NOP instructions. The alignment of the buffers can
+   be controlled by their starting address and sizes. If the starting address
+   is aligned to N, and size is also divisible by N, the next buffer is aligned
+   to N. I.e. if a buffer is 16 byte aligned, and its size is divisible by 4,
+   the next buffer is 4 byte aligned. Note: if a buffer is N (>=2) byte aligned,
+   it is also N/2 byte aligned.
+
+   align represents the alignment, and its value can
+         be specified by SLJIT_LABEL_* constants
+
+   buffers is a list of read-only buffers stored in a chain list.
+           After calling sljit_generate_code, these buffers can be
+           modified by sljit_read_only_buffer_start_writing() /
+           sljit_read_only_buffer_end_writing() functions
 
    Note: the constant pool (if present) may be stored before the label. */
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler, sljit_s32 log2_align);
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler,
+	sljit_s32 alignment, struct sljit_read_only_buffer *buffers);
 
 /* The SLJIT_FAST_CALL is a calling method for creating lightweight function
    calls. This type of calls preserve the values of all registers and stack
@@ -2363,31 +2394,50 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_sw init_value);
 
+/* Opcodes for sljit_emit_mov_addr. */
+
+/* The address is suitable for jump/call target. */
+#define SLJIT_MOV_ADDR 0
+/* The address is suitable for reading memory. */
+#define SLJIT_MOV_ABS_ADDR 1
+
 /* Store the value of a label (see: sljit_set_label / sljit_set_target)
    Flags: - (does not modify flags) */
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw);
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw);
 
-/* Provides the address of label, jump and const instructions after sljit_generate_code
-   is called. The returned value is unspecified before the sljit_generate_code call.
-   Since these structures are freed by sljit_free_compiler, the addresses must be
-   preserved by the user program elsewere. */
+/* Returns the address of a label after sljit_generate_code is called, and
+   before the compiler is freed by sljit_free_compiler. It is recommended
+   to save these addresses elsewhere before sljit_free_compiler is called.
+
+   The address returned by sljit_get_label_addr is suitable for a jump/call
+   target, and the address returned by sljit_get_label_abs_addr is suitable
+   for reading memory. */
+
 static SLJIT_INLINE sljit_uw sljit_get_label_addr(struct sljit_label *label) { return label->u.addr; }
-static SLJIT_INLINE sljit_uw sljit_get_jump_addr(struct sljit_jump *jump) { return jump->addr; }
-static SLJIT_INLINE sljit_uw sljit_get_const_addr(struct sljit_const *const_) { return const_->addr; }
-
-/* Returns the absolute address of a label. Same as sljit_get_label_addr,
-   except on some architectures which stores data on the lower bits of an address. */
 #if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
 static SLJIT_INLINE sljit_uw sljit_get_label_abs_addr(struct sljit_label *label) { return label->u.addr & ~(sljit_uw)1; }
 #else /* !SLJIT_CONFIG_ARM_THUMB2 */
 static SLJIT_INLINE sljit_uw sljit_get_label_abs_addr(struct sljit_label *label) { return label->u.addr; }
 #endif /* SLJIT_CONFIG_ARM_THUMB2 */
 
+/* Returns the address of jump and const instructions after sljit_generate_code
+   is called, and before the compiler is freed by sljit_free_compiler. It is
+   recommended to save these addresses elsewhere before sljit_free_compiler is called. */
+
+static SLJIT_INLINE sljit_uw sljit_get_jump_addr(struct sljit_jump *jump) { return jump->addr; }
+static SLJIT_INLINE sljit_uw sljit_get_const_addr(struct sljit_const *const_) { return const_->addr; }
+
 /* Only the address and executable offset are required to perform dynamic
    code modifications. See sljit_get_executable_offset function. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset);
 /* The op opcode must be set to the same value that was passed to sljit_emit_const. */
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_s32 op, sljit_sw new_constant, sljit_sw executable_offset);
+
+/* Only a single buffer is writable at a time, so sljit_read_only_buffer_end_writing()
+   must be called before sljit_read_only_buffer_start_writing() is called again. */
+SLJIT_API_FUNC_ATTRIBUTE void* sljit_read_only_buffer_start_writing(sljit_uw addr, sljit_uw size, sljit_sw executable_offset);
+SLJIT_API_FUNC_ATTRIBUTE void sljit_read_only_buffer_end_writing(sljit_uw addr, sljit_uw size, sljit_sw executable_offset);
 
 /* --------------------------------------------------------------------- */
 /*  CPU specific functions                                               */
