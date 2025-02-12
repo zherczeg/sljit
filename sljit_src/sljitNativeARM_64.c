@@ -1878,9 +1878,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 
 	switch (op) {
 	case SLJIT_FAST_RETURN:
-		if (FAST_IS_REG(src))
-			FAIL_IF(push_inst(compiler, MOV | RD(TMP_LR) | RM(src)));
-		else
+		if (FAST_IS_REG(src)) {
+			if (src != TMP_LR)
+				FAIL_IF(push_inst(compiler, MOV | RD(TMP_LR) | RM(src)));
+		} else
 			FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_LR, src, srcw, TMP_REG1));
 
 		return push_inst(compiler, RET | RN(TMP_LR));
@@ -1920,8 +1921,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_dst(struct sljit_compiler *comp
 
 	switch (op) {
 	case SLJIT_FAST_ENTER:
-		if (FAST_IS_REG(dst))
+		if (FAST_IS_REG(dst)) {
+			if (dst == TMP_LR)
+				return SLJIT_SUCCESS;
 			return push_inst(compiler, MOV | RD(dst) | RM(TMP_LR));
+		}
 		break;
 	case SLJIT_GET_RETURN_ADDRESS:
 		dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
