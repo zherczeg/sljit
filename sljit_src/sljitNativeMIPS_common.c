@@ -2805,9 +2805,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 
 	switch (op) {
 	case SLJIT_FAST_RETURN:
-		if (FAST_IS_REG(src))
-			FAIL_IF(push_inst(compiler, ADDU_W | S(src) | TA(0) | DA(RETURN_ADDR_REG), RETURN_ADDR_REG));
-		else
+		if (FAST_IS_REG(src)) {
+			if (DR(src) != RETURN_ADDR_REG)
+				FAIL_IF(push_inst(compiler, ADDU_W | S(src) | TA(0) | DA(RETURN_ADDR_REG), RETURN_ADDR_REG));
+		} else
 			FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, RETURN_ADDR_REG, src, srcw));
 
 		FAIL_IF(push_inst(compiler, JR | SA(RETURN_ADDR_REG), UNMOVABLE_INS));
@@ -2839,8 +2840,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_dst(struct sljit_compiler *comp
 
 	switch (op) {
 	case SLJIT_FAST_ENTER:
-		if (FAST_IS_REG(dst))
+		if (FAST_IS_REG(dst)) {
+			if (DR(dst) == RETURN_ADDR_REG)
+				return SLJIT_SUCCESS;
 			return push_inst(compiler, ADDU_W | SA(RETURN_ADDR_REG) | TA(0) | D(dst), UNMOVABLE_INS);
+		}
 		break;
 	case SLJIT_GET_RETURN_ADDRESS:
 		dst_ar = DR(FAST_IS_REG(dst) ? dst : TMP_REG2);

@@ -2644,9 +2644,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 	case SLJIT_FAST_RETURN:
 		SLJIT_ASSERT(reg_map[TMP_REG2] == 14);
 
-		if (FAST_IS_REG(src))
-			FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG2) | RM(src)));
-		else
+		if (FAST_IS_REG(src)) {
+			if (src != TMP_REG2)
+				FAIL_IF(push_inst(compiler, MOV | RD(TMP_REG2) | RM(src)));
+		} else
 			FAIL_IF(emit_op_mem(compiler, WORD_SIZE | LOAD_DATA, TMP_REG2, src, srcw, TMP_REG1));
 
 		return push_inst(compiler, BX | RM(TMP_REG2));
@@ -2676,8 +2677,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_dst(struct sljit_compiler *comp
 	case SLJIT_FAST_ENTER:
 		SLJIT_ASSERT(reg_map[TMP_REG2] == 14);
 
-		if (FAST_IS_REG(dst))
+		if (FAST_IS_REG(dst)) {
+			if (dst == TMP_REG2)
+				return SLJIT_SUCCESS;
 			return push_inst(compiler, MOV | RD(dst) | RM(TMP_REG2));
+		}
 		break;
 	case SLJIT_GET_RETURN_ADDRESS:
 		size = GET_SAVED_REGISTERS_SIZE(compiler->scratches, compiler->saveds - SLJIT_KEPT_SAVEDS_COUNT(compiler->options), 0);
