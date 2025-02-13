@@ -3127,11 +3127,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 
 	switch (op) {
 	case SLJIT_FAST_RETURN:
-		src_r = FAST_IS_REG(src) ? gpr(src) : tmp1;
-		if (src & SLJIT_MEM)
-			FAIL_IF(load_word(compiler, tmp1, src, srcw, 0));
+		if (FAST_IS_REG(src)) {
+			src_r = gpr(src);
+			if (src_r != link_r)
+				FAIL_IF(push_inst(compiler, lgr(link_r, src_r)));
+		} else
+			FAIL_IF(load_word(compiler, link_r, src, srcw, 0));
 
-		return push_inst(compiler, br(src_r));
+		return push_inst(compiler, br(link_r));
 	case SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN:
 		return SLJIT_SUCCESS;
 	case SLJIT_PREFETCH_L1:
@@ -3159,8 +3162,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_dst(struct sljit_compiler *comp
 
 	switch (op) {
 	case SLJIT_FAST_ENTER:
-		if (FAST_IS_REG(dst))
-			return push_inst(compiler, lgr(gpr(dst), link_r));
+		if (FAST_IS_REG(dst)) {
+			dst_r = gpr(dst);
+
+			if (dst_r == link_r)
+				return SLJIT_SUCCESS;
+			return push_inst(compiler, lgr(dst_r, link_r));
+		}
 		break;
 	case SLJIT_GET_RETURN_ADDRESS:
 		dst_r = FAST_IS_REG(dst) ? gpr(dst) : tmp0;
@@ -3587,29 +3595,58 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 	return label;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler, sljit_s32 log2_align)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler,
+	sljit_s32 alignment, struct sljit_read_only_buffer *buffers)
 {
 	sljit_uw mask, i;
+	struct sljit_label *label;
+	struct sljit_label *next_label;
 	struct sljit_extended_label *ext_label;
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_aligned_label(compiler, log2_align));
+	CHECK_PTR(check_sljit_emit_aligned_label(compiler, alignment, buffers));
 
-	if (log2_align <= SLJIT_LABEL_ALIGN_2) {
+	sljit_reset_read_only_buffers(buffers);
+
+	if (alignment <= SLJIT_LABEL_ALIGN_2) {
 		SLJIT_SKIP_CHECKS(compiler);
-		return sljit_emit_label(compiler);
+		label = sljit_emit_label(compiler);
+		PTR_FAIL_IF(!label);
+	} else {
+		/* The used space is filled with NOPs. */
+		mask = ((sljit_uw)1 << alignment) - sizeof(sljit_u16);
+
+		for (i = (mask >> 1); i != 0; i--)
+			PTR_FAIL_IF(push_inst(compiler, 0x0700 /* 2-byte nop */));
+
+		ext_label = (struct sljit_extended_label*)ensure_abuf(compiler, sizeof(struct sljit_extended_label));
+		PTR_FAIL_IF(!ext_label);
+		set_extended_label(ext_label, compiler, SLJIT_LABEL_ALIGNED, mask);
+		label = &ext_label->label;
 	}
 
-	/* The used space is filled with NOPs. */
-	mask = ((sljit_uw)1 << log2_align) - sizeof(sljit_u16);
+	if (buffers == NULL)
+		return label;
 
-	for (i = (mask >> 1); i != 0; i--)
-		PTR_FAIL_IF(push_inst(compiler, 0x0700 /* 2-byte nop */));
+	next_label = label;
 
-	ext_label = (struct sljit_extended_label*)ensure_abuf(compiler, sizeof(struct sljit_extended_label));
-	PTR_FAIL_IF(!ext_label);
-	set_extended_label(ext_label, compiler, SLJIT_LABEL_ALIGNED, mask);
-	return &ext_label->label;
+	while (1) {
+		buffers->u.label = next_label;
+
+		for (i = (buffers->size + 1) >> 1; i > 0; i--)
+			PTR_FAIL_IF(push_inst(compiler, 0x0700 /* 2-byte nop */));
+
+		buffers = buffers->next;
+
+		if (buffers == NULL)
+			break;
+
+		SLJIT_SKIP_CHECKS(compiler);
+		next_label = sljit_emit_label(compiler);
+		PTR_FAIL_IF(!next_label);
+	}
+
+	return label;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 type)
@@ -4592,13 +4629,15 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_s32 op, sljit
 	}
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 dst, sljit_sw dstw)
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw)
 {
 	struct sljit_jump *jump;
 	sljit_gpr dst_r;
+	SLJIT_UNUSED_ARG(op);
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_mov_addr(compiler, dst, dstw));
+	CHECK_PTR(check_sljit_emit_mov_addr(compiler, op, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
