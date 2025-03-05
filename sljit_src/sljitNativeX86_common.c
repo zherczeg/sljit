@@ -5209,7 +5209,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	return const_;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 op,
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_op_addr(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw)
 {
 	struct sljit_jump *jump;
@@ -5220,7 +5220,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_com
 	SLJIT_UNUSED_ARG(op);
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_mov_addr(compiler, op, dst, dstw));
+	CHECK_PTR(check_sljit_emit_op_addr(compiler, op, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	CHECK_EXTRA_REGS(dst, dstw, (void)0);
@@ -5231,7 +5231,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_com
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	compiler->mode32 = 0;
-	reg = FAST_IS_REG(dst) ? dst : TMP_REG1;
+	if (dst & SLJIT_MEM)
+		reg = TMP_REG1;
+	else
+		reg = (op != SLJIT_ADD_ABS_ADDR) ? dst : TMP_REG2;
 
 	PTR_FAIL_IF(emit_load_imm64(compiler, reg, 0));
 	jump->addr = compiler->size;
@@ -5239,7 +5242,17 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_com
 	if (reg_map[reg] >= 8)
 		jump->flags |= MOV_ADDR_HI;
 #else /* !SLJIT_CONFIG_X86_64 */
-	PTR_FAIL_IF(emit_mov(compiler, dst, dstw, SLJIT_IMM, 0));
+	if (op == SLJIT_ADD_ABS_ADDR) {
+		if (dst != SLJIT_R0) {
+			/* Must not be a signed byte argument. */
+			inst = emit_x86_instruction(compiler, 1 | EX86_BIN_INS, SLJIT_IMM, 0x100, dst, dstw);
+			PTR_FAIL_IF(!inst);
+			*(inst + 1) |= ADD;
+		} else
+			PTR_FAIL_IF(emit_do_imm(compiler, ADD_EAX_i32, 0));
+	} else {
+		PTR_FAIL_IF(emit_mov(compiler, dst, dstw, SLJIT_IMM, 0));
+	}
 #endif /* SLJIT_CONFIG_X86_64 */
 
 	inst = (sljit_u8*)ensure_buf(compiler, 1);
@@ -5248,7 +5261,11 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_com
 	inst[0] = SLJIT_INST_MOV_ADDR;
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	if (dst & SLJIT_MEM)
+	if (op == SLJIT_ADD_ABS_ADDR) {
+		inst = emit_x86_instruction(compiler, 1, reg, 0, dst, dstw);
+		PTR_FAIL_IF(!inst);
+		*inst = ADD_rm_r;
+	} else if (dst & SLJIT_MEM)
 		PTR_FAIL_IF(emit_mov(compiler, dst, dstw, TMP_REG1, 0));
 #endif /* SLJIT_CONFIG_X86_64 */
 

@@ -2075,7 +2075,7 @@ static void test_call13(void)
 	sljit_set_label(jump, sljit_emit_label(compiler));
 
 	/* Forward label. */
-	jump = sljit_emit_mov_addr(compiler, SLJIT_MOV_ADDR, SLJIT_R0, 0);
+	jump = sljit_emit_op_addr(compiler, SLJIT_MOV_ADDR, SLJIT_R0, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1);
 	sljit_set_label(jump, sljit_emit_label(compiler));
 

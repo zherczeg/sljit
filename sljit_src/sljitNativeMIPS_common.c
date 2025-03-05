@@ -4441,28 +4441,41 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	return const_;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 op,
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_op_addr(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw)
 {
 	struct sljit_jump *jump;
-	sljit_s32 dst_r;
+	sljit_s32 dst_r, target_r;
 	SLJIT_UNUSED_ARG(op);
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_mov_addr(compiler, op, dst, dstw));
+	CHECK_PTR(check_sljit_emit_op_addr(compiler, op, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
+
+	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG2;
+
+	if (op != SLJIT_ADD_ABS_ADDR)
+		target_r = dst_r;
+	else {
+		target_r = TMP_REG1;
+
+		if (dst & SLJIT_MEM)
+			PTR_FAIL_IF(emit_op_mem(compiler, WORD_DATA | LOAD_DATA, DR(TMP_REG2), dst, dstw));
+	}
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	PTR_FAIL_IF(!jump);
 	set_mov_addr(jump, compiler, 0);
 
-	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG2;
-	PTR_FAIL_IF(push_inst(compiler, (sljit_ins)dst_r, UNMOVABLE_INS));
+	PTR_FAIL_IF(push_inst(compiler, (sljit_ins)target_r, UNMOVABLE_INS));
 #if (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32)
 	compiler->size += 1;
 #else
 	compiler->size += 5;
 #endif
+
+	if (op == SLJIT_ADD_ABS_ADDR)
+		PTR_FAIL_IF(push_inst(compiler, ADDU_W | S(dst_r) | T(TMP_REG1) | D(dst_r), DR(dst_r)));
 
 	if (dst & SLJIT_MEM)
 		PTR_FAIL_IF(emit_op_mem(compiler, WORD_DATA, DR(TMP_REG2), dst, dstw));

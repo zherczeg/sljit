@@ -71,6 +71,7 @@
      SLJIT_SEPARATE_VECTOR_REGISTERS : if this macro is defined, the vector registers do not
                                        overlap with floating point registers
      SLJIT_WORD_SHIFT : the shift required to apply when accessing a sljit_sw/sljit_uw array by index
+     SLJIT_POINTER_SHIFT : the shift required to apply when accessing a sljit_sp/sljit_up array by index
      SLJIT_F32_SHIFT : the shift required to apply when accessing
                        a single precision floating point array by index
      SLJIT_F64_SHIFT : the shift required to apply when accessing

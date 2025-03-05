@@ -4811,24 +4811,33 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 	return const_;
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 op,
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_op_addr(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw)
 {
 	struct sljit_jump *jump;
-	sljit_s32 dst_r;
+	sljit_s32 dst_r, target_r;
 	SLJIT_UNUSED_ARG(op);
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_mov_addr(compiler, op, dst, dstw));
+	CHECK_PTR(check_sljit_emit_op_addr(compiler, op, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG2;
 
+	if (op != SLJIT_ADD_ABS_ADDR)
+		target_r = dst_r;
+	else {
+		target_r = TMP_REG1;
+
+		if (dst & SLJIT_MEM)
+			PTR_FAIL_IF(emit_op_mem(compiler, WORD_SIZE | LOAD_DATA, TMP_REG2, dst, dstw, TMP_REG1));
+	}
+
 #if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
-	PTR_FAIL_IF(push_inst_with_unique_literal(compiler, EMIT_DATA_TRANSFER(WORD_SIZE | LOAD_DATA, 1, dst_r, TMP_PC, 0), 0));
+	PTR_FAIL_IF(push_inst_with_unique_literal(compiler, EMIT_DATA_TRANSFER(WORD_SIZE | LOAD_DATA, 1, target_r, TMP_PC, 0), 0));
 	compiler->patches++;
 #else /* !SLJIT_CONFIG_ARM_V6 */
-	PTR_FAIL_IF(push_inst(compiler, RD(dst_r)));
+	PTR_FAIL_IF(push_inst(compiler, RD(target_r)));
 #endif /* SLJIT_CONFIG_ARM_V6 */
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
@@ -4838,6 +4847,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_com
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
 	compiler->size += 1;
 #endif /* SLJIT_CONFIG_ARM_V7 */
+
+	if (op == SLJIT_ADD_ABS_ADDR)
+		PTR_FAIL_IF(push_inst(compiler, ADD | RD(dst_r) | RN(dst_r) | RM(TMP_REG1)));
 
 	if (dst & SLJIT_MEM)
 		PTR_FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, dst, dstw, TMP_REG1));

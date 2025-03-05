@@ -1650,7 +1650,8 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_label(struct sljit_compi
 #define SLJIT_LABEL_ALIGN_4	2
 #define SLJIT_LABEL_ALIGN_8	3
 #define SLJIT_LABEL_ALIGN_16	4
-#define SLJIT_LABEL_ALIGN_SW	SLJIT_WORD_SHIFT
+#define SLJIT_LABEL_ALIGN_W	SLJIT_WORD_SHIFT
+#define SLJIT_LABEL_ALIGN_P	SLJIT_POINTER_SHIFT
 
 /* Emits a label which address is aligned to a power of 2 value. When some
    extra space needs to be added to align the label, that space is filled
@@ -2400,10 +2401,12 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 #define SLJIT_MOV_ADDR 0
 /* The address is suitable for reading memory. */
 #define SLJIT_MOV_ABS_ADDR 1
+/* Add absolute address. */
+#define SLJIT_ADD_ABS_ADDR 2
 
 /* Store the value of a label (see: sljit_set_label / sljit_set_target)
    Flags: - (does not modify flags) */
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 op,
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_op_addr(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw);
 
 /* Returns the address of a label after sljit_generate_code is called, and
