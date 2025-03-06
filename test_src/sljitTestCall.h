@@ -2090,5 +2090,6 @@ static void test_call13(void)
 	FAILED(i != 65536, "test_call13 case 2 failed\n");
 
 	sljit_free_code(code.code, NULL);
+	sljit_free_code(simple_func, NULL);
 	successful_tests++;
 }
