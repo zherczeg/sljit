@@ -306,6 +306,12 @@ struct sljit_extended_label {
 #endif /* SLJIT_CONFIG_RISCV_64 */
 #endif /* SLJIT_CONFIG_RISCV */
 
+#if (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+/* SLJIT_REWRITABLE_JUMP is 0x10000. */
+#	define PATCH_POOL		0x004
+#	define PATCH_IMM32		0x008
+#endif /* SLJIT_CONFIG_S390X */
+
 #if (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 /* SLJIT_REWRITABLE_JUMP is 0x10000. */
 #	define IS_COND		0x004
