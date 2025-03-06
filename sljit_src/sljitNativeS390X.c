@@ -4629,29 +4629,41 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_s32 op, sljit
 	}
 }
 
-SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 op,
+SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_op_addr(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw)
 {
 	struct sljit_jump *jump;
-	sljit_gpr dst_r;
+	sljit_gpr dst_r, target_r;
 	SLJIT_UNUSED_ARG(op);
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_emit_mov_addr(compiler, op, dst, dstw));
+	CHECK_PTR(check_sljit_emit_op_addr(compiler, op, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
+
+	dst_r = FAST_IS_REG(dst) ? gpr(dst & REG_MASK) : tmp0;
+
+	if (op != SLJIT_ADD_ABS_ADDR)
+		target_r = dst_r;
+	else {
+		target_r = tmp1;
+
+		if (dst & SLJIT_MEM)
+			PTR_FAIL_IF(load_word(compiler, dst_r, dst, dstw, 0));
+	}
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	PTR_FAIL_IF(!jump);
 	set_mov_addr(jump, compiler, 0);
 
-	dst_r = FAST_IS_REG(dst) ? gpr(dst & REG_MASK) : tmp0;
-
 	if (have_genext())
-		PTR_FAIL_IF(push_inst(compiler, lgrl(dst_r, 0)));
+		PTR_FAIL_IF(push_inst(compiler, lgrl(target_r, 0)));
 	else {
 		PTR_FAIL_IF(push_inst(compiler, larl(tmp1, 0)));
-		PTR_FAIL_IF(push_inst(compiler, lg(dst_r, 0, r0, tmp1)));
+		PTR_FAIL_IF(push_inst(compiler, lg(target_r, 0, r0, tmp1)));
 	}
+
+	if (op == SLJIT_ADD_ABS_ADDR)
+		PTR_FAIL_IF(push_inst(compiler, 0xb90a0000 /* algr */ | R4A(dst_r) | R0A(target_r)));
 
 	if (dst & SLJIT_MEM)
 		PTR_FAIL_IF(store_word(compiler, dst_r, dst, dstw, 0));

@@ -1359,6 +1359,10 @@ static const char* call_arg_names[] = {
 	"void", "w", "32", "p", "f64", "f32"
 };
 
+static const char* op_addr_types[] = {
+	"mov_addr", "mov_abs_addr", "add_abs_addr"
+};
+
 #endif /* SLJIT_VERBOSE */
 
 /* --------------------------------------------------------------------- */
@@ -3310,16 +3314,16 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_const(struct sljit_compil
 	CHECK_RETURN_OK;
 }
 
-static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mov_addr(struct sljit_compiler *compiler, sljit_s32 op,
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_addr(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst, sljit_sw dstw)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(op == SLJIT_MOV_ADDR || op == SLJIT_MOV_ABS_ADDR);
+	CHECK_ARGUMENT(op == SLJIT_MOV_ADDR || op == SLJIT_MOV_ABS_ADDR || op == SLJIT_ADD_ABS_ADDR);
 	FUNCTION_CHECK_DST(dst, dstw);
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  mov_%saddr ", op == SLJIT_MOV_ABS_ADDR ? "abs_" : "");
+		fprintf(compiler->verbose, "  %s ", op_addr_types[op]);
 		sljit_verbose_param(compiler, dst, dstw);
 		fprintf(compiler->verbose, "\n");
 	}
