@@ -1,3 +1,8 @@
+---
+sidebar_position: 1
+description: Adding JIT compilation via SLJIT to the PCRE2 library.
+---
+
 # Speeding Up PCRE2 With SLJIT
 
 [PCRE2](https://www.pcre.org/) is a C library for matching regular expressions.
@@ -28,7 +33,7 @@ However the backtracking paths are generated in a reversed concatenation order b
 Control flow is shown in the next figure where green and red arrows show the possible control transfers from matching and backtracking paths respectively.
 Due to the code generation order described before, no jump instructions are needed for control transfers represented by horizontal arrows.
 
-![figure1](./figure1.svg)
+![figure1](figure1.svg)
 
 The next figure shows the structure of the machine code generated from the /a(?:\w\d)+d/ pattern:
 

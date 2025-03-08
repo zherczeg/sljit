@@ -1,3 +1,8 @@
+---
+sidebar_position: 2
+description: Configuring SLJIT.
+---
+
 # Configuration
 
 SLJIT's behavior can be controlled by a series of defines, described in `sljitConfig.h`.

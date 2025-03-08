@@ -1,3 +1,8 @@
+---
+sidebar_position: 3
+description: The inner workings of SLJIT.
+---
+
 # Architecture
 
 ## Low-level Intermediate Representation
@@ -91,7 +96,7 @@ For better compatibility with CPUs without flags, SLJIT exposes only two such fl
 
 Be aware that different operations give different guarantees on what state the flags will be in afterwards.
 Also, not all flags are supported by all operations.
-For more details, refer to [`sljitLir.h`](/sljit_src/sljitLir.h).
+For more details, refer to [`sljitLir.h`](https://github.com/zherczeg/sljit/blob/master/sljit_src/sljitLir.h).
 
 ## Complex Instructions
 

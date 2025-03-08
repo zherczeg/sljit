@@ -1,3 +1,8 @@
+---
+sidebar_position: 1
+description: Introduction to SLJIT.
+---
+
 # Introduction
 
 ## Overview
@@ -13,7 +18,7 @@ The LIR code can be compiled to many CPU architectures, and the performance of t
 Although SLJIT does not support higher level features such as automatic register allocation, it can be a code generation backend for other JIT compiler libraries.
 Developing these intermediate libraries on top of SLJIT takes far less time, because they only need to support a single backend.
 
-If you want to jump right in and see SLJIT in action, take a look at the [Tutorial](/docs/tutorial/01-overview.md).
+If you want to jump right in and see SLJIT in action, take a look at the [Tutorial](../tutorial/01-overview.md).
 
 
 ## Features
@@ -29,7 +34,7 @@ If you want to jump right in and see SLJIT in action, take a look at the [Tutori
     - Atomic operations[^1]
 - Allows direct access to registers (both integer and floating point)
 - Supports stack space allocation for function local variables
-- Supports [all-in-one](/docs/general/getting-started/setup.md#sljit-all-in-one) compilation
+- Supports [all-in-one](getting-started/setup.md#sljit-all-in-one) compilation
     - Allows SLJIT's API to be completely hidden from external use
 - Allows serializing the compiler into a byte buffer
     - Useful for ahead-of-time (AOT) compilation
