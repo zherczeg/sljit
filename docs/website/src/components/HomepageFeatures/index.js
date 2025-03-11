@@ -40,7 +40,7 @@ function Feature({icon, title, description}) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
-        <Icon icon={icon} height="150px" className={clsx('text--secondary', styles.featureIcon)} />
+        <Icon icon={icon} height="150px" className={clsx('text', styles.featureIcon)} />
       </div>
       <div className="text--center padding-horiz--md">
         <Heading as="h3">{title}</Heading>
