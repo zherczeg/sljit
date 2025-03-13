@@ -93,9 +93,9 @@ static void test_buffer1(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 6 * sizeof(sljit_sw), SLJIT_R1, 0);
 
 	label[9] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_16, NULL);
-	jump[3] = sljit_emit_jump(compiler, SLJIT_JUMP);
+	jump[2] = sljit_emit_jump(compiler, SLJIT_JUMP);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM0(), 0);
-	sljit_set_label(jump[3], sljit_emit_label(compiler));
+	sljit_set_label(jump[2], sljit_emit_label(compiler));
 
 	/* buf[7] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 7 * sizeof(sljit_sw), SLJIT_IMM, 50923);
