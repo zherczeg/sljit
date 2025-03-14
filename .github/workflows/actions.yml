@@ -49,7 +49,7 @@ jobs:
               target: riscv64-linux-user
               name: qemu-riscv64
           - name: riscv64
-            toolchain: 
+            toolchain:
               url: https://toolchains.bootlin.com/downloads/releases/toolchains/riscv64-lp64d/tarballs/riscv64-lp64d--glibc--stable-2024.05-1.tar.xz
               name: riscv64-lp64d--glibc--stable-2024.05-1.tar.xz
               CC: riscv64-buildroot-linux-gnu-gcc-13.3.0.br_real
@@ -77,8 +77,8 @@ jobs:
               name: qemu-riscv32
           - name: loongarch64
             toolchain:
-              url: https://github.com/loongson/build-tools/releases/download/2024.11.01/x86_64-cross-tools-loongarch64-binutils_2.43.1-gcc_14.2.0-glibc_2.40.tar.xz
-              name: x86_64-cross-tools-loongarch64-binutils_2.43.1-gcc_14.2.0-glibc_2.40.tar.xz
+              url: https://github.com/loongson/build-tools/releases/download/2025.02.21/x86_64-cross-tools-loongarch64-binutils_2.44-gcc_14.2.0-glibc_2.41.tar.xz
+              name: x86_64-cross-tools-loongarch64-binutils_2.44-gcc_14.2.0-glibc_2.41.tar.xz
               CC: loongarch64-unknown-linux-gnu-gcc-14.2.0
               CFLAGS: -march=la464
             qemu:

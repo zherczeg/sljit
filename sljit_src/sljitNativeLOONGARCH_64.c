@@ -3997,7 +3997,7 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_s32 op, sljit
 	switch (GET_OPCODE(op)) {
 	case SLJIT_MOV_U8:
 		inst = (sljit_ins*)addr;
-		SLJIT_ASSERT((inst[0] & 0xffc00000) == ADDI_D);
+		SLJIT_ASSERT((inst[0] & OPC_2RI12(0xb)) == ADDI_D);
 
 		if (new_constant & 0x100)
 			new_constant |= 0xf00;
@@ -4014,11 +4014,11 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_s32 op, sljit
 	case SLJIT_MOV32:
 	case SLJIT_MOV_S32:
 		inst = (sljit_ins *)addr;
-		SLJIT_ASSERT((inst[0] & 0xfe000000) == LU12I_W && (inst[1] & 0xffc00000) == ORI);
+		SLJIT_ASSERT((inst[0] & OPC_1RI20(0xa)) == LU12I_W && (inst[1] & OPC_2RI12(0xe)) == ORI);
 
 		SLJIT_UPDATE_WX_FLAGS(inst, inst + 2, 0);
-		inst[0] = (inst[0] & 0xfe00001f) | (sljit_ins)((new_constant >> 7) & 0x1ffffe0);
-		inst[1] = (inst[1] & 0xffc003ff) | (sljit_ins)((new_constant & 0xfff) << 10);
+		inst[0] = (inst[0] & (OPC_1RI20(0xa) | 0x1f)) | (sljit_ins)((new_constant >> 7) & 0x1ffffe0);
+		inst[1] = (inst[1] & (OPC_2RI12(0xe) | 0x3ff)) | (sljit_ins)((new_constant & 0xfff) << 10);
 		SLJIT_UPDATE_WX_FLAGS(inst, inst + 2, 1);
 		inst = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
 		SLJIT_CACHE_FLUSH(inst, inst + 2);
