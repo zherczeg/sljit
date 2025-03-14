@@ -805,7 +805,7 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 	if (word_arg_count == 0)
 		return SLJIT_SUCCESS;
 
-	if (word_arg_count >= 3) {
+	if (word_arg_count >= 3 || src == SLJIT_R2) {
 		if (src == SLJIT_R2)
 			*src_ptr = TMP_REG1;
 		EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_R2, 0);
