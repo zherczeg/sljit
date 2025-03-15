@@ -1,3 +1,8 @@
+---
+sidebar_position: 2
+description: Generating machine code from bytecode with SLJIT.
+---
+
 # Bytecode Interpreters
 
 SLJIT's approach is very effective for bytecode interpreters, since their machine-independent bytecode (middle-level representation) typically contains instructions which either can be easly translated to machine code, or which are not worth to translate to machine code in the first place.

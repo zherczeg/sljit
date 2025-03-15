@@ -38,4 +38,4 @@ sljit_emit_op1(C, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), SLJIT_R2);
 
 Above example relies on the fact that `x` is the first member of `point_st` and thus shares its address with the surrounding struct. In case you want to access a different member, you need to further take its offset into account.
 
-*The complete source code of the example can be found [here](/docs/tutorial/sources/array_access.c).*
+*The complete source code of the example can be found [here](sources/array_access.c).*

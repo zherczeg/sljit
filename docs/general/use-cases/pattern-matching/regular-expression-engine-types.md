@@ -1,3 +1,8 @@
+---
+sidebar_position: 2
+description: A comparison of regular experssion engine types.
+---
+
 # Regular Expression Engine Types
 
 Matching regular expressions is not considered a complex task and many people think that this problem was solved a long time ago.
@@ -12,7 +17,7 @@ In general we distinguish two engine types:
 Balanced engines are slower than performance-oriented engines, but adding some pathological patterns to the benchmark set can quickly turn the tide.
 
 The following sections go into more detail regarding the different engine types from a technical point of view.
-A performance comparison of some of the engines can be found [here](./performance-comparison.md).
+A performance comparison of some of the engines can be found [here](performance-comparison.md).
 
 ## Multiple Choice Engine with Backtracking
 

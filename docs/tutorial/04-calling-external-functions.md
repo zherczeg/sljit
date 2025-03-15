@@ -15,4 +15,4 @@ sljit_emit_op1(C, SLJIT_MOV, SLJIT_R0, 0, SLJIT_S2, 0);
 sljit_emit_icall(C, SLJIT_CALL, SLJIT_ARGS1(W, W), SLJIT_IMM, SLJIT_FUNC_ADDR(print_num));
 ```
 
-*The complete source code of the example can be found [here](/docs/tutorial/sources/func_call.c).*
+*The complete source code of the example can be found [here](sources/func_call.c).*

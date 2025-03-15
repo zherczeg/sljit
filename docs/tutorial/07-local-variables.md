@@ -11,4 +11,4 @@ Due to its otherwise stackless API, SLJIT hides most of these implementation det
 - Special register `SLJIT_SP` acts as a pointer to the base of the local data. It can *only* be used in the form of `SLJIT_MEM1(SLJIT_SP)` to access local data at an offset.
 - If instead you need the actual address, you can use `sljit_get_local_base`. For example, `sljit_get_local_base(C, SLJIT_R0, 0, 0x40)` will load the address of the local data area offset by `0x40` into `R0`.
 
-*To see local variables in action, take a look at [this](/docs/tutorial/sources/array_access.c) example.*
+*To see local variables in action, take a look at [this](sources/array_access.c) example.*
