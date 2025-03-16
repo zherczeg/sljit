@@ -908,14 +908,18 @@ static sljit_s32 load_immediate(struct sljit_compiler *compiler, sljit_s32 dst_r
 
 	if (imm <= 0x7fffffffl && imm >= -0x80000000l) {
 		FAIL_IF(push_inst(compiler, LU12I_W | RD(dst_r) | (sljit_ins)(((imm & 0xffffffff) >> 12) << 5)));
-		return push_inst(compiler, ORI | RD(dst_r) | RJ(dst_r) | IMM_I12(imm));
+		if (IMM_I12(imm) != 0)
+			return push_inst(compiler, ORI | RD(dst_r) | RJ(dst_r) | IMM_I12(imm));
+		return SLJIT_SUCCESS;
 	} else if (imm <= 0x7ffffffffffffl && imm >= -0x8000000000000l) {
 		FAIL_IF(push_inst(compiler, LU12I_W | RD(dst_r) | (sljit_ins)(((imm & 0xffffffff) >> 12) << 5)));
-		FAIL_IF(push_inst(compiler, ORI | RD(dst_r) | RJ(dst_r) | IMM_I12(imm)));
+		if (IMM_I12(imm) != 0)
+			FAIL_IF(push_inst(compiler, ORI | RD(dst_r) | RJ(dst_r) | IMM_I12(imm)));
 		return push_inst(compiler, LU32I_D | RD(dst_r) | (sljit_ins)(((imm >> 32) & 0xfffff) << 5));
 	}
 	FAIL_IF(push_inst(compiler, LU12I_W | RD(dst_r) | (sljit_ins)(((imm & 0xffffffff) >> 12) << 5)));
-	FAIL_IF(push_inst(compiler, ORI | RD(dst_r) | RJ(dst_r) | IMM_I12(imm)));
+	if (IMM_I12(imm) != 0)
+		FAIL_IF(push_inst(compiler, ORI | RD(dst_r) | RJ(dst_r) | IMM_I12(imm)));
 	FAIL_IF(push_inst(compiler, LU32I_D | RD(dst_r) | (sljit_ins)(((imm >> 32) & 0xfffff) << 5)));
 	return push_inst(compiler, LU52I_D | RD(dst_r) | RJ(dst_r) | IMM_I12(imm >> 52));
 }
