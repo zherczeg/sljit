@@ -18,7 +18,7 @@ const config = {
   title: 'SLJIT',
   tagline: 'Platform-independent low-level JIT compiler',
 
-  url: 'https://zherczeg.github.com',
+  url: 'https://zherczeg.github.io',
   baseUrl: '/sljit/',
 
   organizationName: 'zherczeg',
