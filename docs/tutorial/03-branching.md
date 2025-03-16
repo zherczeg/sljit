@@ -104,7 +104,7 @@ int main()
 }
 ```
 
-*The complete source code of the example can be found [here](/docs/tutorial/sources/branch.c).*
+*The complete source code of the example can be found [here](sources/branch.c).*
 
 Building on these basic techniques, you can further use branches to generate a loop. So, given the following function body:
 
@@ -200,4 +200,4 @@ int main()
 
 The other conditionals and loops can be achieved very similarly.
 
-*The complete source code of the example can be found [here](/docs/tutorial/sources/loop.c).*
+*The complete source code of the example can be found [here](sources/loop.c).*

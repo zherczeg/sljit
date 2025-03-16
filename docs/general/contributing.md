@@ -1,3 +1,8 @@
+---
+sidebar_position: 5
+description: Contributing to SLJIT.
+---
+
 # Contributing
 
 SLJIT needs your help! You can contribute by:

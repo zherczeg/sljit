@@ -19,4 +19,4 @@ sljit_emit_op1(C, SLJIT_MOV_S32, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_S0), SLJIT_OFFSET
 
 And always keep in mind to use the correctly typed variant of `SLJIT_MOV`!
 
-*The complete source code of the example can be found [here](/docs/tutorial/sources/struct_access.c).*
+*The complete source code of the example can be found [here](sources/struct_access.c).*

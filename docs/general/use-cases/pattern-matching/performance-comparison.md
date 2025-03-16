@@ -16,7 +16,7 @@ This makes any performance comparison a difficult task, since a faster engine is
 Depending on the use case it might be enough to know whether a POSIX compatible regular expression matches a given line, without needing the actual position of the match (grep utility).
 Other use cases however require the position of capturing brackets, unicode support, conditional and atomic block support, just to name a few.
 The former case needs a less sophisticated algorithm, which is likely be much faster than the latter, but again, that does not mean the former is better.
-More about these engine types can be found [here](./comparison-of-regular-experssion-engine-types.md).
+More about these engine types can be found [here](regular-expression-engine-types.md).
 
 ## Participants
 
