@@ -715,6 +715,12 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_compiler_verbose(struct sljit_compiler *comp
    buffer which type is sljit_generate_code_buffer. */
 #define SLJIT_GENERATE_CODE_BUFFER		0x1
 
+/* When SLJIT_INDIRECT_CALL is defined, no function context is
+created for the generated code (see sljit_set_function_context),
+so the returned pointer cannot be directly called from C code.
+The flag is ignored when SLJIT_INDIRECT_CALL is not defined. */
+#define SLJIT_GENERATE_CODE_NO_CONTEXT		0x2
+
 /* Create executable code from the instruction stream. This is the final step
    of the code generation, and no more instructions can be emitted after this call.
 
