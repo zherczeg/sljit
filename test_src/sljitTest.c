@@ -9802,6 +9802,7 @@ int sljit_test(int argc, char* argv[])
 	test_buffer2();
 	test_buffer3();
 	test_buffer4();
+	test_buffer5();
 
 	test_serialize1();
 	test_serialize2();
@@ -9812,7 +9813,7 @@ int sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
-#	define TEST_COUNT 133
+#	define TEST_COUNT 134
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

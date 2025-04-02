@@ -625,18 +625,20 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	struct sljit_const *const_;
 
 	CHECK_ERROR_PTR();
-	CHECK_PTR(check_sljit_generate_code(compiler));
+	CHECK_PTR(check_sljit_generate_code(compiler, options));
 
 	reduce_code_size(compiler);
 
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+	if (!(options & SLJIT_GENERATE_CODE_NO_CONTEXT)) {
 	/* add to compiler->size additional instruction space to hold the trampoline and padding */
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	compiler->size += (compiler->size & 0x1) + (sizeof(struct sljit_function_context) / sizeof(sljit_ins));
-#else
-	compiler->size += (sizeof(struct sljit_function_context) / sizeof(sljit_ins));
-#endif
-#endif
+		compiler->size += (compiler->size & 0x1) + (sizeof(struct sljit_function_context) / sizeof(sljit_ins));
+#else /* !SLJIT_CONFIG_PPC_64 */
+		compiler->size += (sizeof(struct sljit_function_context) / sizeof(sljit_ins));
+#endif /* SLJIT_CONFIG_PPC_64 */
+	}
+#endif /* SLJIT_INDIRECT_CALL */
 	code = (sljit_ins*)allocate_executable_memory(compiler->size * sizeof(sljit_ins), options, exec_allocator_data, &executable_offset);
 	PTR_FAIL_WITH_EXEC_IF(code);
 
@@ -724,7 +726,8 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	SLJIT_ASSERT(!const_);
 
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
-	SLJIT_ASSERT(code_ptr - code <= (sljit_sw)(compiler->size - (sizeof(struct sljit_function_context) / sizeof(sljit_ins))));
+	SLJIT_ASSERT(code_ptr - code <= (sljit_sw)(compiler->size -
+		((options & SLJIT_GENERATE_CODE_NO_CONTEXT) ? 0 : (sizeof(struct sljit_function_context) / sizeof(sljit_ins)))));
 #else
 	SLJIT_ASSERT(code_ptr - code <= (sljit_sw)compiler->size);
 #endif
@@ -741,12 +744,14 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	code = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(code, executable_offset);
 
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
+	if (!(options & SLJIT_GENERATE_CODE_NO_CONTEXT)) {
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
-	if (((sljit_sw)code_ptr) & 0x4)
-		code_ptr++;
-#endif
-	sljit_set_function_context(NULL, (struct sljit_function_context*)code_ptr, (sljit_uw)code, (void*)sljit_generate_code);
-#endif
+		if (((sljit_sw)code_ptr) & 0x4)
+			code_ptr++;
+#endif /* SLJIT_CONFIG_PPC_64 */
+		sljit_set_function_context(NULL, (struct sljit_function_context*)code_ptr, (sljit_uw)code, (void*)sljit_generate_code);
+	}
+#endif /* SLJIT_INDIRECT_CALL */
 
 	code_ptr = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 
@@ -754,12 +759,14 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	SLJIT_UPDATE_WX_FLAGS(code, code_ptr, 1);
 
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
-	compiler->executable_size = (sljit_uw)(code_ptr - code) * sizeof(sljit_ins) + sizeof(struct sljit_function_context);
-	return code_ptr;
-#else
+	if (!(options & SLJIT_GENERATE_CODE_NO_CONTEXT)) {
+		compiler->executable_size = (sljit_uw)(code_ptr - code) * sizeof(sljit_ins) + sizeof(struct sljit_function_context);
+		return code_ptr;
+	}
+#endif /* SLJIT_INDIRECT_CALL */
+
 	compiler->executable_size = (sljit_uw)(code_ptr - code) * sizeof(sljit_ins);
 	return code;
-#endif
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)

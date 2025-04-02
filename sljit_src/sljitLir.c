@@ -1381,16 +1381,19 @@ static const char* op_addr_types[] = {
 #define SLJIT_SKIP_CHECKS(compiler) (compiler)->skip_checks = 1
 #define SLJIT_CHECK_OPCODE(op, flags) ((op) & ~(SLJIT_32 | ALL_STATUS_FLAGS_MASK | (flags)))
 
-static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_generate_code(struct sljit_compiler *compiler)
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	struct sljit_jump *jump;
 #endif /* SLJIT_ARGUMENT_CHECKS */
 
 	SLJIT_UNUSED_ARG(compiler);
+	SLJIT_UNUSED_ARG(options);
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
 	CHECK_ARGUMENT(compiler->size > 0);
+	CHECK_ARGUMENT((options & ~(SLJIT_GENERATE_CODE_BUFFER | SLJIT_GENERATE_CODE_NO_CONTEXT)) == 0);
+
 	jump = compiler->jumps;
 	while (jump) {
 		/* All jumps have target. */

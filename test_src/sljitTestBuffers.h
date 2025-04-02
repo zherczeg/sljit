@@ -38,10 +38,10 @@ static void test_buffer1(void)
 	if (verbose)
 		printf("Run test_buffer1\n");
 
+	FAILED(!compiler, "cannot create compiler\n");
+
 	for (i = 0; i < 8; i++)
 		buf[i] = ~(sljit_uw)0;
-
-	FAILED(!compiler, "cannot create compiler\n");
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 5, 5, 2 * sizeof(sljit_sw));
 
@@ -158,6 +158,8 @@ static void test_buffer2(void)
 
 	if (verbose)
 		printf("Run test_buffer2\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
 
 	buf[0] = -1;
 	buf[1] = -1;
@@ -290,6 +292,8 @@ static void test_buffer3(void)
 	if (verbose)
 		printf("Run test_buffer3\n");
 
+	FAILED(!compiler, "cannot create compiler\n");
+
 	ro_buffers[0].next = ro_buffers + 1;
 	ro_buffers[0].size = 4 * sizeof(sljit_sw);
 	ro_buffers[1].next = NULL;
@@ -417,6 +421,8 @@ static void test_buffer4(void)
 	if (verbose)
 		printf("Run test_buffer4\n");
 
+	FAILED(!compiler, "cannot create compiler\n");
+
 	for (i = 0; i < 8; i++)
 		buf[i] = ~(sljit_uw)0;
 	buf[3] = 60439;
@@ -485,6 +491,8 @@ static void test_buffer4(void)
 	addr[0] = sljit_get_label_abs_addr(ro_buffers[0].u.label);
 	addr[1] = sljit_get_label_abs_addr(ro_buffers[1].u.label);
 
+	sljit_free_compiler(compiler);
+
 	ptr_uw = (sljit_uw*)sljit_read_only_buffer_start_writing(addr[0], ro_buffers[0].size, executable_offset);
 	ptr_uw[0] = 0;
 	sljit_read_only_buffer_end_writing(addr[0], ro_buffers[0].size, executable_offset);
@@ -505,6 +513,114 @@ static void test_buffer4(void)
 	FAILED(buf[5] != addr[1] + 74901, "test_buffer4 case 8 failed\n");
 	FAILED(buf[6] != addr[1] - 84012, "test_buffer4 case 9 failed\n");
 	FAILED(buf[7] != 68531, "test_buffer4 case 10 failed\n");
+
+	sljit_free_code(code.code, NULL);
+	successful_tests++;
+}
+
+static void test_buffer5(void)
+{
+	/* Test code rewriting in buffers. */
+	executable_code code;
+	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
+	struct sljit_read_only_buffer ro_buffers[1];
+	struct sljit_generate_code_buffer code_buffer;
+	struct sljit_label *label[2];
+	sljit_sw executable_offset;
+	sljit_sw buf[3];
+	sljit_uw addr[2];
+	sljit_s32 i;
+	void *dyn_code;
+
+	if (verbose)
+		printf("Run test_buffer5\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	ro_buffers[0].next = NULL;
+	ro_buffers[0].size = 127;
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 5, 5, 8 * sizeof(sljit_sw));
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 0, SLJIT_IMM, -598461);
+	label[0] = sljit_emit_aligned_label(compiler, SLJIT_LABEL_ALIGN_1, ro_buffers);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM0(), 0);
+	label[1] = sljit_emit_label(compiler);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_IMM, 613802);
+	sljit_emit_return_void(compiler);
+
+	/* Initial code. */
+	code.code = sljit_generate_code(compiler, 0, NULL);
+	CHECK(compiler);
+
+	executable_offset = sljit_get_executable_offset(compiler);
+	addr[0] = sljit_get_label_abs_addr(label[0]);
+	addr[1] = sljit_get_label_addr(label[1]);
+
+	sljit_free_compiler(compiler);
+
+	compiler = sljit_create_compiler(NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_set_context(compiler, 0, SLJIT_ARGS1V(P), 5, 5, 8 * sizeof(sljit_sw));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_sw), SLJIT_IMM, -305814);
+	sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_IMM, (sljit_sw)addr[1]);
+
+	code_buffer.buffer = sljit_read_only_buffer_start_writing(addr[0], ro_buffers[0].size, executable_offset);
+	code_buffer.size = ro_buffers[0].size;
+	code_buffer.executable_offset = executable_offset;
+
+	dyn_code = sljit_generate_code(compiler, SLJIT_GENERATE_CODE_BUFFER | SLJIT_GENERATE_CODE_NO_CONTEXT, &code_buffer);
+	CHECK(compiler);
+#if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
+	FAILED((sljit_uw)dyn_code != addr[0] + 1, "test_buffer5 case 1 failed\n");
+#else /* !SLJIT_CONFIG_ARM_THUMB2 */
+	FAILED((sljit_uw)dyn_code != addr[0], "test_buffer5 case 1 failed\n");
+#endif
+
+	sljit_read_only_buffer_end_writing(addr[0], ro_buffers[0].size, executable_offset);
+	sljit_free_compiler(compiler);
+
+	for (i = 0; i < 3; i++)
+		buf[i] = -1;
+
+	code.func1((sljit_sw)&buf);
+	FAILED(buf[0] != -598461, "test_buffer5 case 2 failed\n");
+	FAILED(buf[1] != 613802, "test_buffer5 case 3 failed\n");
+	FAILED(buf[2] != -305814, "test_buffer5 case 4 failed\n");
+
+	/* Code modification. */
+	compiler = sljit_create_compiler(NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_set_context(compiler, 0, SLJIT_ARGS1V(P), 5, 5, 8 * sizeof(sljit_sw));
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_sw), SLJIT_S0, 0, SLJIT_IMM, 1);
+	sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_IMM, (sljit_sw)addr[1]);
+
+	code_buffer.buffer = sljit_read_only_buffer_start_writing(addr[0], ro_buffers[0].size, executable_offset);
+	code_buffer.size = ro_buffers[0].size;
+	code_buffer.executable_offset = executable_offset;
+
+	dyn_code = sljit_generate_code(compiler, SLJIT_GENERATE_CODE_BUFFER | SLJIT_GENERATE_CODE_NO_CONTEXT, &code_buffer);
+	CHECK(compiler);
+#if (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2)
+	FAILED((sljit_uw)dyn_code != addr[0] + 1, "test_buffer5 case 5 failed\n");
+#else /* !SLJIT_CONFIG_ARM_THUMB2 */
+	FAILED((sljit_uw)dyn_code != addr[0], "test_buffer5 case 5 failed\n");
+#endif
+
+	sljit_read_only_buffer_end_writing(addr[0], ro_buffers[0].size, executable_offset);
+	sljit_free_compiler(compiler);
+
+	for (i = 0; i < 3; i++)
+		buf[i] = -1;
+
+	code.func1((sljit_sw)&buf);
+	FAILED(buf[0] != -598461, "test_buffer5 case 6 failed\n");
+	FAILED(buf[1] != 613802, "test_buffer5 case 7 failed\n");
+	FAILED(buf[2] != (sljit_sw)buf + 1, "test_buffer5 case 8 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
