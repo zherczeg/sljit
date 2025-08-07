@@ -1917,7 +1917,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_icall(struct sljit_compiler *compi
 /* Perform an operation using the conditional flags as the second argument.
    Type must always be between SLJIT_EQUAL and SLJIT_ORDERED_LESS_EQUAL.
    The value represented by the type is 1, if the condition represented
-   by the type is fulfilled, and 0 otherwise.
+   by type is fulfilled, and 0 otherwise.
 
    When op is SLJIT_MOV or SLJIT_MOV32:
      Set dst to the value represented by the type (0 or 1).
@@ -1931,7 +1931,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	sljit_s32 type);
 
 /* Emit a conditional select instruction which moves src1 to dst_reg,
-   if the condition is satisfied, or src2_reg to dst_reg otherwise.
+   if the conditional flag is set, or src2_reg to dst_reg otherwise.
+   The conditional flag should be set before executing the select
+   instruction.
 
    type must be between SLJIT_EQUAL and SLJIT_ORDERED_LESS_EQUAL
    type can be combined (or'ed) with SLJIT_32 to move 32 bit
@@ -1949,8 +1951,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	sljit_s32 src2_reg);
 
 /* Emit a conditional floating point select instruction which moves
-   src1 to dst_reg, if the condition is satisfied, or src2_reg to
-   dst_reg otherwise.
+   src1 to dst_reg, if the conditional flag is set, or src2_reg to
+   dst_reg otherwise. The conditional flag should be set before
+   executing the select instruction.
 
    type must be between SLJIT_EQUAL and SLJIT_ORDERED_LESS_EQUAL
    type can be combined (or'ed) with SLJIT_32 to move 32 bit
