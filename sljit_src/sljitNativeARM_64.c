@@ -24,9 +24,15 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __ARM_FEATURE_ATOMICS
+#define ARM_ATOMIC_INFO " (LSE)"
+#else
+#define ARM_ATOMIC_INFO ""
+#endif
+
 SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
-	return "ARM-64" SLJIT_CPUINFO;
+	return "ARM-64" ARM_ATOMIC_INFO SLJIT_CPUINFO;
 }
 
 /* Length of an instruction word */
@@ -3450,6 +3456,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 {
 	sljit_ins ins;
 	sljit_ins cmp = 0;
+	SLJIT_UNUSED_ARG(temp_reg); /* !__ARM_FEATURE_ATOMICS */
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_atomic_store(compiler, op, src_reg, mem_reg, temp_reg));
