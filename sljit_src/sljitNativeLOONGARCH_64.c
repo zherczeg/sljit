@@ -53,7 +53,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 };
 
 /* --------------------------------------------------------------------- */
-/*  Instruction forms                                                     */
+/*  Instruction forms                                                    */
 /* --------------------------------------------------------------------- */
 
 /*
@@ -372,18 +372,23 @@ lower parts in the instruction word, denoted by the “L” and “H” suffixes
 
 #define INST(inst, type) ((sljit_ins)((type & SLJIT_32) ? inst##_W : inst##_D))
 
+#ifdef __loongarch_soft_float
+#define SLJIT_IS_FPU_AVAILABLE		0
+#endif
+
 /* LoongArch CPUCFG register for feature detection */
 #define LOONGARCH_CFG2			0x02
-#define LOONGARCH_CFG2_LAMCAS	(1 << 28)
+#define LOONGARCH_CFG2_LAMCAS		(1 << 28)
 
 static sljit_u32 cfg2_feature_list = 0;
 
-/* According to Software Development and Build Convention for LoongArch Architectures,
-+   the status of LSX and LASX extension must be checked through HWCAP */
+/* According to Software Development and Build Convention for LoongArch
+   Architectures, the status of LSX and LASX extension must be checked
+   through HWCAP */
 #include <sys/auxv.h>
 
 #define LOONGARCH_HWCAP_LSX		(1 << 4)
-#define LOONGARCH_HWCAP_LASX	(1 << 5)
+#define LOONGARCH_HWCAP_LASX		(1 << 5)
 
 static sljit_u32 hwcap_feature_list = 0;
 
@@ -834,13 +839,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		/* Available by default. */
 		return 1;
 #endif
-
+#if !defined(SLJIT_IS_FPU_AVAILABLE) || SLJIT_IS_FPU_AVAILABLE != 0
 	case SLJIT_HAS_LASX:
 		return (LOONGARCH_HWCAP_LASX & get_cpu_features(GET_HWCAP));
 
 	case SLJIT_HAS_SIMD:
 		return (LOONGARCH_HWCAP_LSX & get_cpu_features(GET_HWCAP));
-
+#endif
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_CTZ:
 	case SLJIT_HAS_REV:
