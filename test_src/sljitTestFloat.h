@@ -2936,23 +2936,23 @@ static void test_float23(void)
 	/* dbuf[1] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
 
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (sljit_sw)(dbuf + 47) - WCONST(0x642e42e42e42e42e, 0x642e42e4));
-	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_TMP_DEST_FREG, 0, SLJIT_MEM1(SLJIT_TMP_MEM_REG), WCONST(0x642e42e42e42e42e, 0x642e42e4));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, (sljit_sw)(dbuf + 47) - WCONST(0x642e42e42e42e42e, 0x642e42e4));
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_TMP_DEST_FREG, 0, SLJIT_MEM1(SLJIT_TMP_DEST_REG), WCONST(0x642e42e42e42e42e, 0x642e42e4));
 	/* dbuf[2] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
 
 	sljit_emit_fset64(compiler, SLJIT_FR0, 823412786.25);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_f64), SLJIT_FR0, 0);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_TMP_DEST_FREG, 0, SLJIT_MEM1(SLJIT_SP), sizeof(sljit_f64));
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (sljit_sw)(dbuf + 3) - WCONST(0x3a8ba8ba8ba8ba8b, 0x3a8ba8ba));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, (sljit_sw)(dbuf + 3) - WCONST(0x3a8ba8ba8ba8ba8b, 0x3a8ba8ba));
 	/* dbuf[3] */
-	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_TMP_MEM_REG), WCONST(0x3a8ba8ba8ba8ba8b, 0x3a8ba8ba), SLJIT_TMP_DEST_FREG, 0);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_TMP_DEST_REG), WCONST(0x3a8ba8ba8ba8ba8b, 0x3a8ba8ba), SLJIT_TMP_DEST_FREG, 0);
 
 	sljit_emit_fset32(compiler, SLJIT_FR3, -583562.5);
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_TMP_DEST_FREG, 0, SLJIT_FR3, 0);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (4 * sizeof(sljit_f64)) >> 1);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, (4 * sizeof(sljit_f64)) >> 1);
 	/* dbuf[4] */
-	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM2(SLJIT_S0, SLJIT_TMP_MEM_REG), 1, SLJIT_TMP_DEST_FREG, 0);
+	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM2(SLJIT_S0, SLJIT_TMP_DEST_REG), 1, SLJIT_TMP_DEST_FREG, 0);
 
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_TMP_DEST_FREG, 0, SLJIT_MEM1(SLJIT_S0), 43 * sizeof(sljit_f64));
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR1, 0, SLJIT_MEM1(SLJIT_S0), 47 * sizeof(sljit_f64));
@@ -2997,17 +2997,17 @@ static void test_float23(void)
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 13 * sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
 
 	sljit_emit_fset64(compiler, SLJIT_TMP_DEST_FREG, 5173049682.25);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (sljit_sw)(dbuf + 46) + WCONST(0x13b73b73b73b73b7, 0x13b73b73));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, (sljit_sw)(dbuf + 46) + WCONST(0x13b73b73b73b73b7, 0x13b73b73));
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 8);
 	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_SIG_GREATER_EQUAL, SLJIT_R0, 0, SLJIT_IMM, 10);
-	sljit_emit_fselect(compiler, SLJIT_SIG_GREATER_EQUAL, SLJIT_TMP_DEST_FREG, SLJIT_MEM1(SLJIT_TMP_MEM_REG), -WCONST(0x13b73b73b73b73b7, 0x13b73b73), SLJIT_TMP_DEST_FREG);
+	sljit_emit_fselect(compiler, SLJIT_SIG_GREATER_EQUAL, SLJIT_TMP_DEST_FREG, SLJIT_MEM1(SLJIT_TMP_DEST_REG), -WCONST(0x13b73b73b73b73b7, 0x13b73b73), SLJIT_TMP_DEST_FREG);
 	/* dbuf[14] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 14 * sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
 
 	sljit_emit_fset32(compiler, SLJIT_TMP_DEST_FREG, 51730.5f);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (sljit_sw)(dbuf + 45) - WCONST(0x768e68e68e68e68e, 0x768e68e6));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, (sljit_sw)(dbuf + 45) - WCONST(0x768e68e68e68e68e, 0x768e68e6));
 	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_SIG_GREATER_EQUAL, SLJIT_R0, 0, SLJIT_IMM, -10);
-	sljit_emit_fselect(compiler, SLJIT_SIG_GREATER_EQUAL | SLJIT_32, SLJIT_TMP_DEST_FREG, SLJIT_MEM1(SLJIT_TMP_MEM_REG), WCONST(0x768e68e68e68e68e, 0x768e68e6), SLJIT_TMP_DEST_FREG);
+	sljit_emit_fselect(compiler, SLJIT_SIG_GREATER_EQUAL | SLJIT_32, SLJIT_TMP_DEST_FREG, SLJIT_MEM1(SLJIT_TMP_DEST_REG), WCONST(0x768e68e68e68e68e, 0x768e68e6), SLJIT_TMP_DEST_FREG);
 	/* dbuf[15] */
 	sljit_emit_fop1(compiler, SLJIT_MOV_F32, SLJIT_MEM1(SLJIT_S0), 15 * sizeof(sljit_f64), SLJIT_TMP_DEST_FREG, 0);
 

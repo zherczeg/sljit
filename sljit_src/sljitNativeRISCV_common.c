@@ -3738,6 +3738,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	sljit_u16 *ptr;
 	sljit_uw size;
 	sljit_ins ins;
+	sljit_s32 cond_is_1;
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 	sljit_ins word = (sljit_ins)(type & SLJIT_32) >> 5;
 	sljit_s32 inp_flags = ((type & SLJIT_32) ? INT_DATA : WORD_DATA) | LOAD_DATA;
@@ -3772,6 +3773,37 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		}
 	}
 
+	type &= ~SLJIT_32;
+
+	if (src1 == SLJIT_IMM && (src1w <= 0 && src1w >= -1)) {
+		src1 = OTHER_FLAG;
+
+		if (type == SLJIT_EQUAL || type == SLJIT_NOT_EQUAL) {
+			FAIL_IF(push_inst(compiler, SLTUI | RD(TMP_REG1) | RS1(EQUAL_FLAG) | IMM_I(1)));
+			src1 = TMP_REG1;
+			cond_is_1 = (type == SLJIT_EQUAL);
+		} else {
+			/* BEQ instruction (type is inverted). */
+			cond_is_1 = (get_jump_instruction(type) & F3(0x1)) == 0;
+		}
+
+		if (src1w == 0) {
+			if (cond_is_1)
+				FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG1) | RS1(src1) | IMM_I(-1)));
+			else
+				FAIL_IF(push_inst(compiler, SUB | RD(TMP_REG1) | RS1(TMP_ZERO) | RS2(src1)));
+
+			return push_inst(compiler, AND | RD(dst_reg) | RS1(dst_reg) | RS2(TMP_REG1));
+		}
+
+		if (cond_is_1)
+			FAIL_IF(push_inst(compiler, SUB | RD(TMP_REG1) | RS1(TMP_ZERO) | RS2(src1)));
+		else
+			FAIL_IF(push_inst(compiler, ADDI | RD(TMP_REG1) | RS1(src1) | IMM_I(-1)));
+
+		return push_inst(compiler, OR | RD(dst_reg) | RS1(dst_reg) | RS2(TMP_REG1));
+	}
+
 	size = compiler->size;
 
 	ptr = (sljit_u16 *)ensure_buf(compiler, sizeof(sljit_ins));
@@ -3790,7 +3822,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		FAIL_IF(push_inst(compiler, ADDI | WORD | RD(dst_reg) | RS1(src1) | IMM_I(0)));
 
 	size = compiler->size - size;
-	ins = get_jump_instruction(type & ~SLJIT_32) | (sljit_ins)((size & 0xf) << 8) | (sljit_ins)((size >> 4) << 25);
+	ins = get_jump_instruction(type) | (sljit_ins)((size & 0xf) << 8) | (sljit_ins)((size >> 4) << 25);
 	ptr[0] = (sljit_u16)ins;
 	ptr[1] = (sljit_u16)(ins >> 16);
 	return SLJIT_SUCCESS;

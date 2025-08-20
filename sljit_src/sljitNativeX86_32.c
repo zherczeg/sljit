@@ -1296,11 +1296,17 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		}
 	}
 
-	if (sljit_has_cpu_feature(SLJIT_HAS_CMOV) && (src1 != SLJIT_IMM || dst_reg != TMP_REG1)) {
+	if (sljit_has_cpu_feature(SLJIT_HAS_CMOV)) {
 		if (SLJIT_UNLIKELY(src1 == SLJIT_IMM)) {
-			EMIT_MOV(compiler, TMP_REG1, 0, src1, src1w);
-			src1 = TMP_REG1;
-			src1w = 0;
+			if (dst_reg != TMP_REG1) {
+				EMIT_MOV(compiler, TMP_REG1, 0, SLJIT_IMM, src1w);
+				src1 = TMP_REG1;
+				src1w = 0;
+			} else {
+				EMIT_MOV(compiler, SLJIT_MEM1(SLJIT_SP), 0, SLJIT_IMM, src1w);
+				src1 = SLJIT_MEM1(SLJIT_SP);
+				src1w = 0;
+			}
 		}
 
 		FAIL_IF(emit_groupf(compiler, U8(get_jump_code((sljit_uw)type) - 0x40), dst_reg, src1, src1w));
