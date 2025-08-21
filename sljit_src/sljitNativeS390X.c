@@ -93,9 +93,6 @@ static const sljit_gpr r15 = 15;	/* reg_map[SLJIT_NUMBER_OF_REGISTERS + 1]: stac
 #define tmp0	r0
 #define tmp1	r1
 
-/* When reg cannot be unused. */
-#define IS_GPR_REG(reg)		((reg > 0) && (reg) <= SLJIT_SP)
-
 /* Link register. */
 static const sljit_gpr link_r = 14;     /* r14 */
 
@@ -1037,7 +1034,7 @@ static sljit_s32 emit_move(struct sljit_compiler *compiler,
 {
 	sljit_gpr src_r;
 
-	SLJIT_ASSERT(!IS_GPR_REG(src) || dst_r != gpr(src & REG_MASK));
+	SLJIT_ASSERT(!FAST_IS_REG(src) || dst_r != gpr(src & REG_MASK));
 
 	if (src == SLJIT_IMM)
 		return push_load_imm_inst(compiler, dst_r, srcw);
@@ -2677,7 +2674,7 @@ static sljit_s32 sljit_emit_bitwise_imm(struct sljit_compiler *compiler, sljit_s
 	sljit_gpr dst_r = tmp0;
 	sljit_s32 needs_move = 1;
 
-	if (IS_GPR_REG(dst)) {
+	if (FAST_IS_REG(dst)) {
 		dst_r = gpr(dst & REG_MASK);
 		if (dst == src1)
 			needs_move = 0;

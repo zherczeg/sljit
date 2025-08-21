@@ -301,8 +301,8 @@ static void test_buffer3(void)
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS3V(P, P, P), 5, 5, 2 * sizeof(sljit_sw));
 
-	jump[0] = sljit_emit_op_addr(compiler, SLJIT_MOV_ABS_ADDR, SLJIT_TMP_MEM_REG, 0);
-	sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_MEM2(SLJIT_TMP_MEM_REG, SLJIT_S1), SLJIT_WORD_SHIFT);
+	jump[0] = sljit_emit_op_addr(compiler, SLJIT_MOV_ABS_ADDR, SLJIT_TMP_DEST_REG, 0);
+	sljit_emit_ijump(compiler, SLJIT_JUMP, SLJIT_MEM2(SLJIT_TMP_DEST_REG, SLJIT_S1), SLJIT_WORD_SHIFT);
 
 	label[0] = sljit_emit_label(compiler);
 	/* buf[0] */
@@ -328,8 +328,8 @@ static void test_buffer3(void)
 	sljit_set_label(jump[2], label[4]);
 	sljit_set_label(jump[3], label[4]);
 
-	jump[1] = sljit_emit_op_addr(compiler, SLJIT_MOV_ABS_ADDR, SLJIT_TMP_MEM_REG, 0);
-	sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_MEM2(SLJIT_TMP_MEM_REG, SLJIT_S2), 0);
+	jump[1] = sljit_emit_op_addr(compiler, SLJIT_MOV_ABS_ADDR, SLJIT_TMP_DEST_REG, 0);
+	sljit_emit_ijump(compiler, SLJIT_FAST_CALL, SLJIT_MEM2(SLJIT_TMP_DEST_REG, SLJIT_S2), 0);
 
 	sljit_emit_return_void(compiler);
 

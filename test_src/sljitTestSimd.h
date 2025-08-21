@@ -2460,15 +2460,15 @@ static void test_simd9(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), 0, SLJIT_TMP_DEST_REG, 0);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_16 | SLJIT_SIMD_MEM_ALIGNED_128;
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (sljit_sw)(buf + 16) + WCONST(0x4d63d63d63d63d63, 0x4d63d63d));
-	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_TMP_DEST_VREG, SLJIT_MEM1(SLJIT_TMP_MEM_REG), -WCONST(0x4d63d63d63d63d63, 0x4d63d63d));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, (sljit_sw)(buf + 16) + WCONST(0x4d63d63d63d63d63, 0x4d63d63d));
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_TMP_DEST_VREG, SLJIT_MEM1(SLJIT_TMP_DEST_REG), -WCONST(0x4d63d63d63d63d63, 0x4d63d63d));
 	/* wbuf[1] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_sw), SLJIT_TMP_MEM_REG, 0);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (sljit_sw)(buf + 112) - WCONST(0x739f39f39f39f39f, 0x739f39f3));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, (sljit_sw)(buf + 112) - WCONST(0x739f39f39f39f39f, 0x739f39f3));
 	/* buf[112] */
-	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_TMP_DEST_VREG, SLJIT_MEM1(SLJIT_TMP_MEM_REG), WCONST(0x739f39f39f39f39f, 0x739f39f3));
+	sljit_emit_simd_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_TMP_DEST_VREG, SLJIT_MEM1(SLJIT_TMP_DEST_REG), WCONST(0x739f39f39f39f39f, 0x739f39f3));
 	/* wbuf[2] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), 2 * sizeof(sljit_sw), SLJIT_TMP_MEM_REG, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), 2 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_16;
 	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR0, SLJIT_MEM1(SLJIT_S0), 32);
@@ -2487,12 +2487,12 @@ static void test_simd9(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), 5 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_32;
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (sljit_sw)(wbuf + 6) - WCONST(0x4261261261261261, 0x42612612));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, (sljit_sw)(wbuf + 6) - WCONST(0x4261261261261261, 0x42612612));
 	sljit_emit_simd_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR0, SLJIT_MEM1(SLJIT_S0), 32);
-	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR0, 3, SLJIT_MEM1(SLJIT_TMP_MEM_REG), WCONST(0x4261261261261261, 0x42612612));
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_MEM_REG, 0, SLJIT_IMM, (sljit_sw)(wbuf + 7) + WCONST(0x57d37d37d37d37d3, 0x57d37d37));
+	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_LOAD | type, SLJIT_VR0, 3, SLJIT_MEM1(SLJIT_TMP_DEST_REG), WCONST(0x4261261261261261, 0x42612612));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, (sljit_sw)(wbuf + 7) + WCONST(0x57d37d37d37d37d3, 0x57d37d37));
 	/* wbuf[7] */
-	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_VR0, 3, SLJIT_MEM1(SLJIT_TMP_MEM_REG), -WCONST(0x57d37d37d37d37d3, 0x57d37d37));
+	sljit_emit_simd_lane_mov(compiler, SLJIT_SIMD_STORE | type, SLJIT_VR0, 3, SLJIT_MEM1(SLJIT_TMP_DEST_REG), -WCONST(0x57d37d37d37d37d3, 0x57d37d37));
 
 	type = SLJIT_SIMD_REG_128 | SLJIT_SIMD_ELEM_32;
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, 0x5763a80);

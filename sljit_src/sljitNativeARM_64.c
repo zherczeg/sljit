@@ -97,6 +97,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #define CLZ		0xdac01000
 #define CSEL		0x9a800000
 #define CSINC		0x9a800400
+#define CSINV		0xda800000
 #define DMB_SY		0xd5033fbf
 #define DUP_e		0x0e000400
 #define DUP_g		0x0e000c00
@@ -2643,6 +2644,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	sljit_s32 src2_reg)
 {
 	sljit_ins inv_bits = (type & SLJIT_32) ? W_OP : 0;
+	sljit_ins op = CSEL;
 	sljit_ins cc;
 
 	CHECK_ERROR();
@@ -2653,15 +2655,26 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	if (src1 == SLJIT_IMM) {
 		if (type & SLJIT_32)
 			src1w = (sljit_s32)src1w;
-		FAIL_IF(load_immediate(compiler, TMP_REG2, src1w));
-		src1 = TMP_REG2;
+
+		if (src1w <= 1 && src1w >= -1) {
+			src1 = TMP_ZERO;
+			if (src1w == 1)
+				op = CSINC;
+			else if (src1w == -1)
+				op = CSINV;
+
+			src1w = 0;
+		} else {
+			FAIL_IF(load_immediate(compiler, TMP_REG2, src1w));
+			src1 = TMP_REG2;
+		}
 	} else if (src1 & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, WORD_SIZE, TMP_REG2, src1, src1w, TMP_REG2));
 		src1 = TMP_REG2;
 	}
 
 	cc = get_cc(compiler, type & ~SLJIT_32);
-	return push_inst(compiler, (CSEL ^ inv_bits) | (cc << 12) | RD(dst_reg) | RN(src2_reg) | RM(src1));
+	return push_inst(compiler, (op ^ inv_bits) | (cc << 12) | RD(dst_reg) | RN(src2_reg) | RM(src1));
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *compiler, sljit_s32 type,
