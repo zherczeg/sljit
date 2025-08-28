@@ -9644,13 +9644,16 @@ static void test79(void)
 	executable_code code;
 	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
 	sljit_s32 i;
-	sljit_sw buf[19];
+	sljit_sw buf[23];
 
 	if (verbose)
 		printf("Run test79\n");
 
-	for (i = 0; i < 19; i++)
+	for (i = 0; i < 23; i++)
 		buf[i] = -1;
+
+	buf[20] = WCONST(0xe56c91d40f839ba7, 0xe56c91d4);
+	buf[22] = WCONST(0x748bd902ca1f623f, 0x748bd902);
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -9769,6 +9772,23 @@ static void test79(void)
 		/* buf[18] */
 		sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 18 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
 	}
+
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R2, 0, SLJIT_S0, 0, SLJIT_IMM, 19 * sizeof(sljit_sw));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, (sljit_sw)(buf + 20) - WCONST(0x3f5872cba61409e4, 0x3f5872cb));
+	// Result is SLJIT_TMP_OPT_REG, but the addressing does not use SLJIT_TMP_OPT_REG.
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_OPT_REG, 0, SLJIT_MEM1(SLJIT_TMP_DEST_REG), WCONST(0x3f5872cba61409e4, 0x3f5872cb));
+	/* buf[19] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_R2), 0, SLJIT_TMP_OPT_REG, 0);
+	/* buf[20] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_R2), sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_S1, 0, SLJIT_S0, 0, SLJIT_IMM, 21 * sizeof(sljit_sw));
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, 22);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_OPT_REG, 0, SLJIT_MEM2(SLJIT_S0, SLJIT_TMP_DEST_REG), SLJIT_WORD_SHIFT);
+	/* buf[21] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), 0, SLJIT_TMP_OPT_REG, 0);
+	/* buf[22] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
 #endif /* SLJIT_TMP_OPT_REG */
 
 	sljit_emit_return_void(compiler);
@@ -9802,6 +9822,10 @@ static void test79(void)
 		FAILED(buf[17] != WCONST(0x70841cfa5a9ef592, 0x7086f592), "test79 case 18 failed\n");
 		FAILED(buf[18] != WCONST(0x34a6f809ef23d1b2, 0x8d29f46c), "test79 case 19 failed\n");
 	}
+	FAILED(buf[19] != WCONST(0xe56c91d40f839ba7, 0xe56c91d4), "test79 case 20 failed\n");
+	FAILED(buf[20] != (sljit_sw)(buf + 20) - WCONST(0x3f5872cba61409e4, 0x3f5872cb), "test79 case 21 failed\n");
+	FAILED(buf[21] != WCONST(0x748bd902ca1f623f, 0x748bd902), "test79 case 22 failed\n");
+	FAILED(buf[22] != 22, "test79 case 23 failed\n");
 #endif /* SLJIT_TMP_OPT_REG */
 
 	sljit_free_code(code.code, NULL);
