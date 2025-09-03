@@ -2343,7 +2343,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop1(struct sljit_compiler *compil
 			FAIL_IF(push_inst(compiler, FRSP | FD(dst_r) | FB(src)));
 			break;
 		}
-		/* Fall through. */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case SLJIT_MOV_F64:
 		if (src != dst_r) {
 			if (!(dst & SLJIT_MEM))

@@ -905,7 +905,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			if (flags & ARG1_IMM)
 				break;
 			imm = -imm;
-			/* Fall through. */
+			SLJIT_FALLTHROUGH; /* fallthrough */
 		case SLJIT_ADD:
 			if (op != SLJIT_SUB)
 				compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD;
