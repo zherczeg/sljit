@@ -2181,7 +2181,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			FAIL_IF(push_inst(compiler, SELECT_OP(DSUBU, SUBU) | SA(0) | T(src2) | D(TMP_REG2), DR(TMP_REG2)));
 			src2 = TMP_REG2;
 		}
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 
 	case SLJIT_ROTR:
 		EMIT_SHIFT(DROTR, DROTR32, ROTR, DROTRV, ROTRV);
@@ -2648,7 +2648,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		if ((src1 == SLJIT_IMM && src1w == -1) || (src2 == SLJIT_IMM && src2w == -1)) {
 			return emit_op(compiler, op, flags | CUMULATIVE_OP | IMM_OP, dst, dstw, src1, src1w, src2, src2w);
 		}
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case SLJIT_AND:
 	case SLJIT_OR:
 		return emit_op(compiler, op, flags | CUMULATIVE_OP | LOGICAL_OP | IMM_OP, dst, dstw, src1, src1w, src2, src2w);
@@ -4423,7 +4423,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 #if (defined(SLJIT_CONFIG_MIPS_64) && SLJIT_CONFIG_MIPS_64)
 	case SLJIT_MOV32:
 		mem_flags = INT_DATA;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case SLJIT_MOV_S32:
 		PTR_FAIL_IF(push_inst(compiler, LUI | T(dst_r) | IMM(init_value >> 16), DR(dst_r)));
 		PTR_FAIL_IF(push_inst(compiler, ORI | S(dst_r) | T(dst_r) | IMM(init_value), DR(dst_r)));

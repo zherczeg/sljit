@@ -1704,7 +1704,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		op |= SLJIT_32;
 #endif /* SLJIT_CONFIG_PPC_64 */
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case SLJIT_REV:
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
@@ -1946,7 +1946,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2(struct sljit_compiler *compile
 		if (src1 == SLJIT_IMM && src1w == -1) {
 			return emit_op(compiler, GET_OPCODE(op), flags | ALT_FORM4, dst, dstw, TMP_REG1, 0, src2, src2w);
 		}
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case SLJIT_AND:
 	case SLJIT_OR:
 		/* Commutative unsigned operations. */
@@ -2528,7 +2528,7 @@ static sljit_ins get_bo_bi_flags(struct sljit_compiler *compiler, sljit_s32 type
 	case SLJIT_NOT_CARRY:
 		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_SUB)
 			return (4 << 21) | (2 << 16);
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 
 	case SLJIT_EQUAL:
 	case SLJIT_ATOMIC_STORED:
@@ -2537,7 +2537,7 @@ static sljit_ins get_bo_bi_flags(struct sljit_compiler *compiler, sljit_s32 type
 	case SLJIT_CARRY:
 		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_SUB)
 			return (12 << 21) | (2 << 16);
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 
 	case SLJIT_NOT_EQUAL:
 	case SLJIT_ATOMIC_NOT_STORED:
@@ -3323,7 +3323,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	case SLJIT_MOV32:
 		mem_flags = INT_DATA;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case SLJIT_MOV_S32:
 		PTR_FAIL_IF(push_inst(compiler, ADDIS | D(dst_r) | A(0) | IMM(init_value >> 16)));
 		PTR_FAIL_IF(push_inst(compiler, ORI | S(dst_r) | A(dst_r) | IMM(init_value)));

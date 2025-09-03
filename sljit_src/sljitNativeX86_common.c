@@ -4060,7 +4060,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_replicate(struct sljit_compil
 		else
 			FAIL_IF(emit_groupf(compiler, PSHUFLW_x_xm | EX86_PREF_F2 | EX86_SSE2, vreg, vreg, 0));
 		FAIL_IF(emit_byte(compiler, 0));
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	default:
 		if (use_vex)
 			FAIL_IF(emit_vex_instruction(compiler, PSHUFD_x_xm | EX86_PREF_66 | EX86_SSE2, vreg, 0, vreg, 0));
@@ -4634,7 +4634,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_simd_lane_replicate(struct sljit_c
 			return emit_vex_instruction(compiler, VPBROADCASTD_x_xm | EX86_PREF_66 | VEX_OP_0F38 | EX86_SSE2, vreg, 0, vreg, 0);
 
 		src = vreg;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case 2:
 		byte = U8(src_lane_index);
 		byte = U8(byte | (byte << 2));

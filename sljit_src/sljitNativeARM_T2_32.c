@@ -1042,7 +1042,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 				return push_inst32(compiler, ASR_WI | (flags & SET_FLAGS) | RD4(dst) | RM4(reg) | IMM5(imm));
 			case SLJIT_ROTL:
 				imm = (imm ^ 0x1f) + 1;
-				/* fallthrough */
+				SLJIT_FALLTHROUGH; /* fallthrough */
 			default: /* SLJIT_ROTR */
 				return push_inst32(compiler, ROR_WI | RD4(dst) | RM4(reg) | IMM5(imm));
 			}
@@ -1178,7 +1178,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		reg = (arg2 == TMP_REG1) ? TMP_REG1 : TMP_REG2;
 		FAIL_IF(push_inst32(compiler, ANDI | RD4(reg) | RN4(arg2) | 0x1f));
 		arg2 = (sljit_uw)reg;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case SLJIT_SHL:
 		if (dst == (sljit_s32)arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, LSLS | RD3(dst) | RN3(arg2));
@@ -1187,7 +1187,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		reg = (arg2 == TMP_REG1) ? TMP_REG1 : TMP_REG2;
 		FAIL_IF(push_inst32(compiler, ANDI | RD4(reg) | RN4(arg2) | 0x1f));
 		arg2 = (sljit_uw)reg;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case SLJIT_LSHR:
 		if (dst == (sljit_s32)arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, LSRS | RD3(dst) | RN3(arg2));
@@ -1196,7 +1196,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		reg = (arg2 == TMP_REG1) ? TMP_REG1 : TMP_REG2;
 		FAIL_IF(push_inst32(compiler, ANDI | RD4(reg) | RN4(arg2) | 0x1f));
 		arg2 = (sljit_uw)reg;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case SLJIT_ASHR:
 		if (dst == (sljit_s32)arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, ASRS | RD3(dst) | RN3(arg2));
@@ -1205,7 +1205,7 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		reg = (arg2 == TMP_REG1) ? TMP_REG1 : TMP_REG2;
 		FAIL_IF(push_inst32(compiler, RSB_WI | RD4(reg) | RN4(arg2) | 0));
 		arg2 = (sljit_uw)reg;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 	case SLJIT_ROTR:
 		if (dst == (sljit_s32)arg1 && IS_2_LO_REGS(dst, arg2))
 			return push_inst16(compiler, RORS | RD3(dst) | RN3(arg2));
@@ -2653,7 +2653,7 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_CARRY:
 		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD)
 			return 0x2;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 
 	case SLJIT_LESS:
 		return 0x3;
@@ -2661,7 +2661,7 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_NOT_CARRY:
 		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD)
 			return 0x3;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 
 	case SLJIT_GREATER_EQUAL:
 		return 0x2;
@@ -2696,7 +2696,7 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_OVERFLOW:
 		if (!(compiler->status_flags_state & (SLJIT_CURRENT_FLAGS_ADD | SLJIT_CURRENT_FLAGS_SUB)))
 			return 0x1;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 
 	case SLJIT_UNORDERED:
 		return 0x6;
@@ -2704,7 +2704,7 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_NOT_OVERFLOW:
 		if (!(compiler->status_flags_state & (SLJIT_CURRENT_FLAGS_ADD | SLJIT_CURRENT_FLAGS_SUB)))
 			return 0x0;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH; /* fallthrough */
 
 	case SLJIT_ORDERED:
 		return 0x7;
