@@ -980,9 +980,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #endif
 #endif
 
+#if !defined(__clang_major__) || __clang_major__ >= 6
 #if defined(__has_attribute) && !defined(SLJIT_FALLTHROUGH)
 #if __has_attribute(__fallthrough__)
 #define SLJIT_FALLTHROUGH __attribute__((__fallthrough__))
+#endif
 #endif
 #endif
 
