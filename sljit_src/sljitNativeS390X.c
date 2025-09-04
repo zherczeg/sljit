@@ -168,7 +168,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 				return (cc0 | cc3);
 			return (cc0 | cc2);
 		}
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_ATOMIC_STORED:
 	case SLJIT_F_EQUAL:
@@ -184,7 +184,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 				return (cc1 | cc2);
 			return (cc1 | cc3);
 		}
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_UNORDERED_OR_NOT_EQUAL:
 		return (cc1 | cc2 | cc3);
@@ -215,7 +215,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 	case SLJIT_NOT_CARRY:
 		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_SUB)
 			return (cc2 | cc3);
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_SIG_LESS_EQUAL:
 	case SLJIT_F_LESS_EQUAL:
@@ -225,7 +225,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 	case SLJIT_CARRY:
 		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_SUB)
 			return (cc0 | cc1);
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_SIG_GREATER:
 	case SLJIT_UNORDERED_OR_GREATER:
@@ -238,7 +238,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 	case SLJIT_OVERFLOW:
 		if (compiler->status_flags_state & SLJIT_SET_Z)
 			return (cc2 | cc3);
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_UNORDERED:
 		return cc3;
@@ -246,7 +246,7 @@ static SLJIT_INLINE sljit_u8 get_cc(struct sljit_compiler *compiler, sljit_s32 t
 	case SLJIT_NOT_OVERFLOW:
 		if (compiler->status_flags_state & SLJIT_SET_Z)
 			return (cc0 | cc1);
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_ORDERED:
 		return (cc0 | cc1 | cc2);
@@ -2361,7 +2361,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 	case SLJIT_REV_U32:
 	case SLJIT_REV_S32:
 		op |= SLJIT_32;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 	case SLJIT_REV:
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
@@ -3810,7 +3810,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 		break;
 	case SLJIT_MOV32:
 		op |= SLJIT_32;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 	case SLJIT_MOV:
 		/* can write straight into destination */
 		loc_r = dst_r;
@@ -4593,7 +4593,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 
 	case SLJIT_MOV32:
 		is_32 = 1;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 	case SLJIT_MOV_S32:
 		PTR_FAIL_IF(push_inst(compiler, 0xc00100000000 /* lgfi */ | R36A(dst_r) | (sljit_ins)(init_value & 0xffffffff)));
 		break;
