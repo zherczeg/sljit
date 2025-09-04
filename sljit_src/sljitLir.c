@@ -2805,7 +2805,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 	case SLJIT_MOV_P:
 	case SLJIT_MOV:
 		allowed_flags |= SLJIT_MEM_ALIGNED_32;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV_S32:
 	case SLJIT_MOV32:

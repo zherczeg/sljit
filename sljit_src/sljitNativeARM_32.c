@@ -1820,7 +1820,7 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 			src2 = TMP_REG2;
 		} else
 			compiler->shift_imm = (sljit_uw)(-(sljit_sw)compiler->shift_imm) & 0x1f;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_ROTR:
 		shift_type = 3;
@@ -3089,7 +3089,7 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_CARRY:
 		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD)
 			return 0x20000000;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_LESS:
 		return 0x30000000;
@@ -3097,7 +3097,7 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_NOT_CARRY:
 		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD)
 			return 0x30000000;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_GREATER_EQUAL:
 		return 0x20000000;
@@ -3132,7 +3132,7 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_OVERFLOW:
 		if (!(compiler->status_flags_state & (SLJIT_CURRENT_FLAGS_ADD | SLJIT_CURRENT_FLAGS_SUB)))
 			return 0x10000000;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_UNORDERED:
 		return 0x60000000;
@@ -3140,7 +3140,7 @@ static sljit_ins get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 	case SLJIT_NOT_OVERFLOW:
 		if (!(compiler->status_flags_state & (SLJIT_CURRENT_FLAGS_ADD | SLJIT_CURRENT_FLAGS_SUB)))
 			return 0x00000000;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 
 	case SLJIT_ORDERED:
 		return 0x70000000;
