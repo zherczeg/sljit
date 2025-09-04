@@ -18,7 +18,7 @@ OPT_FLAGS = -O2
 endif
 
 ifndef WARN_FLAGS
-WARN_FLAGS = -Wall -Wextra -Wconversion -Wsign-compare -Wdeclaration-after-statement -Wunused-function -Wshadow
+WARN_FLAGS = -Wall -Wextra -Wconversion -Wsign-compare -Wdeclaration-after-statement -Wunused-function -Wshadow -Wimplicit-fallthrough
 endif
 
 ifndef WERROR
