@@ -4548,7 +4548,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_const* sljit_emit_const(struct sljit_compi
 #if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
 	case SLJIT_MOV32:
 		mem_flags = INT_DATA;
-		/* fallthrough */
+		SLJIT_FALLTHROUGH
 	case SLJIT_MOV_S32:
 		if ((init_value & 0x800) != 0)
 			init_value ^= ~(sljit_sw)0xfff;
