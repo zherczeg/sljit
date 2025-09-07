@@ -970,6 +970,36 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 
 #endif /* !SLJIT_COMPILE_ASSERT */
 
+#ifndef SLJIT_FALLTHROUGH
+
+#if __cplusplus >= 201703L
+#define SLJIT_FALLTHROUGH [[__fallthrough__]];
+#elif __STDC_VERSION__ >= 202311L \
+	|| (__STDC_VERSION__ > 201710L && defined(__has_c_attribute))
+#if __STDC_VERSION__ >= 202311L || __has_c_attribute(fallthrough) >= 201904L
+#define SLJIT_FALLTHROUGH [[__fallthrough__]];
+#endif
+#elif defined(__clang__)
+#if (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 2)) \
+	&& __cplusplus >= 201103L
+#define SLJIT_FALLTHROUGH [[clang::fallthrough]];
+#elif defined(__has_attribute)
+#if ((__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 6)) \
+	&& __has_attribute(fallthrough) && !defined(__cplusplus) \
+	|| (__clang_major__ >= 6 && __cplusplus == 199711L))
+#define SLJIT_FALLTHROUGH __attribute__((__fallthrough__));
+#endif
+#endif /* clang */
+#elif __GNUC__ >= 7 && !defined(__INTEL_COMPILER) && !defined(__NVCC__)
+#define SLJIT_FALLTHROUGH __attribute__((__fallthrough__));
+#endif
+
+#ifndef SLJIT_FALLTHROUGH
+#define SLJIT_FALLTHROUGH
+#endif
+
+#endif /* !SLJIT_FALLTHROUGH */
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
