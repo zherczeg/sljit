@@ -1827,7 +1827,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct slj
 #define SLJIT_CALL_RETURN		0x20000
 
 /* Emit a jump instruction. The destination is not set, only the type of the jump.
-    type must be between SLJIT_EQUAL and SLJIT_FAST_CALL
+    type must be between SLJIT_JUMP and SLJIT_FAST_CALL
     type can be combined (or'ed) with SLJIT_REWRITABLE_JUMP
 
    Flags: does not modify flags. */
