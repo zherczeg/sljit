@@ -972,26 +972,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 
 #ifndef SLJIT_FALLTHROUGH
 
-#if __cplusplus >= 201703L
-#define SLJIT_FALLTHROUGH [[__fallthrough__]];
-#elif __STDC_VERSION__ >= 202311L \
-	|| (__STDC_VERSION__ > 201710L && defined(__has_c_attribute))
-#if __STDC_VERSION__ >= 202311L || __has_c_attribute(fallthrough) >= 201904L
-#define SLJIT_FALLTHROUGH [[__fallthrough__]];
+#if defined(__cplusplus) && __cplusplus >= 202002L && \
+	defined(__has_cpp_attribute)
+/* Standards-compatible C++ variant. */
+#if __has_cpp_attribute(fallthrough)
+#define SLJIT_FALLTHROUGH [[fallthrough]];
 #endif
-#elif defined(__clang__)
-#if (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 2)) \
-	&& __cplusplus >= 201103L
-#define SLJIT_FALLTHROUGH [[clang::fallthrough]];
-#elif defined(__has_attribute)
-#if ((__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 6)) \
-	&& __has_attribute(fallthrough) && !defined(__cplusplus) \
-	|| (__clang_major__ >= 6 && __cplusplus == 199711L))
-#define SLJIT_FALLTHROUGH __attribute__((__fallthrough__));
+#elif !defined(__cplusplus) && \
+	  defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L && \
+	  defined(__has_c_attribute)
+/* Standards-compatible C variant. */
+#if __has_c_attribute(fallthrough)
+#define SLJIT_FALLTHROUGH [[fallthrough]];
 #endif
-#endif /* clang */
-#elif __GNUC__ >= 7 && !defined(__INTEL_COMPILER) && !defined(__NVCC__)
-#define SLJIT_FALLTHROUGH __attribute__((__fallthrough__));
+#elif ((defined(__clang__) && __clang_major__ >= 10) || \
+	   (defined(__GNUC__) && __GNUC__ >= 7)) && \
+	  defined(__has_attribute)
+/* Clang and GCC syntax. Rule out old versions because apparently Clang at
+   least has a broken implementation of __has_attribute. */
+#if __has_attribute(fallthrough)
+#define SLJIT_FALLTHROUGH __attribute__((fallthrough));
+#endif
 #endif
 
 #ifndef SLJIT_FALLTHROUGH
