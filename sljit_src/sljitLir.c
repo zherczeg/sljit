@@ -2839,11 +2839,11 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_mem(struct sljit_compiler
 				!(type & SLJIT_32) ? "" : "32", op1_types[(type & 0xff) - SLJIT_OP1_BASE]);
 
 		if (type & SLJIT_MEM_UNALIGNED)
-			printf(".unal");
+			fprintf(compiler->verbose, ".unal");
 		else if (type & SLJIT_MEM_ALIGNED_16)
-			printf(".al16");
+			fprintf(compiler->verbose, ".al16");
 		else if (type & SLJIT_MEM_ALIGNED_32)
-			printf(".al32");
+			fprintf(compiler->verbose, ".al32");
 
 		if (reg & REG_PAIR_MASK) {
 			fprintf(compiler->verbose, " {");
