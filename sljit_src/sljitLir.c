@@ -1978,6 +1978,35 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_shift_into(struct sljit_c
 	CHECK_RETURN_OK;
 }
 
+static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2_shift(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w,
+	sljit_sw shift_arg)
+{
+	SLJIT_UNUSED_ARG(shift_arg);
+#if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
+	CHECK_ARGUMENT(op == (SLJIT_ADD | SLJIT_SHL_IMM));
+	FUNCTION_CHECK_DST(dst, dstw);
+	FUNCTION_CHECK_SRC(src1, src1w);
+	FUNCTION_CHECK_SRC(src2, src2w);
+	compiler->last_flags = 0;
+#endif /* SLJIT_ARGUMENT_CHECKS */
+#if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
+	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
+		fprintf(compiler->verbose, "  %s.shl_imm ", op2_names[GET_OPCODE(op) - SLJIT_OP2_BASE]);
+
+		sljit_verbose_param(compiler, dst, dstw);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_param(compiler, src1, src1w);
+		fprintf(compiler->verbose, ", ");
+		sljit_verbose_param(compiler, src2, src2w);
+		fprintf(compiler->verbose, ", #%" SLJIT_PRINT_D "d\n", shift_arg);
+	}
+#endif /* SLJIT_VERBOSE */
+	CHECK_RETURN_OK;
+}
+
 static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op_src(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 src, sljit_sw srcw)
 {

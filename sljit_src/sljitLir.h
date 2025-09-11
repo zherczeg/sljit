@@ -1466,6 +1466,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 	sljit_s32 src2_reg,
 	sljit_s32 src3, sljit_sw src3w);
 
+/* The following options are used by sljit_emit_op2_shift. */
+
+#define SLJIT_SHL_IMM			(1 << 9)
+
+/* Emits an addition operation, where the second argument is shifted by a value.
+
+   op must be SLJIT_ADD | SLJIT_SHL_IMM, where the immedate value is stored in shift_arg
+
+   Flags: - (may destroy flags) */
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2_shift(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 dst, sljit_sw dstw,
+	sljit_s32 src1, sljit_sw src1w,
+	sljit_s32 src2, sljit_sw src2w,
+	sljit_sw shift_arg);
+
 /* Starting index of opcodes for sljit_emit_op_src
    and sljit_emit_op_dst. */
 #define SLJIT_OP_SRC_DST_BASE		112
