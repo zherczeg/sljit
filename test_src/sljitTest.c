@@ -9838,12 +9838,12 @@ static void test80(void)
 	executable_code code;
 	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
 	sljit_s32 i;
-	sljit_sw buf[17];
+	sljit_sw buf[20];
 
 	if (verbose)
 		printf("Run test79\n");
 
-	for (i = 0; i < 17; i++)
+	for (i = 0; i < 20; i++)
 		buf[i] = -1;
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -9949,6 +9949,21 @@ static void test80(void)
 	/* buf[16] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 16 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0x5f279c812b0ab7d5, 0x5f279c81));
+	sljit_emit_op2_shift(compiler, SLJIT_ADD | SLJIT_SHL_IMM, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, 0x35cd, SLJIT_TMP_DEST_REG, 0, 14);
+	/* buf[17] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 17 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0xb602ce3980d682a1, 0xb602ce39));
+	sljit_emit_op2_shift(compiler, SLJIT_ADD | SLJIT_SHL_IMM, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0x8b4af3507c1d9267, 0x8b4af350), SLJIT_TMP_DEST_REG, 0, 9);
+	/* buf[18] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 18 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0x7cb59a42d7509b8e, 0x7cb59a42));
+	sljit_emit_op2_shift(compiler, SLJIT_ADD | SLJIT_SHL_IMM, SLJIT_TMP_DEST_REG, 0, SLJIT_IMM, WCONST(0xc5960ef485d721a3, 0xc5960ef4), SLJIT_TMP_DEST_REG, 0, 1);
+	/* buf[19] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 19 * sizeof(sljit_sw), SLJIT_TMP_DEST_REG, 0);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);
@@ -9975,6 +9990,9 @@ static void test80(void)
 	FAILED(buf[14] != WCONST(0x6900bd4641291c46, 0x6900741f), "test80 case 15 failed\n");
 	FAILED(buf[15] != WCONST(0xe47fe81832380438, 0xe47fc70a), "test80 case 16 failed\n");
 	FAILED(buf[16] != WCONST(0x4434a23856cb9da9, 0x44349ecc), "test80 case 17 failed\n");
+	FAILED(buf[17] != WCONST(0xe7204ac2adf575cd, 0xe72075cd), "test80 case 18 failed\n");
+	FAILED(buf[18] != WCONST(0x90e766522922d467, 0x90e76550), "test80 case 19 failed\n");
+	FAILED(buf[19] != WCONST(0xbf01437a347858bf, 0xbf014378), "test80 case 20 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
