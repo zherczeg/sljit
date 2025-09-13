@@ -3067,7 +3067,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2_shift(struct sljit_compiler *c
 		}
 	}
 #else /* !SLJIT_CONFIG_X86_64 */
-	if (shift_arg <= 3 && (FAST_IS_REG(src1) || FAST_IS_REG(src2))) {
+	if (shift_arg <= 3 && (FAST_IS_REG(src1) || (FAST_IS_REG(src2) && src2 != TMP_REG1))) {
 		use_lea = 1;
 		if (!FAST_IS_REG(src2)) {
 			EMIT_MOV(compiler, TMP_REG1, 0, src2, src2w);
