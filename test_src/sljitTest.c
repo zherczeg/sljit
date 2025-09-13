@@ -9841,7 +9841,7 @@ static void test80(void)
 	sljit_sw buf[20];
 
 	if (verbose)
-		printf("Run test79\n");
+		printf("Run test80\n");
 
 	for (i = 0; i < 20; i++)
 		buf[i] = -1;
