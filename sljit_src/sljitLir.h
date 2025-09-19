@@ -1945,21 +1945,38 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	sljit_s32 dst, sljit_sw dstw,
 	sljit_s32 type);
 
+/* The following flags are used by sljit_emit_select(). */
+
+/* Compare src1 and src2_reg operands before executing select
+   (i.e. converts the select operation to a min/max operation). */
+#define SLJIT_COMPARE_SELECT	SLJIT_SET_Z
+
 /* Emit a conditional select instruction which moves src1 to dst_reg,
    if the conditional flag is set, or src2_reg to dst_reg otherwise.
    The conditional flag should be set before executing the select
-   instruction.
+   instruction unless SLJIT_COMPARE_SELECT is specified.
 
    type must be between SLJIT_EQUAL and SLJIT_ORDERED_LESS_EQUAL
+       when SLJIT_COMPARE_SELECT option is NOT specified
+   type must be between SLJIT_LESS and SLJIT_SET_SIG_LESS_EQUAL
+       when SLJIT_COMPARE_SELECT option is specified
    type can be combined (or'ed) with SLJIT_32 to move 32 bit
        register values instead of word sized ones
+   type can be combined (or'ed) with SLJIT_COMPARE_SELECT
+       which compares src1 and src2_reg before executing the select
    dst_reg and src2_reg must be valid registers
    src1 must be valid operand
 
    Note: if src1 is a memory operand, its value
          might be loaded even if the condition is false.
 
-   Flags: - (does not modify flags) */
+   Note: when SLJIT_COMPARE_SELECT is specified, the updated
+         flags might not represent the result of a normal compare
+         operation, hence flags are unspecified after the operation
+
+   Flags:
+     When SLJIT_COMPARE_SELECT is NOT specified: - (does not modify flags)
+     When SLJIT_COMPARE_SELECT is specified: - (may destroy flags) */
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 dst_reg,
 	sljit_s32 src1, sljit_sw src1w,

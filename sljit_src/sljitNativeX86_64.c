@@ -1029,13 +1029,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2_reg)
 {
+	sljit_u8* inst;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_select(compiler, type, dst_reg, src1, src1w, src2_reg));
 
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 
 	compiler->mode32 = type & SLJIT_32;
-	type &= ~SLJIT_32;
+
+	if (type & SLJIT_COMPARE_SELECT) {
+		if (!FAST_IS_REG(src1)) {
+			EMIT_MOV(compiler, TMP_REG2, 0, src1, src1w);
+			src1 = TMP_REG2;
+			src1w = 0;
+		}
+
+		inst = emit_x86_instruction(compiler, 1, src1, 0, src2_reg, 0);
+		FAIL_IF(!inst);
+		*inst = CMP_r_rm;
+	}
+
+	type &= ~(SLJIT_32 | SLJIT_COMPARE_SELECT);
 
 	if (dst_reg != src2_reg) {
 		if (dst_reg == src1) {

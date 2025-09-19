@@ -2960,6 +2960,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 {
 	sljit_ins *ptr;
 	sljit_uw size;
+	sljit_s32 is_compare = (type & SLJIT_COMPARE_SELECT);
+	sljit_ins ins;
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	sljit_s32 inp_flags = ((type & SLJIT_32) ? INT_DATA : WORD_DATA) | LOAD_DATA;
 #else /* !SLJIT_CONFIG_PPC_64 */
@@ -2970,6 +2972,45 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	CHECK(check_sljit_emit_select(compiler, type, dst_reg, src1, src1w, src2_reg));
 
 	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+	if (src1 == SLJIT_IMM && (type & SLJIT_32))
+		src1w = (sljit_s32)src1w;
+#endif /* SLJIT_CONFIG_RISCV_64 */
+
+	type &= ~(SLJIT_32 | SLJIT_COMPARE_SELECT);
+
+	if (is_compare) {
+		ins = 0;
+
+		if (src1 & SLJIT_MEM) {
+			FAIL_IF(emit_op_mem(compiler, inp_flags, TMP_REG1, src1, src1w, TMP_REG1));
+			src1 = TMP_REG1;
+			src1w = 0;
+		}
+
+		if (src1 == SLJIT_IMM) {
+			if (type >= SLJIT_LESS && type <= SLJIT_LESS_EQUAL && src1w >= 0 && src1w <= UIMM_MAX)
+				ins = CMPLI | CRD(0) | IMM(src1w);
+			else if (type >= SLJIT_SIG_LESS && type <= SLJIT_SIG_LESS_EQUAL && src1w >= SIMM_MIN && src1w <= SIMM_MAX)
+				ins = CMPI | CRD(0) | IMM(src1w);
+			else {
+				FAIL_IF(load_immediate(compiler, TMP_REG1, src1w));
+				src1 = TMP_REG1;
+				src1w = 0;
+			}
+		}
+
+		if (ins == 0)
+			ins = ((type >= SLJIT_LESS && type <= SLJIT_LESS_EQUAL) ? CMPL : CMP) | CRD(0) | B(src1);
+
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
+		if (inp_flags == (WORD_DATA | LOAD_DATA))
+			ins |= CRD(1);
+#endif /* SLJIT_CONFIG_PPC_64 */
+		FAIL_IF(push_inst(compiler, ins | A(src2_reg)));
+		type ^= 0x1;
+	}
 
 	if (dst_reg != src2_reg) {
 		if (dst_reg == src1) {
@@ -2991,7 +3032,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		}
 	}
 
-	if (((type & ~SLJIT_32) | 0x1) == SLJIT_NOT_CARRY)
+	if ((type | 0x1) == SLJIT_NOT_CARRY)
 		FAIL_IF(push_inst(compiler, ADDE | RC(ALT_SET_FLAGS) | D(TMP_REG1) | A(TMP_ZERO) | B(TMP_ZERO)));
 
 	size = compiler->size;
@@ -3003,15 +3044,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	if (src1 & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, inp_flags, dst_reg, src1, src1w, TMP_REG1));
 	} else if (src1 == SLJIT_IMM) {
-#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
-		if (type & SLJIT_32)
-			src1w = (sljit_s32)src1w;
-#endif /* SLJIT_CONFIG_RISCV_64 */
 		FAIL_IF(load_immediate(compiler, dst_reg, src1w));
 	} else
 		FAIL_IF(push_inst(compiler, OR | S(src1) | A(dst_reg) | B(src1)));
 
-	*ptr = BCx | get_bo_bi_flags(compiler, (type ^ 0x1) & ~SLJIT_32) | (sljit_ins)((compiler->size - size) << 2);
+	*ptr = BCx | get_bo_bi_flags(compiler, type ^ 0x1) | (sljit_ins)((compiler->size - size) << 2);
 	return SLJIT_SUCCESS;
 }
 

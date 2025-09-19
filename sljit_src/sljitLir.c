@@ -2732,27 +2732,30 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_select(struct sljit_compi
 	sljit_s32 src2_reg)
 {
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	sljit_s32 cond = type & ~SLJIT_32;
-
-	CHECK_ARGUMENT(cond >= SLJIT_EQUAL && cond <= SLJIT_ORDERED_LESS_EQUAL);
-
+	sljit_s32 cond = type & ~(SLJIT_32 | SLJIT_COMPARE_SELECT);
+	CHECK_ARGUMENT((type & SLJIT_COMPARE_SELECT) ? (cond >= SLJIT_LESS && cond <= SLJIT_SET_SIG_LESS_EQUAL)
+				: (cond >= SLJIT_EQUAL && cond <= SLJIT_ORDERED_LESS_EQUAL));
 	CHECK_ARGUMENT(compiler->scratches != -1 && compiler->saveds != -1);
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(dst_reg));
 	FUNCTION_CHECK_SRC(src1, src1w);
 	CHECK_ARGUMENT(FUNCTION_CHECK_IS_REG(src2_reg));
 
-	if (cond <= SLJIT_NOT_ZERO)
-		CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
-	else if ((compiler->last_flags & 0xff) == SLJIT_CARRY) {
-		CHECK_ARGUMENT((type & 0xfe) == SLJIT_CARRY);
-		compiler->last_flags = 0;
+	if (!(type & SLJIT_COMPARE_SELECT)) {
+		if (cond <= SLJIT_NOT_ZERO)
+			CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
+		else if ((compiler->last_flags & 0xff) == SLJIT_CARRY) {
+			CHECK_ARGUMENT((type & 0xfe) == SLJIT_CARRY);
+			compiler->last_flags = 0;
+		} else
+			CHECK_ARGUMENT((cond & 0xfe) == (compiler->last_flags & 0xff)
+				|| CHECK_UNORDERED(cond, compiler->last_flags));
 	} else
-		CHECK_ARGUMENT((cond & 0xfe) == (compiler->last_flags & 0xff)
-			|| CHECK_UNORDERED(cond, compiler->last_flags));
+		compiler->last_flags = 0;
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  select%s %s, ",
+		fprintf(compiler->verbose, "  %sselect%s %s, ",
+			!(type & SLJIT_COMPARE_SELECT) ? "" : "cmp_",
 			!(type & SLJIT_32) ? "" : "32",
 			jump_names[type & ~SLJIT_32]);
 		sljit_verbose_reg(compiler, dst_reg);
