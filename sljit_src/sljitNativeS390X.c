@@ -402,8 +402,8 @@ HAVE_FACILITY(have_misc2,   MISCELLANEOUS_INSTRUCTION_EXTENSIONS_2_FACILITY)
 #define CHECK_SIGNED(v, bitlen) \
 	((v) >= -(1 << ((bitlen) - 1)) && (v) < (1 << ((bitlen) - 1)))
 
-#define is_s8(d)	CHECK_SIGNED((d), 8)
-#define is_s16(d)	CHECK_SIGNED((d), 16)
+#define is_s8(d)	((sljit_sw)(d) == (sljit_s8)(d))
+#define is_s16(d)	((sljit_sw)(d) == (sljit_s16)(d))
 #define is_s20(d)	CHECK_SIGNED((d), 20)
 #define is_s32(d)	((sljit_sw)(d) == (sljit_s32)(d))
 
@@ -3934,12 +3934,50 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	sljit_ins mask;
 	sljit_gpr src_r;
 	sljit_gpr dst_r = gpr(dst_reg);
+	sljit_s32 is_32bit = (type & SLJIT_32) != 0;
 	sljit_ins ins;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_select(compiler, type, dst_reg, src1, src1w, src2_reg));
 
 	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+	type &= ~SLJIT_32;
+	if (src1 == SLJIT_IMM && is_32bit)
+		src1w = (sljit_s32)src1w;
+
+	if (type & SLJIT_COMPARE_SELECT) {
+		type ^= SLJIT_COMPARE_SELECT;
+		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_SUB | SLJIT_CURRENT_FLAGS_COMPARE;
+
+		if (src1 & SLJIT_MEM) {
+			FAIL_IF(load_word(compiler, tmp0, src1, src1w, is_32bit));
+			src1 = TMP_REG1;
+			src1w = 0;
+		} else if (src1 == SLJIT_IMM) {
+			if (type >= SLJIT_LESS && type <= SLJIT_LESS_EQUAL && src1w >= 0 && src1w <= 0x7fff) {
+				ins = is_32bit ? 0xc20f00000000 /* clfi */ : 0xc20e00000000 /* clgfi */;
+				FAIL_IF(push_inst(compiler, ins | R36A(gpr(src2_reg)) | (sljit_ins)src1w));
+				type ^= 0x1;
+			} else if (type >= SLJIT_SIG_LESS && type <= SLJIT_SIG_LESS_EQUAL && is_s20(src1w)) {
+				ins = is_32bit ? 0xc20d00000000 /* cfi */ : 0xc20c00000000 /* cgfi */;
+				FAIL_IF(push_inst(compiler, ins | R36A(gpr(src2_reg)) | ((sljit_ins)src1w & 0xffffffff)));
+				type ^= 0x1;
+			} else {
+				FAIL_IF(push_load_imm_inst(compiler, tmp0, src1w));
+				src1 = TMP_REG1;
+				src1w = 0;
+			}
+		}
+
+		if (FAST_IS_REG(src1)) {
+			if (type >= SLJIT_LESS && type <= SLJIT_LESS_EQUAL)
+				ins = is_32bit ? 0x1500 /* clr */ : 0xb9210000 /* clgr */;
+			else
+				ins = is_32bit ? 0x1900 /* cr */ : 0xb9200000 /* cgr */;
+			FAIL_IF(push_inst(compiler, ins | R4A(gpr(src1)) | R0A(gpr(src2_reg))));
+		}
+	}
 
 	if (dst_reg != src2_reg) {
 		if (src1 == dst_reg) {
@@ -3948,16 +3986,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 			type ^= 0x1;
 		} else {
 			if (ADDRESSING_DEPENDS_ON(src1, dst_reg)) {
-				FAIL_IF(load_word(compiler, dst_r, src1, src1w, type & SLJIT_32));
+				FAIL_IF(load_word(compiler, dst_r, src1, src1w, is_32bit));
 				src1 = src2_reg;
 				src1w = 0;
 				type ^= 0x1;
 			} else
-				FAIL_IF(push_inst(compiler, ((type & SLJIT_32) ? 0x1800 /* lr */ : 0xb9040000 /* lgr */) | R4A(dst_r) | R0A(gpr(src2_reg))));
+				FAIL_IF(push_inst(compiler, (is_32bit ? 0x1800 /* lr */ : 0xb9040000 /* lgr */) | R4A(dst_r) | R0A(gpr(src2_reg))));
 		}
 	}
 
-	mask = get_cc(compiler, type & ~SLJIT_32);
+	mask = get_cc(compiler, type);
 
 	if (src1 & SLJIT_MEM) {
 		if (src1 & OFFS_REG_MASK) {
@@ -3982,16 +4020,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		} else
 			src_r = gpr(src1 & REG_MASK);
 
-		ins = (type & SLJIT_32) ? 0xeb00000000f2 /* loc */ : 0xeb00000000e2 /* locg */;
+		ins = is_32bit ? 0xeb00000000f2 /* loc */ : 0xeb00000000e2 /* locg */;
 		return push_inst(compiler, ins | R36A(dst_r) | (mask << 32) | R28A(src_r) | disp_s20((sljit_s32)src1w));
 	}
 
 	if (src1 == SLJIT_IMM) {
-		if (type & SLJIT_32)
-			src1w = (sljit_s32)src1w;
-
 		if (have_lscond2() && is_s16(src1w)) {
-			ins = (type & SLJIT_32) ? 0xec0000000042 /* lochi */ : 0xec0000000046 /* locghi */;
+			ins = is_32bit ? 0xec0000000042 /* lochi */ : 0xec0000000046 /* locghi */;
 			return push_inst(compiler, ins | R36A(dst_r) | (mask << 32) | (sljit_ins)(src1w & 0xffff) << 16);
 		}
 
@@ -4000,7 +4035,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	} else
 		src_r = gpr(src1);
 
-	ins = (type & SLJIT_32) ? 0xb9f20000 /* locr */ : 0xb9e20000 /* locgr */;
+	ins = is_32bit ? 0xb9f20000 /* locr */ : 0xb9e20000 /* locgr */;
 	return push_inst(compiler, ins | (mask << 12) | R4A(dst_r) | R0A(src_r));
 }
 

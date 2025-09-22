@@ -4444,7 +4444,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 #if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64)
 		ins = SCD;
 		break;
-#endif /* SLJIT_CONFIG_RISCV_64 */
+#endif /* SLJIT_CONFIG_MIPS_64 */
 	case SLJIT_MOV_S32:
 	case SLJIT_MOV32:
 		op |= SLJIT_32;
