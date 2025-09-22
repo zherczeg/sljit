@@ -3735,7 +3735,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2_reg)
 {
-	sljit_ins cc, tmp;
+	sljit_ins cc, tmp, tmp2;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_select(compiler, type, dst_reg, src1, src1w, src2_reg));
@@ -3746,7 +3746,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		src1 = src2_reg;
 		src1w = 0;
 		src2_reg = dst_reg;
-		type ^= 0x1;
+		if (!(type & SLJIT_COMPARE_SELECT))
+			type ^= 0x1;
 	}
 
 	if (src1 & SLJIT_MEM) {
@@ -3755,7 +3756,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		if (src2_reg != dst_reg) {
 			src1 = src2_reg;
 			src1w = 0;
-			type ^= 0x1;
+			if (!(type & SLJIT_COMPARE_SELECT))
+				type ^= 0x1;
 		} else {
 			src1 = TMP_REG1;
 			src1w = 0;
@@ -3763,28 +3765,47 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	} else if (dst_reg != src2_reg)
 		FAIL_IF(push_inst(compiler, MOV | RD(dst_reg) | RM(src2_reg)));
 
-	cc = get_cc(compiler, type & ~SLJIT_32);
+	if (type & SLJIT_COMPARE_SELECT)
+		type ^= 0x1;
+
+	cc = get_cc(compiler, type & ~(SLJIT_32 | SLJIT_COMPARE_SELECT));
 
 	if (SLJIT_UNLIKELY(src1 == SLJIT_IMM)) {
 		tmp = get_imm((sljit_uw)src1w);
-		if (tmp)
+		if (tmp) {
+			if (type & SLJIT_COMPARE_SELECT)
+				FAIL_IF(push_inst(compiler, (CMP | SET_FLAGS | RN(dst_reg) | tmp)));
 			return push_inst(compiler, ((MOV | RD(dst_reg) | tmp) & ~COND_MASK) | cc);
+		}
 
 		tmp = get_imm(~(sljit_uw)src1w);
+		if (tmp && (type & SLJIT_COMPARE_SELECT)) {
+			tmp2 = get_imm((sljit_uw)-src1w);
+			if (tmp2)
+				FAIL_IF(push_inst(compiler, (CMN | SET_FLAGS | RN(dst_reg) | tmp2)));
+			else
+				tmp = 0;
+		}
+
 		if (tmp)
 			return push_inst(compiler, ((MVN | RD(dst_reg) | tmp) & ~COND_MASK) | cc);
 
 #if (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7)
-		tmp = (sljit_ins)src1w;
-		FAIL_IF(push_inst(compiler, (MOVW & ~COND_MASK) | cc | RD(dst_reg) | ((tmp << 4) & 0xf0000) | (tmp & 0xfff)));
-		if (tmp <= 0xffff)
-			return SLJIT_SUCCESS;
-		return push_inst(compiler, (MOVT & ~COND_MASK) | cc | RD(dst_reg) | ((tmp >> 12) & 0xf0000) | ((tmp >> 16) & 0xfff));
-#else /* !SLJIT_CONFIG_ARM_V7 */
+		if (!(type & SLJIT_COMPARE_SELECT)) {
+			tmp = (sljit_ins)src1w;
+			FAIL_IF(push_inst(compiler, (MOVW & ~COND_MASK) | cc | RD(dst_reg) | ((tmp << 4) & 0xf0000) | (tmp & 0xfff)));
+			if (tmp <= 0xffff)
+				return SLJIT_SUCCESS;
+			return push_inst(compiler, (MOVT & ~COND_MASK) | cc | RD(dst_reg) | ((tmp >> 12) & 0xf0000) | ((tmp >> 16) & 0xfff));
+		}
+#endif /* SLJIT_CONFIG_ARM_V7 */
+
 		FAIL_IF(load_immediate(compiler, TMP_REG1, (sljit_uw)src1w));
 		src1 = TMP_REG1;
-#endif /* SLJIT_CONFIG_ARM_V7 */
 	}
+
+	if (type & SLJIT_COMPARE_SELECT)
+		FAIL_IF(push_inst(compiler, (CMP | SET_FLAGS | RN(dst_reg) | RM(src1))));
 
 	return push_inst(compiler, ((MOV | RD(dst_reg) | RM(src1)) & ~COND_MASK) | cc);
 }

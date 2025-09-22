@@ -2693,6 +2693,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 {
 	sljit_ins inv_bits = (type & SLJIT_32) ? W_OP : 0;
 	sljit_ins op = CSEL;
+	sljit_ins cmp = 0;
 	sljit_ins cc;
 
 	CHECK_ERROR();
@@ -2706,10 +2707,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 
 		if (src1w <= 1 && src1w >= -1) {
 			src1 = TMP_ZERO;
-			if (src1w == 1)
+			cmp = (SUBI ^ inv_bits) | (1 << 29) | RD(TMP_ZERO);
+
+			if (src1w == 1) {
 				op = CSINC;
-			else if (src1w == -1)
+				cmp = (SUBI ^ inv_bits) | (1 << 29) | RD(TMP_ZERO) | (1 << 10);
+			} else if (src1w == -1) {
 				op = CSINV;
+				cmp = (ADDI ^ inv_bits) | (1 << 29) | RD(TMP_ZERO) | (1 << 10);
+			}
 
 			src1w = 0;
 		} else {
@@ -2721,7 +2727,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		src1 = TMP_REG2;
 	}
 
-	cc = get_cc(compiler, type & ~SLJIT_32);
+	if (type & SLJIT_COMPARE_SELECT) {
+		type ^= 0x1;
+		if (cmp == 0)
+			cmp = (SUB ^ inv_bits) | (1 << 29) | RD(TMP_ZERO) | RM(src1);
+		FAIL_IF(push_inst(compiler, cmp | RN(src2_reg)));
+	}
+
+	cc = get_cc(compiler, type & ~(SLJIT_32 | SLJIT_COMPARE_SELECT));
 	return push_inst(compiler, (op ^ inv_bits) | (cc << 12) | RD(dst_reg) | RN(src2_reg) | RM(src1));
 }
 

@@ -44,7 +44,7 @@ jobs:
               url: https://toolchains.bootlin.com/downloads/releases/toolchains/riscv64-lp64d/tarballs/riscv64-lp64d--glibc--stable-2024.05-1.tar.xz
               name: riscv64-lp64d--glibc--stable-2024.05-1.tar.xz
               CC: riscv64-buildroot-linux-gnu-gcc-13.3.0.br_real
-              CFLAGS: -march=rv64gv_zba_zbb
+              CFLAGS: -march=rv64gv_zba_zbb_zicond
             qemu:
               target: riscv64-linux-user
               name: qemu-riscv64
@@ -62,7 +62,7 @@ jobs:
               url: https://toolchains.bootlin.com/downloads/releases/toolchains/riscv32-ilp32d/tarballs/riscv32-ilp32d--glibc--stable-2024.05-1.tar.xz
               name: riscv32-ilp32d--glibc--stable-2024.05-1.tar.xz
               CC: riscv32-buildroot-linux-gnu-gcc-13.3.0.br_real
-              CFLAGS: -march=rv32gcv_zba_zbb
+              CFLAGS: -march=rv32gcv_zba_zbb_zicond
             qemu:
               target: riscv32-linux-user
               name: qemu-riscv32
