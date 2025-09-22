@@ -2973,10 +2973,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 
-#if (defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64)
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 	if (src1 == SLJIT_IMM && (type & SLJIT_32))
 		src1w = (sljit_s32)src1w;
-#endif /* SLJIT_CONFIG_RISCV_64 */
+#endif /* SLJIT_CONFIG_PPC_64 */
 
 	type &= ~(SLJIT_32 | SLJIT_COMPARE_SELECT);
 
@@ -3324,7 +3324,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler 
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		ins = LDARX;
 		break;
-#endif /* SLJIT_CONFIG_RISCV_64 */
+#endif /* SLJIT_CONFIG_PPC_64 */
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV32:
 		ins = LWARX;
@@ -3362,7 +3362,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_store(struct sljit_compiler
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 		ins = STDCX | 0x1;
 		break;
-#endif /* SLJIT_CONFIG_RISCV_64 */
+#endif /* SLJIT_CONFIG_PPC_64 */
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV32:
 		ins = STWCX | 0x1;
