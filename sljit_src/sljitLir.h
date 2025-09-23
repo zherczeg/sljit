@@ -1968,11 +1968,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
    src1 must be valid operand
 
    Note: if src1 is a memory operand, its value
-         might be loaded even if the condition is false.
+         might be loaded even if the condition is false
 
-   Note: when SLJIT_COMPARE_SELECT is specified, the updated
-         flags might not represent the result of a normal compare
-         operation, hence flags are unspecified after the operation
+   Note: when SLJIT_COMPARE_SELECT is specified, the status flag
+         bits might not represent the result of a normal compare
+         operation, hence flags are not specified after the operation
+
+   Note: if sljit_has_cpu_feature(SLJIT_HAS_CMOV) returns with a non-zero value:
+         (a) conditional register move (dst_reg==src2_reg, src1 is register)
+             can be performed using a single instruction, except on RISCV,
+             where three instructions are needed
+         (b) conditional clearing (dst_reg==src2_reg, src1==SLJIT_IMM,
+             src1w==0) can be performed using a single instruction,
+             except on x86, where two instructions are needed
 
    Flags:
      When SLJIT_COMPARE_SELECT is NOT specified: - (does not modify flags)

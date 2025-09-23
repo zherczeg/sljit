@@ -3932,6 +3932,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		if (dst_reg == src1) {
 			src1 = src2_reg;
 			src1w = 0;
+			src2_reg = dst_reg;
 			if (!is_compare)
 				type ^= 0x1;
 		} else {
@@ -4013,7 +4014,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 			break;
 		}
 
-		ins |= RS1(src1) | RS2(dst_reg);
+		ins |= RS1(src1) | RS2(src2_reg);
 	} else {
 		ins = get_jump_instruction(type);
 	}
