@@ -3158,19 +3158,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 {
 	sljit_ins *ptr;
 	sljit_uw size;
+	sljit_s32 is_compare = (type & SLJIT_COMPARE_SELECT);
 	sljit_s32 inp_flags = ((type & SLJIT_32) ? INT_DATA : WORD_DATA) | LOAD_DATA;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_select(compiler, type, dst_reg, src1, src1w, src2_reg));
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 
+	if (src1 == SLJIT_IMM && type & SLJIT_32)
+		src1w = (sljit_s32)src1w;
+
+	type &= ~(SLJIT_32 | SLJIT_COMPARE_SELECT);
+
 	if (dst_reg != src2_reg) {
 		if (dst_reg == src1) {
 			src1 = src2_reg;
 			src1w = 0;
-			type ^= 0x1;
+			if (!is_compare)
+				type ^= 0x1;
 		} else {
 			if (ADDRESSING_DEPENDS_ON(src1, dst_reg)) {
+				SLJIT_ASSERT(!(type & SLJIT_COMPARE_SELECT));
 				FAIL_IF(push_inst(compiler, ADDI_D | RD(TMP_REG1) | RJ(dst_reg) | IMM_I12(0)));
 
 				if ((src1 & REG_MASK) == dst_reg)
@@ -3184,6 +3192,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 		}
 	}
 
+	if (is_compare) {
+		if (src1 & SLJIT_MEM) {
+			FAIL_IF(emit_op_mem(compiler, inp_flags, TMP_REG3, src1, src1w));
+		} else if (src1 == SLJIT_IMM) {
+			FAIL_IF(load_immediate(compiler, TMP_REG3, src1w));
+		} else
+			FAIL_IF(push_inst(compiler, ADDI_D | RD(TMP_REG3) | RJ(src1) | IMM_I12(0)));
+	}
+
 	size = compiler->size;
 
 	ptr = (sljit_ins*)ensure_buf(compiler, sizeof(sljit_ins));
@@ -3193,13 +3210,35 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	if (src1 & SLJIT_MEM) {
 		FAIL_IF(emit_op_mem(compiler, inp_flags, dst_reg, src1, src1w));
 	} else if (src1 == SLJIT_IMM) {
-		if (type & SLJIT_32)
-			src1w = (sljit_s32)src1w;
 		FAIL_IF(load_immediate(compiler, dst_reg, src1w));
 	} else
 		FAIL_IF(push_inst(compiler, ADDI_D | RD(dst_reg) | RJ(src1) | IMM_I12(0)));
 
-	*ptr = get_jump_instruction(type & ~SLJIT_32) | IMM_I16(compiler->size - size);
+	if (is_compare) {
+		switch (type) {
+		case SLJIT_LESS:
+		case SLJIT_LESS_EQUAL:
+			*ptr = BGEU;
+			break;
+		case SLJIT_GREATER:
+		case SLJIT_GREATER_EQUAL:
+			*ptr = BLTU;
+			break;
+		case SLJIT_SIG_LESS:
+		case SLJIT_SIG_LESS_EQUAL:
+			*ptr = BGE;
+			break;
+		default:
+			*ptr = BLT;
+			break;
+		}
+
+		*ptr |= RJ(TMP_REG3) | RD(dst_reg);
+	} else {
+		*ptr = get_jump_instruction(type);
+	}
+
+	*ptr |= IMM_I16(compiler->size - size);
 	return SLJIT_SUCCESS;
 }
 
