@@ -3094,11 +3094,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2_shift(struct sljit_compiler *c
 		return SLJIT_SUCCESS;
 	}
 
-	dst_r = FAST_IS_REG(dst) && (dst != src1) ? dst : TMP_REG1;
+	if ((op & SLJIT_SRC2_UNDEFINED) != 0 && FAST_IS_REG(src2) && src1 != src2)
+		dst_r = src2;
+	else {
+		dst_r = FAST_IS_REG(dst) && (dst != src1) ? dst : TMP_REG1;
 
-	if (src2 != dst_r) {
-		EMIT_MOV(compiler, dst_r, 0, src2, src2w);
+		if (src2 != dst_r) {
+			EMIT_MOV(compiler, dst_r, 0, src2, src2w);
+		}
 	}
+
 	inst = emit_x86_instruction(compiler, 1 | EX86_SHIFT_INS, SLJIT_IMM, shift_arg, dst_r, 0);
 	FAIL_IF(!inst);
 	inst[1] |= SHL;
@@ -3107,6 +3112,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2_shift(struct sljit_compiler *c
 		inst = emit_x86_instruction(compiler, 1, dst_r, 0, dst, dstw);
 		FAIL_IF(!inst);
 		*inst = ADD_rm_r;
+		return SLJIT_SUCCESS;
+	}
+
+	if (FAST_IS_REG(dst) && FAST_IS_REG(src1)) {
+		inst = emit_x86_instruction(compiler, 1, dst, 0, SLJIT_MEM2(src1, dst_r), 0);
+		FAIL_IF(!inst);
+		*inst = LEA_r_m;
 		return SLJIT_SUCCESS;
 	}
 

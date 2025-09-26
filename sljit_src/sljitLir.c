@@ -1986,7 +1986,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2_shift(struct sljit_co
 {
 	SLJIT_UNUSED_ARG(shift_arg);
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS)
-	CHECK_ARGUMENT(op == (SLJIT_ADD | SLJIT_SHL_IMM));
+	CHECK_ARGUMENT((op & ~SLJIT_SRC2_UNDEFINED) == (SLJIT_ADD | SLJIT_SHL_IMM));
 	FUNCTION_CHECK_DST(dst, dstw);
 	FUNCTION_CHECK_SRC(src1, src1w);
 	FUNCTION_CHECK_SRC(src2, src2w);
@@ -1994,7 +1994,8 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_op2_shift(struct sljit_co
 #endif /* SLJIT_ARGUMENT_CHECKS */
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	if (SLJIT_UNLIKELY(!!compiler->verbose)) {
-		fprintf(compiler->verbose, "  %s.shl_imm ", op2_names[GET_OPCODE(op) - SLJIT_OP2_BASE]);
+		fprintf(compiler->verbose, "  %s.shl_imm%s ", op2_names[GET_OPCODE(op) - SLJIT_OP2_BASE],
+			(op & SLJIT_SRC2_UNDEFINED) ? ".src2und" : "");
 
 		sljit_verbose_param(compiler, dst, dstw);
 		fprintf(compiler->verbose, ", ");
