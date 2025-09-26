@@ -1468,7 +1468,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 
 /* The following options are used by sljit_emit_op2_shift. */
 
+/* The src2 argument is shifted left by an immedate value. */
 #define SLJIT_SHL_IMM			(1 << 9)
+/* When src2 argument is a register, its value is undefined after the operation. */
+#define SLJIT_SRC2_UNDEFINED		(1 << 10)
 
 /* Emits an addition operation, where the second argument is shifted by a value.
 
