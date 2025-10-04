@@ -1067,7 +1067,14 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	case SLJIT_HAS_COPY_F32:
 	case SLJIT_HAS_COPY_F64:
 	case SLJIT_HAS_ATOMIC:
+		return 1;
+
 	case SLJIT_HAS_MEMORY_BARRIER:
+#if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
+		if (cpu_feature_list == 0)
+			get_cpu_features();
+		return (cpu_feature_list & CPU_FEATURE_SSE2) != 0;
+#endif
 		return 1;
 
 #if !(defined SLJIT_IS_FPU_AVAILABLE) || SLJIT_IS_FPU_AVAILABLE
