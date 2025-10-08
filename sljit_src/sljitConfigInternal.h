@@ -89,6 +89,14 @@
      SLJIT_CONV_NAN_FLOAT : result when a NaN floating point value is converted to integer
                             (possible values: SLJIT_CONV_RESULT_MAX_INT, SLJIT_CONV_RESULT_MIN_INT,
                             or SLJIT_CONV_RESULT_ZERO)
+     SLJIT_SUBC_SETS_SIGNED : SLJIT_SUBC[32] operation always sets the signed result, so setting
+                              the following status flags after a subtract with carry operation is valid:
+                              sljit_set_current_flags(..., SLJIT_CURRENT_FLAGS_SUB | SLJIT_SET_SIG_LESS)
+                              sljit_set_current_flags(..., SLJIT_CURRENT_FLAGS_SUB | SLJIT_SET_SIG_GREATER)
+     SLJIT_SHARED_COMPARISON_FLAGS: the cpu has different instructions for signed and unsigned
+                                    comparisons, which sets the same status flags, so passing SLJIT_LESS
+                                    or SLJIT_SIG_LESS as an argument has the same effect, and this is true
+                                    for all other signed/unsigned comparison type pairs
 
    Other macros:
      SLJIT_TMP_R0 .. R9 : accessing temporary registers
@@ -616,6 +624,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_MASKED_SHIFT32 1
 #define SLJIT_UPPER_BITS_IGNORED 1
 #define SLJIT_UPPER_BITS_ZERO_EXTENDED 1
+#define SLJIT_SUBC_SETS_SIGNED 1
 
 #elif (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 
@@ -640,6 +649,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_MASKED_SHIFT32 1
 #define SLJIT_UPPER_BITS_IGNORED 1
 #define SLJIT_UPPER_BITS_ZERO_EXTENDED 1
+#define SLJIT_SUBC_SETS_SIGNED 1
 
 #elif (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32)
 
@@ -653,6 +663,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_TMP_OPT_REG SLJIT_TMP_R0
 #define SLJIT_TMP_DEST_FREG SLJIT_TMP_FR0
 #define SLJIT_LOCALS_OFFSET_BASE 0
+#define SLJIT_SUBC_SETS_SIGNED 1
 
 #elif (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64)
 
@@ -670,6 +681,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_MASKED_SHIFT32 1
 #define SLJIT_UPPER_BITS_IGNORED 1
 #define SLJIT_UPPER_BITS_ZERO_EXTENDED 1
+#define SLJIT_SUBC_SETS_SIGNED 1
 
 #elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 
@@ -691,6 +703,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_LOCALS_OFFSET_BASE (3 * (sljit_s32)sizeof(sljit_sw))
 #endif /* SLJIT_CONFIG_PPC_64 || _AIX */
 #define SLJIT_UPPER_BITS_IGNORED 1
+#define SLJIT_SHARED_COMPARISON_FLAGS 1
 
 #elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 
@@ -713,6 +726,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
 #define SLJIT_UPPER_BITS_SIGN_EXTENDED 1
+#define SLJIT_SHARED_COMPARISON_FLAGS 1
 
 #elif (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 
@@ -735,6 +749,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_MASKED_SHIFT32 1
 #define SLJIT_UPPER_BITS_IGNORED 1
 #define SLJIT_UPPER_BITS_SIGN_EXTENDED 1
+#define SLJIT_SHARED_COMPARISON_FLAGS 1
 
 #elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
 
@@ -772,6 +787,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_UPPER_BITS_IGNORED 1
 #define SLJIT_UPPER_BITS_PRESERVED 1
+#define SLJIT_SHARED_COMPARISON_FLAGS 1
 
 #elif (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 
@@ -788,6 +804,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
 #define SLJIT_UPPER_BITS_SIGN_EXTENDED 1
+#define SLJIT_SHARED_COMPARISON_FLAGS 1
 
 #elif (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 
