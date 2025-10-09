@@ -1761,10 +1761,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct slj
 #define SLJIT_SET_OVERFLOW		SLJIT_SET(SLJIT_OVERFLOW)
 #define SLJIT_NOT_OVERFLOW		11
 
-/* Unlike other comparison types, sljit_emit_jump may destroy flags when
-   carry flag is specified (powerpc limitation). Furthermore, SLJIT_CARRY
-   represents that the first operand is unsigned less than the second
-   operand after an SLJIT_SUB / SLJIT_SUBC operation. */
+/* Unlike other comparison types, sljit_emit_jump may destroy zero flag
+   when carry flag is specified (powerpc limitation). Furthermore,
+   SLJIT_CARRY represents that the first operand is unsigned less than
+   the second operand after an SLJIT_SUB / SLJIT_SUBC operation. */
 #define SLJIT_CARRY			12
 #define SLJIT_SET_CARRY			SLJIT_SET(SLJIT_CARRY)
 #define SLJIT_NOT_CARRY			13
