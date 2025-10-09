@@ -2484,7 +2484,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_jump(struct sljit_compile
 			CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
 		else if ((compiler->last_flags & 0xff) == SLJIT_CARRY) {
 			CHECK_ARGUMENT((type & 0xfe) == SLJIT_CARRY);
-			compiler->last_flags = 0;
+			compiler->last_flags &= ~SLJIT_SET_Z;
 		} else
 			CHECK_ARGUMENT((type & 0xfe) == (compiler->last_flags & 0xff)
 				|| CHECK_UNORDERED(type, compiler->last_flags));
@@ -2746,7 +2746,7 @@ static SLJIT_INLINE CHECK_RETURN_TYPE check_sljit_emit_select(struct sljit_compi
 			CHECK_ARGUMENT(compiler->last_flags & SLJIT_SET_Z);
 		else if ((compiler->last_flags & 0xff) == SLJIT_CARRY) {
 			CHECK_ARGUMENT((type & 0xfe) == SLJIT_CARRY);
-			compiler->last_flags = 0;
+			compiler->last_flags &= ~SLJIT_SET_Z;
 		} else
 			CHECK_ARGUMENT((cond & 0xfe) == (compiler->last_flags & 0xff)
 				|| CHECK_UNORDERED(cond, compiler->last_flags));

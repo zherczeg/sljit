@@ -6111,13 +6111,14 @@ static void test59(void)
 	/* Test carry flag. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
-	sljit_sw wbuf[31];
+	struct sljit_jump* jump;
+	sljit_sw wbuf[39];
 	sljit_s32 i;
 
 	if (verbose)
 		printf("Run test59\n");
 
-	for (i = 0; i < 31; i++)
+	for (i = 0; i < 39; i++)
 		wbuf[i] = -1;
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -6345,6 +6346,52 @@ static void test59(void)
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 30 * sizeof(sljit_sw), SLJIT_S1, 0);
 #endif /* SLJIT_SHARED_COMPARISON_FLAGS */
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 7);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 19);
+	sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_CARRY, SLJIT_R0, 0, SLJIT_IMM, 2);
+	jump = sljit_emit_jump(compiler, SLJIT_CARRY);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 33);
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_set_current_flags(compiler, SLJIT_CURRENT_FLAGS_SUB | SLJIT_CURRENT_FLAGS_COMPARE | SLJIT_SET_CARRY);
+	/* wbuf[31] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 31 * sizeof(sljit_sw), SLJIT_R2, 0);
+	sljit_emit_select(compiler, SLJIT_CARRY, SLJIT_R1, SLJIT_IMM, 38, SLJIT_R1);
+	/* wbuf[32] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 32 * sizeof(sljit_sw), SLJIT_R1, 0);
+	jump = sljit_emit_jump(compiler, SLJIT_CARRY);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 56);
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_set_current_flags(compiler, SLJIT_CURRENT_FLAGS_SUB | SLJIT_CURRENT_FLAGS_COMPARE | SLJIT_SET_CARRY);
+	/* wbuf[33] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 33 * sizeof(sljit_sw), SLJIT_R2, 0);
+	sljit_emit_select(compiler, SLJIT_CARRY, SLJIT_R1, SLJIT_IMM, 77, SLJIT_R1);
+	/* wbuf[34] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 34 * sizeof(sljit_sw), SLJIT_R1, 0);
+
+	sljit_emit_op1(compiler, SLJIT_MOV32, SLJIT_R0, 0, SLJIT_IMM, 3);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 5);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 23);
+	sljit_emit_op2(compiler, SLJIT_SUB32 | SLJIT_SET_CARRY, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 4);
+	jump = sljit_emit_jump(compiler, SLJIT_NOT_CARRY);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 31);
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_set_current_flags(compiler, SLJIT_CURRENT_FLAGS_SUB | SLJIT_CURRENT_FLAGS_32 | SLJIT_SET_CARRY);
+	/* wbuf[35] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 35 * sizeof(sljit_sw), SLJIT_R2, 0);
+	sljit_emit_select(compiler, SLJIT_NOT_CARRY, SLJIT_R1, SLJIT_IMM, 46, SLJIT_R1);
+	/* wbuf[36] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 36 * sizeof(sljit_sw), SLJIT_R1, 0);
+	jump = sljit_emit_jump(compiler, SLJIT_NOT_CARRY);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 64);
+	sljit_set_label(jump, sljit_emit_label(compiler));
+	sljit_set_current_flags(compiler, SLJIT_CURRENT_FLAGS_SUB | SLJIT_CURRENT_FLAGS_32 | SLJIT_SET_CARRY);
+	/* wbuf[37] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 37 * sizeof(sljit_sw), SLJIT_R2, 0);
+	sljit_emit_select(compiler, SLJIT_NOT_CARRY, SLJIT_R1, SLJIT_IMM, 71, SLJIT_R1);
+	/* wbuf[38] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 38 * sizeof(sljit_sw), SLJIT_R1, 0);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);
@@ -6388,6 +6435,14 @@ static void test59(void)
 	FAILED(wbuf[29] != 1, "test59 case 30 failed\n");
 	FAILED(wbuf[30] != 2, "test59 case 31 failed\n");
 #endif /* SLJIT_SHARED_COMPARISON_FLAGS */
+	FAILED(wbuf[31] != 19, "test59 case 32 failed\n");
+	FAILED(wbuf[32] != 38, "test59 case 33 failed\n");
+	FAILED(wbuf[33] != 19, "test59 case 34 failed\n");
+	FAILED(wbuf[34] != 77, "test59 case 35 failed\n");
+	FAILED(wbuf[35] != 31, "test59 case 36 failed\n");
+	FAILED(wbuf[36] != 5, "test59 case 37 failed\n");
+	FAILED(wbuf[37] != 64, "test59 case 38 failed\n");
+	FAILED(wbuf[38] != 5, "test59 case 39 failed\n");
 	sljit_free_code(code.code, NULL);
 
 	successful_tests++;

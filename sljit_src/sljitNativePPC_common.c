@@ -2575,7 +2575,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct slj
 static sljit_ins get_bo_bi_flags(struct sljit_compiler *compiler, sljit_s32 type)
 {
 	switch (type) {
-	case SLJIT_NOT_CARRY:
+	case SLJIT_CARRY:
 		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_SUB)
 			return (4 << 21) | (2 << 16);
 		SLJIT_FALLTHROUGH
@@ -2584,7 +2584,7 @@ static sljit_ins get_bo_bi_flags(struct sljit_compiler *compiler, sljit_s32 type
 	case SLJIT_ATOMIC_STORED:
 		return (12 << 21) | (2 << 16);
 
-	case SLJIT_CARRY:
+	case SLJIT_NOT_CARRY:
 		if (compiler->status_flags_state & SLJIT_CURRENT_FLAGS_SUB)
 			return (12 << 21) | (2 << 16);
 		SLJIT_FALLTHROUGH
@@ -2675,7 +2675,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 	type &= 0xff;
 
 	if ((type | 0x1) == SLJIT_NOT_CARRY)
-		PTR_FAIL_IF(push_inst(compiler, ADDE | RC(ALT_SET_FLAGS) | D(TMP_REG2) | A(TMP_ZERO) | B(TMP_ZERO)));
+		PTR_FAIL_IF(push_inst(compiler, ADDME | RC(ALT_SET_FLAGS) | D(TMP_REG2) | A(TMP_ZERO)));
 
 	/* In PPC, we don't need to touch the arguments. */
 	if (type < SLJIT_JUMP)
@@ -3033,7 +3033,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_select(struct sljit_compiler *comp
 	}
 
 	if ((type | 0x1) == SLJIT_NOT_CARRY)
-		FAIL_IF(push_inst(compiler, ADDE | RC(ALT_SET_FLAGS) | D(TMP_REG1) | A(TMP_ZERO) | B(TMP_ZERO)));
+		FAIL_IF(push_inst(compiler, ADDME | RC(ALT_SET_FLAGS) | D(TMP_REG1) | A(TMP_ZERO)));
 
 	size = compiler->size;
 
@@ -3075,7 +3075,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 	}
 
 	if (((type & ~SLJIT_32) | 0x1) == SLJIT_NOT_CARRY)
-		FAIL_IF(push_inst(compiler, ADDE | RC(ALT_SET_FLAGS) | D(TMP_REG1) | A(TMP_ZERO) | B(TMP_ZERO)));
+		FAIL_IF(push_inst(compiler, ADDME | RC(ALT_SET_FLAGS) | D(TMP_REG1) | A(TMP_ZERO)));
 
 	size = compiler->size;
 
