@@ -29,6 +29,7 @@
 #include "regexJIT.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #if defined _WIN32 || defined _WIN64
 #define COLOR_RED
@@ -110,11 +111,25 @@ static void run_tests(struct test_case* test, int verbose, int silent)
 	const regex_char_t *ptr;
 	struct regex_machine* machine = NULL;
 	struct regex_match* match;
+	const char *platform_name;
 	int begin, end, id, finished;
 	int success = 0, fail = 0;
 
 	if (!verbose && !silent)
 		printf("Pass -v to enable verbose, -s to disable this hint.\n\n");
+
+	platform_name = regex_get_platform_name();
+
+	/* sljit_get_platform_namei() is meant to return a string literal so this should never happen, but... */
+	if (platform_name == NULL) {
+		printf("ABORT: sljit_get_platform_name() broken\n");
+		return;
+	}
+
+	if (strlen(platform_name) >= PLATFORM_NAME_BUFFERSIZE_LIMIT) {
+		printf("ABORT: Platform name '%s' exceeds %d bytes limit\n", platform_name, PLATFORM_NAME_BUFFERSIZE_LIMIT);
+		return;
+	}
 
 	for ( ; test->string ; test++) {
 		if (verbose)
@@ -214,7 +229,7 @@ static void run_tests(struct test_case* test, int verbose, int silent)
 		printf("all tests " COLOR_GREEN "PASSED" COLOR_DEFAULT " ");
 	else
 		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests failed ", fail, fail * 100 / (success + fail));
-	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "\n", regex_get_platform_name());
+	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "\n", platform_name);
 }
 
 /* Testing. */
