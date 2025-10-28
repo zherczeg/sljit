@@ -31,6 +31,14 @@
 extern "C" {
 #endif
 
+/* API limits */
+
+/* The maximum number of bytes that sljit_get_platform_name() will return + 1 for NUL
+ Used as the size for statically allocated buffers.
+ Should match PCRE2_JITTARGET_BUFFSIZE_LIMIT
+*/
+#define PLATFORM_NAME_BUFFERSIZE_LIMIT	66	/* PCRE2 */
+
 /* Character type config. */
 #define REGEX_USE_8BIT_CHARS
 

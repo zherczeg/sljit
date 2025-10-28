@@ -29,6 +29,7 @@
 #include "regexJIT.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #if defined _WIN32 || defined _WIN64
 #define COLOR_RED
@@ -104,17 +105,31 @@ struct test_case {
 	const regex_char_t *string;	/* NULL : end of tests. */
 };
 
-static void run_tests(struct test_case* test, int verbose, int silent)
+static int run_tests(struct test_case* test, int verbose, int silent)
 {
 	int error;
 	const regex_char_t *ptr;
 	struct regex_machine* machine = NULL;
 	struct regex_match* match;
+	const char *platform_name;
 	int begin, end, id, finished;
 	int success = 0, fail = 0;
 
 	if (!verbose && !silent)
 		printf("Pass -v to enable verbose, -s to disable this hint.\n\n");
+
+	platform_name = regex_get_platform_name();
+
+	/* sljit_get_platform_namei() is meant to return a string literal so this should never happen, but... */
+	if (platform_name == NULL) {
+		printf("ABORT: sljit_get_platform_name() broken\n");
+		return 1;
+	}
+
+	if (strlen(platform_name) >= PLATFORM_NAME_BUFFERSIZE_LIMIT) {
+		printf("ABORT: Platform name '%s' exceeds %d bytes limit\n", platform_name, PLATFORM_NAME_BUFFERSIZE_LIMIT);
+		return 1;
+	}
 
 	for ( ; test->string ; test++) {
 		if (verbose)
@@ -135,20 +150,20 @@ static void run_tests(struct test_case* test, int verbose, int silent)
 				if (!verbose)
 					printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 				printf("ABORT: Error %d\n", error);
-				return;
+				return 1;
 			}
 			if (!machine) {
 				if (!verbose)
 					printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 				printf("ABORT: machine must be exists. Report this bug, please\n");
-				return;
+				return 1;
 			}
 		}
 		else if (test->flags != 0) {
 			if (!verbose)
 				printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 			printf("ABORT: flag must be 0 if no pattern\n");
-			return;
+			return 1;
 		}
 
 		ptr = test->string;
@@ -162,7 +177,7 @@ static void run_tests(struct test_case* test, int verbose, int silent)
 				printf("test: '%s' '%s': ", test->pattern ? test->pattern : "[[REUSE]]", test->string);
 			printf("ABORT: Not enough memory for matching\n");
 			regex_free_machine(machine);
-			return;
+			return 1;
 		}
 		regex_continue_match_debug(match, test->string, (int)(ptr - test->string));
 		begin = regex_get_result(match, &end, &id);
@@ -214,7 +229,9 @@ static void run_tests(struct test_case* test, int verbose, int silent)
 		printf("all tests " COLOR_GREEN "PASSED" COLOR_DEFAULT " ");
 	else
 		printf(COLOR_RED "%d" COLOR_DEFAULT " (" COLOR_RED "%d%%" COLOR_DEFAULT ") tests failed ", fail, fail * 100 / (success + fail));
-	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "\n", regex_get_platform_name());
+	printf("on " COLOR_ARCH "%s" COLOR_DEFAULT "\n", platform_name);
+
+	return !!fail;
 }
 
 /* Testing. */
@@ -316,6 +333,7 @@ static struct test_case tests[] = {
 
 int main(int argc, char* argv[])
 {
+	int ret;
 	int has_arg = (argc >= 2 && argv[1][0] == '-' && argv[1][2] == '\0');
 
 /*	verbose_test("a((b)((c|d))|)c|"); */
@@ -325,11 +343,11 @@ int main(int argc, char* argv[])
 /*	verbose_test("^a({2!})*b+(a|{1!}b)+d$"); */
 /*	verbose_test("((a|b|c)*(xy)+)+", "asbcxyxy"); */
 
-	run_tests(tests, has_arg && argv[1][1] == 'v', has_arg && argv[1][1] == 's');
+	ret = run_tests(tests, has_arg && argv[1][1] == 'v', has_arg && argv[1][1] == 's');
 
 #if !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 	sljit_free_unused_memory_exec();
 #endif /* !SLJIT_CONFIG_UNSUPPORTED */
 
-	return 0;
+	return ret;
 }
