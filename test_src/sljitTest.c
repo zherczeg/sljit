@@ -7707,7 +7707,11 @@ static void test69(void)
 	struct sljit_compiler *compiler;
 	struct sljit_label *label;
 	struct sljit_jump *jump;
+#ifdef __LCC__
+	sljit_s32 supported[11];
+#else
 	sljit_u8 supported[11];
+#endif
 	sljit_sw buf[52];
 	sljit_s32 i;
 
@@ -8120,7 +8124,11 @@ static void test69(void)
 		FAILED(buf[8] != 97, "test69 case 11 failed\n");
 	}
 	if (supported[3]) {
+#ifdef __LCC__
+		FAILED(*(sljit_u16*)(buf + 9) != (sljit_u16)((sljit_sw)buf + 9), "test69 case 12 failed\n");
+#else
 		FAILED(*(sljit_u16*)(buf + 9) != (sljit_u16)(sljit_sw)(buf + 9), "test69 case 12 failed\n");
+#endif
 		FAILED(((sljit_u8*)(buf + 9))[2] != 0x55, "test69 case 13 failed\n");
 		FAILED(buf[10] != 17897, "test69 case 14 failed\n");
 		FAILED(buf[11] != (sljit_sw)(buf + 9), "test69 case 15 failed\n");
@@ -9049,7 +9057,11 @@ static void test75(void)
 	executable_code code;
 	struct sljit_compiler *compiler;
 	struct sljit_label *label;
+#ifdef __LCC__
+	sljit_s32 supported[2];
+#else
 	sljit_u8 supported[2];
+#endif
 	sljit_sw buf[23];
 	sljit_s32 i;
 
@@ -10160,6 +10172,7 @@ static void test81(void)
 #include "sljitTestSimd.h"
 #include "sljitTestBuffers.h"
 #include "sljitTestSerialize.h"
+
 
 int sljit_test(int argc, char* argv[])
 {

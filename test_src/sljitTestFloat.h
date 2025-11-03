@@ -344,6 +344,7 @@ static void test_float4(void)
 	sljit_f64 buf[3];
 #if (defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86)
 	sljit_u8 inst[16];
+#elif (defined __LCC__)
 #else
 	sljit_u32 inst;
 #endif
