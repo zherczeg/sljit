@@ -3494,6 +3494,8 @@ static void sljit_reset_read_only_buffers(struct sljit_read_only_buffer *buffers
 #	include "sljitNativeS390X.c"
 #elif (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
 #	include "sljitNativeLOONGARCH_64.c"
+#elif (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+#	include "sljitNativeE2K_64.c"
 #endif /* SLJIT_CONFIG_X86 */
 
 #include "sljitSerialize.c"
