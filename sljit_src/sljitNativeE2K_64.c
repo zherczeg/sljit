@@ -429,7 +429,10 @@ enum {
     E2K_LDD,
     /* ------------------------------------------------- */
     E2K_MULS,     E2K_MULD,     E2K_UMULX,    E2K_SMULX,
+    E2K_UMULHd,   E2K_SMULHd,
     /* ------------------------------------------------- */
+    E2K_UDIVX,    E2K_UMODX,    E2K_SDIVX,    E2K_SMODX,
+    E2K_SDIVd,    E2K_UDIVd,
     E2K_FDIVD,    E2K_FSQRTID,
     /* ------------------------------------------------- */
     E2K_FSQRTTD,
@@ -538,7 +541,15 @@ static const E2kOp e2kop[] = {
     { "MULd",     RES_ALS_0134,   0x21, 0,    0x01, 0xc0 },
     { "UMULX",    RES_ALS_0134,   0x22, 0,    0x01, 0xc0 },
     { "SMULX",    RES_ALS_0134,   0x23, 0,    0x01, 0xc0 },
+    { "UMULHd",   RES_ALS_0134,   0x70, 0,    0x01, 0xc0 },
+    { "SMULHd",   RES_ALS_0134,   0x71, 0,    0x01, 0xc0 },
 /* --------------------------------------------------- */
+    { "UDIVX",    RES_ALS_25,     0x44, 0,    0x01, 0xc0 },
+    { "UMODX",    RES_ALS_25,     0x45, 0,    0x01, 0xc0 },
+    { "SDIVX",    RES_ALS_25,     0x46, 0,    0x01, 0xc0 },
+    { "SMODX",    RES_ALS_25,     0x47, 0,    0x01, 0xc0 },
+    { "SDIVd",    RES_ALS_25,     0x43, 0,    0x01, 0xc0 },
+    { "UDIVd",    RES_ALS_25,     0x41, 0,    0x01, 0xc0 },
     { "FDIVd",    RES_ALS5,       0x49, 0,    0x01, 0xc0 },
     { "FSQRTId",  RES_ALS5,       0x4d, 0xc0, 0x01, 0xc0 },
 /* --------------------------------------------------- */
@@ -1022,6 +1033,16 @@ static int emit_alopf21(struct sljit_compiler *compiler, E2kBundle *bundle,
     return als_idx;
 }
 
+static int emit_alopf11(struct sljit_compiler* compiler, E2kBundle *bundle,
+                        sljit_u32 spec, sljit_u32 op,
+                        sljit_u32 src1, sljit_u32 src2, sljit_u32 dst)
+{
+    int als_idx = emit_alopf1(compiler, bundle, spec, op, src1, src2, dst);
+    emit_alef2(compiler, bundle, op, als_idx);
+    emit_bundle_finalize(compiler, bundle);
+    return als_idx;
+}
+
 static int emit_alopf22(struct sljit_compiler *compiler, E2kBundle *bundle,
                         sljit_u32 spec, sljit_u32 op,
                         sljit_u32 src2, sljit_u32 dst)
@@ -1057,6 +1078,38 @@ static void emit_cds(struct sljit_compiler *compiler, E2kBundle *bundle,
     syl.fields.opc = opc;
     bundle->cds[cds_idx] = syl.i;
     bundle->hs_cds++;
+    emit_bundle_finalize(compiler, bundle);
+}
+
+static void emit_copf1(struct sljit_compiler *compiler, E2kBundle *bundle,
+                       sljit_u32 opc, sljit_u32 ctpr, sljit_uw param)
+{
+    check_resource(compiler, bundle, RES_CS0);
+    E2kCopf1 syl;
+    syl.i = 0;
+    syl.fields.param = param;
+    syl.fields.opc = opc;
+    if (ctpr) /* RID_CTPRX is nonnull */
+      syl.fields.ctpr = ctpr - E2K_CTPR_ID_START;
+
+    bundle->cs[0] = syl.i;
+    bundle->f1++;
+    emit_bundle_finalize(compiler, bundle);
+}
+
+static void emit_copf2(struct sljit_compiler *compiler, E2kBundle *bundle,
+                       sljit_u32 opc, sljit_u32 ctpr, sljit_uw disp)
+{
+    check_resource(compiler, bundle, RES_CS0);
+    E2kCopf2 syl;
+    syl.i = 0;
+    syl.fields.disp = disp >> 3;
+    syl.fields.opc = opc;
+    if (ctpr) /* RID_CTPRX is nonnull */
+      syl.fields.ctpr = ctpr - E2K_CTPR_ID_START;
+
+    bundle->cs[0] = syl.i;
+    bundle->f1++;
     emit_bundle_finalize(compiler, bundle);
 }
 
@@ -1222,38 +1275,6 @@ static void emit_call(struct sljit_compiler *compiler, E2kBundle *bundle,
     emit_bundle_finalize(compiler, bundle);
 }
 
-static void emit_copf1(struct sljit_compiler *compiler, E2kBundle *bundle,
-                       sljit_u32 opc, sljit_u32 ctpr, sljit_uw param)
-{
-    check_resource(compiler, bundle, RES_CS0);
-    E2kCopf1 syl;
-    syl.i = 0;
-    syl.fields.param = param;
-    syl.fields.opc = opc;
-    if (ctpr) /* RID_CTPRX is nonnull */
-      syl.fields.ctpr = ctpr - E2K_CTPR_ID_START;
-
-    bundle->cs[0] = syl.i;
-    bundle->f1++;
-    emit_bundle_finalize(compiler, bundle);
-}
-
-static void emit_copf2(struct sljit_compiler *compiler, E2kBundle *bundle,
-                       sljit_u32 opc, sljit_u32 ctpr, sljit_uw disp)
-{
-    check_resource(compiler, bundle, RES_CS0);
-    E2kCopf2 syl;
-    syl.i = 0;
-    syl.fields.disp = disp >> 3;
-    syl.fields.opc = opc;
-    if (ctpr) /* RID_CTPRX is nonnull */
-      syl.fields.ctpr = ctpr - E2K_CTPR_ID_START;
-
-    bundle->cs[0] = syl.i;
-    bundle->f1++;
-    emit_bundle_finalize(compiler, bundle);
-}
-
 /* TODO
 static void emit_prepcall(struct sljit_compiler *compiler, E2kBundle *bundle,
                           sljit_u32 ctpr, ASMFunction target)
@@ -1291,6 +1312,72 @@ static void emit_jmp(struct sljit_compiler *compiler, E2kBundle *bundle,
     emit_ibranch(compiler, bundle,
                  (sljit_sw)((void *)target - (void *)compiler->buf),
                  0, 0);
+}
+
+static void emit_umulhd_muld(struct sljit_compiler* compiler, E2kBundle *bundle)
+{
+    // mul SLJIT_R0 and SLJIT_R1
+    // Result into R1:R0
+
+    // 0. Move R1 into TMP
+    emit_alopf11_ri(compiler, bundle, 0, E2K_ADDD, SLJIT_R1, 0, TMP_REG1);
+    // 1. smulhd for high
+    emit_alopf11_rr(compiler, bundle, 0, E2K_UMULHd, SLJIT_R0, SLJIT_R1, SLJIT_R1);
+    // 2. muld for low
+    emit_alopf11_rr(compiler, bundle, 0, E2K_MULD, SLJIT_R0, TMP_REG1, SLJIT_R0);
+}
+
+static void emit_smulhd_muld(struct sljit_compiler* compiler, E2kBundle *bundle)
+{
+    // mul SLJIT_R0 and SLJIT_R1
+    // Result into R1:R0
+
+    // 0. Move R1 into TMP
+    emit_alopf11_ri(compiler, bundle, 0, E2K_ADDD, SLJIT_R1, 0, TMP_REG1);
+    // 1. smulhd for high
+    emit_alopf11_rr(compiler, bundle, 0, E2K_SMULHd, SLJIT_R0, SLJIT_R1, SLJIT_R1);
+    // 2. muld for low
+    emit_alopf11_rr(compiler, bundle, 0, E2K_MULD, SLJIT_R0, TMP_REG1, SLJIT_R0);
+}
+
+static void emit_udivd_umodx(struct sljit_compiler* compiler, E2kBundle *bundle)
+{
+    // Div R0 by the R1
+    // Result -> R0
+    // Reminder -> R1
+    // 0. Move R1 into TMP
+    emit_alopf11_ri(compiler, bundle, 0, E2K_ADDD, SLJIT_R0, 0, TMP_REG1);
+    // Result -> R0
+    emit_alopf1_rr(compiler, bundle, 0, E2K_UDIVd, SLJIT_R0, SLJIT_R1, SLJIT_R0);
+    // Reminder -> R1
+    emit_alopf1_rr(compiler, bundle, 0, E2K_UMODX, TMP_REG1, SLJIT_R1, SLJIT_R1);
+}
+
+static void emit_sdivd_smodx(struct sljit_compiler* compiler, E2kBundle *bundle)
+{
+    // Div R0 by the R1
+    // Result -> R0
+    // Reminder -> R1
+    // 0. Move R1 into TMP
+    emit_alopf11_ri(compiler, bundle, 0, E2K_ADDD, SLJIT_R0, 0, TMP_REG1);
+    // Result -> R0
+    emit_alopf1_rr(compiler, bundle, 0, E2K_SDIVd, SLJIT_R0, SLJIT_R1, SLJIT_R0);
+    // Reminder -> R1
+    emit_alopf1_rr(compiler, bundle, 0, E2K_SMODX, TMP_REG1, SLJIT_R1, SLJIT_R1);
+}
+
+static void emit_udivs(struct sljit_compiler* compiler, E2kBundle *bundle)
+{
+    // Div R0 by R1
+    // Result -> R0
+    emit_alopf1_rr(compiler, bundle, 0, E2K_UDIVd, SLJIT_R0, SLJIT_R1, SLJIT_R0);
+}
+
+static void emit_sdivs(struct sljit_compiler* compiler, E2kBundle *bundle)
+{
+    // Div R0 by R1
+    // Result -> R0
+    emit_alopf1_rr(compiler, bundle, 0, E2K_SDIVd, SLJIT_R0, SLJIT_R1, SLJIT_R0);
 }
 
 /* -- Emit generic operations --------------------------------------------- */
@@ -1492,7 +1579,43 @@ sljit_s32 sljit_emit_return_to(struct sljit_compiler *compiler,
 SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op)
 {
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op0(compiler, op));
+
+    E2kBundle _bundle;
+    E2kBundle *bundle = &_bundle;
+    emit_bundle_setup(compiler, bundle);
+
+	op = GET_OPCODE(op);
+	switch (op) {
+	case SLJIT_BREAKPOINT:
+    case SLJIT_NOP:
+		emit_nop(compiler, bundle, 1);
+		break;
+	case SLJIT_LMUL_UW:
+        emit_umulhd_muld(compiler, bundle);
+        break;
+	case SLJIT_LMUL_SW:
+        emit_smulhd_muld(compiler, bundle);
+        break;
+	case SLJIT_DIVMOD_UW:
+        emit_udivd_umodx(compiler, bundle);
+	case SLJIT_DIVMOD_SW:
+        emit_sdivd_smodx(compiler, bundle);
+	case SLJIT_DIV_UW:
+        emit_udivs(compiler, bundle);
+	case SLJIT_DIV_SW:
+        emit_sdivs(compiler, bundle);
+	case SLJIT_MEMORY_BARRIER:
+		return SLJIT_ERR_UNSUPPORTED;
+	case SLJIT_ENDBR:
+	case SLJIT_SKIP_FRAMES_BEFORE_RETURN:
+		return SLJIT_ERR_UNSUPPORTED;
+    default:
+        return SLJIT_ERR_UNSUPPORTED;
+	}
+
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE

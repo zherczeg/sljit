@@ -1039,6 +1039,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
    loongarch:  [reg+imm], -2048 <= imm <= 2047
            [reg+reg] is supported
            Write-back is not supported
+   e2k:    [reg+imm], -2^47 <= imm <= 2^47
+           [imm], -2^47 <= imm <= 2^47
+           [reg+reg] is supported
+           Write-back is not supported
 */
 
 /* Macros for specifying operand types. */
