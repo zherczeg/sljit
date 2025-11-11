@@ -54,6 +54,14 @@
      SLJIT_UPPER_BITS_ZERO_EXTENDED : 32 bit operations clears the upper bits of destination registers
      SLJIT_UPPER_BITS_SIGN_EXTENDED : 32 bit operations replicates the sign bit in the upper bits of destination registers
      SLJIT_UPPER_BITS_PRESERVED : 32 bit operations preserves the upper bits of destination registers
+     SLJIT_SUBC_SETS_SIGNED : SLJIT_SUBC[32] operation always sets the signed result, so setting
+                              the following status flags after a subtract with carry operation is valid:
+                              sljit_set_current_flags(..., SLJIT_CURRENT_FLAGS_SUB | SLJIT_SET_SIG_LESS)
+                              sljit_set_current_flags(..., SLJIT_CURRENT_FLAGS_SUB | SLJIT_SET_SIG_GREATER)
+     SLJIT_SHARED_COMPARISON_FLAGS: the cpu has different instructions for signed and unsigned
+                                    comparisons, which sets the same status flags, so passing SLJIT_LESS
+                                    or SLJIT_SIG_LESS as an argument has the same effect, and this is true
+                                    for all other signed/unsigned comparison type pairs
 
    Constants:
      SLJIT_NUMBER_OF_REGISTERS : number of available registers
@@ -89,14 +97,6 @@
      SLJIT_CONV_NAN_FLOAT : result when a NaN floating point value is converted to integer
                             (possible values: SLJIT_CONV_RESULT_MAX_INT, SLJIT_CONV_RESULT_MIN_INT,
                             or SLJIT_CONV_RESULT_ZERO)
-     SLJIT_SUBC_SETS_SIGNED : SLJIT_SUBC[32] operation always sets the signed result, so setting
-                              the following status flags after a subtract with carry operation is valid:
-                              sljit_set_current_flags(..., SLJIT_CURRENT_FLAGS_SUB | SLJIT_SET_SIG_LESS)
-                              sljit_set_current_flags(..., SLJIT_CURRENT_FLAGS_SUB | SLJIT_SET_SIG_GREATER)
-     SLJIT_SHARED_COMPARISON_FLAGS: the cpu has different instructions for signed and unsigned
-                                    comparisons, which sets the same status flags, so passing SLJIT_LESS
-                                    or SLJIT_SIG_LESS as an argument has the same effect, and this is true
-                                    for all other signed/unsigned comparison type pairs
 
    Other macros:
      SLJIT_TMP_R0 .. R9 : accessing temporary registers
@@ -108,18 +108,21 @@
      SLJIT_TMP_DEST_REG : a temporary register for results, see the rules below
      SLJIT_TMP_DEST_FREG : a temporary register for float results, see the rules below
      SLJIT_TMP_DEST_VREG : a temporary register for vector results, see the rules below
-     SLJIT_TMP_OPT_REG : a temporary register which might not be defined, see the rules below
+     SLJIT_TMP_OPT_REG : an optional temporary register, see the rules below
+     SLJIT_TMP_FLAG_REG : an optional temporary register for storing the value of a flag
      SLJIT_FUNC : calling convention attribute for both calling JIT from C and C calling back from JIT
      SLJIT_W(number) : defining 64 bit constants on 64 bit architectures (platform independent helper)
      SLJIT_F64_SECOND(reg) : provides the register index of the second 32 bit part of a 64 bit
                              floating point register when SLJIT_HAS_F64_AS_F32_PAIR returns non-zero
 
    Temporary register rules (e.g. SLJIT_TMP_DEST_REG / SLJIT_TMP_OPT_REG):
-     Sljit tries to emit instructions without using any temporary registers whenever it is possible.
-     When a single temporary register is needed, it is always the "OPT" register. When two temporary
-     registers are needed, both the "DEST" and "OPT" are used. The x86-32 does not define an "OPT"
-     register, and handles all cases without an "OPT" register which requires an "OPT" register
-     on other architectures.
+     The sljit compiler avoids using temporary registers, but certain instruction
+     forms cannot be generated without them. The number of temporary registers
+     reserved by the compiler depends on the target architecture. An SLJIT_TMP_*
+     name is assigned to some of these registers, which represents their
+     SLJIT_TMP_R(i) index. When such register is optional, it might not be
+     defined on all architectures. For example, the x86-32 code generator does
+     not use any optional temporary registers.
 */
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
@@ -722,6 +725,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS 3
 #define SLJIT_TMP_DEST_REG SLJIT_TMP_R1
 #define SLJIT_TMP_OPT_REG SLJIT_TMP_R0
+#define SLJIT_TMP_FLAG_REG SLJIT_TMP_R3
 #define SLJIT_TMP_DEST_FREG SLJIT_TMP_FR0
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
@@ -742,6 +746,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_NUMBER_OF_TEMPORARY_VECTOR_REGISTERS 2
 #define SLJIT_TMP_DEST_REG SLJIT_TMP_R1
 #define SLJIT_TMP_OPT_REG SLJIT_TMP_R0
+#define SLJIT_TMP_FLAG_REG SLJIT_TMP_R3
 #define SLJIT_TMP_DEST_FREG SLJIT_TMP_FR0
 #define SLJIT_TMP_DEST_VREG SLJIT_TMP_VR0
 #define SLJIT_LOCALS_OFFSET_BASE 0
@@ -799,6 +804,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS 2
 #define SLJIT_TMP_DEST_REG SLJIT_TMP_R1
 #define SLJIT_TMP_OPT_REG SLJIT_TMP_R0
+#define SLJIT_TMP_FLAG_REG SLJIT_TMP_R3
 #define SLJIT_TMP_DEST_FREG SLJIT_TMP_FR0
 #define SLJIT_LOCALS_OFFSET_BASE 0
 #define SLJIT_MASKED_SHIFT 1
