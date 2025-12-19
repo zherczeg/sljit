@@ -135,6 +135,13 @@
 #include <stdlib.h>
 #endif
 
+#ifdef __APPLE__
+#include <AvailabilityMacros.h>
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1050
+#include <libkern/OSCacheControl.h>
+#endif
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -253,10 +260,6 @@ extern "C" {
 /* Instruction cache flush. */
 /****************************/
 
-#ifdef __APPLE__
-#include <AvailabilityMacros.h>
-#endif
-
 /*
  * TODO:
  *
@@ -302,7 +305,6 @@ extern "C" {
 /* Supported by all macs since Mac OS 10.5.
    However, it does not work on non-jailbroken iOS devices,
    although the compilation is successful. */
-#include <libkern/OSCacheControl.h>
 #define SLJIT_CACHE_FLUSH(from, to) \
 	sys_icache_invalidate((void*)(from), (size_t)((char*)(to) - (char*)(from)))
 
