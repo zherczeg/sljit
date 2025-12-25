@@ -692,7 +692,8 @@ static sljit_u8* detect_near_jump_type(struct sljit_jump *jump, sljit_u8 *code_p
 		label_addr = jump->u.target - (sljit_uw)executable_offset;
 
 #if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
-	if ((sljit_sw)(label_addr - (jump_addr + 6)) > HALFWORD_MAX || (sljit_sw)(label_addr - (jump_addr + 5)) < HALFWORD_MIN)
+	sljit_s32 rel_size = (type < SLJIT_JUMP) ? 6 : 5;
+	if ((sljit_sw)(label_addr - (jump_addr + rel_size)) > HALFWORD_MAX || (sljit_sw)(label_addr - (jump_addr + rel_size)) < HALFWORD_MIN)
 		return detect_far_jump_type(jump, code_ptr);
 #endif /* SLJIT_CONFIG_X86_64 */
 
