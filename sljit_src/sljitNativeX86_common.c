@@ -681,7 +681,9 @@ static sljit_u8* detect_near_jump_type(struct sljit_jump *jump, sljit_u8 *code_p
 	sljit_s32 short_jump;
 	sljit_uw label_addr;
 	sljit_uw jump_addr;
+#if (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64)
 	sljit_uw rel_size;
+#endif /* SLJIT_CONFIG_X86_64 */
 
 	jump_addr = (sljit_uw)code_ptr;
 	if (!(jump->flags & JUMP_ADDR)) {
