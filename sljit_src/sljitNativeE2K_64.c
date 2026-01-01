@@ -97,33 +97,42 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 */
 
 // + zero reg
-static const sljit_u8 reg_map[E2K_NREG_NUMBER + 1] = {
+// + sp
+static const sljit_u8 reg_map[E2K_NREG_NUMBER + 2] = {
     // scratch
     0, 0, 1, 2, 3, 4, 5, 6, 7,          // ZERO, R0-R7, input args
     8, 9, 10, 11, 12, 13, 14, 15,       // R8-R15, call args, rotated
     16, 17, 18, 19, 20, 21, 22, 23,     // R16-R23
     24, 25, 26, 27, 28, 29, 30, 31,     // R24-R31
     // saved
-    32, 33, 34, 35, 36, 37, 38, 39,     // S29-S15
-    40, 41, 42, 43, 44, 45, 46, 47,     // S21-S14
-    48, 49, 50, 51, 52, 53, 54, 55,     // S13-S6
-    56, 57, 58, 59, 60, 61,             // S5-S0
-    62, 63                              // TMP_REG1, TMP_REG2
+    32, 33, 34, 35, 36, 37, 38, 39,     // S28-S14
+    40, 41, 42, 43, 44, 45, 46, 47,     // S20-S13
+    48, 49, 50, 51, 52, 53, 54, 55,     // S12-S5
+    56, 57, 58, 59, 60,                 // S4-S0
+    61, 62, 63                          // SP, TMP_REG1, TMP_REG2
 };
 
 // + zero reg
-static const sljit_u8 freg_map[E2K_NREG_NUMBER + 1] = {
+// + sp
+static const sljit_u8 freg_map[E2K_NREG_NUMBER + 2] = {
     // scratch
     0, 0, 1, 2, 3, 4, 5, 6, 7,          // ZERO, R0-R7, input args
     8, 9, 10, 11, 12, 13, 14, 15,       // R8-R15, call args, rotated
     16, 17, 18, 19, 20, 21, 22, 23,     // R16-R23
     24, 25, 26, 27, 28, 29, 30, 31,     // R24-R31
     // saved
-    32, 33, 34, 35, 36, 37, 38, 39,     // S29-S15
-    40, 41, 42, 43, 44, 45, 46, 47,     // S21-S14
-    48, 49, 50, 51, 52, 53, 54, 55,     // S13-S6
-    56, 57, 58, 59, 60, 61,             // S5-S0
-    62, 63                              // TMP_REG1, TMP_REG2
+    32, 33, 34, 35, 36, 37, 38, 39,     // S28-S14
+    40, 41, 42, 43, 44, 45, 46, 47,     // S20-S13
+    48, 49, 50, 51, 52, 53, 54, 55,     // S12-S5
+    56, 57, 58, 59, 60,                 // S4-S0
+    61, 62, 63                          // SP, TMP_REG1, TMP_REG2
+};
+
+
+// label for ctpr
+// 0 reg is empty reg, because ctpr starts with 1.
+static const sljit_u8 ctpr_map[4] = {
+    0, 11, 12, 13
 };
 
 // Luajit
@@ -1055,7 +1064,8 @@ static sljit_u32 emit_dst(struct sljit_compiler *compiler,
         case E2K_REG_R:
             return reg_map[dst] | 0x80;
         case E2K_REG_CTPR:
-            return (dst - E2K_CTPR_ID_START) | 0xd0;
+            SLJIT_ASSERT((dst - E2K_CTPR_ID_START) != 0);
+            return ctpr_map[(dst - E2K_CTPR_ID_START)] | 0xd0;
         default:
             SLJIT_ASSERT(0);
         }
@@ -1298,12 +1308,12 @@ static void emit_copf2(struct sljit_compiler *compiler, E2kBundle *bundle,
 #define emit_mrgc(compiler, bundle, als, pred, inv) \
   emit_cds(compiler, bundle, 2, als, pred, inv)
 
-#define ISRC1(src1) emit_src1(compiler, bundle, E2K_CONST, src1)
-#define RSRC1(src1) emit_src1(compiler, bundle, E2K_REG,   src1)
-#define ISRC2(src2) emit_src2(compiler, bundle, E2K_CONST, src2)
-#define RSRC2(src2) emit_src2(compiler, bundle, E2K_REG,   src2)
-#define RSRC3(src3) emit_src3(compiler, bundle, E2K_REG,   src3)
-#define RDST(dst)   emit_dst(compiler, bundle, E2K_REG, dst)
+#define ISRC1(src1) emit_src1(compiler, bundle, E2K_CONST,    src1)
+#define RSRC1(src1) emit_src1(compiler, bundle, E2K_REG,      src1)
+#define ISRC2(src2) emit_src2(compiler, bundle, E2K_CONST,    src2)
+#define RSRC2(src2) emit_src2(compiler, bundle, E2K_REG,      src2)
+#define RSRC3(src3) emit_src3(compiler, bundle, E2K_REG,      src3)
+#define RDST(dst)   emit_dst (compiler, bundle, E2K_REG,      dst)
 #define PDST(pred)  emit_pdst(compiler, bundle, E2K_REG_PRED, pred)
 
 // ALOPF1
@@ -1409,15 +1419,19 @@ static void emit_call(struct sljit_compiler *compiler,
 
 /* TODO
 static void emit_prepcall(struct sljit_compiler *compiler, E2kBundle *bundle,
-                          sljit_u32 ctpr, ASMFunction target)
+                          sljit_u32 ctpr, ASMFunction target sljit_u32 p)
 {
+    BUNDLE_SETUP();
+
     // check 28 bit disp
     if (((((uintptr_t)target ^ (uintptr_t)as->mcp) >> 3) >> 28) == 0) {
         ptrdiff_t disp = (ptrdiff_t)((void *) target - (void *)as->mcp);
         emit_copf2(as, E2K_DISP, ctpr, disp, p);
     } else { // Target out of range; need indirect call
-        emit_alopf2_i(as, 0, E2K_MOVTD, (intptr_t)target, ctpr, p);
+        emit_alopf2_i(compiler, bundle, 0, E2K_MOVTD, (intptr_t)target, ctpr, p);
     }
+
+    emit_bundle_finalize(compiler, bundle);
 }
 */
 
@@ -1428,23 +1442,6 @@ void emit_nop_full(struct sljit_compiler *compiler,
         BUNDLE_SETUP();
 		emit_nop(compiler, bundle, count);
         emit_bundle_finalize(compiler, bundle);
-}
-
-static inline
-sljit_uw compess_mask(sljit_uw mask)
-{
-    sljit_uw result = 0;
-    sljit_uw bit_pos = 0;
-    sljit_uw one = 1;   // prevent overflow
-
-    for (int i = 0; i < 64; i++) {
-        if (mask & (one << i)) {
-            result |= (1 << bit_pos);
-            bit_pos++;
-        }
-    }
-
-    return result;
 }
 
 // Without MEM. Only imm and reg. Dst is always reg.
@@ -2489,6 +2486,50 @@ SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type,
                            sljit_s32 src, sljit_sw srcw)
 {
+    struct sljit_jump *jump;
+    sljit_u32 *inst;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_ijump(compiler, type, src, srcw));
+
+    // Make possible to read variable from callee function
+	ADJUST_LOCAL_OFFSET(src, srcw);
+
+    // direct form, maybe IMM only
+    if (SLJIT_IS_IMM(src)) {
+		jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+		FAIL_IF_NULL(jump);
+		set_jump(jump, compiler, (sljit_u32)JUMP_ADDR);
+		jump->u.target = (sljit_uw)srcw;
+
+		jump->addr = compiler->size;
+        // TODO: Now MOVTd only, but for perf we want disp in the future.
+        // We should calc jump len and replace movtd by disp.
+        // TMP_REG2 as mark.
+        BUNDLE_SETUP();
+        emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG2, E2K_CTPR(1));
+        emit_nop(compiler, bundle, 8);
+        emit_bundle_finalize(compiler, bundle);
+        emit_ct(compiler, E2K_CTPR(1), 0, 0);
+    // indirect form
+    } else if (SLJIT_IS_MEM(src)) {
+        emit_load(compiler, TMP_REG1, 0, src, srcw);
+        BUNDLE_SETUP();
+        emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR(1));
+        emit_nop(compiler, bundle, 8);
+        emit_bundle_finalize(compiler, bundle);
+        emit_ct(compiler, E2K_CTPR(1), 0, 0);
+    // indirect form
+    } else if (SLJIT_IS_REG(src)) {
+        BUNDLE_SETUP();
+        emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, src, E2K_CTPR(1));
+        emit_nop(compiler, bundle, 8);
+        emit_bundle_finalize(compiler, bundle);
+        emit_ct(compiler, E2K_CTPR(1), 0, 0);
+    } else {
+        SLJIT_ASSERT(0);
+    }
+
     return SLJIT_ERR_UNSUPPORTED;
 }
 

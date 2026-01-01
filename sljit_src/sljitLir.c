@@ -328,6 +328,11 @@ struct sljit_extended_label {
 
 #endif /* SLJIT_CONFIG_LOONGARCH */
 
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+/* SLJIT_REWRITABLE_JUMP is 0x10000. */
+#	define JUMP_MAX_SIZE	((sljit_uw)4*32)
+#endif /* SLJIT_CONFIG_E2K */
+
 /* Stack management. */
 
 #define GET_SAVED_REGISTERS_SIZE(scratches, saveds, extra) \
