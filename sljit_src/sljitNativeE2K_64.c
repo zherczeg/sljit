@@ -524,7 +524,7 @@ enum {
     /* ------------------------------------------------- */
     E2K_MULs,     E2K_MULd,     E2K_UMULX,    E2K_SMULX,
     /* ------------------------------------------------- */
-    E2K_FDIVs,    E2K_DIVd,
+    E2K_FDIVs,    E2K_FDIVd,
     /* ------------------------------------------------- */
     E2K_FSQRTs,   E2K_FSQRTId, E2K_FSQRTTd,
     /* ------------------------------------------------- */
@@ -1163,26 +1163,32 @@ static int emit_alopf7(struct sljit_compiler *compiler,
 static void emit_alef1(struct sljit_compiler *compiler, E2kBundle *bundle,
                        sljit_u32 op, sljit_u32 src3, int als_idx)
 {
+    // TODO: WHAT?
     /* No combined operations on 2 and 5 channels */
     int res = 1 << (RES_ALES_SHIFT + als_idx);
     check_resource(compiler, bundle, res);
-    if (!(res & RES_ALES_25)) {
+    // if (!(res & RES_ALES_25)) {
+    if (res) {
         E2kAlef1 syl;
         syl.i = 0;
         syl.fields.src3 = (sljit_u16)src3;
         syl.fields.opc2 = e2kop[op].opc2;
         bundle->ales[als_idx] = syl.i;
         bundle->f3++;
+    } else {
+        SLJIT_ASSERT(0);
     }
 }
 
 static void emit_alef2(struct sljit_compiler *compiler, E2kBundle *bundle,
                        sljit_u32 op, int als_idx)
 {
+    // TODO: WHAT?
     /* No combined operations on 2 and 5 channels */
     int res = 1 << (RES_ALES_SHIFT + als_idx);
     check_resource(compiler, bundle, res);
-    if (!(res & RES_ALES_25)) {
+    // if (!(res & RES_ALES_25)) {
+    if (res) {
         E2kAlef2 syl;
         syl.i = 0;
         syl.fields.opce2 = e2kop[op].opce2;
@@ -1293,10 +1299,10 @@ static void emit_copf2(struct sljit_compiler *compiler, E2kBundle *bundle,
   emit_cds(compiler, bundle, 2, als, pred, inv)
 
 #define ISRC1(src1) emit_src1(compiler, bundle, E2K_CONST, src1)
-#define RSRC1(src1) emit_src1(compiler, bundle, E2K_REG, src1)
+#define RSRC1(src1) emit_src1(compiler, bundle, E2K_REG,   src1)
 #define ISRC2(src2) emit_src2(compiler, bundle, E2K_CONST, src2)
-#define RSRC2(src2) emit_src2(compiler, bundle, E2K_REG, src2)
-#define RSRC3(src3) emit_src3(compiler, bundle, E2K_REG, src3)
+#define RSRC2(src2) emit_src2(compiler, bundle, E2K_REG,   src2)
+#define RSRC3(src3) emit_src3(compiler, bundle, E2K_REG,   src3)
 #define RDST(dst)   emit_dst(compiler, bundle, E2K_REG, dst)
 #define PDST(pred)  emit_pdst(compiler, bundle, E2K_REG_PRED, pred)
 
@@ -2324,7 +2330,71 @@ sljit_s32 sljit_emit_fop1(struct sljit_compiler *compiler, sljit_s32 op,
 	                      sljit_s32 dst, sljit_sw dstw,
 	                      sljit_s32 src, sljit_sw srcw)
 {
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw));
+
+	switch (GET_OPCODE(op)) {
+    case SLJIT_MOV_F64:
+        signature_switcher1(compiler, E2K_FADDd, dst, dstw, src, srcw);
+        break;
+    case SLJIT_MOV_F32:
+        signature_switcher1(compiler, E2K_FADDs, dst, dstw, src, srcw);
+        break;
+    case SLJIT_CONV_F64_FROM_F32:
+        signature_switcher1(compiler, E2K_FSTOFD, dst, dstw, src, srcw);
+        break;
+    case SLJIT_CONV_F32_FROM_F64:
+        signature_switcher1(compiler, E2K_FDTOFS, dst, dstw, src, srcw);
+        break;
+    case SLJIT_CONV_SW_FROM_F64:
+        signature_switcher1(compiler, E2K_FDTOID, dst, dstw, src, srcw);
+        break;
+    case SLJIT_CONV_SW_FROM_F32:
+        signature_switcher1(compiler, E2K_FSTOID, dst, dstw, src, srcw);
+        break;
+    case SLJIT_CONV_S32_FROM_F64:
+        signature_switcher1(compiler, E2K_FDTOIS, dst, dstw, src, srcw);
+        break;
+    case SLJIT_CONV_S32_FROM_F32:
+        signature_switcher1(compiler, E2K_FSTOIS, dst, dstw, src, srcw);
+        break;
+    case SLJIT_CONV_F64_FROM_SW:
+        signature_switcher1(compiler, E2K_IDTOFD, dst, dstw, src, srcw);
+        break;
+    case SLJIT_CONV_F32_FROM_SW:
+        signature_switcher1(compiler, E2K_IDTOFS, dst, dstw, src, srcw);
+        break;
+    case SLJIT_CONV_F64_FROM_S32:
+        signature_switcher1(compiler, E2K_ISTOFD, dst, dstw, src, srcw);
+        break;
+    case SLJIT_CONV_F32_FROM_S32:
+        signature_switcher1(compiler, E2K_ISTOFS, dst, dstw, src, srcw);
+        break;
+    // TODO:
+    case SLJIT_CONV_F64_FROM_UW:
+    case SLJIT_CONV_F32_FROM_UW:
+    case SLJIT_CONV_F64_FROM_U32:
+    case SLJIT_CONV_F32_FROM_U32:
+        return SLJIT_ERR_UNSUPPORTED;
+    // TODO:
+    case SLJIT_CMP_F64:
+    case SLJIT_CMP_F32:
+        return SLJIT_ERR_UNSUPPORTED;
+    case SLJIT_NEG_F64:
+        break;
+    case SLJIT_NEG_F32:
+        break;
+    case SLJIT_ABS_F64:
+        signature_switcher2(compiler, E2K_XORd, dst, dstw, 0, 0x8000000000000000, src, srcw);
+        break;
+    case SLJIT_ABS_F32:
+        signature_switcher2(compiler, E2K_XORs, dst, dstw, 0, 0x80000000, src, srcw);
+        break;
+    default:
+        return SLJIT_ERR_UNSUPPORTED;
+	}
+
+    return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
@@ -2333,7 +2403,39 @@ sljit_s32 sljit_emit_fop2(struct sljit_compiler *compiler, sljit_s32 op,
 	                      sljit_s32 src1, sljit_sw src1w,
 	                      sljit_s32 src2, sljit_sw src2w)
 {
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fop2(compiler, op, dst, dstw, src1, src1w, src2, src2w));
+
+	switch (GET_OPCODE(op)) {
+    case SLJIT_ADD_F64:
+        signature_switcher2(compiler, E2K_FADDd, dst, dstw, src1, src1w, src2, src2w);
+        break;
+    case SLJIT_ADD_F32:
+        signature_switcher2(compiler, E2K_FADDs, dst, dstw, src1, src1w, src2, src2w);
+        break;
+    case SLJIT_SUB_F64:
+        signature_switcher2(compiler, E2K_FSUBd, dst, dstw, src1, src1w, src2, src2w);
+        break;
+    case SLJIT_SUB_F32:
+        signature_switcher2(compiler, E2K_FSUBs, dst, dstw, src1, src1w, src2, src2w);
+        break;
+    case SLJIT_MUL_F64:
+        signature_switcher2(compiler, E2K_FMULd, dst, dstw, src1, src1w, src2, src2w);
+        break;
+    case SLJIT_MUL_F32:
+        signature_switcher2(compiler, E2K_FMULs, dst, dstw, src1, src1w, src2, src2w);
+        break;
+    case SLJIT_DIV_F64:
+        signature_switcher2(compiler, E2K_FDIVd, dst, dstw, src1, src1w, src2, src2w);
+        break;
+    case SLJIT_DIV_F32:
+        signature_switcher2(compiler, E2K_FDIVs, dst, dstw, src1, src1w, src2, src2w);
+        break;
+    default:
+        return SLJIT_ERR_UNSUPPORTED;
+	}
+
+    return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
