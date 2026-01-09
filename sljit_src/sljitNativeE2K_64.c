@@ -954,10 +954,10 @@ static void emit_bundle_finalize(struct sljit_compiler *compiler,
     sljit_u32 *inst = (sljit_u32*)ensure_buf(compiler, sizeof(sljit_u32)*hs_lng);
     compiler->size += sizeof(sljit_u32)*hs_lng;
     sljit_u16 *inst16;
-    #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-    sljit_u32 *inst_start = inst;
-    fprintf(stderr, "Bundle addr: %p\n", inst_start);
-    #endif
+    //#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+    //sljit_u32 *inst_start = inst;
+    //fprintf(stderr, "Bundle addr: %p\n", inst_start);
+    //#endif
 
     /* --- f1 ---------------------------------------------------------------*/
     /* HS and SS */
@@ -1403,10 +1403,10 @@ static void emit_copf1(struct sljit_compiler *compiler, E2kBundle *bundle,
     syl.i = 0;
     syl.fields.param = param;
     syl.fields.opc = opc;
-#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-    fprintf(stderr, "[copf1] ctpr - E2K_CTPR_ID_START = 0x%x - 0x%x = 0x%x\n",
-            ctpr, E2K_CTPR_ID_START, (sljit_u32)ctpr - (sljit_u32)E2K_CTPR_ID_START);
-#endif
+//#if (defined SLJIT_DEBUG && SLJIT_DEBUG)
+//    fprintf(stderr, "[copf1] ctpr - E2K_CTPR_ID_START = 0x%x - 0x%x = 0x%x\n",
+//            ctpr, E2K_CTPR_ID_START, (sljit_u32)ctpr - (sljit_u32)E2K_CTPR_ID_START);
+//#endif
     if (ctpr)   // this is not label for ctpr
         syl.fields.ctpr = ctpr - E2K_CTPR_ID_START;
 
@@ -1839,10 +1839,10 @@ static void emit_load(struct sljit_compiler *compiler,
                        SLJIT_EXTRACT_REG(src), srcw, dst);
     } else if (SLJIT_IS_MEM2(src)) {
         emit_op_full(compiler, E2K_SHLd, REG_SRC1,
-                     SLJIT_EXTRACT_SECOND_REG(src), srcw, 0, TMP_REG1);
+                     SLJIT_EXTRACT_SECOND_REG(src), srcw, 0, dst);
         emit_nop(compiler, bundle, 4);
         emit_alopf1_rr(compiler, bundle, 0, E2K_LDd,
-                       SLJIT_EXTRACT_REG(src), TMP_REG1, dst);
+                       SLJIT_EXTRACT_REG(src), dst, dst);
     }
 
     emit_bundle_finalize(compiler, bundle);
@@ -1974,11 +1974,11 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 emit_op_full(compiler, E2K_ADDd, REG_ZERO,
                              0, src1w, 0, TMP_REG2);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                             TMP_REG2, TMP_REG1, 0, TMP_REG1);
+                             TMP_REG2, TMP_REG1, 0, dst);
             } else if (SLJIT_IS_MEM(src1)) {
                 emit_load(compiler, TMP_REG2, 0, src1, src1w);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                             TMP_REG2, TMP_REG1, 0, TMP_REG1);
+                             TMP_REG2, TMP_REG1, 0, dst);
             } else {
                 SLJIT_ASSERT(0);
             }
