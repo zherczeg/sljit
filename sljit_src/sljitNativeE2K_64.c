@@ -84,10 +84,11 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
     return "e2k" SLJIT_CPUINFO;
 }
 
-#define TMP_REG1 (SLJIT_NUMBER_OF_REGISTERS)
-#define TMP_REG2 (SLJIT_NUMBER_OF_REGISTERS + 1)
-#define SP_REG   (SLJIT_NUMBER_OF_REGISTERS + 2)
-#define FLAG_REG (SLJIT_NUMBER_OF_REGISTERS + 3)
+// + zero
+#define TMP_REG1 (SLJIT_NUMBER_OF_REGISTERS + 1)
+#define TMP_REG2 (SLJIT_NUMBER_OF_REGISTERS + 2)
+#define SP_REG   (SLJIT_NUMBER_OF_REGISTERS + 3)
+#define FLAG_REG (SLJIT_NUMBER_OF_REGISTERS + 4)
 #define FLAG_PREG 16
 
 // help
@@ -1835,12 +1836,13 @@ static void emit_load(struct sljit_compiler *compiler,
     } else if (SLJIT_IS_MEM1(src)) {
         emit_nop(compiler, bundle, 4);
         emit_alopf1_ri(compiler, bundle, 0, E2K_LDd,
-                       SLJIT_EXTRACT_REG(src), 0x0, dst);
+                       SLJIT_EXTRACT_REG(src), srcw, dst);
     } else if (SLJIT_IS_MEM2(src)) {
+        emit_op_full(compiler, E2K_SHLd, REG_SRC1,
+                     SLJIT_EXTRACT_SECOND_REG(src), srcw, 0, TMP_REG1);
         emit_nop(compiler, bundle, 4);
-        emit_alopf1_rr(compiler, bundle, 0,
-                       E2K_LDd, SLJIT_EXTRACT_REG(src),
-                       SLJIT_EXTRACT_SECOND_REG(src), dst);
+        emit_alopf1_rr(compiler, bundle, 0, E2K_LDd,
+                       SLJIT_EXTRACT_REG(src), TMP_REG1, dst);
     }
 
     emit_bundle_finalize(compiler, bundle);
@@ -1865,12 +1867,13 @@ static void emit_store(struct sljit_compiler *compiler,
     } else if (SLJIT_IS_MEM1(dst)) {
         emit_nop(compiler, bundle, 4);
         emit_alopf3_ri(compiler, bundle, 0, E2K_STd,
-                       SLJIT_EXTRACT_REG(dst), 0x0, src);
+                       SLJIT_EXTRACT_REG(dst), dstw, src);
     } else if (SLJIT_IS_MEM2(dst)) {
+        emit_op_full(compiler, E2K_SHLd, REG_SRC1,
+                     SLJIT_EXTRACT_SECOND_REG(dst), dstw, 0, TMP_REG2);
         emit_nop(compiler, bundle, 4);
-        emit_alopf3_rr(compiler, bundle, 0,
-                       E2K_STd, SLJIT_EXTRACT_REG(dst),
-                       SLJIT_EXTRACT_SECOND_REG(dst), src);
+        emit_alopf3_rr(compiler, bundle, 0, E2K_STd,
+                       SLJIT_EXTRACT_REG(dst), TMP_REG2, src);
     }
 
     emit_bundle_finalize(compiler, bundle);
