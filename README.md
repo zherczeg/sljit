@@ -24,6 +24,7 @@ SLJIT is a low-level, platform-independent JIT compiler, which is very well suit
   - `PowerPC` 32 / 64
   - `LoongArch` 64
   - `MIPS` 32 / 64
+  - `E2K` 64
 - Supports a large number of operations
     - Self-modifying code
     - Tail calls
