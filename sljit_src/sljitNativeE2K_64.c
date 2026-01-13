@@ -84,11 +84,13 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
     return "e2k" SLJIT_CPUINFO;
 }
 
-// + zero
 #define TMP_REG1 (SLJIT_NUMBER_OF_REGISTERS + 1)
-#define TMP_REG2 (SLJIT_NUMBER_OF_REGISTERS + 2)
-#define SP_REG   (SLJIT_NUMBER_OF_REGISTERS + 3)
-#define FLAG_REG (SLJIT_NUMBER_OF_REGISTERS + 4)
+#define TMP_REG2 TMP_REG1 + 1
+#define TMP_REG3 TMP_REG2 + 1
+#define SP_REG   TMP_REG3 + 1
+#define FLAG_REG SP_REG   + 1
+// + zero
+#define EXTRA_REGS_NUM (FLAG_REG - TMP_REG1 + 2)
 #define FLAG_PREG 16
 
 // help
@@ -124,11 +126,8 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 */
 
 #define E2K_NREG_ID_START (sljit_u32)1
-// + zero reg
-// + sp
-// + flag
 #define E2K_NREG_NUMBER (sljit_u32)(SLJIT_NUMBER_OF_REGISTERS \
-                        + SLJIT_NUMBER_OF_TEMPORARY_REGISTERS + 3)
+                        + EXTRA_REGS_NUM)
 #define E2K_PRED_ID_START (sljit_u32)(E2K_NREG_ID_START + E2K_NREG_NUMBER)
 #define E2K_PRED_NUMBER (sljit_u32)4
 #define E2K_CTPR_ID_START (sljit_u32)(E2K_PRED_ID_START + E2K_PRED_NUMBER)
@@ -145,18 +144,22 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 
 static const sljit_u8 reg_map[E2K_NREG_NUMBER] = {
     // scratch
-    0, 0, 1, 2, 3, 4, 5, 6, 7,
+    0,
+    0, 1, 2, 3, 4, 5, 6, 7,
     8, 9, 10, 11, 12, 13, 14, 15,
     16, 17, 18, 19, 20, 21, 22, 23,
-    24, 25, 26, 27, 28, 29, 30, 31,
-    // saved (zero + 32 = 33)
+    24, 25, 26, 27,
+    // saved
+    28, 29, 30, 31,
     32, 33, 34, 35, 36, 37, 38, 39,
     40, 41, 42, 43, 44, 45, 46, 47,
     48, 49, 50, 51, 52, 53, 54, 55,
-    56, 57, 58, 59,
-    60, 61, // TMP REG 1 and 2
-    62,     // SP
-    63      // FLAG
+    56, // TMP_REG1
+    57, // TMP_REG2
+    58, // TMP_REG3
+    59, // SP_REG
+    60, // FLAG_PREG
+    // 61, 62, 63 RESERVED
 };
 
 // Full copy
@@ -563,7 +566,7 @@ enum {
     E2K_SXT,      E2K_MERGEs,   E2K_MERGEd,
     /* ------------------------------------------------- */
     E2K_ADDs,     E2K_ADDd,     E2K_SUBs,     E2K_SUBd,
-    E2K_SUBd_fd,
+    E2K_ADDd_fd,  E2K_SUBd_fd,
     E2K_SCLs,     E2K_SCLd,     E2K_SCRs,     E2K_SCRd,
     /* ------------------------------------------------- */
     E2K_SHLs,     E2K_SHLd,     E2K_SHRs,     E2K_SHRd,
@@ -642,7 +645,8 @@ static const E2kOp e2kop[] = {
     { "ADDd",      RES_ALS_012345, 0x11, 0,    0,   0,     E2K_ALOPF1},
     { "SUBs",      RES_ALS_012345, 0x12, 0,    0,   0,     E2K_ALOPF1},
     { "SUBd",      RES_ALS_012345, 0x13, 0,    0,   0,     E2K_ALOPF1},
-    { "SUBd_fd",   RES_ALS_03,     0x13, 0xc0, 0x7, 0,     E2K_ALOPF11},
+    { "ADDd_fd",   RES_ALS_03,     0x11, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SUBd_fd",   RES_ALS_03,     0x13, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SCLs",      RES_ALS_012345, 0x14, 0,    0,   0,     E2K_ALOPF1},
     { "SCLd",      RES_ALS_012345, 0x15, 0,    0,   0,     E2K_ALOPF1},
     { "SCRs",      RES_ALS_012345, 0x16, 0,    0,   0,     E2K_ALOPF1},
@@ -894,7 +898,6 @@ static E2kOpT get_const_type(struct sljit_compiler *compiler,
     SLJIT_UNUSED_ARG(compiler);
     SLJIT_UNUSED_ARG(bundle);
 
-    // from small to big
     if (checku4(val))
         return E2K_CONST4;
     else if(checku5(val))
@@ -1121,6 +1124,8 @@ static sljit_u32 emit_src2(struct sljit_compiler *compiler,
             return 0;
         }
     } else {
+// Prevent sign extension in SUBd operation in case of f16 imm operand
+#if 0
         switch (get_const_type(compiler, bundle, src2)) {
         case E2K_CONST4:
             return src2 | 0xc0;
@@ -1134,6 +1139,9 @@ static sljit_u32 emit_src2(struct sljit_compiler *compiler,
             SLJIT_ASSERT(0);
             return 0;
         }
+#else
+        return (emit_lts(compiler, bundle, E2K_CONST64, src2) | 0xdc);
+#endif
     }
 }
 
@@ -2396,12 +2404,23 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
 	ADJUST_LOCAL_OFFSET(src2, src2w);
 
 	switch (GET_OPCODE(op)) {
-    // TODO: Think about carry
 	case SLJIT_ADD:
 	case SLJIT_ADD32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_ADDd_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_ADDd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_ADDd, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
 	case SLJIT_ADDC:
 	case SLJIT_ADDC32:
-        signature_switcher2(compiler, E2K_ADDd, dst, dstw, src1, src1w, src2, src2w);
+        signature_switcher2(compiler, E2K_ADDd, TMP_REG3, 0, src1, src1w, src2, src2w);
+        signature_switcher2(compiler, E2K_ANDd, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
+        signature_switcher2(compiler, E2K_ADDd, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
         break;
     // TODO: Think about carry
     // TODO: Think about emit_cmp. In case of flags use E2K_SUBd_f and then use
@@ -2411,13 +2430,21 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
     // FLAG   pred31   pred31 | FLAG with required opcode
 	case SLJIT_SUB:
 	case SLJIT_SUB32:
-	case SLJIT_SUBC:
-	case SLJIT_SUBC32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_SUBd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_SUBd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
             signature_switcher2(compiler, E2K_SUBd, dst, dstw, src1, src1w, src2, src2w);
         }
+        break;
+	case SLJIT_SUBC:
+	case SLJIT_SUBC32:
+        signature_switcher2(compiler, E2K_SUBd, TMP_REG3, 0, src1, src1w, src2, src2w);
+        signature_switcher2(compiler, E2K_ANDd, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
+        signature_switcher2(compiler, E2K_SUBd, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
         break;
 	case SLJIT_MUL:
 	case SLJIT_MUL32:
