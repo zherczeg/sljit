@@ -560,23 +560,23 @@ enum {
 enum {
     /* ------------------------------------------------- */
     E2K_ANDs,     E2K_ANDd,     E2K_ANDNs,    E2K_ANDNd,
-    E2K_ANDd_fd,
+    E2K_ANDs_fd,  E2K_ANDd_fd,  E2K_ANDNs_fd, E2K_ANDNd_fd,
     E2K_ORs,      E2K_ORd,      E2K_ORNs,     E2K_ORNd,
-    E2K_ORd_fd,
+    E2K_ORs_fd,   E2K_ORd_fd,   E2K_ORNs_fd,  E2K_ORNd_fd,
     /* ------------------------------------------------- */
     E2K_XORs,     E2K_XORd,     E2K_XORNs,    E2K_XORNd,
-    E2K_XORd_fd,
+    E2K_XORs_fd,  E2K_XORd_fd,  E2K_XORNs_fd, E2K_XORNd_fd,
     E2K_SXT,      E2K_MERGEs,   E2K_MERGEd,
     /* ------------------------------------------------- */
     E2K_ADDs,     E2K_ADDd,     E2K_SUBs,     E2K_SUBd,
-    E2K_ADDd_fd,  E2K_SUBd_fd,
+    E2K_ADDs_fd,  E2K_ADDd_fd,  E2K_SUBs_fd,  E2K_SUBd_fd,
     E2K_SCLs,     E2K_SCLd,     E2K_SCRs,     E2K_SCRd,
-    E2K_SCLd_fd,  E2K_SCRd_fd,
+    E2K_SCLs_fd,  E2K_SCLd_fd,  E2K_SCRs_fd,  E2K_SCRd_fd,
     /* ------------------------------------------------- */
     E2K_SHLs,     E2K_SHLd,     E2K_SHRs,     E2K_SHRd,
-    E2K_SHLd_fd,  E2K_SHRd_fd,
+    E2K_SHLs_fd,  E2K_SHLd_fd,  E2K_SHRs_fd,  E2K_SHRd_fd,
     E2K_SARs,     E2K_SARd,     E2K_GETFs,    E2K_GETFd,
-    E2K_SARd_fd,
+    E2K_SARs_fd,     E2K_SARd_fd,
     /* ------------------------------------------------- */
     E2K_CMPOsb,   E2K_CMPBsb,   E2K_CMPEsb,   E2K_CMPBEsb,
     E2K_CMPSsb,   E2K_CMPPsb,   E2K_CMPLsb,   E2K_CMPLEsb,
@@ -634,18 +634,27 @@ static const E2kOp e2kop[] = {
     { "ANDd",      RES_ALS_012345, 0x01, 0,    0,   0,     E2K_ALOPF1},
     { "ANDNs",     RES_ALS_012345, 0x02, 0,    0,   0,     E2K_ALOPF1},
     { "ANDNd",     RES_ALS_012345, 0x03, 0,    0,   0,     E2K_ALOPF1},
+    { "ANDs_fd",   RES_ALS_03,     0x00, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "ANDd_fd",   RES_ALS_03,     0x01, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "ANDNs_fd",  RES_ALS_03,     0x02, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "ANDNd_fd",  RES_ALS_03,     0x03, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "ORs",       RES_ALS_012345, 0x04, 0,    0,   0,     E2K_ALOPF1},
     { "ORd",       RES_ALS_012345, 0x05, 0,    0,   0,     E2K_ALOPF1},
     { "ORNs",      RES_ALS_012345, 0x06, 0,    0,   0,     E2K_ALOPF1},
     { "ORNd",      RES_ALS_012345, 0x07, 0,    0,   0,     E2K_ALOPF1},
+    { "ORs_fd",    RES_ALS_03,     0x04, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "ORd_fd",    RES_ALS_03,     0x05, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "ORNs_fd",   RES_ALS_03,     0x06, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "ORNd_fd",   RES_ALS_03,     0x07, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
 /* --------------------------------------------------- */
     { "XORs",      RES_ALS_012345, 0x08, 0,    0,   0,     E2K_ALOPF1},
     { "XORd",      RES_ALS_012345, 0x09, 0,    0,   0,     E2K_ALOPF1},
     { "XORNs",     RES_ALS_012345, 0x0a, 0,    0,   0,     E2K_ALOPF1},
     { "XORNd",     RES_ALS_012345, 0x0b, 0,    0,   0,     E2K_ALOPF1},
+    { "XORs_fd",   RES_ALS_03,     0x08, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "XORd_fd",   RES_ALS_03,     0x09, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "XORNs_fd",  RES_ALS_03,     0x0a, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "XORNd_fd",  RES_ALS_03,     0x0b, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SXT",       RES_ALS_012345, 0x0c, 0,    0,   0,     E2K_ALOPF1},
     { "MERGEs",    RES_ALS_012345, 0x0e, 0,    0,   0,     E2K_ALOPF1},
     { "MERGEd",    RES_ALS_012345, 0x0f, 0,    0,   0,     E2K_ALOPF1},
@@ -654,25 +663,32 @@ static const E2kOp e2kop[] = {
     { "ADDd",      RES_ALS_012345, 0x11, 0,    0,   0,     E2K_ALOPF1},
     { "SUBs",      RES_ALS_012345, 0x12, 0,    0,   0,     E2K_ALOPF1},
     { "SUBd",      RES_ALS_012345, 0x13, 0,    0,   0,     E2K_ALOPF1},
+    { "ADDs_fd",   RES_ALS_03,     0x10, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "ADDd_fd",   RES_ALS_03,     0x11, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SUBs_fd",   RES_ALS_03,     0x12, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SUBd_fd",   RES_ALS_03,     0x13, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SCLs",      RES_ALS_012345, 0x14, 0,    0,   0,     E2K_ALOPF1},
     { "SCLd",      RES_ALS_012345, 0x15, 0,    0,   0,     E2K_ALOPF1},
     { "SCRs",      RES_ALS_012345, 0x16, 0,    0,   0,     E2K_ALOPF1},
     { "SCRd",      RES_ALS_012345, 0x17, 0,    0,   0,     E2K_ALOPF1},
+    { "SCLd_fd",   RES_ALS_03,     0x14, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SCLd_fd",   RES_ALS_03,     0x15, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SCRd_fd",   RES_ALS_03,     0x16, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SCRd_fd",   RES_ALS_03,     0x17, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
 /* --------------------------------------------------- */
     { "SHLs",      RES_ALS_012345, 0x18, 0,    0,   0,     E2K_ALOPF1},
     { "SHLd",      RES_ALS_012345, 0x19, 0,    0,   0,     E2K_ALOPF1},
     { "SHRs",      RES_ALS_012345, 0x1a, 0,    0,   0,     E2K_ALOPF1},
     { "SHRd",      RES_ALS_012345, 0x1b, 0,    0,   0,     E2K_ALOPF1},
+    { "SHLs_fd",   RES_ALS_03,     0x18, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SHLd_fd",   RES_ALS_03,     0x19, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SHRs_fd",   RES_ALS_03,     0x1a, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SHRd_fd",   RES_ALS_03,     0x1b, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SARs",      RES_ALS_012345, 0x1c, 0,    0,   0,     E2K_ALOPF1},
     { "SARd",      RES_ALS_012345, 0x1d, 0,    0,   0,     E2K_ALOPF1},
     { "GETFs",     RES_ALS_012345, 0x1e, 0,    0,   0,     E2K_ALOPF1},
     { "GETFd",     RES_ALS_012345, 0x1f, 0,    0,   0,     E2K_ALOPF1},
+    { "SARs_fd",   RES_ALS_03,     0x1c, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SARd_fd",   RES_ALS_03,     0x1d, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
 /* --------------------------------------------------- */
     { "CMPOsb",    RES_ALS_0134,   0x20, 0x0,  0,   0,     E2K_ALOPF7},
@@ -2373,15 +2389,17 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
 	switch (GET_OPCODE(op)) {
     // TODO: Support other formats
 	case SLJIT_MOV:
+	case SLJIT_MOV_P:
+        signature_switcher2(compiler, E2K_ADDd, dst, dstw, src, srcw, SLJIT_IMM, 0);
+        break;
 	case SLJIT_MOV_U32:
 	case SLJIT_MOV_S32:
 	case SLJIT_MOV32:
-	case SLJIT_MOV_P:
 	case SLJIT_MOV_U8:
 	case SLJIT_MOV_S8:
 	case SLJIT_MOV_U16:
 	case SLJIT_MOV_S16:
-        signature_switcher2(compiler, E2K_ADDd, dst, dstw, src, srcw, SLJIT_IMM, 0);
+        signature_switcher2(compiler, E2K_ADDs, dst, dstw, src, srcw, SLJIT_IMM, 0);
         break;
 	case SLJIT_CLZ:
         signature_switcher1(compiler, E2K_LZCNTd, dst, dstw, src, srcw);
@@ -2417,9 +2435,10 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
 
-	switch (GET_OPCODE(op)) {
+	// switch (GET_OPCODE(op)) {
+    // TODO: macro?
+	switch (op & (SLJIT_32 | 0xff)) {
 	case SLJIT_ADD:
-	case SLJIT_ADD32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_ADDd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
@@ -2430,11 +2449,26 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
             signature_switcher2(compiler, E2K_ADDd, dst, dstw, src1, src1w, src2, src2w);
         }
         break;
+	case SLJIT_ADD32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_ADDs_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_ADDs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_ADDs, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
 	case SLJIT_ADDC:
-	case SLJIT_ADDC32:
         signature_switcher2(compiler, E2K_ADDd, TMP_REG3, 0, src1, src1w, src2, src2w);
         signature_switcher2(compiler, E2K_ANDd, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
         signature_switcher2(compiler, E2K_ADDd, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
+        break;
+	case SLJIT_ADDC32:
+        signature_switcher2(compiler, E2K_ADDs, TMP_REG3, 0, src1, src1w, src2, src2w);
+        signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
+        signature_switcher2(compiler, E2K_ADDs, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
         break;
     // TODO: Think about carry
     // TODO: Think about emit_cmp. In case of flags use E2K_SUBd_f and then use
@@ -2443,7 +2477,6 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
     // SUB -> CCTO* -> JUMP   | MERGE
     // FLAG   pred31   pred31 | FLAG with required opcode
 	case SLJIT_SUB:
-	case SLJIT_SUB32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_SUBd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
@@ -2454,18 +2487,34 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
             signature_switcher2(compiler, E2K_SUBd, dst, dstw, src1, src1w, src2, src2w);
         }
         break;
+	case SLJIT_SUB32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_SUBs_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_SUBs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_SUBs, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
 	case SLJIT_SUBC:
-	case SLJIT_SUBC32:
         signature_switcher2(compiler, E2K_SUBd, TMP_REG3, 0, src1, src1w, src2, src2w);
         signature_switcher2(compiler, E2K_ANDd, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
         signature_switcher2(compiler, E2K_SUBd, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
         break;
+	case SLJIT_SUBC32:
+        signature_switcher2(compiler, E2K_SUBs, TMP_REG3, 0, src1, src1w, src2, src2w);
+        signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
+        signature_switcher2(compiler, E2K_SUBs, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
+        break;
 	case SLJIT_MUL:
-	case SLJIT_MUL32:
         signature_switcher2(compiler, E2K_MULd, dst, dstw, src1, src1w, src2, src2w);
         break;
+	case SLJIT_MUL32:
+        signature_switcher2(compiler, E2K_MULs, dst, dstw, src1, src1w, src2, src2w);
+        break;
 	case SLJIT_AND:
-	case SLJIT_AND32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_ANDd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
@@ -2476,8 +2525,18 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
             signature_switcher2(compiler, E2K_ANDd, dst, dstw, src1, src1w, src2, src2w);
         }
         break;
+	case SLJIT_AND32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_ANDs_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_ANDs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_ANDs, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
 	case SLJIT_OR:
-	case SLJIT_OR32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_ORd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
@@ -2488,8 +2547,18 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
             signature_switcher2(compiler, E2K_ORd, dst, dstw, src1, src1w, src2, src2w);
         }
         break;
+	case SLJIT_OR32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_ORs_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_ORs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_ORs, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
 	case SLJIT_XOR:
-	case SLJIT_XOR32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_XORd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
@@ -2500,8 +2569,18 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
             signature_switcher2(compiler, E2K_XORd, dst, dstw, src1, src1w, src2, src2w);
         }
         break;
+	case SLJIT_XOR32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_XORs_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_XORs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_XORs, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
 	case SLJIT_SHL:
-	case SLJIT_SHL32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_SHLd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
@@ -2512,13 +2591,23 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
             signature_switcher2(compiler, E2K_SHLd, dst, dstw, src1, src1w, src2, src2w);
         }
         break;
+	case SLJIT_SHL32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_SHLs_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_SHLs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_SHLs, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
     // TODO: Understand what to do
 	case SLJIT_MSHL:
 	case SLJIT_MSHL32:
         signature_switcher2(compiler, E2K_SHLd, dst, dstw, src1, src1w, src2, src2w);
         break;
 	case SLJIT_LSHR:
-	case SLJIT_LSHR32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_SHRd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
@@ -2527,6 +2616,17 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
                 signature_switcher2(compiler, E2K_SHRd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
             }
             signature_switcher2(compiler, E2K_SHRd, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
+	case SLJIT_LSHR32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_SHRs_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_SHRs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_SHRs, dst, dstw, src1, src1w, src2, src2w);
         }
         break;
     // TODO: Understand what to do
@@ -2543,7 +2643,6 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
         }
         break;
 	case SLJIT_ASHR:
-	case SLJIT_ASHR32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_SARd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
@@ -2552,6 +2651,17 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
                 signature_switcher2(compiler, E2K_SARd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
             }
             signature_switcher2(compiler, E2K_SARd, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
+	case SLJIT_ASHR32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_SARs_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_SARs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_SARs, dst, dstw, src1, src1w, src2, src2w);
         }
         break;
     // TODO: Understand what to do
@@ -2568,7 +2678,6 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
         }
         break;
 	case SLJIT_ROTL:
-	case SLJIT_ROTL32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_SCLd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
@@ -2579,8 +2688,18 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
             signature_switcher2(compiler, E2K_SCLd, dst, dstw, src1, src1w, src2, src2w);
         }
         break;
+	case SLJIT_ROTL32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_SCLs_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_SCLs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_SCLs, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
 	case SLJIT_ROTR:
-	case SLJIT_ROTR32:
         if (dst == FLAG_REG) {
             signature_switcher2(compiler, E2K_SCRd_fd, dst, dstw, src1, src1w, src2, src2w);
         } else {
@@ -2589,6 +2708,17 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
                 signature_switcher2(compiler, E2K_SCRd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
             }
             signature_switcher2(compiler, E2K_SCRd, dst, dstw, src1, src1w, src2, src2w);
+        }
+        break;
+	case SLJIT_ROTR32:
+        if (dst == FLAG_REG) {
+            signature_switcher2(compiler, E2K_SCRs_fd, dst, dstw, src1, src1w, src2, src2w);
+        } else {
+            // src and dst may be the same, so we should generate flag firstly
+            if(HAS_FLAGS(op)) {
+                signature_switcher2(compiler, E2K_SCRs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+            }
+            signature_switcher2(compiler, E2K_SCRs, dst, dstw, src1, src1w, src2, src2w);
         }
         break;
     default:
