@@ -2148,6 +2148,10 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
     // LABELS
 
     // CONSTS
+    while(const_) {
+        const_->addr = (sljit_uw)code + const_->addr;
+        const_ = const_->next;
+    }
 
 
 	compiler->error = SLJIT_ERR_COMPILED;
@@ -3065,24 +3069,39 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 
 	                                 sljit_s32 dst, sljit_sw dstw,
 	                                 sljit_sw init_value)
 {
+    struct sljit_const *const_;
+    sljit_u32 *const_marker;
+
     // E2K Supports 64-bit consts in LTS
 	CHECK_ERROR_PTR();
 	CHECK_PTR(check_sljit_emit_const(compiler, op, dst, dstw, init_value));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
+	const_ = (struct sljit_const*)ensure_abuf(compiler, sizeof(struct sljit_const));
+	PTR_FAIL_IF(!const_);
+    set_const(const_, compiler);
+    /* TODO:
+        Skip bundle with src1 transfer into reg - 4.
+        LTS: HS, ALS, LTS_hi, LTS_lo - 2.
+        Total - 6.
+    */
+    const_->addr = const_->addr + 6*sizeof(sljit_u32);
+
     switch(GET_OPCODE(op)) {
     case SLJIT_MOV:
+        signature_switcher2(compiler, E2K_ADDd, dst, dstw, SLJIT_IMM, 0, SLJIT_IMM, init_value);
+		break;
     case SLJIT_MOV32:
     case SLJIT_MOV_S32:
     case SLJIT_MOV32_U8:
 	case SLJIT_MOV_U8:
-        signature_switcher1(compiler, E2K_ADDd, dst, dstw, SLJIT_IMM, init_value);
+        signature_switcher2(compiler, E2K_ADDs, dst, dstw, SLJIT_IMM, 0, SLJIT_IMM, init_value);
 		break;
 	default:
         SLJIT_ASSERT(0);
     }
 
-    return NULL;
+    return const_;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
@@ -3101,5 +3120,22 @@ void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable
 SLJIT_API_FUNC_ATTRIBUTE
 void sljit_set_const(sljit_uw addr, sljit_s32 op, sljit_sw new_constant, sljit_sw executable_offset)
 {
+    void *start_addr, *end_addr;
+    sljit_s32 new_constant_hi = ((new_constant >> 32) & 0xFFFFFFFF);
+    sljit_s32 new_constant_lo = (new_constant & 0xFFFFFFFF);
+    // TODO: Support U8
+	//if (op == SLJIT_MOV) {
+		start_addr = (void*)(addr);
+        end_addr = start_addr + sizeof(sljit_uw);
+		SLJIT_UPDATE_WX_FLAGS(start_addr, end_addr, 0);
+	    SLJIT_MEMCPY((void*)addr,
+                     &new_constant_hi, sizeof(new_constant_hi));
+	    SLJIT_MEMCPY((void*)(addr+sizeof(new_constant_hi)),
+                     &new_constant_lo, sizeof(new_constant_lo));
+		SLJIT_UPDATE_WX_FLAGS(start_addr, end_addr, 1);
+        SLJIT_CACHE_FLUSH(start_addr, end_addr);
+		return;
+	//}
+
     return;
 }
