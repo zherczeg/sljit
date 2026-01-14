@@ -1853,6 +1853,17 @@ static void emit_jmp(struct sljit_compiler *compiler,
     emit_bundle_finalize(compiler, bundle);
 }
 
+static void emit_ijmp(struct sljit_compiler *compiler, sljit_uw addr,
+                      sljit_u32 pred, sljit_u32 neg)
+{
+    emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, addr, 0, TMP_REG1);
+    BUNDLE_SETUP();
+    emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR(1));
+    emit_nop(compiler, bundle, 5);
+    emit_bundle_finalize(compiler, bundle);
+    emit_ct(compiler, E2K_CTPR(1), pred, neg);
+}
+
 /* -- Emit generic operations --------------------------------------------- */
 
 // Load into reg only
@@ -2085,6 +2096,124 @@ void signature_switcher2(struct sljit_compiler *compiler,
     }
 }
 
+static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 type)
+{
+    sljit_u32 neg = 0;
+    // WARNING
+    // Sync with sljit_cmp_info
+    BUNDLE_SETUP();
+    if (type < SLJIT_F_EQUAL) {
+        switch (type) {
+            case SLJIT_EQUAL:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPE, FLAG_REG, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_NOT_EQUAL:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPE, FLAG_REG, E2K_PRED(FLAG_PREG));
+                neg = 1;
+                break;
+            case SLJIT_CARRY:
+            case SLJIT_LESS:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPB, FLAG_REG, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_NOT_CARRY:
+            case SLJIT_GREATER_EQUAL:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPB, FLAG_REG, E2K_PRED(FLAG_PREG));
+                neg = 1;
+            case SLJIT_GREATER:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPBE, FLAG_REG, E2K_PRED(FLAG_PREG));
+                neg = 1;
+                break;
+            case SLJIT_LESS_EQUAL:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPBE, FLAG_REG, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_SIG_LESS:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPL, FLAG_REG, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_SIG_GREATER_EQUAL:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPL, FLAG_REG, E2K_PRED(FLAG_PREG));
+                neg = 1;
+            case SLJIT_SIG_GREATER:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPLE, FLAG_REG, E2K_PRED(FLAG_PREG));
+                neg = 1;
+                break;
+            case SLJIT_SIG_LESS_EQUAL:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPLE, FLAG_REG, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_OVERFLOW:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPO, FLAG_REG, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_NOT_OVERFLOW:
+                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPO, FLAG_REG, E2K_PRED(FLAG_PREG));
+                neg = 1;
+                break;
+            // TODO:
+            case SLJIT_ATOMIC_STORED:
+            case SLJIT_ATOMIC_NOT_STORED:
+                SLJIT_ASSERT(0);
+                break;
+        }
+    } else if (type < SLJIT_ORDERED_EQUAL) {
+        switch (type) {
+            case SLJIT_F_EQUAL:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF);
+                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
+                               IFL_ZF, TMP_REG3, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_F_NOT_EQUAL:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF);
+                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
+                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_F_LESS:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF);
+                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
+                               IFL_CF, TMP_REG3, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_F_GREATER_EQUAL:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_PF | IFL_CF);
+                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
+                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_F_GREATER:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF);
+                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
+                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_F_LESS_EQUAL:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_CF);
+                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPBEsb,
+                               IFL_ZF, TMP_REG3, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_UNORDERED:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF);
+                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
+                               IFL_ZF | IFL_PF | IFL_CF, TMP_REG3, E2K_PRED(FLAG_PREG));
+                break;
+            case SLJIT_ORDERED:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_PF);
+                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
+                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG));
+                break;
+        }
+    } else if (type <= SLJIT_SET_ORDERED_LESS_EQUAL) {
+        // TODO: ?
+        SLJIT_ASSERT(0);
+    } else {
+        SLJIT_ASSERT(0);
+    }
+
+    emit_bundle_finalize(compiler, bundle);
+    return neg;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE
 void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
                           void *exec_allocator_data)
@@ -2131,21 +2260,21 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
         buf = buf->next;
     }
 
+    // LABELS
+    while(label) {
+        label->u.addr = (sljit_uw)code + label->u.addr;
+        label = label->next;
+    }
+
     // JUMPS
     // TODO: Support short jumps
-    // while (jump) {
-	//     sljit_uw flags = jump->flags;
-	//     //sljit_uw addr = (flags & JUMP_ADDR) ? jump->u.target : jump->u.label->u.addr;
-	//     sljit_uw addr = jump->u.target;
-	//     sljit_uw jump_addr = jump->addr;
-
-    //     patch_abs_jump();
-
-
-    //     jump = jump->next;
-    // }
-
-    // LABELS
+    while (jump) {
+	    sljit_uw flags = jump->flags;
+	    sljit_uw addr = (flags & JUMP_ADDR) ? jump->u.target : jump->u.label->u.addr;
+	    jump->addr = (sljit_uw)code + jump->addr;
+        sljit_set_const(jump->addr, SLJIT_MOV, addr, executable_offset);
+        jump = jump->next;
+    }
 
     // CONSTS
     while(const_) {
@@ -2741,7 +2870,21 @@ sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
 SLJIT_API_FUNC_ATTRIBUTE
 struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 {
-    return NULL;
+	struct sljit_label *label;
+
+	CHECK_ERROR_PTR();
+	CHECK_PTR(check_sljit_emit_label(compiler));
+
+	if (compiler->last_label && compiler->last_label->size == compiler->size)
+		return compiler->last_label;
+
+	label = (struct sljit_label*)ensure_abuf(compiler, sizeof(struct sljit_label));
+	PTR_FAIL_IF(!label);
+	set_label(label, compiler);
+
+    label->u.addr = compiler->size;
+
+	return label;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
@@ -2754,8 +2897,38 @@ struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler,
 SLJIT_API_FUNC_ATTRIBUTE
 struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 type)
 {
-    // TODO: Remember about FLAG_REG from emit_cmp
-    return NULL;
+	sljit_u8 *inst;
+	struct sljit_jump *jump;
+    sljit_u32 neg = 0;
+    sljit_u32 flag = type & 0xFF;
+
+	CHECK_ERROR_PTR();
+	CHECK_PTR(check_sljit_emit_jump(compiler, type));
+
+    if(flag < SLJIT_JUMP){
+        neg = emit_flag_into_pred(compiler, flag);
+    }
+
+    // all jumps rewritable
+    type = type | SLJIT_REWRITABLE_JUMP;
+
+	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+	PTR_FAIL_IF_NULL(jump);
+	set_jump(jump, compiler, type);
+
+    /* TODO:
+        LTS: HS, ALS, LTS_hi, LTS_lo - 2.
+    */
+    jump->addr = compiler->size + 2*sizeof(sljit_u32);
+
+    // TODO: Optimize by disp instead of movtd
+    if (flag < SLJIT_JUMP) {
+        emit_ijmp(compiler, 0, E2K_PRED(FLAG_PREG), neg);
+    } else {
+        emit_ijmp(compiler, 0, 0, 0);
+    }
+
+	return jump;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
@@ -2835,128 +3008,11 @@ sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
     // For pred inversion
-    sljit_u32 neg = 0;
-
-    // TODO: Realize as MERGEd or MERGEs to move value from pred into reg
-    BUNDLE_SETUP();
-
-    // WARNING
-    // Sync with sljit_cmp_info
-
-    // Get flag from FLAG_REG
-    if (type < SLJIT_F_EQUAL) {
-        switch (type) {
-            case SLJIT_EQUAL:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPE, FLAG_REG, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_NOT_EQUAL:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPE, FLAG_REG, E2K_PRED(FLAG_PREG));
-                neg = 1;
-                break;
-            case SLJIT_CARRY:
-            case SLJIT_LESS:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPB, FLAG_REG, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_NOT_CARRY:
-            case SLJIT_GREATER_EQUAL:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPB, FLAG_REG, E2K_PRED(FLAG_PREG));
-                neg = 1;
-            case SLJIT_GREATER:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPBE, FLAG_REG, E2K_PRED(FLAG_PREG));
-                neg = 1;
-                break;
-            case SLJIT_LESS_EQUAL:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPBE, FLAG_REG, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_SIG_LESS:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPL, FLAG_REG, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_SIG_GREATER_EQUAL:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPL, FLAG_REG, E2K_PRED(FLAG_PREG));
-                neg = 1;
-            case SLJIT_SIG_GREATER:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPLE, FLAG_REG, E2K_PRED(FLAG_PREG));
-                neg = 1;
-                break;
-            case SLJIT_SIG_LESS_EQUAL:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPLE, FLAG_REG, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_OVERFLOW:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPO, FLAG_REG, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_NOT_OVERFLOW:
-                emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPO, FLAG_REG, E2K_PRED(FLAG_PREG));
-                neg = 1;
-                break;
-            // TODO:
-            case SLJIT_ATOMIC_STORED:
-            case SLJIT_ATOMIC_NOT_STORED:
-                return SLJIT_ERR_UNSUPPORTED;
-                break;
-        }
-    } else if (type < SLJIT_ORDERED_EQUAL) {
-        switch (type) {
-            case SLJIT_F_EQUAL:
-                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
-                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZF, TMP_REG3, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_F_NOT_EQUAL:
-                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
-                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_F_LESS:
-                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
-                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_CF, TMP_REG3, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_F_GREATER_EQUAL:
-                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
-                                    FLAG_REG, 0, SLJIT_IMM, IFL_PF | IFL_CF);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_F_GREATER:
-                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
-                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_F_LESS_EQUAL:
-                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
-                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_CF);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPBEsb,
-                               IFL_ZF, TMP_REG3, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_UNORDERED:
-                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
-                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZF | IFL_PF | IFL_CF, TMP_REG3, E2K_PRED(FLAG_PREG));
-                break;
-            case SLJIT_ORDERED:
-                signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
-                                    FLAG_REG, 0, SLJIT_IMM, IFL_PF);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG));
-                break;
-        }
-    } else if (type <= SLJIT_SET_ORDERED_LESS_EQUAL) {
-        // TODO: ?
-        return SLJIT_ERR_UNSUPPORTED;
-    } else {
-        SLJIT_ASSERT(0);
-    }
-
-    emit_bundle_finalize(compiler, bundle);
+    sljit_u32 neg = emit_flag_into_pred(compiler, type);
 
     // Move from pred into reg
     // TODO: Hardcoded als0
-    emit_bundle_setup(compiler, bundle);
+    BUNDLE_SETUP();
     emit_alopf1_ii(compiler, bundle, 0, E2K_MERGEd, 0x0, 0x1, TMP_REG3);
     emit_mrgc(compiler, bundle, 0, E2K_PRED(FLAG_PREG), neg);
     emit_bundle_finalize(compiler, bundle);
@@ -3114,6 +3170,22 @@ struct sljit_jump* sljit_emit_op_addr(struct sljit_compiler *compiler, sljit_s32
 SLJIT_API_FUNC_ATTRIBUTE
 void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset)
 {
+    void *start_addr, *end_addr;
+    sljit_s32 new_target_hi = ((new_target >> 32) & 0xFFFFFFFF);
+    sljit_s32 new_target_lo = (new_target & 0xFFFFFFFF);
+    // TODO: Support U8
+	//if (op == SLJIT_MOV) {
+		start_addr = (void*)(addr);
+        end_addr = start_addr + sizeof(sljit_uw);
+		SLJIT_UPDATE_WX_FLAGS(start_addr, end_addr, 0);
+	    SLJIT_MEMCPY((void*)addr,
+                     &new_target_hi, sizeof(new_target_hi));
+	    SLJIT_MEMCPY((void*)(addr+sizeof(new_target_hi)),
+                     &new_target_lo, sizeof(new_target_lo));
+		SLJIT_UPDATE_WX_FLAGS(start_addr, end_addr, 1);
+        SLJIT_CACHE_FLUSH(start_addr, end_addr);
+		return;
+	//}
     return;
 }
 
