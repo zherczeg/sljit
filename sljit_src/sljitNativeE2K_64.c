@@ -2435,40 +2435,17 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
 
-	// switch (GET_OPCODE(op)) {
-    // TODO: macro?
-	switch (op & (SLJIT_32 | 0xff)) {
+    sljit_u32 mode32 = op & SLJIT_32;
+    sljit_u16 e2kop = 0, e2kop_fd = 0;
+    sljit_u16 e2kop_and = mode32 ? E2K_ANDs : E2K_ANDd;
+
+	switch (GET_OPCODE(op)) {
 	case SLJIT_ADD:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_ADDd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_ADDd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_ADDd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_ADD32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_ADDs_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_ADDs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_ADDs, dst, dstw, src1, src1w, src2, src2w);
-        }
+        e2kop = mode32 ? E2K_ADDs : E2K_ADDd;
+        e2kop_fd = mode32 ? E2K_ADDs_fd : E2K_ADDd_fd;
         break;
 	case SLJIT_ADDC:
-        signature_switcher2(compiler, E2K_ADDd, TMP_REG3, 0, src1, src1w, src2, src2w);
-        signature_switcher2(compiler, E2K_ANDd, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
-        signature_switcher2(compiler, E2K_ADDd, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
-        break;
-	case SLJIT_ADDC32:
-        signature_switcher2(compiler, E2K_ADDs, TMP_REG3, 0, src1, src1w, src2, src2w);
-        signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
-        signature_switcher2(compiler, E2K_ADDs, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
+        e2kop = mode32 ? E2K_ADDs : E2K_ADDd;
         break;
     // TODO: Think about carry
     // TODO: Think about emit_cmp. In case of flags use E2K_SUBd_f and then use
@@ -2477,253 +2454,71 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
     // SUB -> CCTO* -> JUMP   | MERGE
     // FLAG   pred31   pred31 | FLAG with required opcode
 	case SLJIT_SUB:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SUBd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SUBd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SUBd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_SUB32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SUBs_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SUBs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SUBs, dst, dstw, src1, src1w, src2, src2w);
-        }
+        e2kop = mode32 ? E2K_SUBs : E2K_SUBd;
+        e2kop_fd = mode32 ? E2K_SUBs_fd : E2K_SUBd_fd;
         break;
 	case SLJIT_SUBC:
-        signature_switcher2(compiler, E2K_SUBd, TMP_REG3, 0, src1, src1w, src2, src2w);
-        signature_switcher2(compiler, E2K_ANDd, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
-        signature_switcher2(compiler, E2K_SUBd, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
-        break;
-	case SLJIT_SUBC32:
-        signature_switcher2(compiler, E2K_SUBs, TMP_REG3, 0, src1, src1w, src2, src2w);
-        signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
-        signature_switcher2(compiler, E2K_SUBs, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
+        e2kop = mode32 ? E2K_SUBs : E2K_SUBd;
         break;
 	case SLJIT_MUL:
-        signature_switcher2(compiler, E2K_MULd, dst, dstw, src1, src1w, src2, src2w);
-        break;
-	case SLJIT_MUL32:
-        signature_switcher2(compiler, E2K_MULs, dst, dstw, src1, src1w, src2, src2w);
+        e2kop = mode32 ? E2K_MULs : E2K_MULd;
         break;
 	case SLJIT_AND:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_ANDd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_ANDd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_ANDd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_AND32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_ANDs_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_ANDs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_ANDs, dst, dstw, src1, src1w, src2, src2w);
-        }
+        e2kop = mode32 ? E2K_ANDs : E2K_ANDd;
+        e2kop_fd = mode32 ? E2K_ANDs_fd : E2K_ANDd_fd;
         break;
 	case SLJIT_OR:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_ORd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_ORd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_ORd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_OR32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_ORs_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_ORs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_ORs, dst, dstw, src1, src1w, src2, src2w);
-        }
+        e2kop = mode32 ? E2K_ORs : E2K_ORd;
+        e2kop_fd = mode32 ? E2K_ORs_fd : E2K_ORd_fd;
         break;
 	case SLJIT_XOR:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_XORd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_XORd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_XORd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_XOR32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_XORs_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_XORs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_XORs, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_SHL:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SHLd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SHLd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SHLd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_SHL32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SHLs_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SHLs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SHLs, dst, dstw, src1, src1w, src2, src2w);
-        }
+        e2kop = mode32 ? E2K_XORs : E2K_XORd;
+        e2kop_fd = mode32 ? E2K_XORs_fd : E2K_XORd_fd;
         break;
     // TODO: Understand what to do
 	case SLJIT_MSHL:
-	case SLJIT_MSHL32:
-        signature_switcher2(compiler, E2K_SHLd, dst, dstw, src1, src1w, src2, src2w);
-        break;
-	case SLJIT_LSHR:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SHRd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SHRd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SHRd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_LSHR32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SHRs_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SHRs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SHRs, dst, dstw, src1, src1w, src2, src2w);
-        }
+	case SLJIT_SHL:
+        e2kop = mode32 ? E2K_SHLs : E2K_SHLd;
+        e2kop_fd = mode32 ? E2K_SHLs_fd : E2K_SHLd_fd;
         break;
     // TODO: Understand what to do
 	case SLJIT_MLSHR:
-	case SLJIT_MLSHR32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SHRd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SHRd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SHRd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_ASHR:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SARd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SARd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SARd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_ASHR32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SARs_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SARs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SARs, dst, dstw, src1, src1w, src2, src2w);
-        }
+	case SLJIT_LSHR:
+        e2kop = mode32 ? E2K_SHRs : E2K_SHRd;
+        e2kop_fd = mode32 ? E2K_SHRs_fd : E2K_SHRd_fd;
         break;
     // TODO: Understand what to do
 	case SLJIT_MASHR:
-	case SLJIT_MASHR32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SARd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SARd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SARd, dst, dstw, src1, src1w, src2, src2w);
-        }
+	case SLJIT_ASHR:
+        e2kop = mode32 ? E2K_SARs : E2K_SARd;
+        e2kop_fd = mode32 ? E2K_SARs_fd : E2K_SARd_fd;
         break;
 	case SLJIT_ROTL:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SCLd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SCLd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SCLd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_ROTL32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SCLs_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SCLs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SCLs, dst, dstw, src1, src1w, src2, src2w);
-        }
+        e2kop = mode32 ? E2K_SCLs : E2K_SCLd;
+        e2kop_fd = mode32 ? E2K_SCLs_fd : E2K_SCLd_fd;
         break;
 	case SLJIT_ROTR:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SCRd_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SCRd_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SCRd, dst, dstw, src1, src1w, src2, src2w);
-        }
-        break;
-	case SLJIT_ROTR32:
-        if (dst == FLAG_REG) {
-            signature_switcher2(compiler, E2K_SCRs_fd, dst, dstw, src1, src1w, src2, src2w);
-        } else {
-            // src and dst may be the same, so we should generate flag firstly
-            if(HAS_FLAGS(op)) {
-                signature_switcher2(compiler, E2K_SCRs_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
-            }
-            signature_switcher2(compiler, E2K_SCRs, dst, dstw, src1, src1w, src2, src2w);
-        }
+        e2kop = mode32 ? E2K_SCRs : E2K_SCRd;
+        e2kop_fd = mode32 ? E2K_SCRs_fd : E2K_SCRd_fd;
         break;
     default:
         return SLJIT_ERR_UNSUPPORTED;
 	}
+
+    if (GET_OPCODE(op) == SLJIT_MUL) {
+        signature_switcher2(compiler, e2kop, dst, dstw, src1, src1w, src2, src2w);
+    } else if (e2kop_fd) {
+        if ((dst == FLAG_REG) || HAS_FLAGS(op)) {
+            signature_switcher2(compiler, e2kop_fd, FLAG_REG, 0, src1, src1w, src2, src2w);
+        }
+        if (dst != FLAG_REG) {
+            signature_switcher2(compiler, e2kop, dst, dstw, src1, src1w, src2, src2w);
+        }
+    } else {
+        signature_switcher2(compiler, e2kop, TMP_REG3, 0, src1, src1w, src2, src2w);
+        signature_switcher2(compiler, e2kop_and, TMP_REG2, 0, FLAG_REG, 0, SLJIT_IMM, IFL_CF);
+        signature_switcher2(compiler, e2kop, dst, dstw, TMP_REG3, 0, TMP_REG2, 0);
+    }
 
 	return SLJIT_SUCCESS;
 }
