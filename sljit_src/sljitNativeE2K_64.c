@@ -2252,9 +2252,9 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
 
     while(buf) {
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-        fprintf(stderr, "[gen] addr: %p\n", code);
+        fprintf(stderr, "[gen] addr: %p\n", code_ptr);
 #endif /* SLJIT_DEBUG */
-        SLJIT_MEMCPY(code, buf->memory, buf->used_size);
+        SLJIT_MEMCPY(code_ptr, buf->memory, buf->used_size);
         compiler->executable_size += buf->used_size;
         code_ptr += buf->used_size;
         buf = buf->next;
@@ -3126,7 +3126,6 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 
 	                                 sljit_sw init_value)
 {
     struct sljit_const *const_;
-    sljit_u32 *const_marker;
 
     // E2K Supports 64-bit consts in LTS
 	CHECK_ERROR_PTR();
@@ -3164,7 +3163,36 @@ SLJIT_API_FUNC_ATTRIBUTE
 struct sljit_jump* sljit_emit_op_addr(struct sljit_compiler *compiler, sljit_s32 op,
 	                                  sljit_s32 dst, sljit_sw dstw)
 {
-    return NULL;
+	struct sljit_jump *jump;
+
+	CHECK_ERROR_PTR();
+	CHECK_PTR(check_sljit_emit_op_addr(compiler, op, dst, dstw));
+	ADJUST_LOCAL_OFFSET(dst, dstw);
+
+	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+	PTR_FAIL_IF(!jump);
+	set_mov_addr(jump, compiler, 0);
+
+    /* TODO:
+        LTS: HS, ALS, LTS_hi, LTS_lo - 2.
+    */
+    jump->addr = compiler->size + 2*sizeof(sljit_u32);
+
+    switch(GET_OPCODE(op)) {
+    case SLJIT_MOV_ADDR:
+        signature_switcher2(compiler, E2K_ADDd, dst, dstw, SLJIT_IMM, 0, SLJIT_IMM, 0);
+		break;
+    case SLJIT_MOV_ABS_ADDR:
+        SLJIT_ASSERT(0);
+		break;
+    case SLJIT_ADD_ABS_ADDR:
+        SLJIT_ASSERT(0);
+		break;
+	default:
+        SLJIT_ASSERT(0);
+    }
+
+    return jump;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
