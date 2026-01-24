@@ -557,6 +557,11 @@ enum {
     E2K_SSOPF2
 };
 
+/* TODO:
+    No real commands ANDs_fd, only ANDs_fw.
+    But we use fd for unification.
+    Maybe these ops will be renamed.
+*/
 enum {
     /* ------------------------------------------------- */
     E2K_ANDs,     E2K_ANDd,     E2K_ANDNs,    E2K_ANDNd,
@@ -634,26 +639,26 @@ static const E2kOp e2kop[] = {
     { "ANDd",      RES_ALS_012345, 0x01, 0,    0,   0,     E2K_ALOPF1},
     { "ANDNs",     RES_ALS_012345, 0x02, 0,    0,   0,     E2K_ALOPF1},
     { "ANDNd",     RES_ALS_012345, 0x03, 0,    0,   0,     E2K_ALOPF1},
-    { "ANDs_fd",   RES_ALS_03,     0x00, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "ANDs_fd",   RES_ALS_03,     0x00, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "ANDd_fd",   RES_ALS_03,     0x01, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
-    { "ANDNs_fd",  RES_ALS_03,     0x02, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "ANDNs_fd",  RES_ALS_03,     0x02, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "ANDNd_fd",  RES_ALS_03,     0x03, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "ORs",       RES_ALS_012345, 0x04, 0,    0,   0,     E2K_ALOPF1},
     { "ORd",       RES_ALS_012345, 0x05, 0,    0,   0,     E2K_ALOPF1},
     { "ORNs",      RES_ALS_012345, 0x06, 0,    0,   0,     E2K_ALOPF1},
     { "ORNd",      RES_ALS_012345, 0x07, 0,    0,   0,     E2K_ALOPF1},
-    { "ORs_fd",    RES_ALS_03,     0x04, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "ORs_fd",    RES_ALS_03,     0x04, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "ORd_fd",    RES_ALS_03,     0x05, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
-    { "ORNs_fd",   RES_ALS_03,     0x06, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "ORNs_fd",   RES_ALS_03,     0x06, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "ORNd_fd",   RES_ALS_03,     0x07, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
 /* --------------------------------------------------- */
     { "XORs",      RES_ALS_012345, 0x08, 0,    0,   0,     E2K_ALOPF1},
     { "XORd",      RES_ALS_012345, 0x09, 0,    0,   0,     E2K_ALOPF1},
     { "XORNs",     RES_ALS_012345, 0x0a, 0,    0,   0,     E2K_ALOPF1},
     { "XORNd",     RES_ALS_012345, 0x0b, 0,    0,   0,     E2K_ALOPF1},
-    { "XORs_fd",   RES_ALS_03,     0x08, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "XORs_fd",   RES_ALS_03,     0x08, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "XORd_fd",   RES_ALS_03,     0x09, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
-    { "XORNs_fd",  RES_ALS_03,     0x0a, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "XORNs_fd",  RES_ALS_03,     0x0a, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "XORNd_fd",  RES_ALS_03,     0x0b, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SXT",       RES_ALS_012345, 0x0c, 0,    0,   0,     E2K_ALOPF1},
     { "MERGEs",    RES_ALS_012345, 0x0e, 0,    0,   0,     E2K_ALOPF1},
@@ -663,32 +668,32 @@ static const E2kOp e2kop[] = {
     { "ADDd",      RES_ALS_012345, 0x11, 0,    0,   0,     E2K_ALOPF1},
     { "SUBs",      RES_ALS_012345, 0x12, 0,    0,   0,     E2K_ALOPF1},
     { "SUBd",      RES_ALS_012345, 0x13, 0,    0,   0,     E2K_ALOPF1},
-    { "ADDs_fd",   RES_ALS_03,     0x10, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "ADDs_fd",   RES_ALS_03,     0x10, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "ADDd_fd",   RES_ALS_03,     0x11, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
-    { "SUBs_fd",   RES_ALS_03,     0x12, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SUBs_fd",   RES_ALS_03,     0x12, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "SUBd_fd",   RES_ALS_03,     0x13, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SCLs",      RES_ALS_012345, 0x14, 0,    0,   0,     E2K_ALOPF1},
     { "SCLd",      RES_ALS_012345, 0x15, 0,    0,   0,     E2K_ALOPF1},
     { "SCRs",      RES_ALS_012345, 0x16, 0,    0,   0,     E2K_ALOPF1},
     { "SCRd",      RES_ALS_012345, 0x17, 0,    0,   0,     E2K_ALOPF1},
-    { "SCLd_fd",   RES_ALS_03,     0x14, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SCLs_fd",   RES_ALS_03,     0x14, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "SCLd_fd",   RES_ALS_03,     0x15, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
-    { "SCRd_fd",   RES_ALS_03,     0x16, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SCRs_fd",   RES_ALS_03,     0x16, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "SCRd_fd",   RES_ALS_03,     0x17, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
 /* --------------------------------------------------- */
     { "SHLs",      RES_ALS_012345, 0x18, 0,    0,   0,     E2K_ALOPF1},
     { "SHLd",      RES_ALS_012345, 0x19, 0,    0,   0,     E2K_ALOPF1},
     { "SHRs",      RES_ALS_012345, 0x1a, 0,    0,   0,     E2K_ALOPF1},
     { "SHRd",      RES_ALS_012345, 0x1b, 0,    0,   0,     E2K_ALOPF1},
-    { "SHLs_fd",   RES_ALS_03,     0x18, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SHLs_fd",   RES_ALS_03,     0x18, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "SHLd_fd",   RES_ALS_03,     0x19, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
-    { "SHRs_fd",   RES_ALS_03,     0x1a, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SHRs_fd",   RES_ALS_03,     0x1a, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "SHRd_fd",   RES_ALS_03,     0x1b, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
     { "SARs",      RES_ALS_012345, 0x1c, 0,    0,   0,     E2K_ALOPF1},
     { "SARd",      RES_ALS_012345, 0x1d, 0,    0,   0,     E2K_ALOPF1},
     { "GETFs",     RES_ALS_012345, 0x1e, 0,    0,   0,     E2K_ALOPF1},
     { "GETFd",     RES_ALS_012345, 0x1f, 0,    0,   0,     E2K_ALOPF1},
-    { "SARs_fd",   RES_ALS_03,     0x1c, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SARs_fd",   RES_ALS_03,     0x1c, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
     { "SARd_fd",   RES_ALS_03,     0x1d, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
 /* --------------------------------------------------- */
     { "CMPOsb",    RES_ALS_0134,   0x20, 0x0,  0,   0,     E2K_ALOPF7},
@@ -2532,7 +2537,14 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
 	case SLJIT_MOV_S8:
 	case SLJIT_MOV_U16:
 	case SLJIT_MOV_S16:
-        signature_switcher2(compiler, E2K_ADDs, dst, dstw, src, srcw, SLJIT_IMM, 0);
+        // TODO: Force using 32bit
+        if (SLJIT_IS_IMM(src)) {
+            signature_switcher2(compiler, E2K_ADDs, dst, dstw,
+                                src, srcw & 0xFFFFFFFF, SLJIT_IMM, 0);
+        } else {
+            signature_switcher2(compiler, E2K_ADDs, dst, dstw,
+                                src, srcw, SLJIT_IMM, 0);
+        }
         break;
 	case SLJIT_CLZ:
         signature_switcher1(compiler, E2K_LZCNTd, dst, dstw, src, srcw);
