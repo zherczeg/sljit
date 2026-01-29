@@ -84,13 +84,13 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
     return "e2k" SLJIT_CPUINFO;
 }
 
-#define TMP_REG1 (SLJIT_NUMBER_OF_REGISTERS + 1)    // signature_switcher and lower
-#define TMP_REG2 TMP_REG1 + 1                       // all layers
-#define TMP_REG3 TMP_REG2 + 1                       // upper than signature_switcher
-#define SP_REG   TMP_REG3 + 1
-#define FLAG_REG SP_REG   + 1
+/* SLJIT_SP */
+#define TMP_REG1 (SLJIT_SP + 1)         // signature_switcher and lower
+#define TMP_REG2 TMP_REG1 + 1           // all layers
+#define TMP_REG3 TMP_REG2 + 1           // upper than signature_switcher
+#define FLAG_REG TMP_REG3 + 1
 // + zero
-#define EXTRA_REGS_NUM (FLAG_REG - TMP_REG1 + 2)
+#define EXTRA_REGS_NUM (FLAG_REG - SLJIT_SP + 2)
 #define FLAG_PREG 16
 
 // help
@@ -154,10 +154,10 @@ static const sljit_u8 reg_map[E2K_NREG_NUMBER] = {
     32, 33, 34, 35, 36, 37, 38, 39,
     40, 41, 42, 43, 44, 45, 46, 47,
     48, 49, 50, 51, 52, 53, 54, 55,
-    56, // TMP_REG1
-    57, // TMP_REG2
-    58, // TMP_REG3
-    59, // SP_REG
+    56, // SLJIT_SP
+    57, // TMP_REG1
+    58, // TMP_REG2
+    59, // TMP_REG3
     60, // FLAG_PREG
     // 61, 62, 63 RESERVED
 };
@@ -2383,7 +2383,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
     /* -- setwd, setbn, setbp ---------------*/
 
     sljit_u32 src2 = -stack_size;
-    emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SP_REG);
+    emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP);
     emit_bundle_finalize(compiler, bundle);
 
     // save input params on saved regs
