@@ -34,7 +34,8 @@
 */
 #include <TargetConditionals.h>
 
-#if (defined(TARGET_OS_OSX) && TARGET_OS_OSX) || (TARGET_OS_MAC && !TARGET_OS_IPHONE)
+#if (defined (TARGET_OS_OSX) && TARGET_OS_OSX) || \
+       (!defined (TARGET_OS_OSX) && defined (TARGET_OS_MAC) && TARGET_OS_MAC)
 
 #if defined(SLJIT_CONFIG_X86) && SLJIT_CONFIG_X86
 
