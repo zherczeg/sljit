@@ -108,6 +108,7 @@ static SLJIT_INLINE void apple_update_wx_flags(sljit_s32 enable_exec)
 #else
 #define SLJIT_MAP_JIT	(0)
 #endif
+#define SLJIT_UPDATE_WX_FLAGS(from, to, enable_exec)
 
 #endif /* TARGET_OS_OSX */
 
