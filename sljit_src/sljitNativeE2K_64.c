@@ -2664,7 +2664,6 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
                             SLJIT_IMM, 0x3, dst, dstw, WORD);
         break;
 	case SLJIT_MOV_U32:
-	case SLJIT_MOV32:
         if (SLJIT_IS_IMM(src)) {
             signature_switcher2(compiler, E2K_ADDs, dst, dstw,
                                 SLJIT_IMM, 0, src, srcw & 0xFFFFFFFF,
@@ -2673,14 +2672,18 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
             signature_switcher2(compiler, E2K_ADDs, dst, dstw,
                                 SLJIT_IMM, 0, src, srcw, WORD);
         }
+        // TODO: very slow in case of mem
+        signature_switcher2(compiler, E2K_SXT, dst, dstw,
+                            SLJIT_IMM, 0x7, dst, dstw, WORD);
         break;
-	case SLJIT_MOV_U8:
+	case SLJIT_MOV32:
         if (SLJIT_IS_IMM(src)) {
             signature_switcher2(compiler, E2K_ADDs, dst, dstw,
-                                SLJIT_IMM, 0, src, srcw & 0xFF, BYTE);
+                                SLJIT_IMM, 0, src, srcw & 0xFFFFFFFF,
+                                WORD);
         } else {
             signature_switcher2(compiler, E2K_ADDs, dst, dstw,
-                                SLJIT_IMM, 0, src, srcw, BYTE);
+                                SLJIT_IMM, 0, src, srcw, WORD);
         }
         break;
 	case SLJIT_MOV_S8:
@@ -2695,14 +2698,17 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
         signature_switcher2(compiler, E2K_SXT, dst, dstw,
                             SLJIT_IMM, 0x0, dst, dstw, BYTE);
         break;
-	case SLJIT_MOV_U16:
+	case SLJIT_MOV_U8:
         if (SLJIT_IS_IMM(src)) {
-            signature_switcher2(compiler, E2K_ADDd, dst, dstw,
-                                SLJIT_IMM, 0, src, srcw & 0xFFFF, HALFWORD);
+            signature_switcher2(compiler, E2K_ADDs, dst, dstw,
+                                SLJIT_IMM, 0, src, srcw & 0xFF, BYTE);
         } else {
-            signature_switcher2(compiler, E2K_ADDd, dst, dstw,
-                                SLJIT_IMM, 0, src, srcw, HALFWORD);
+            signature_switcher2(compiler, E2K_ADDs, dst, dstw,
+                                SLJIT_IMM, 0, src, srcw, BYTE);
         }
+        // TODO: very slow in case of mem
+        signature_switcher2(compiler, E2K_SXT, dst, dstw,
+                            SLJIT_IMM, 0x4, dst, dstw, BYTE);
         break;
 	case SLJIT_MOV_S16:
         if (SLJIT_IS_IMM(src)) {
@@ -2716,6 +2722,18 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
         signature_switcher2(compiler, E2K_SXT, dst, dstw,
                             SLJIT_IMM, 0x1, dst, dstw, HALFWORD);
         break;
+	case SLJIT_MOV_U16:
+        if (SLJIT_IS_IMM(src)) {
+            signature_switcher2(compiler, E2K_ADDd, dst, dstw,
+                                SLJIT_IMM, 0, src, srcw & 0xFFFF, HALFWORD);
+        } else {
+            signature_switcher2(compiler, E2K_ADDd, dst, dstw,
+                                SLJIT_IMM, 0, src, srcw, HALFWORD);
+        }
+        break;
+        // TODO: very slow in case of mem
+        signature_switcher2(compiler, E2K_SXT, dst, dstw,
+                            SLJIT_IMM, 0x5, dst, dstw, HALFWORD);
 	case SLJIT_CLZ:
         signature_switcher1(compiler, E2K_LZCNTd, dst, dstw, src, srcw, DOUBLEWORD);
         break;
