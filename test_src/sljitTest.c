@@ -2471,14 +2471,14 @@ static void test24(void)
 	SET_NEXT_BYTE(SLJIT_EQUAL);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
-	sljit_emit_op2(compiler, SLJIT_ASHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 0);
+	sljit_emit_op2(compiler, SLJIT_ASHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 1);
 	/* buf[30] */
 	SET_NEXT_BYTE(SLJIT_EQUAL);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1);
 	sljit_emit_op2(compiler, SLJIT_LSHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 0xffffc0);
 	/* buf[31] */
 	SET_NEXT_BYTE(SLJIT_NOT_EQUAL);
-	sljit_emit_op1(compiler, SLJIT_MOV, shift_reg, 0, SLJIT_IMM, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, shift_reg, 0, SLJIT_IMM, 1);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
 	sljit_emit_op2(compiler, SLJIT_ASHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, shift_reg, 0);
 	/* buf[32] */
