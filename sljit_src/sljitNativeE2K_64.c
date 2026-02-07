@@ -92,6 +92,8 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 // + zero
 #define EXTRA_REGS_NUM (FLAG_REG - SLJIT_SP + 2)
 #define FLAG_PREG 16
+#define TMP_PREG1 17
+#define TMP_PREG2 18
 
 // help
 #define FIELD(WORD, BIT) (WORD >> (BIT - 1))
@@ -158,7 +160,7 @@ static const sljit_u8 reg_map[E2K_NREG_NUMBER] = {
     57, // TMP_REG1
     58, // TMP_REG2
     59, // TMP_REG3
-    60, // FLAG_PREG
+    60, // FLAG_REG
     // 61, 62, 63 RESERVED
 };
 
@@ -618,6 +620,7 @@ enum {
     E2K_LDw,      E2K_POPCNTs,  E2K_LDd,      E2K_POPCNTd,
     /* ------------------------------------------------- */
     E2K_MULs,     E2K_MULd,     E2K_UMULX,    E2K_SMULX,
+    E2K_UMULX_fd, E2K_SMULX_fd,
     /* ------------------------------------------------- */
     E2K_FDIVs,    E2K_FDIVd,
     /* ------------------------------------------------- */
@@ -817,6 +820,8 @@ static const E2kOp e2kop[] = {
     { "MULd",     RES_ALS_0134,    0x21, 0,    0x01, 0xc0, E2K_ALOPF11},
     { "UMULX",    RES_ALS_0134,    0x22, 0,    0x01, 0xc0, E2K_ALOPF11},
     { "SMULX",    RES_ALS_0134,    0x23, 0,    0x01, 0xc0, E2K_ALOPF11},
+    { "UMULX_fd", RES_ALS_03,      0x22, 0xc0, 0x06, 0xc0, E2K_ALOPF11},
+    { "SMULX_fd", RES_ALS_03,      0x23, 0xc0, 0x06, 0xc0, E2K_ALOPF11},
 /* --------------------------------------------------- */
     { "FDIVs",    RES_ALS5,        0x48, 0,    0x01, 0xc0, E2K_ALOPF11},
     { "FDIVd",    RES_ALS5,        0x49, 0,    0x01, 0xc0, E2K_ALOPF11},
@@ -2742,10 +2747,10 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
             signature_switcher2(compiler, E2K_ADDd, dst, dstw,
                                 SLJIT_IMM, 0, src, srcw, HALFWORD);
         }
-        break;
         // TODO: very slow in case of mem
         signature_switcher2(compiler, E2K_SXT, dst, dstw,
                             SLJIT_IMM, 0x5, dst, dstw, HALFWORD);
+        break;
 	case SLJIT_CLZ:
         signature_switcher1(compiler, E2K_LZCNTd, dst, dstw, src, srcw, DOUBLEWORD);
         break;
@@ -2852,7 +2857,33 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
 	}
 
     if (GET_OPCODE(op) == SLJIT_MUL) {
-        signature_switcher2(compiler, e2kop, dst, dstw, src1, src1w, src2, src2w, mode);
+        if ((dst == FLAG_REG) || HAS_FLAGS(op)) {
+            if (mode32) {
+                signature_switcher2(compiler, E2K_SMULX_fd, FLAG_REG, 0,
+                                    src1, src1w, src2, src2w, mode);
+            } else {
+                // E2K doesn't fix flags in case of 64bit mul
+                // get high 64
+                signature_switcher2(compiler, E2K_SMULHd, TMP_REG3, 0, src1, src1w, src2, src2w, mode);
+                // get low 64
+                signature_switcher2(compiler, E2K_MULd, TMP_REG2, 0, src1, src1w, src2, src2w, mode);
+                // extend low 64
+                signature_switcher2(compiler, E2K_SARd, TMP_REG2, 0, TMP_REG2, 0, SLJIT_IMM, 63, mode);
+
+                // compare sign ext with high 64 bits
+                BUNDLE_SETUP();
+                emit_alopf7_rr(compiler, bundle, 0, E2K_CMPEdb,
+                               TMP_REG3, TMP_REG2, E2K_PRED(TMP_PREG1), mode);
+                emit_bundle_finalize(compiler, bundle);
+                int als_idx = emit_alopf1_ii(compiler, bundle, 0, E2K_ADDd,
+                                             0x0, IFL_OF, FLAG_REG, DOUBLEWORD);
+                emit_rlp(compiler, bundle, als_idx, E2K_PRED(TMP_PREG1), 1);
+                emit_bundle_finalize(compiler, bundle);
+            }
+        }
+        if (dst != FLAG_REG) {
+            signature_switcher2(compiler, e2kop, dst, dstw, src1, src1w, src2, src2w, mode);
+        }
     } else if (e2kop_fd) {
         if ((dst == FLAG_REG) || HAS_FLAGS(op)) {
             signature_switcher2(compiler, e2kop_fd, FLAG_REG, 0, src1, src1w, src2, src2w, mode);
