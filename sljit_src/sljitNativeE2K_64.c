@@ -581,7 +581,7 @@ enum {
     E2K_SHLs,     E2K_SHLd,     E2K_SHRs,     E2K_SHRd,
     E2K_SHLs_fd,  E2K_SHLd_fd,  E2K_SHRs_fd,  E2K_SHRd_fd,
     E2K_SARs,     E2K_SARd,     E2K_GETFs,    E2K_GETFd,
-    E2K_SARs_fd,     E2K_SARd_fd,
+    E2K_SARs_fd,  E2K_SARd_fd,
     /* ------------------------------------------------- */
     E2K_CMPOsb,   E2K_CMPBsb,   E2K_CMPEsb,   E2K_CMPBEsb,
     E2K_CMPSsb,   E2K_CMPPsb,   E2K_CMPLsb,   E2K_CMPLEsb,
@@ -676,25 +676,25 @@ static const E2kOp e2kop[] = {
     { "SCLd",      RES_ALS_012345, 0x15, 0,    0,   0,     E2K_ALOPF1},
     { "SCRs",      RES_ALS_012345, 0x16, 0,    0,   0,     E2K_ALOPF1},
     { "SCRd",      RES_ALS_012345, 0x17, 0,    0,   0,     E2K_ALOPF1},
-    { "SCLs_fd",   RES_ALS_03,     0x14, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
-    { "SCLd_fd",   RES_ALS_03,     0x15, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
-    { "SCRs_fd",   RES_ALS_03,     0x16, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
-    { "SCRd_fd",   RES_ALS_03,     0x17, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SCLs_fd",   RES_ALS_03,     0x14, 0xc0, 0x6, 0xc0,  E2K_ALOPF21},
+    { "SCLd_fd",   RES_ALS_03,     0x15, 0xc0, 0x7, 0xc0,  E2K_ALOPF21},
+    { "SCRs_fd",   RES_ALS_03,     0x16, 0xc0, 0x6, 0xc0,  E2K_ALOPF21},
+    { "SCRd_fd",   RES_ALS_03,     0x17, 0xc0, 0x7, 0xc0,  E2K_ALOPF21},
 /* --------------------------------------------------- */
     { "SHLs",      RES_ALS_012345, 0x18, 0,    0,   0,     E2K_ALOPF1},
     { "SHLd",      RES_ALS_012345, 0x19, 0,    0,   0,     E2K_ALOPF1},
     { "SHRs",      RES_ALS_012345, 0x1a, 0,    0,   0,     E2K_ALOPF1},
     { "SHRd",      RES_ALS_012345, 0x1b, 0,    0,   0,     E2K_ALOPF1},
-    { "SHLs_fd",   RES_ALS_03,     0x18, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
-    { "SHLd_fd",   RES_ALS_03,     0x19, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
-    { "SHRs_fd",   RES_ALS_03,     0x1a, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
-    { "SHRd_fd",   RES_ALS_03,     0x1b, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SHLs_fd",   RES_ALS_03,     0x18, 0xc0, 0x6, 0xc0,  E2K_ALOPF21},
+    { "SHLd_fd",   RES_ALS_03,     0x19, 0xc0, 0x7, 0xc0,  E2K_ALOPF21},
+    { "SHRs_fd",   RES_ALS_03,     0x1a, 0xc0, 0x6, 0xc0,  E2K_ALOPF21},
+    { "SHRd_fd",   RES_ALS_03,     0x1b, 0xc0, 0x7, 0xc0,  E2K_ALOPF21},
     { "SARs",      RES_ALS_012345, 0x1c, 0,    0,   0,     E2K_ALOPF1},
     { "SARd",      RES_ALS_012345, 0x1d, 0,    0,   0,     E2K_ALOPF1},
     { "GETFs",     RES_ALS_012345, 0x1e, 0,    0,   0,     E2K_ALOPF1},
     { "GETFd",     RES_ALS_012345, 0x1f, 0,    0,   0,     E2K_ALOPF1},
-    { "SARs_fd",   RES_ALS_03,     0x1c, 0xc0, 0x6, 0xc0,  E2K_ALOPF11},
-    { "SARd_fd",   RES_ALS_03,     0x1d, 0xc0, 0x7, 0xc0,  E2K_ALOPF11},
+    { "SARs_fd",   RES_ALS_03,     0x1c, 0xc0, 0x6, 0xc0,  E2K_ALOPF21},
+    { "SARd_fd",   RES_ALS_03,     0x1d, 0xc0, 0x7, 0xc0,  E2K_ALOPF21},
 /* --------------------------------------------------- */
     { "CMPOsb",    RES_ALS_0134,   0x20, 0x0,  0,   0,     E2K_ALOPF7},
     { "CMPBsb",    RES_ALS_0134,   0x20, 0x1,  0,   0,     E2K_ALOPF7},
@@ -853,7 +853,7 @@ static const E2kFormat e2kfmt[] = {
     { "ALOPF16",    FMT_ZERO },     // TODO: think
     { "ALOPF17",    FMT_SRC1 | FMT_SRC2 | FMT_DST },
     { "ALOPF19",    FMT_DST },
-    { "ALOPF21",    FMT_SRC1 | FMT_SRC2 },
+    { "ALOPF21",    FMT_SRC1 | FMT_SRC2 | FMT_SRC3 },
     { "ALOPF22",    FMT_SRC2 },
     /* CS */
     { "COPF1",      FMT_ZERO },
@@ -1558,6 +1558,8 @@ static void emit_copf2(struct sljit_compiler *compiler, E2kBundle *bundle,
 // ALOPF21
 #define emit_alopf21_rrr(compiler, bundle, spec, op, src1, src2, src3, dst, mode) \
   emit_alopf21(compiler, bundle, spec, op, RSRC1(src1), RSRC2(src2), RSRC3(src3), RDST(dst))
+#define emit_alopf21_rir(compiler, bundle, spec, op, src1, src2, src3, dst, mode) \
+  emit_alopf21(compiler, bundle, spec, op, RSRC1(src1), ISRC2(src2, mode), RSRC3(src3), RDST(dst))
 
 #define emit_nop(compiler, bundle, nops) \
   bundle->nop = nops
@@ -1824,6 +1826,14 @@ static void emit_op(struct sljit_compiler* compiler, E2kBundle *bundle,
                     emit_alopf21_rrr(compiler, bundle, 0, opcode,
                                    SLJIT_EXTRACT_REG(src1),
                                    SLJIT_EXTRACT_REG(src2),
+                                   SLJIT_EXTRACT_REG(src3),
+                                   SLJIT_EXTRACT_REG(dst),
+                                   mode);
+                    break;
+                case REG_SRC1 | REG_SRC3:
+                    emit_alopf21_rir(compiler, bundle, 0, opcode,
+                                   SLJIT_EXTRACT_REG(src1),
+                                   src2,
                                    SLJIT_EXTRACT_REG(src3),
                                    SLJIT_EXTRACT_REG(dst),
                                    mode);
@@ -2235,6 +2245,7 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
             case SLJIT_GREATER_EQUAL:
                 emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPB, FLAG_REG, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 neg = 1;
+                break;
             case SLJIT_GREATER:
                 emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPBE, FLAG_REG, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 neg = 1;
@@ -2248,6 +2259,7 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
             case SLJIT_SIG_GREATER_EQUAL:
                 emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPL, FLAG_REG, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 neg = 1;
+                break;
             case SLJIT_SIG_GREATER:
                 emit_alopf8_r(compiler, bundle, 0, E2K_CCTOPLE, FLAG_REG, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 neg = 1;
