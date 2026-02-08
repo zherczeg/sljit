@@ -2673,7 +2673,7 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
         Formats.
         dst|src: reg, SLJIT_MEM0(addr), SLJIT_MEM1(r), SLJIT_MEM2(r, r), SLJIT_IMM
     */
-	switch (GET_OPCODE(op)) {
+	switch (op) {
     // TODO: Support other formats
 	case SLJIT_MOV:
 	case SLJIT_MOV_P:
@@ -2766,6 +2766,9 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
         break;
 	case SLJIT_CLZ:
         signature_switcher1(compiler, E2K_LZCNTd, dst, dstw, src, srcw, DOUBLEWORD);
+        break;
+	case SLJIT_CLZ32:
+        signature_switcher1(compiler, E2K_LZCNTs, dst, dstw, src, srcw, DOUBLEWORD);
         break;
 	case SLJIT_CTZ:
         signature_switcher1(compiler, E2K_BITREVd, TMP_REG1, dstw, src, srcw, DOUBLEWORD);
