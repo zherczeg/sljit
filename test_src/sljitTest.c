@@ -3907,6 +3907,16 @@ static void test37(void)
 		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 5)
 		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) << 10);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
+#elif (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    /* HS */
+    inst = 0x4000001;
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
+	/* addd,0 dr1, dr2, dr0 */
+    inst = (0x11 << 24)
+           | (sljit_u32)((sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) | 0x80) << 16)
+           | (sljit_u32)((sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) | 0x80) << 8)
+           | (sljit_u32)((sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG) | 0x80));
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #else
 	inst = 0;
 	sljit_emit_op_custom(compiler, &inst, 0);

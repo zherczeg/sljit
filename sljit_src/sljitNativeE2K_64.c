@@ -3019,14 +3019,30 @@ sljit_s32 sljit_emit_op_dst(struct sljit_compiler *compiler, sljit_s32 op,
 SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_get_register_index(sljit_s32 type, sljit_s32 reg)
 {
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_REG_INDEX(check_sljit_get_register_index(type, reg));
+
+    switch (type) {
+        case SLJIT_GP_REGISTER:
+        case SLJIT_FLOAT_REGISTER:
+		    return reg_map[reg];
+        default:
+            return -1;
+    }
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
 	                           void *instruction, sljit_u32 size)
 {
-    return SLJIT_ERR_UNSUPPORTED;
+	SLJIT_UNUSED_ARG(size);
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op_custom(compiler, instruction, size));
+
+    sljit_u32 *inst = (sljit_u32*)ensure_buf(compiler, size);
+    *inst = *(sljit_u32*)(instruction);
+    compiler->size += size;
+    return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
