@@ -3415,36 +3415,48 @@ sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
     sljit_u32 neg = emit_flag_into_pred(compiler, type);
 
     // Move from pred into reg
-    // TODO: Hardcoded als0
     BUNDLE_SETUP();
-    emit_alopf1_ii(compiler, bundle, 0, E2K_MERGEd, 0x0, 0x1, TMP_REG3, DOUBLEWORD);
-    emit_mrgc(compiler, bundle, 0, E2K_PRED(FLAG_PREG), neg);
+    sljit_s32 als_idx = emit_alopf1_ii(compiler, bundle, 0, E2K_MERGEd,
+                                       0x0, 0x1, TMP_REG3, DOUBLEWORD);
+    emit_mrgc(compiler, bundle, als_idx, E2K_PRED(FLAG_PREG), neg);
     emit_bundle_finalize(compiler, bundle);
+
+    sljit_u32 mode32 = op & SLJIT_32;
+    sljit_u16 e2kop = 0, e2kop_fd = 0;
+    sljit_s32 mode = mode32 ? WORD : DOUBLEWORD;
 
 	switch (GET_OPCODE(op)) {
     case SLJIT_MOV:
-    case SLJIT_MOV32:
-        signature_switcher2(compiler, E2K_ADDd, dst, dstw, TMP_REG3, 0,
+        e2kop = mode32 ? E2K_ADDs : E2K_ADDd;
+        signature_switcher2(compiler, e2kop, dst, dstw, TMP_REG3, 0,
                             SLJIT_IMM, 0, DOUBLEWORD);
+        return SLJIT_SUCCESS;
+	case SLJIT_AND:
+        e2kop = mode32 ? E2K_ANDs : E2K_ANDd;
+        e2kop_fd = mode32 ? E2K_ANDs_fd : E2K_ANDd_fd;
         break;
-    case SLJIT_AND:
-    case SLJIT_AND32:
-        signature_switcher2(compiler, E2K_ANDd, dst, dstw, TMP_REG3, 0,
-                            dst, dstw, DOUBLEWORD);
+	case SLJIT_OR:
+        e2kop = mode32 ? E2K_ORs : E2K_ORd;
+        e2kop_fd = mode32 ? E2K_ORs_fd : E2K_ORd_fd;
         break;
-    case SLJIT_OR:
-    case SLJIT_OR32:
-        signature_switcher2(compiler, E2K_ORd, dst, dstw, TMP_REG3, 0,
-                            dst, dstw, DOUBLEWORD);
-        break;
-    case SLJIT_XOR:
-    case SLJIT_XOR32:
-        signature_switcher2(compiler, E2K_XORd, dst, dstw, TMP_REG3, 0,
-                            dst, dstw, DOUBLEWORD);
+	case SLJIT_XOR:
+        e2kop = mode32 ? E2K_XORs : E2K_XORd;
+        e2kop_fd = mode32 ? E2K_XORs_fd : E2K_XORd_fd;
         break;
     default:
         return SLJIT_ERR_UNSUPPORTED;
 	}
+
+    if (e2kop_fd) {
+        if ((dst == FLAG_REG) || HAS_FLAGS(op)) {
+            signature_switcher2(compiler, e2kop_fd, FLAG_REG, 0,
+                                TMP_REG3, 0, dst, dstw, mode);
+        }
+        if (dst != FLAG_REG) {
+            signature_switcher2(compiler, e2kop, dst, dstw,
+                                TMP_REG3, 0, dst, dstw, mode);
+        }
+    }
 
     return SLJIT_SUCCESS;
 }
