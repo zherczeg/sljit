@@ -3457,9 +3457,12 @@ sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
 
 	switch (GET_OPCODE(op)) {
     case SLJIT_MOV:
-        e2kop = mode32 ? E2K_ADDs : E2K_ADDd;
-        signature_switcher2(compiler, e2kop, dst, dstw, TMP_REG3, 0,
+        signature_switcher2(compiler, E2K_ADDd, dst, dstw, TMP_REG3, 0,
                             SLJIT_IMM, 0, DOUBLEWORD);
+        return SLJIT_SUCCESS;
+    case SLJIT_MOV32:
+        signature_switcher2(compiler, E2K_ADDs, dst, dstw, TMP_REG3, 0,
+                            SLJIT_IMM, 0, WORD);
         return SLJIT_SUCCESS;
 	case SLJIT_AND:
         e2kop = mode32 ? E2K_ANDs : E2K_ANDd;
