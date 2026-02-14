@@ -783,14 +783,14 @@ static const E2kOp e2kop[] = {
     { "RRs",      RES_ALS0,        0x3e, 0,    0x01, 0xc0, E2K_ALOPF16},
     { "RRd",      RES_ALS0,        0x3f, 0,    0x01, 0xc0, E2K_ALOPF16},
     // TODO: Skip FX ops
-    { "UDIVs",    RES_ALS_25,      0x40, 0,    0x01, 0xc0, E2K_ALOPF1},
-    { "UDIVd",    RES_ALS_25,      0x41, 0,    0x01, 0xc0, E2K_ALOPF1},
-    { "SDIVs",    RES_ALS_25,      0x42, 0,    0x01, 0xc0, E2K_ALOPF1},
-    { "SDIVd",    RES_ALS_25,      0x43, 0,    0x01, 0xc0, E2K_ALOPF1},
-    { "UDIVX",    RES_ALS_25,      0x44, 0,    0x01, 0xc0, E2K_ALOPF1},
-    { "UMODX",    RES_ALS_25,      0x45, 0,    0x01, 0xc0, E2K_ALOPF1},
-    { "SDIVX",    RES_ALS_25,      0x46, 0,    0x01, 0xc0, E2K_ALOPF1},
-    { "SMODX",    RES_ALS_25,      0x47, 0,    0x01, 0xc0, E2K_ALOPF1},
+    { "UDIVs",    RES_ALS5,        0x40, 0,    0,    0, E2K_ALOPF1},
+    { "UDIVd",    RES_ALS5,        0x41, 0,    0,    0, E2K_ALOPF1},
+    { "SDIVs",    RES_ALS5,        0x42, 0,    0,    0, E2K_ALOPF1},
+    { "SDIVd",    RES_ALS5,        0x43, 0,    0,    0, E2K_ALOPF1},
+    { "UDIVX",    RES_ALS5,        0x44, 0,    0,    0, E2K_ALOPF1},
+    { "UMODX",    RES_ALS5,        0x45, 0,    0,    0, E2K_ALOPF1},
+    { "SDIVX",    RES_ALS5,        0x46, 0,    0,    0, E2K_ALOPF1},
+    { "SMODX",    RES_ALS5,        0x47, 0,    0,    0, E2K_ALOPF1},
 /* --------------------------------------------------- */
     { "MOVTs",    RES_ALS0,        0x60, 0xc0, 0,    0,    E2K_ALOPF2},
     { "MOVTd",    RES_ALS0,        0x61, 0xc0, 0,    0,    E2K_ALOPF2},
@@ -2608,7 +2608,14 @@ sljit_s32 sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op)
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op0(compiler, op));
 
-	op = GET_OPCODE(op);
+    sljit_u32 mode32 = op & SLJIT_32;
+    sljit_u32 mode = mode32 ? WORD : DOUBLEWORD;
+    sljit_u32 add = mode32 ? E2K_ADDs : E2K_ADDd;
+    sljit_u32 udiv = mode32 ? E2K_UDIVs : E2K_UDIVd;
+    sljit_u32 sdiv = mode32 ? E2K_SDIVs : E2K_SDIVd;
+    sljit_u32 mul = mode32 ? E2K_MULs : E2K_MULd;
+    sljit_u32 sub = mode32 ? E2K_SUBs : E2K_SUBd;
+
 	switch (op) {
 	case SLJIT_BREAKPOINT:
     case SLJIT_NOP:
@@ -2618,7 +2625,7 @@ sljit_s32 sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op)
 	case SLJIT_LMUL_SW:
         // mul SLJIT_R0 and SLJIT_R1
         // Result into R1:R0
-        emit_op_full(compiler, E2K_ADDd, REG_SRC1 | REG_SRC2 | REG_SRC3,
+        emit_op_full(compiler, E2K_ADDd, REG_SRC1,
                      SLJIT_R1, 0, 0, TMP_REG1, DOUBLEWORD);
         if (op == SLJIT_LMUL_UW) {
             emit_op_full(compiler, E2K_UMULHd, REG_SRC1 | REG_SRC2 | REG_SRC3,
@@ -2631,33 +2638,40 @@ sljit_s32 sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op)
                      SLJIT_R0, TMP_REG1, 0, SLJIT_R0, DOUBLEWORD);
         break;
 	case SLJIT_DIVMOD_UW:
+	case SLJIT_DIVMOD_U32:
 	case SLJIT_DIVMOD_SW:
+	case SLJIT_DIVMOD_S32:
         // Div R0 by the R1
         // Result -> R0
         // Reminder -> R1
-        emit_op_full(compiler, E2K_ADDd, REG_SRC1 | REG_SRC2 | REG_SRC3, SLJIT_R0, 0, 0, TMP_REG1, DOUBLEWORD);
-        if (op == SLJIT_DIVMOD_UW) {
-            emit_op_full(compiler, E2K_UDIVd, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                         SLJIT_R0, SLJIT_R1, 0, SLJIT_R0, DOUBLEWORD);
-            emit_op_full(compiler, E2K_UMODX, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                         TMP_REG1, SLJIT_R1, 0, SLJIT_R1, DOUBLEWORD);
+
+        emit_op_full(compiler, add, REG_SRC1, SLJIT_R0, 0, 0, TMP_REG1, mode);
+        if (GET_OPCODE(op) == SLJIT_DIVMOD_UW) {
+            emit_op_full(compiler, udiv, REG_SRC1 | REG_SRC2,
+                         SLJIT_R0, SLJIT_R1, 0, SLJIT_R0, mode);
         } else {
-            emit_op_full(compiler, E2K_SDIVd, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                         SLJIT_R0, SLJIT_R1, 0, SLJIT_R0, DOUBLEWORD);
-            emit_op_full(compiler, E2K_SMODX, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                         TMP_REG1, SLJIT_R1, 0, SLJIT_R1, DOUBLEWORD);
+            emit_op_full(compiler, sdiv, REG_SRC1 | REG_SRC2,
+                         SLJIT_R0, SLJIT_R1, 0, SLJIT_R0, mode);
         }
+        emit_op_full(compiler, mul, REG_SRC1 | REG_SRC2,
+                     SLJIT_R0, SLJIT_R1, 0, TMP_REG2, mode);
+        emit_op_full(compiler, sub, REG_SRC1 | REG_SRC2,
+                     TMP_REG1, TMP_REG2, 0, SLJIT_R1, mode);
+        break;
 	case SLJIT_DIV_UW:
 	case SLJIT_DIV_SW:
+	case SLJIT_DIV_U32:
+	case SLJIT_DIV_S32:
         // Div R0 by R1
         // Result -> R0
-        if (op == SLJIT_DIV_UW) {
-            emit_op_full(compiler, E2K_UDIVd, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                         SLJIT_R0, SLJIT_R1, 0, SLJIT_R0, DOUBLEWORD);
+        if (GET_OPCODE(op) == SLJIT_DIV_UW) {
+            emit_op_full(compiler, udiv, REG_SRC1 | REG_SRC2 | REG_SRC3,
+                         SLJIT_R0, SLJIT_R1, 0, SLJIT_R0, mode);
         } else {
-            emit_op_full(compiler, E2K_SDIVd, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                         SLJIT_R0, SLJIT_R1, 0, SLJIT_R0, DOUBLEWORD);
+            emit_op_full(compiler, sdiv, REG_SRC1 | REG_SRC2 | REG_SRC3,
+                         SLJIT_R0, SLJIT_R1, 0, SLJIT_R0, mode);
         }
+        break;
 	case SLJIT_MEMORY_BARRIER:
 		return SLJIT_ERR_UNSUPPORTED;
 	case SLJIT_ENDBR:
