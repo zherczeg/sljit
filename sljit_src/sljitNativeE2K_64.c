@@ -104,18 +104,6 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 #define SLJIT_E2K_AAS_SUPPORT       0
 #define SLJIT_E2K_LOOP_MODE_SUPPORT 0
 
-// QP terms
-#define E2K_REG_WINDOW_SIZE  32
-#define E2K_PREG_WINDOW_SIZE 24
-#define E2K_ROTATED_REG_BASE 4
-#define E2K_ROTATED_REG_SIZE 4
-#define E2K_ARG_REG_BASE     4
-
-// Word terms
-#define E2K_ROTATED_REG_BASE_32 (E2K_ROTATED_REG_BASE * 2)
-#define E2K_ROTATED_REG_SIZE_32 (E2K_ROTATED_REG_SIZE * 2)
-#define E2K_ARG_REG_BASE_32     (E2K_ARG_REG_BASE * 2)
-
 /*
     v4 compatible with v6 latencies.
 */
@@ -138,6 +126,12 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 
 #define E2K_PRED(i) (sljit_u32)(E2K_PRED_ID_START + i)
 #define E2K_CTPR(i) (sljit_u32)(E2K_CTPR_ID_START + i)
+
+// QP terms
+#define E2K_PREG_WINDOW_SIZE 24
+#define E2K_ROTATED_REG_BASE (E2K_NREG_NUMBER >> 1) + 1
+#define E2K_ROTATED_REG_SIZE 4
+#define E2K_REG_WINDOW_SIZE  (E2K_NREG_NUMBER >> 1) + 1 + E2K_ROTATED_REG_SIZE
 
 
 /*
@@ -1616,13 +1610,31 @@ static void emit_call(struct sljit_compiler *compiler,
 {
     BUNDLE_SETUP();
 
-    emit_ct(compiler, ctpr, pred, inverted);
-    check_resource(compiler, bundle, RES_CS1);
-    E2kC1f1 syl;
+    check_resource(compiler, bundle, RES_SS); /* Uses only part of RES_SS */
+    E2kSS syl;
     syl.i = 0;
-    syl.fields.opc = E2K_CALL;
-    syl.fields.params = wbs;
-    bundle->cs[1] = syl.i;
+    if (pred) { /* RID_PREDX is nonnull  */
+        if (inverted) {
+            syl.fields.ctcond = 0x60 + (pred - E2K_PRED_ID_START);
+        } else {
+            syl.fields.ctcond = 0x40 + (pred - E2K_PRED_ID_START);
+        }
+    } else {
+        syl.fields.ctcond = 0x20; /* unconditional */
+    }
+    if (ctpr)  /* RID_CTPRX is nonnull */
+        syl.fields.ctop = ctpr - E2K_CTPR_ID_START;
+    syl.fields.ipd = 3;
+
+    bundle->ss = syl.i;
+    bundle->f1++;
+
+    check_resource(compiler, bundle, RES_CS1);
+    E2kC1f1 syl2;
+    syl2.i = 0;
+    syl2.fields.opc = E2K_CALL;
+    syl2.fields.params = wbs;
+    bundle->cs[1] = syl2.i;
     bundle->f2++;
 
     emit_bundle_finalize(compiler, bundle);
@@ -3326,7 +3338,68 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
 	                       sljit_s32 arg_types,
 	                       sljit_s32 src, sljit_sw srcw)
 {
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_icall(compiler, type, arg_types, src, srcw));
+
+    sljit_u32 flag = type & 0xFF;
+
+    // Make possible to read variable from callee function
+	ADJUST_LOCAL_OFFSET(src, srcw);
+    sljit_s32 jump_reg = TMP_REG1;
+
+    // direct form, maybe IMM only
+    if (SLJIT_IS_IMM(src)) {
+        //if (flag == SLJIT_JUMP) {
+        //// Patch in the future
+		//    jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+		//    FAIL_IF_NULL(jump);
+		//    set_jump(jump, compiler, (sljit_u32)JUMP_ADDR);
+		//    jump->u.target = (sljit_uw)srcw;
+		//    jump->addr = compiler->size;
+        //}
+
+        emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, srcw, 0, jump_reg, DOUBLEWORD);
+        // TODO: Now MOVTd only, but for perf we want disp in the future.
+        // We should calc jump len and replace movtd by disp.
+    // indirect form
+    } else if (SLJIT_IS_MEM(src)) {
+        emit_load(compiler, jump_reg, 0, src, srcw, DOUBLEWORD);
+    // indirect form
+    } else if (SLJIT_IS_REG(src)) {
+        jump_reg = src;
+    } else {
+        SLJIT_ASSERT(0);
+    }
+
+	/* Remove return value. */
+	arg_types >>= SLJIT_ARG_SHIFT;
+
+    // Pass args into new window due to e2k ABI
+    // TODO: schedule
+    BUNDLE_SETUP();
+    sljit_u32 arg_num = 0;
+	while (arg_types) {
+        emit_alopf1(compiler, bundle, 0, E2K_ADDd, reg_map[SLJIT_R(arg_num)] | 0x80, 0 | 0xc0, arg_num);
+        emit_bundle_finalize(compiler, bundle);
+		arg_types >>= SLJIT_ARG_SHIFT;
+        arg_num++;
+	}
+
+    emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, jump_reg, E2K_CTPR(1), DOUBLEWORD);
+    emit_nop(compiler, bundle, 5);
+    emit_bundle_finalize(compiler, bundle);
+
+    sljit_u32 src2 = -(arg_num * sizeof(sljit_uw));
+    emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
+    emit_bundle_finalize(compiler, bundle);
+
+    // HS + SS = 2
+    emit_call(compiler, E2K_CTPR(1), 0, 0, E2K_ROTATED_REG_BASE);
+
+    // move return reg into SLJIT_RETURN_REG
+    emit_alopf1(compiler, bundle, 0, E2K_ADDd, 0, 0 | 0xc0, reg_map[SLJIT_RETURN_REG] | 0x80);
+    emit_bundle_finalize(compiler, bundle);
+    return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
