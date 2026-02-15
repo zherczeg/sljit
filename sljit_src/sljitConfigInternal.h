@@ -464,55 +464,6 @@ typedef double sljit_f64;
 /* Endianness detection. */
 /*************************/
 
-#if !defined(SLJIT_BIG_ENDIAN) && !defined(SLJIT_LITTLE_ENDIAN)
-
-/* These macros are mostly useful for the applications. */
-#if (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
-
-#ifdef __LITTLE_ENDIAN__
-#define SLJIT_LITTLE_ENDIAN 1
-#else
-#define SLJIT_BIG_ENDIAN 1
-#endif
-
-#elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
-
-#ifdef __MIPSEL__
-#define SLJIT_LITTLE_ENDIAN 1
-#else
-#define SLJIT_BIG_ENDIAN 1
-#endif
-
-#ifndef SLJIT_MIPS_REV
-
-/* Auto detecting mips revision. */
-#if (defined __mips_isa_rev) && (__mips_isa_rev >= 6)
-#define SLJIT_MIPS_REV 6
-#elif defined(__mips_isa_rev) && __mips_isa_rev >= 1
-#define SLJIT_MIPS_REV __mips_isa_rev
-#elif defined(__clang__) \
-	&& (defined(_MIPS_ARCH_OCTEON) || defined(_MIPS_ARCH_P5600))
-/* clang either forgets to define (clang-7) __mips_isa_rev at all
- * or sets it to zero (clang-8,-9) for -march=octeon (MIPS64 R2+)
- * and -march=p5600 (MIPS32 R5).
- * It also sets the __mips macro to 64 or 32 for -mipsN when N <= 5
- * (should be set to N exactly) so we cannot rely on this too.
- */
-#define SLJIT_MIPS_REV 1
-#endif
-
-#endif /* !SLJIT_MIPS_REV */
-
-#elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
-
-#define SLJIT_BIG_ENDIAN 1
-
-#else
-#define SLJIT_LITTLE_ENDIAN 1
-#endif
-
-#endif /* !defined(SLJIT_BIG_ENDIAN) && !defined(SLJIT_LITTLE_ENDIAN) */
-
 /* Sanity check. */
 #if (defined SLJIT_BIG_ENDIAN && SLJIT_BIG_ENDIAN) && (defined SLJIT_LITTLE_ENDIAN && SLJIT_LITTLE_ENDIAN)
 #error "Exactly one endianness must be selected"
