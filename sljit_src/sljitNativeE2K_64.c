@@ -64,6 +64,7 @@
 */
 
 /* TODO:
+0. Codestyle to compiler via Makefile
 1. Support >=v5 *
 2. Support aas ops **
 3. Support short jumps **
@@ -84,13 +85,22 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
     return "e2k" SLJIT_CPUINFO;
 }
 
+/* INT */
 /* SLJIT_SP */
 #define TMP_REG1 (SLJIT_SP + 1)         // signature_switcher and lower
 #define TMP_REG2 TMP_REG1 + 1           // all layers
 #define TMP_REG3 TMP_REG2 + 1           // upper than signature_switcher
 #define FLAG_REG TMP_REG3 + 1
 // + zero
-#define EXTRA_REGS_NUM (FLAG_REG - SLJIT_SP + 2)
+#define EXTRA_NREGS_NUM (FLAG_REG - SLJIT_SP + 2)
+/* FLOAT */
+// signature_switcher and lower
+#define TMP_FREG1 (SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
+#define TMP_FREG2 TMP_FREG1 + 1           // all layers
+#define TMP_FREG3 TMP_FREG2 + 1           // upper than signature_switcher
+// + zero
+#define EXTRA_FREGS_NUM (TMP_FREG3 - SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
+
 #define FLAG_PREG 16
 #define TMP_PREG1 17
 #define TMP_PREG2 18
@@ -117,8 +127,12 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 
 #define E2K_NREG_ID_START (sljit_u32)1
 #define E2K_NREG_NUMBER (sljit_u32)(SLJIT_NUMBER_OF_REGISTERS \
-                        + EXTRA_REGS_NUM)
-#define E2K_PRED_ID_START (sljit_u32)(E2K_NREG_ID_START + E2K_NREG_NUMBER)
+                        + EXTRA_NREGS_NUM)
+#define E2K_FREG_ID_START (sljit_u32)(E2K_NREG_ID_START + E2K_NREG_NUMBER)
+#define E2K_FREG_NUMBER (sljit_u32)(SLJIT_NUMBER_OF_FLOAT_REGISTERS \
+                        + EXTRA_FREGS_NUM)
+#define E2K_ALLREG_NUMBER (sljit_u32)(E2K_NREG_NUMBER + E2K_FREG_NUMBER)
+#define E2K_PRED_ID_START (sljit_u32)(E2K_FREG_ID_START + E2K_FREG_NUMBER)
 #define E2K_PRED_NUMBER (sljit_u32)4
 #define E2K_CTPR_ID_START (sljit_u32)(E2K_PRED_ID_START + E2K_PRED_NUMBER)
 #define E2K_CTPR_NUMBER (sljit_u32)3
@@ -129,9 +143,9 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 
 // QP terms
 #define E2K_PREG_WINDOW_SIZE 24
-#define E2K_ROTATED_REG_BASE (E2K_NREG_NUMBER >> 1) + 1
+#define E2K_ROTATED_REG_BASE (E2K_ALLREG_NUMBER >> 1) + 1
 #define E2K_ROTATED_REG_SIZE 4
-#define E2K_REG_WINDOW_SIZE  (E2K_NREG_NUMBER >> 1) + 1 + E2K_ROTATED_REG_SIZE
+#define E2K_REG_WINDOW_SIZE  (E2K_ALLREG_NUMBER >> 1) + 1 + E2K_ROTATED_REG_SIZE
 
 
 /*
@@ -139,27 +153,33 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 */
 
 static const sljit_u8 reg_map[E2K_NREG_NUMBER] = {
-    // scratch
     0,
+    // scratch
     0, 1, 2, 3, 4, 5, 6, 7,
     8, 9, 10, 11, 12, 13, 14, 15,
-    16, 17, 18, 19, 20, 21, 22, 23,
-    24, 25, 26, 27,
+    16, 17, 18, 19,
     // saved
-    28, 29, 30, 31,
-    32, 33, 34, 35, 36, 37, 38, 39,
-    40, 41, 42, 43, 44, 45, 46, 47,
-    48, 49, 50, 51, 52, 53, 54, 55,
-    56, // SLJIT_SP
-    57, // TMP_REG1
-    58, // TMP_REG2
-    59, // TMP_REG3
-    60, // FLAG_REG
-    // 61, 62, 63 RESERVED
+    20, 21, 22, 23, 24, 25, 26, 27,
+    28, 29, 30, 31, 32, 33, 34, 35,
+    36, 37, 38, 39,
+    40, // SLJIT_SP
+    41, // TMP_REG1
+    42, // TMP_REG2
+    43, // TMP_REG3
+    44, // FLAG_REG
 };
 
 // Full copy
-static const sljit_u8 *freg_map = reg_map;
+static const sljit_u8 freg_map[E2K_NREG_NUMBER] = {
+    0,
+    // scratch
+    45, 46, 47, 48, 49, 50, 51, 52,
+    // saved
+    53, 54, 55, 56, 57, 58, 59, 60,
+    61, // TMP_FREG1
+    62, // TMP_FREG2
+    63, // TMP_FREG3
+};
 
 // label for ctpr
 // 0 reg is empty reg, because ctpr starts with 1.
@@ -474,7 +494,7 @@ typedef enum {
     E2K_CONST64 =   0x40,
     E2K_REG =       0x80,
     E2K_REG_R =     0x100,
-    E2K_REG_B =     0x200,
+    E2K_REG_FR =    0x200,
     E2K_REG_G =     0x400,
     E2K_REG_PRED =  0x800,
     E2K_REG_CTPR =  0x1000,
@@ -734,24 +754,24 @@ static const E2kOp e2kop[] = {
     { "STd",       RES_ALS_25,     0x27, 0,    0,   0,     E2K_ALOPF3},
 /* --------------------------------------------------- */
     // TODO: FXCMP
-    { "FCMPEQsb",  RES_ALS_0134,   0x2e, 0x0,  0,   0,     E2K_ALOPF11},
-    { "FCMPLTsb",  RES_ALS_0134,   0x2e, 0x1,  0,   0,     E2K_ALOPF11},
-    { "FCMPLEsb",  RES_ALS_0134,   0x2e, 0x2,  0,   0,     E2K_ALOPF11},
-    { "FCMPUODsb", RES_ALS_0134,   0x2e, 0x3,  0,   0,     E2K_ALOPF11},
-    { "FCMPNEQsb", RES_ALS_0134,   0x2e, 0x4,  0,   0,     E2K_ALOPF11},
-    { "FCMPNLTsb", RES_ALS_0134,   0x2e, 0x5,  0,   0,     E2K_ALOPF11},
-    { "FCMPNLEsb", RES_ALS_0134,   0x2e, 0x6,  0,   0,     E2K_ALOPF11},
-    { "FCMPEQdb",  RES_ALS_0134,   0x2f, 0x0,  0,   0,     E2K_ALOPF11},
-    { "FCMPLTdb",  RES_ALS_0134,   0x2f, 0x1,  0,   0,     E2K_ALOPF11},
-    { "FCMPLEdb",  RES_ALS_0134,   0x2f, 0x2,  0,   0,     E2K_ALOPF11},
-    { "FCMPUODdb", RES_ALS_0134,   0x2f, 0x3,  0,   0,     E2K_ALOPF11},
-    { "FCMPNEQdb", RES_ALS_0134,   0x2f, 0x4,  0,   0,     E2K_ALOPF11},
-    { "FCMPNLTdb", RES_ALS_0134,   0x2f, 0x5,  0,   0,     E2K_ALOPF11},
-    { "FCMPNLEdb", RES_ALS_0134,   0x2f, 0x6,  0,   0,     E2K_ALOPF11},
-    { "FCMPODsf" , RES_ALS_0134,   0x2e, 0xc7, 0,   0,     E2K_ALOPF11},
-    { "FCMPODdf" , RES_ALS_0134,   0x2f, 0xc7, 0,   0,     E2K_ALOPF11},
-    { "FCMPUDsf" , RES_ALS_0134,   0x2e, 0xc3, 0,   0,     E2K_ALOPF11},
-    { "FCMPUDdf" , RES_ALS_0134,   0x2f, 0xc3, 0,   0,     E2K_ALOPF11},
+    { "FCMPEQsb",  RES_ALS_0134,   0x2e, 0x0,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPLTsb",  RES_ALS_0134,   0x2e, 0x1,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPLEsb",  RES_ALS_0134,   0x2e, 0x2,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPUODsb", RES_ALS_0134,   0x2e, 0x3,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPNEQsb", RES_ALS_0134,   0x2e, 0x4,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPNLTsb", RES_ALS_0134,   0x2e, 0x5,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPNLEsb", RES_ALS_0134,   0x2e, 0x6,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPEQdb",  RES_ALS_0134,   0x2f, 0x0,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPLTdb",  RES_ALS_0134,   0x2f, 0x1,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPLEdb",  RES_ALS_0134,   0x2f, 0x2,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPUODdb", RES_ALS_0134,   0x2f, 0x3,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPNEQdb", RES_ALS_0134,   0x2f, 0x4,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPNLTdb", RES_ALS_0134,   0x2f, 0x5,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPNLEdb", RES_ALS_0134,   0x2f, 0x6,  0x01,0xc0,  E2K_ALOPF11},
+    { "FCMPODsf" , RES_ALS_0134,   0x2e, 0xc7, 0x01,0xc7,  E2K_ALOPF11},
+    { "FCMPODdf" , RES_ALS_0134,   0x2f, 0xc7, 0x01,0xc7,  E2K_ALOPF11},
+    { "FCMPUDsf" , RES_ALS_0134,   0x2e, 0xc3, 0x01,0xc3,  E2K_ALOPF11},
+    { "FCMPUDdf" , RES_ALS_0134,   0x2f, 0xc3, 0x01,0xc3,  E2K_ALOPF11},
 /* --------------------------------------------------- */
     { "FADDs",    RES_ALS_0134,    0x30, 0,    0,   0,     E2K_ALOPF1},
     { "FADDd",    RES_ALS_0134,    0x31, 0,    0,   0,     E2K_ALOPF1},
@@ -917,9 +937,11 @@ static E2kOpT get_reg_type(struct sljit_compiler *compiler,
     SLJIT_UNUSED_ARG(compiler);
     SLJIT_UNUSED_ARG(bundle);
 
-    if (val < E2K_CTPR_ID_START)
+    if (val < E2K_FREG_ID_START)
         return E2K_REG_R;
     else if (val < E2K_PRED_ID_START)
+        return E2K_REG_FR;
+    else if (val < E2K_CTPR_ID_START)
         return E2K_REG_PRED;
     else if (val < E2K_REG_MAX)
         return E2K_REG_CTPR;
@@ -1132,6 +1154,8 @@ static sljit_u32 emit_src1(struct sljit_compiler *compiler,
         switch (get_reg_type(compiler, bundle, src1)) {
         case E2K_REG_R:
             return reg_map[src1] | 0x80;
+        case E2K_REG_FR:
+            return freg_map[src1-E2K_FREG_ID_START] | 0x80;
         default:
             SLJIT_ASSERT(0);
             return 0;
@@ -1162,6 +1186,8 @@ static sljit_u32 emit_src2(struct sljit_compiler *compiler,
         switch (get_reg_type(compiler, bundle, src2)) {
         case E2K_REG_R:
             return reg_map[src2] | 0x80;
+        case E2K_REG_FR:
+            return freg_map[src2-E2K_FREG_ID_START] | 0x80;
         default:
             SLJIT_ASSERT(0);
             return 0;
@@ -1205,6 +1231,8 @@ static sljit_u32 emit_src3(struct sljit_compiler *compiler,
         switch (get_reg_type(compiler, bundle, src3)) {
         case E2K_REG_R:
             return reg_map[src3] | 0x80;
+        case E2K_REG_FR:
+            return freg_map[src3-E2K_FREG_ID_START] | 0x80;
         default:
             SLJIT_ASSERT(0);
         }
@@ -1222,6 +1250,8 @@ static sljit_u32 emit_dst(struct sljit_compiler *compiler,
         switch (get_reg_type(compiler, bundle, dst)) {
         case E2K_REG_R:
             return reg_map[dst] | 0x80;
+        case E2K_REG_FR:
+            return freg_map[dst-E2K_FREG_ID_START] | 0x80;
         case E2K_REG_CTPR:
             SLJIT_ASSERT((dst - E2K_CTPR_ID_START) != 0);
             return ctpr_map[(dst - E2K_CTPR_ID_START)] | 0xd0;
@@ -2098,6 +2128,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                          sljit_s32 src2, sljit_sw src2w,
                          sljit_s32 mode)
 {
+    // TODO: Optomize extra moving into TMP_REG1
     if (SLJIT_IS_REG(dst)) {
         if (SLJIT_IS_REG(src2)) {
             if (SLJIT_IS_REG(src1)) {
@@ -2316,57 +2347,57 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
                                     DOUBLEWORD);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZF, TMP_REG3, E2K_PRED(FLAG_PREG), DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG3, IFL_ZF, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 break;
             case SLJIT_F_NOT_EQUAL:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF,
                                     DOUBLEWORD);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG), DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG3, IFL_ZERO, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 break;
             case SLJIT_F_LESS:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
                                     DOUBLEWORD);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_CF, TMP_REG3, E2K_PRED(FLAG_PREG), DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG3, IFL_CF, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 break;
             case SLJIT_F_GREATER_EQUAL:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_PF | IFL_CF,
                                     DOUBLEWORD);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG), DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG3, IFL_ZERO, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 break;
             case SLJIT_F_GREATER:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
                                     DOUBLEWORD);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG), DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG3, IFL_ZERO, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 break;
             case SLJIT_F_LESS_EQUAL:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_CF,
                                     DOUBLEWORD);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPBEsb,
-                               IFL_ZF, TMP_REG3, E2K_PRED(FLAG_PREG), DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPBEsb,
+                               TMP_REG3, IFL_ZF, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 break;
             case SLJIT_UNORDERED:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
                                     DOUBLEWORD);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZF | IFL_PF | IFL_CF, TMP_REG3, E2K_PRED(FLAG_PREG), DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG3, IFL_ZF | IFL_PF | IFL_CF, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 break;
             case SLJIT_ORDERED:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG3, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_PF,
                                     DOUBLEWORD);
-                emit_alopf7_ir(compiler, bundle, 0, E2K_CMPEsb,
-                               IFL_ZERO, TMP_REG3, E2K_PRED(FLAG_PREG), DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG3, IFL_ZERO, E2K_PRED(FLAG_PREG), DOUBLEWORD);
                 break;
         }
     } else if (type <= SLJIT_SET_ORDERED_LESS_EQUAL) {
@@ -2552,7 +2583,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
     for (sljit_s32 i = 0; i < saveds; i++) {
         emit_op_full(compiler, E2K_ADDd, REG_SRC1, SLJIT_R0+i, 0, 0, SLJIT_S0-i, DOUBLEWORD);
     }
-
 
 	return SLJIT_SUCCESS;
 }
@@ -3065,76 +3095,83 @@ sljit_s32 sljit_emit_fop1(struct sljit_compiler *compiler, sljit_s32 op,
 	                      sljit_s32 src, sljit_sw srcw)
 {
 	CHECK_ERROR();
-	CHECK(check_sljit_emit_fop1(compiler, op, dst, dstw, src, srcw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
+    // Choose reg map
+    sljit_s32 fdst = dst, fsrc = src;
+    if (SLJIT_IS_REG(dst)) {
+        fdst += E2K_FREG_ID_START;
+    }
+    if (SLJIT_IS_REG(src)) {
+        fsrc += E2K_FREG_ID_START;
+    }
+
+    sljit_u32 mode32 = op & SLJIT_32;
+    sljit_u16 e2kop = 0, e2kop_fd = 0;
+    sljit_s32 mode = mode32 ? WORD : DOUBLEWORD;
+
 	switch (GET_OPCODE(op)) {
     case SLJIT_MOV_F64:
-        signature_switcher1(compiler, E2K_FADDd, dst, dstw, src, srcw, DOUBLEWORD);
-        break;
-    case SLJIT_MOV_F32:
-        signature_switcher1(compiler, E2K_FADDs, dst, dstw, src, srcw, WORD);
+    //case SLJIT_MOV_F32:
+        e2kop = mode32 ? E2K_FADDs : E2K_FADDd;
+        signature_switcher2(compiler, e2kop, fdst, dstw, SLJIT_IMM, 0, fsrc, srcw, mode);
         break;
     case SLJIT_CONV_F64_FROM_F32:
-        signature_switcher1(compiler, E2K_FSTOFD, dst, dstw, src, srcw, DOUBLEWORD);
-        break;
-    case SLJIT_CONV_F32_FROM_F64:
-        signature_switcher1(compiler, E2K_FDTOFS, dst, dstw, src, srcw, DOUBLEWORD);
+    //case SLJIT_CONV_F32_FROM_F64:
+        e2kop = mode32 ? E2K_FDTOFS : E2K_FSTOFD;
+        signature_switcher1(compiler, e2kop, fdst, dstw, fsrc, srcw, DOUBLEWORD);
         break;
     case SLJIT_CONV_SW_FROM_F64:
-        signature_switcher1(compiler, E2K_FDTOID, dst, dstw, src, srcw, DOUBLEWORD);
-        break;
-    case SLJIT_CONV_SW_FROM_F32:
-        signature_switcher1(compiler, E2K_FSTOID, dst, dstw, src, srcw, DOUBLEWORD);
+    //case SLJIT_CONV_SW_FROM_F32:
+        e2kop = mode32 ? E2K_FSTOID : E2K_FDTOID;
+        signature_switcher1(compiler, e2kop, fdst, dstw, fsrc, srcw, mode);
         break;
     case SLJIT_CONV_S32_FROM_F64:
-        signature_switcher1(compiler, E2K_FDTOIS, dst, dstw, src, srcw, DOUBLEWORD);
-        break;
-    case SLJIT_CONV_S32_FROM_F32:
-        signature_switcher1(compiler, E2K_FSTOIS, dst, dstw, src, srcw, DOUBLEWORD);
+    //case SLJIT_CONV_S32_FROM_F32:
+        e2kop = mode32 ? E2K_FSTOIS : E2K_FDTOIS;
+        signature_switcher1(compiler, e2kop, fdst, dstw, fsrc, srcw, mode);
         break;
     case SLJIT_CONV_F64_FROM_SW:
-        signature_switcher1(compiler, E2K_IDTOFD, dst, dstw, src, srcw, DOUBLEWORD);
-        break;
-    case SLJIT_CONV_F32_FROM_SW:
-        signature_switcher1(compiler, E2K_IDTOFS, dst, dstw, src, srcw, DOUBLEWORD);
+    //case SLJIT_CONV_F32_FROM_SW:
+        e2kop = mode32 ? E2K_IDTOFD : E2K_IDTOFS;
+        signature_switcher1(compiler, e2kop, fdst, dstw, fsrc, srcw, DOUBLEWORD);
         break;
     case SLJIT_CONV_F64_FROM_S32:
-        signature_switcher1(compiler, E2K_ISTOFD, dst, dstw, src, srcw, DOUBLEWORD);
-        break;
-    case SLJIT_CONV_F32_FROM_S32:
-        signature_switcher1(compiler, E2K_ISTOFS, dst, dstw, src, srcw, DOUBLEWORD);
+    //case SLJIT_CONV_F32_FROM_S32:
+        e2kop = mode32 ? E2K_ISTOFS : E2K_ISTOFD;
+        signature_switcher1(compiler, e2kop, fdst, dstw, fsrc, srcw, WORD);
         break;
     // TODO:
     case SLJIT_CONV_F64_FROM_UW:
     case SLJIT_CONV_F32_FROM_UW:
     case SLJIT_CONV_F64_FROM_U32:
     case SLJIT_CONV_F32_FROM_U32:
+        SLJIT_ASSERT(0);
         return SLJIT_ERR_UNSUPPORTED;
     case SLJIT_CMP_F64:
-        signature_switcher2(compiler, E2K_FCMPODdf, FLAG_REG, 0, dst, dstw,
-                            src, srcw, DOUBLEWORD);
-        break;
-    case SLJIT_CMP_F32:
-        signature_switcher2(compiler, E2K_FCMPODsf, FLAG_REG, 0, dst, dstw,
-                            src, srcw, WORD);
+    //case SLJIT_CMP_F32:
+        CHECK(check_sljit_emit_fop1_cmp(compiler, op, dst, dstw, src, srcw)); 
+        e2kop = mode32 ? E2K_FCMPODsf : E2K_FCMPODdf;
+        //e2kop = mode32 ? E2K_FCMPUDsf : E2K_FCMPUDdf;
+        signature_switcher2(compiler, e2kop, FLAG_REG, 0, fdst, dstw,
+                            fsrc, srcw, mode);
         break;
     // TODO:
     case SLJIT_NEG_F64:
-        break;
-    // TODO:
-    case SLJIT_NEG_F32:
+    //case SLJIT_NEG_F32:
+        SLJIT_ASSERT(0);
         break;
     case SLJIT_ABS_F64:
-        signature_switcher2(compiler, E2K_XORd, dst, dstw, 0, 0x8000000000000000,
-                            src, srcw, DOUBLEWORD);
-        break;
-    case SLJIT_ABS_F32:
-        signature_switcher2(compiler, E2K_XORs, dst, dstw, 0, 0x80000000,
-                            src, srcw, WORD);
+    //case SLJIT_ABS_F32:
+    // TODO: Support correctly
+        e2kop = mode32 ? E2K_ANDs : E2K_ANDd;
+        sljit_uw abs_imm = mode32 ? 0x7FFFFFFF : 0x7FFFFFFFFFFFFFFF;
+        signature_switcher2(compiler, e2kop, fdst, dstw, 0, abs_imm,
+                            fsrc, srcw, mode);
         break;
     default:
+        SLJIT_ASSERT(0);
         return SLJIT_ERR_UNSUPPORTED;
 	}
 
@@ -3535,7 +3572,53 @@ sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
 	                        sljit_s32 src1, sljit_sw src1w,
 	                        sljit_s32 src2_reg)
 {
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_select(compiler, type, dst_reg, src1, src1w, src2_reg));
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+    sljit_u32 mode32 = type & SLJIT_32;
+    sljit_u32 mode = mode32 ? WORD : DOUBLEWORD;
+
+    if (type & SLJIT_COMPARE_SELECT) {
+        // TODO: Support
+        SLJIT_ASSERT(0);
+    }
+
+    // For pred inversion
+    sljit_u32 neg = emit_flag_into_pred(compiler, type & ~SLJIT_32);
+
+    // Move from pred into reg
+    BUNDLE_SETUP();
+    sljit_s32 e2kop = mode32 ? E2K_MERGEs : E2K_MERGEd;
+    sljit_s32 als_idx;
+    if (SLJIT_IS_MEM(src1)) {
+        emit_load(compiler, TMP_REG3, 0, src1, src1w, mode);
+        als_idx = emit_alopf1_rr(compiler, bundle, 0, e2kop,
+                                 TMP_REG3, src2_reg, dst_reg, mode);
+    } else if (SLJIT_IS_REG(src1)) {
+        als_idx = emit_alopf1_rr(compiler, bundle, 0, e2kop,
+                                 src1, src2_reg, dst_reg, mode);
+    } else if (SLJIT_IS_IMM(src1)) {
+        // src1 does not support 32 and 64 imm
+        if IS_SRC1(src1w) {
+            emit_op_full(compiler, E2K_ADDd, REG_ZERO,
+                         0, src1w, 0, TMP_REG1, mode);
+            als_idx = emit_alopf1_rr(compiler, bundle, 0, e2kop,
+                                     TMP_REG1, src2_reg, dst_reg, mode);
+        } else {
+            als_idx = emit_alopf1_ir(compiler, bundle, 0, e2kop,
+                                     src1w, src2_reg, dst_reg, mode);
+        }
+    } else {
+        SLJIT_ASSERT(0);
+    }
+    // select: if true 1 else 2
+    // mrgc:   if true 2 else 1
+    neg = !neg;
+    emit_mrgc(compiler, bundle, als_idx, E2K_PRED(FLAG_PREG), neg);
+    emit_bundle_finalize(compiler, bundle);
+
+    return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
@@ -3544,6 +3627,7 @@ sljit_s32 sljit_emit_fselect(struct sljit_compiler *compiler, sljit_s32 type,
 	                         sljit_s32 src1, sljit_sw src1w,
 	                         sljit_s32 src2_freg)
 {
+    SLJIT_ASSERT(0);
     return SLJIT_ERR_UNSUPPORTED;
 }
 
