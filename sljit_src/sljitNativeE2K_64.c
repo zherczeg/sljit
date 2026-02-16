@@ -2947,9 +2947,13 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
                 emit_alopf7_rr(compiler, bundle, 0, E2K_CMPEdb,
                                TMP_REG3, TMP_REG2, E2K_PRED(TMP_PREG1), mode);
                 emit_bundle_finalize(compiler, bundle);
+                // Set flag in case of overflow else clean flag
                 int als_idx = emit_alopf1_ii(compiler, bundle, 0, E2K_ADDd,
                                              0x0, IFL_OF, FLAG_REG, DOUBLEWORD);
                 emit_rlp(compiler, bundle, als_idx, E2K_PRED(TMP_PREG1), 1);
+                als_idx = emit_alopf1_ii(compiler, bundle, 0, E2K_ADDd,
+                                         0x0, IFL_ZERO, FLAG_REG, DOUBLEWORD);
+                emit_rlp(compiler, bundle, als_idx, E2K_PRED(TMP_PREG1), 0);
                 emit_bundle_finalize(compiler, bundle);
             }
         }
