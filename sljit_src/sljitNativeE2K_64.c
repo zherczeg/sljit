@@ -2578,11 +2578,36 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
     emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, DOUBLEWORD);
     emit_bundle_finalize(compiler, bundle);
 
+    // distribute args to regs
+    sljit_s32 arg_type;
+    sljit_s32 si = 0, fri = 0, fsi = 0, i = 0;
+    // skip return
+    arg_types = arg_types >> SLJIT_ARG_SHIFT;
+    while (arg_types) {
+        arg_type = arg_types & 0xF;
+        // float
+        if (arg_type & SLJIT_ARG_TYPE_F64) {
+            emit_op_full(compiler, E2K_ADDd, REG_SRC1,
+                         SLJIT_R(i), 0, 0, SLJIT_FR(fri)+E2K_FREG_ID_START, DOUBLEWORD);
+            fri++;
+        } else {
+            // saved
+            if (!(arg_type & SLJIT_ARG_TYPE_SCRATCH_REG)) {
+                emit_op_full(compiler, E2K_ADDd, REG_SRC1,
+                             SLJIT_R(i), 0, 0, SLJIT_S(si), DOUBLEWORD);
+                si++;
+            }
+        }
+        arg_types = (arg_types >> SLJIT_ARG_SHIFT);
+        i++;
+    }
     // save input params on saved regs
     // TODO: Think about stack. It's cool e2k has a lot of registers.
+    /*
     for (sljit_s32 i = 0; i < saveds; i++) {
         emit_op_full(compiler, E2K_ADDd, REG_SRC1, SLJIT_R0+i, 0, 0, SLJIT_S0-i, DOUBLEWORD);
     }
+    */
 
 	return SLJIT_SUCCESS;
 }
