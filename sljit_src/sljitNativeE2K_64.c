@@ -1174,6 +1174,7 @@ static sljit_u32 emit_src1(struct sljit_compiler *compiler,
 #define HALFWORD   sizeof(sljit_u16)
 #define WORD       sizeof(sljit_u32)
 #define DOUBLEWORD sizeof(sljit_up)
+#define FORCE_LTS  0x8000
 
 static sljit_u32 emit_src2(struct sljit_compiler *compiler,
                           E2kBundle *bundle,
@@ -1208,7 +1209,22 @@ static sljit_u32 emit_src2(struct sljit_compiler *compiler,
             return 0;
         }
 #else
-        switch (mode) {
+        if ((mode & FORCE_LTS) == 0) {
+            switch (get_const_type(compiler, bundle, src2)) {
+            case E2K_CONST4:
+                return src2 | 0xc0;
+            case E2K_CONST5:
+            case E2K_CONST16:
+            case E2K_CONST32:
+            case E2K_CONST64:
+                break;
+            default:
+                SLJIT_ASSERT(0);
+                return 0;
+            }
+        }
+
+        switch (mode & 0xF) {
             case BYTE:
             case HALFWORD:
                 return (emit_lts(compiler, bundle, E2K_CONST16, src2) | 0xd0);
@@ -1216,6 +1232,9 @@ static sljit_u32 emit_src2(struct sljit_compiler *compiler,
                 return (emit_lts(compiler, bundle, E2K_CONST32, src2) | 0xd8);
             case DOUBLEWORD:
                 return (emit_lts(compiler, bundle, E2K_CONST64, src2) | 0xdc);
+            default:
+                SLJIT_ASSERT(0);
+                return 0;
         }
 #endif
     }
@@ -1963,7 +1982,7 @@ static void emit_jmp(struct sljit_compiler *compiler,
 static void emit_ijmp(struct sljit_compiler *compiler, sljit_uw addr,
                       sljit_u32 pred, sljit_u32 neg)
 {
-    emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, addr, 0, TMP_REG1, DOUBLEWORD);
+    emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, addr, 0, TMP_REG1, DOUBLEWORD | FORCE_LTS);
     BUNDLE_SETUP();
     emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR(1), DOUBLEWORD);
     emit_nop(compiler, bundle, 5);
@@ -2102,7 +2121,7 @@ static void emit_store(struct sljit_compiler *compiler,
     BUNDLE_SETUP();
 
     sljit_u32 store_opc = 0;
-    switch (mode) {
+    switch (mode & 0xF) {
         case BYTE:
             store_opc = E2K_STb;
             break;
@@ -2241,7 +2260,7 @@ void signature_switcher1(struct sljit_compiler *compiler,
     }
 }
 
-#define IS_SRC1(x) ((x < 0) || (x > 0xF))
+#define NOT_SRC1(x) ((x < 0) || (x > 0xF))
 
 // Analyze input types (const, mem, reg) and call correct op emit.
 // TODO: src1 as imm and mem is banned.
@@ -2263,7 +2282,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 // src1 does not support 32 and 64 imm
                 sljit_uw tmp_operand = src1w;
                 sljit_u32 tmp_signature = REG_SRC2 | REG_SRC3;
-                if IS_SRC1(src1w) {
+                if NOT_SRC1(src1w) {
                     emit_op_full(compiler, E2K_ADDd, REG_ZERO,
                                  0, src1w, 0, TMP_REG1, mode);
                     tmp_operand = TMP_REG1;
@@ -2286,7 +2305,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 // src1 does not support 32 and 64 imm
                 sljit_uw tmp_operand = src1w;
                 sljit_u32 tmp_signature = REG_SRC3;
-                if IS_SRC1(src1w) {
+                if NOT_SRC1(src1w) {
                     emit_op_full(compiler, E2K_ADDd, REG_ZERO,
                                  0, src1w, 0, TMP_REG1, mode);
                     tmp_operand = TMP_REG1;
@@ -2310,7 +2329,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 // src1 does not support 32 and 64 imm
                 sljit_uw tmp_operand = src1w;
                 sljit_u32 tmp_signature = REG_SRC2 | REG_SRC3;
-                if IS_SRC1(src1w) {
+                if NOT_SRC1(src1w) {
                     emit_op_full(compiler, E2K_ADDd, REG_ZERO,
                                  0, src1w, 0, TMP_REG2, mode);
                     tmp_operand = TMP_REG2;
@@ -2337,7 +2356,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 // src1 does not support 32 and 64 imm
                 sljit_uw tmp_operand = src1w;
                 sljit_u32 tmp_signature = REG_SRC2 | REG_SRC3;
-                if IS_SRC1(src1w) {
+                if NOT_SRC1(src1w) {
                     emit_op_full(compiler, E2K_ADDd, REG_ZERO,
                                  0, src1w, 0, TMP_REG1, mode);
                     tmp_operand = TMP_REG1;
@@ -2360,7 +2379,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 // src1 does not support 32 and 64 imm
                 sljit_uw tmp_operand = src1w;
                 sljit_u32 tmp_signature = REG_SRC3;
-                if IS_SRC1(src1w) {
+                if NOT_SRC1(src1w) {
                     emit_op_full(compiler, E2K_ADDd, REG_ZERO,
                                  0, src1w, 0, TMP_REG1, mode);
                     tmp_operand = TMP_REG1;
@@ -2384,7 +2403,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 // src1 does not support 32 and 64 imm
                 sljit_uw tmp_operand = src1w;
                 sljit_u32 tmp_signature = REG_SRC2 | REG_SRC3;
-                if IS_SRC1(src1w) {
+                if NOT_SRC1(src1w) {
                     emit_op_full(compiler, E2K_ADDd, REG_ZERO,
                                  0, src1w, 0, TMP_REG2, mode);
                     tmp_operand = TMP_REG2;
@@ -2574,10 +2593,10 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
 	jump = compiler->jumps;
 	const_ = compiler->consts;
 
-    while(buf) {
 #if (defined SLJIT_DEBUG && SLJIT_DEBUG)
-        fprintf(stderr, "[gen] addr: %p\n", code_ptr);
+    fprintf(stderr, "[gen] addr: %p\n", code_ptr);
 #endif /* SLJIT_DEBUG */
+    while(buf) {
         SLJIT_MEMCPY(code_ptr, buf->memory, buf->used_size);
         compiler->executable_size += buf->used_size;
         code_ptr += buf->used_size;
@@ -3477,7 +3496,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
     if (flag < SLJIT_JUMP) {
         emit_ijmp(compiler, 0, E2K_PRED(FLAG_PREG), neg);
     } else {
-        emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, 0, 0, TMP_REG1, DOUBLEWORD);
+        emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, 0, 0, TMP_REG1, DOUBLEWORD | FORCE_LTS);
         BUNDLE_SETUP();
         emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR(1), DOUBLEWORD);
         emit_nop(compiler, bundle, 5);
@@ -3771,7 +3790,7 @@ sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
                                  src1, src2_reg, dst_reg, mode);
     } else if (SLJIT_IS_IMM(src1)) {
         // src1 does not support 32 and 64 imm
-        if IS_SRC1(src1w) {
+        if NOT_SRC1(src1w) {
             emit_op_full(compiler, E2K_ADDd, REG_ZERO,
                          0, src1w, 0, TMP_REG1, mode);
             als_idx = emit_alopf1_rr(compiler, bundle, 0, e2kop,
@@ -3874,14 +3893,14 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 
     switch(GET_OPCODE(op)) {
     case SLJIT_MOV:
         signature_switcher2(compiler, E2K_ADDd, dst, dstw, SLJIT_IMM, 0,
-                            SLJIT_IMM, init_value, DOUBLEWORD);
+                            SLJIT_IMM, init_value, DOUBLEWORD | FORCE_LTS);
 		break;
     case SLJIT_MOV32:
     case SLJIT_MOV_S32:
     case SLJIT_MOV32_U8:
 	case SLJIT_MOV_U8:
         signature_switcher2(compiler, E2K_ADDs, dst, dstw, SLJIT_IMM, 0,
-                            SLJIT_IMM, init_value, DOUBLEWORD);
+                            SLJIT_IMM, init_value, DOUBLEWORD | FORCE_LTS);
 		break;
 	default:
         SLJIT_ASSERT(0);
@@ -3912,7 +3931,7 @@ struct sljit_jump* sljit_emit_op_addr(struct sljit_compiler *compiler, sljit_s32
     switch(GET_OPCODE(op)) {
     case SLJIT_MOV_ADDR:
         signature_switcher2(compiler, E2K_ADDd, dst, dstw, SLJIT_IMM, 0,
-                            SLJIT_IMM, 0, DOUBLEWORD);
+                            SLJIT_IMM, 0, DOUBLEWORD | FORCE_LTS);
 		break;
     case SLJIT_MOV_ABS_ADDR:
         SLJIT_ASSERT(0);
