@@ -628,6 +628,7 @@ enum {
     E2K_IDTOFS,   E2K_FDTOFS,
     /* ------------------------------------------------- */
     E2K_RRs,      E2K_RRd,
+    E2K_PSHUFB,
     E2K_UDIVs,    E2K_UDIVd,    E2K_SDIVs,    E2K_SDIVd,
     E2K_UDIVX,    E2K_UMODX,    E2K_SDIVX,    E2K_SMODX,
     /* ------------------------------------------------- */
@@ -803,6 +804,8 @@ static const E2kOp e2kop[] = {
 /* --------------------------------------------------- */
     { "RRs",      RES_ALS0,        0x3e, 0,    0x01, 0xc0, E2K_ALOPF16},
     { "RRd",      RES_ALS0,        0x3f, 0,    0x01, 0xc0, E2K_ALOPF16},
+    // PSHUFB: opce is src3 here
+    { "PSHUFB",   RES_ALS_0134,    0x4d, 0,    0x0f, 0x00, E2K_ALOPF21},
     // TODO: Skip FX ops
     { "UDIVs",    RES_ALS5,        0x40, 0,    0,    0, E2K_ALOPF1},
     { "UDIVd",    RES_ALS5,        0x41, 0,    0,    0, E2K_ALOPF1},
@@ -2914,10 +2917,10 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
-    /*
-        Formats.
-        dst|src: reg, SLJIT_MEM0(addr), SLJIT_MEM1(r), SLJIT_MEM2(r, r), SLJIT_IMM
-    */
+    sljit_s32 src_reg, dst_reg;
+    sljit_u32 mode32 = op & SLJIT_32;
+    sljit_u32 mode = mode32 ? WORD : DOUBLEWORD;
+
 	switch (op) {
     // TODO: Support other formats
 	case SLJIT_MOV:
@@ -3013,18 +3016,55 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
         signature_switcher1(compiler, E2K_LZCNTd, dst, dstw, src, srcw, DOUBLEWORD);
         break;
 	case SLJIT_CLZ32:
-        signature_switcher1(compiler, E2K_LZCNTs, dst, dstw, src, srcw, DOUBLEWORD);
+        signature_switcher1(compiler, E2K_LZCNTs, dst, dstw, src, srcw, WORD);
         break;
 	case SLJIT_CTZ:
         signature_switcher1(compiler, E2K_BITREVd, TMP_REG1, dstw, src, srcw, DOUBLEWORD);
         signature_switcher1(compiler, E2K_LZCNTd, dst, dstw, TMP_REG1, srcw, DOUBLEWORD);
         break;
+	case SLJIT_CTZ32:
+        signature_switcher1(compiler, E2K_BITREVs, TMP_REG1, dstw, src, srcw, WORD);
+        signature_switcher1(compiler, E2K_LZCNTs, dst, dstw, TMP_REG1, srcw, WORD);
+        break;
 	case SLJIT_REV:
+	case SLJIT_REV32:
 	case SLJIT_REV_U32:
 	case SLJIT_REV_S32:
 	case SLJIT_REV_U16:
 	case SLJIT_REV_S16:
-        signature_switcher1(compiler, E2K_BITREVd, dst, dstw, src, srcw, DOUBLEWORD);
+        if (SLJIT_IS_REG(src)) {
+            src_reg = src;
+        } else if (SLJIT_IS_IMM(src)) {
+            emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, srcw, 0, TMP_REG3, mode);
+            src_reg = TMP_REG3;
+        } else if (SLJIT_IS_MEM(src)) {
+            emit_load(compiler, TMP_REG3, 0, src, srcw, mode);
+            src_reg = TMP_REG3;
+        } else {
+            SLJIT_ASSERT(0);
+        }
+
+        if (SLJIT_IS_REG(dst)) {
+            dst_reg = dst;
+        } else if (SLJIT_IS_MEM(dst)) {
+            dst_reg = TMP_REG3;
+        } else {
+            SLJIT_ASSERT(0);
+        }
+
+        sljit_uw order_const = mode32 ? 0x405060700010203 : 0x1020304050607;
+        emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, order_const, 0, TMP_REG2, mode);
+
+        emit_op_full(compiler, E2K_PSHUFB, REG_SRC1 | REG_SRC2 | REG_SRC3,
+                     src_reg, src_reg, TMP_REG2, dst_reg,
+                     mode);
+        emit_nop_full(compiler, 3);
+
+        if (SLJIT_IS_MEM(dst)) {
+            emit_store(compiler, dst, dstw, TMP_REG3, 0, mode);
+        }
+        // clean reg
+        // emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, 0, 0, TMP_REG2, DOUBLEWORD);
         break;
     default:
         return SLJIT_ERR_UNSUPPORTED;
