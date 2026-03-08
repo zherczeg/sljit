@@ -85,6 +85,8 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
     return "e2k" SLJIT_CPUINFO;
 }
 
+#define E2K_CHANNEL_NUMBER 6
+
 /* INT */
 /* SLJIT_SP */
 #define TMP_REG1 (SLJIT_SP + 1)         // signature_switcher and lower
@@ -2740,19 +2742,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
         arg_type = arg_types & 0xF;
         // float
         if (arg_type & SLJIT_ARG_TYPE_F64) {
-            emit_op_full(compiler, E2K_ADDd, REG_SRC2,
-                         0, SLJIT_R(i), 0, SLJIT_FR(fri)+E2K_FREG_ID_START, DOUBLEWORD);
+            emit_op(compiler, bundle, E2K_ADDd, REG_SRC2,
+                    0, SLJIT_R(i), 0, SLJIT_FR(fri)+E2K_FREG_ID_START, DOUBLEWORD);
             fri++;
         } else {
             // saved
             if (!(arg_type & SLJIT_ARG_TYPE_SCRATCH_REG)) {
-                emit_op_full(compiler, E2K_ADDd, REG_SRC2,
-                             0, SLJIT_R(i), 0, SLJIT_S(si), DOUBLEWORD);
+                emit_op(compiler, bundle, E2K_ADDd, REG_SRC2,
+                        0, SLJIT_R(i), 0, SLJIT_S(si), DOUBLEWORD);
                 si++;
             }
         }
         arg_types = (arg_types >> SLJIT_ARG_SHIFT);
         i++;
+
+        // Limit by channel number
+        if ((i % E2K_CHANNEL_NUMBER) == 0) {
+            emit_bundle_finalize(compiler, bundle);
+        }
+    }
+    // Maybe prev loop could not fill the wild command
+    if ((i % E2K_CHANNEL_NUMBER) != 0) {
+        emit_bundle_finalize(compiler, bundle);
     }
     // save input params on saved regs
     // TODO: Think about stack. It's cool e2k has a lot of registers.
@@ -3190,7 +3201,71 @@ sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
 	                            sljit_s32 src2_reg,
 	                            sljit_s32 src3, sljit_sw src3w)
 {
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_shift_into(compiler, op, dst_reg, src1_reg, src2_reg, src3, src3w));
+
+    sljit_u32 mode32 = op & SLJIT_32;
+    sljit_u32 mode = mode32 ? WORD : DOUBLEWORD;
+    sljit_u32 value_mask = mode32 ? 31 : 63;
+    sljit_u32 shl = mode32 ? E2K_SHLs : E2K_SHLd;
+    sljit_u32 shr = mode32 ? E2K_SHRs : E2K_SHRd;
+    sljit_u32 xor = mode32 ? E2K_XORs : E2K_XORd;
+    sljit_u32 and = mode32 ? E2K_ANDs : E2K_ANDd;
+    sljit_u32 add = mode32 ? E2K_ADDs : E2K_ADDd;
+    sljit_u32 or = mode32 ? E2K_ORs : E2K_ORd;
+    sljit_u32 ld = mode32 ? E2K_LDw : E2K_LDd;
+
+    BUNDLE_SETUP();
+
+    sljit_u32 src3_operand;
+    if (SLJIT_IS_REG(src3)) {
+        src3_operand = src3;
+    } else if (SLJIT_IS_IMM(src3)) {
+        signature_switcher2(compiler, add, TMP_REG3, 0, SLJIT_IMM, 0, src3, src3w, mode);
+        src3_operand = TMP_REG3;
+    } else if (SLJIT_IS_MEM(src3)) {
+        src3_operand = TMP_REG3;
+        emit_load(compiler, TMP_REG3, 0, src3, src3w, mode);
+    } else {
+        SLJIT_ASSERT(0);
+    }
+
+    if ((GET_OPCODE(op) == SLJIT_MSHL) || (GET_OPCODE(op) == SLJIT_MLSHR)) {
+        emit_op_full(compiler, and, REG_SRC1,
+                     src3_operand, value_mask, 0, src3_operand, mode);
+    }
+
+    // Yeah: wide command
+    switch(GET_OPCODE(op)) {
+        case SLJIT_SHL:
+        case SLJIT_MSHL:
+            emit_op(compiler, bundle, shl, REG_SRC1 | REG_SRC2,
+                    src1_reg, src3_operand, 0, dst_reg, mode);
+            emit_op(compiler, bundle, shr, REG_SRC1,
+                    src2_reg, 1, 0, TMP_REG1, mode);
+            emit_op(compiler, bundle, xor, REG_SRC1,
+                    src3_operand, value_mask, 0, TMP_REG2, mode);
+            emit_bundle_finalize(compiler, bundle);
+            emit_op_full(compiler, shr, REG_SRC1 | REG_SRC2,
+                         TMP_REG1, TMP_REG2, 0, TMP_REG1, mode);
+            break;
+        case SLJIT_LSHR:
+        case SLJIT_MLSHR:
+            emit_op(compiler, bundle, shr, REG_SRC1 | REG_SRC2,
+                    src1_reg, src3_operand, 0, dst_reg, mode);
+            emit_op(compiler, bundle, shl, REG_SRC1,
+                    src2_reg, 1, 0, TMP_REG1, mode);
+            emit_op(compiler, bundle, xor, REG_SRC1,
+                    src3_operand, value_mask, 0, TMP_REG2, mode);
+            emit_bundle_finalize(compiler, bundle);
+            emit_op_full(compiler, shl, REG_SRC1 | REG_SRC2,
+                         TMP_REG1, TMP_REG2, 0, TMP_REG1, mode);
+            break;
+    }
+    emit_op_full(compiler, or, REG_SRC1 | REG_SRC2,
+                 dst_reg, TMP_REG1, 0, dst_reg, mode);
+
+    return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
