@@ -74,6 +74,7 @@
    - Emit pred
    - Replace slow flag generation by fast cmp native ops
 6. Full 32bit support *
+7. Check for nops in div and mul operations
 
 * - func extension.
 ** - perf extension.
@@ -2857,8 +2858,10 @@ sljit_s32 sljit_emit_op0(struct sljit_compiler *compiler, sljit_s32 op)
             emit_op_full(compiler, E2K_SMULHd, REG_SRC1 | REG_SRC2 | REG_SRC3,
                          SLJIT_R0, SLJIT_R1, 0, SLJIT_R1, DOUBLEWORD);
         }
+        emit_nop_full(compiler, 5);
         emit_op_full(compiler, E2K_MULd, REG_SRC1 | REG_SRC2 | REG_SRC3,
                      SLJIT_R0, TMP_REG1, 0, SLJIT_R0, DOUBLEWORD);
+        emit_nop_full(compiler, 5);
         break;
 	case SLJIT_DIVMOD_UW:
 	case SLJIT_DIVMOD_U32:
@@ -3205,12 +3208,15 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
             if (mode32) {
                 signature_switcher2(compiler, E2K_SMULX_fd, FLAG_REG, 0,
                                     src1, src1w, src2, src2w, mode);
+                emit_nop_full(compiler, 5);
             } else {
                 // E2K doesn't fix flags in case of 64bit mul
                 // get high 64
                 signature_switcher2(compiler, E2K_SMULHd, TMP_REG3, 0, src1, src1w, src2, src2w, mode);
+                emit_nop_full(compiler, 5);
                 // get low 64
                 signature_switcher2(compiler, E2K_MULd, TMP_REG2, 0, src1, src1w, src2, src2w, mode);
+                emit_nop_full(compiler, 5);
                 // extend low 64
                 signature_switcher2(compiler, E2K_SARd, TMP_REG2, 0, TMP_REG2, 0, SLJIT_IMM, 63, mode);
 
@@ -3277,7 +3283,22 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2r(struct sljit_compiler *compil
 	sljit_s32 src1, sljit_sw src1w,
 	sljit_s32 src2, sljit_sw src2w)
 {
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op2r(compiler, op, dst_reg, src1, src1w, src2, src2w));
+
+    sljit_u32 mode32 = op & SLJIT_32;
+    sljit_s32 mode = mode32 ? WORD : DOUBLEWORD;
+    sljit_s32 mul = mode32 ? E2K_MULs : E2K_MULd;
+    sljit_s32 add = mode32 ? E2K_ADDs : E2K_ADDd;
+
+	switch (GET_OPCODE(op)) {
+	case SLJIT_MULADD:
+        signature_switcher2(compiler, mul, TMP_REG2, 0, src1, src1w, src2, src2w, mode);
+        emit_nop_full(compiler, 5);
+        signature_switcher2(compiler, add, dst_reg, 0, TMP_REG2, 0, dst_reg, 0, mode);
+	}
+
+	return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
