@@ -3856,7 +3856,7 @@ sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
     // Move from pred into reg
     BUNDLE_SETUP();
     sljit_s32 als_idx = emit_alopf1_ii(compiler, bundle, 0, E2K_MERGEd,
-                                       0x0, 0x1, TMP_REG3, DOUBLEWORD);
+                                       0x0, 0x1, TMP_REG2, DOUBLEWORD);
     emit_mrgc(compiler, bundle, als_idx, E2K_PRED(FLAG_PREG), neg);
     emit_bundle_finalize(compiler, bundle);
 
@@ -3866,11 +3866,11 @@ sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
 
 	switch (GET_OPCODE(op)) {
     case SLJIT_MOV:
-        signature_switcher2(compiler, E2K_ADDd, dst, dstw, TMP_REG3, 0,
+        signature_switcher2(compiler, E2K_ADDd, dst, dstw, TMP_REG2, 0,
                             SLJIT_IMM, 0, DOUBLEWORD);
         return SLJIT_SUCCESS;
     case SLJIT_MOV32:
-        signature_switcher2(compiler, E2K_ADDs, dst, dstw, TMP_REG3, 0,
+        signature_switcher2(compiler, E2K_ADDs, dst, dstw, TMP_REG2, 0,
                             SLJIT_IMM, 0, WORD);
         return SLJIT_SUCCESS;
 	case SLJIT_AND:
@@ -3892,11 +3892,11 @@ sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
     if (e2kop_fd) {
         if ((dst == FLAG_REG) || HAS_FLAGS(op)) {
             signature_switcher2(compiler, e2kop_fd, FLAG_REG, 0,
-                                TMP_REG3, 0, dst, dstw, mode);
+                                TMP_REG2, 0, dst, dstw, mode);
         }
         if (dst != FLAG_REG) {
             signature_switcher2(compiler, e2kop, dst, dstw,
-                                TMP_REG3, 0, dst, dstw, mode);
+                                TMP_REG2, 0, dst, dstw, mode);
         }
     }
 
