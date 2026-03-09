@@ -2611,7 +2611,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
 
     // LABELS
     while(label) {
-        label->u.addr = (sljit_uw)code + label->u.addr;
+        label->u.addr = (sljit_uw)code + label->size;
         label = label->next;
     }
 
@@ -3617,7 +3617,7 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 	PTR_FAIL_IF(!label);
 	set_label(label, compiler);
 
-    label->u.addr = compiler->size;
+    label->size = compiler->size;
 
 	return label;
 }
