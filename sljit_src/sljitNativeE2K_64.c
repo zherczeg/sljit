@@ -3907,6 +3907,10 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
                     reg_map[SLJIT_RETURN_REG] | 0x80);
     }
     emit_bundle_finalize(compiler, bundle);
+
+    if (type & SLJIT_CALL_RETURN) {
+        emit_return(compiler, 0, 0);
+    }
     return SLJIT_SUCCESS;
 }
 
