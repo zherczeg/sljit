@@ -3731,7 +3731,26 @@ SLJIT_API_FUNC_ATTRIBUTE
 struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 type,
 	                               sljit_s32 arg_types)
 {
-    return NULL;
+	struct sljit_jump *jump;
+
+	CHECK_ERROR_PTR();
+	CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
+
+	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+	PTR_FAIL_IF(!jump);
+	set_jump(jump, compiler, type);
+
+    /* TODO:
+        LTS: HS, ALS, LTS_hi, LTS_lo - 2.
+    */
+    jump->addr = compiler->size + 2*sizeof(sljit_u32);
+    emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, 0, 0, TMP_REG1,
+                 DOUBLEWORD | FORCE_LTS);
+
+    // TODO: optimize
+    sljit_emit_icall(compiler, type & (~SLJIT_REWRITABLE_JUMP),
+                     arg_types, TMP_REG1, 0);;
+	return jump;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
