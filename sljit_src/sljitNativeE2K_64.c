@@ -2868,6 +2868,7 @@ SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_return_to(struct sljit_compiler *compiler,
                                sljit_s32 src, sljit_sw srcw)
 {
+    SLJIT_ASSERT(0);
     return SLJIT_ERR_UNSUPPORTED;
 }
 
@@ -3106,6 +3107,7 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
         }
         break;
     default:
+        SLJIT_ASSERT(0);
         return SLJIT_ERR_UNSUPPORTED;
 	}
 
@@ -3190,6 +3192,7 @@ sljit_s32 sljit_emit_op2(struct sljit_compiler *compiler, sljit_s32 op,
         e2kop_fd = mode32 ? E2K_SCRs_fd : E2K_SCRd_fd;
         break;
     default:
+        SLJIT_ASSERT(0);
         return SLJIT_ERR_UNSUPPORTED;
 	}
 
@@ -3372,6 +3375,7 @@ sljit_s32 sljit_emit_op2_shift(struct sljit_compiler *compiler, sljit_s32 op,
 	                           sljit_s32 src2, sljit_sw src2w,
 	                           sljit_sw shift_arg)
 {
+    SLJIT_ASSERT(0);
     return SLJIT_ERR_UNSUPPORTED;
 }
 
@@ -3396,6 +3400,7 @@ sljit_s32 sljit_emit_op_src(struct sljit_compiler *compiler, sljit_s32 op,
     	case SLJIT_PREFETCH_ONCE:
             return SLJIT_ERR_UNSUPPORTED;
         default:
+            SLJIT_ASSERT(0);
             return SLJIT_ERR_UNSUPPORTED;
 	}
 
@@ -3416,6 +3421,7 @@ sljit_s32 sljit_emit_op_dst(struct sljit_compiler *compiler, sljit_s32 op,
         signature_switcher2(compiler, E2K_ADDd, dst, dstw, SLJIT_IMM, 0, TMP_REG1, 0, DOUBLEWORD);
 		break;
 	case SLJIT_GET_RETURN_ADDRESS:
+        SLJIT_ASSERT(0);
         return SLJIT_ERR_UNSUPPORTED;
 	}
 
@@ -3586,6 +3592,7 @@ sljit_s32 sljit_emit_fop2(struct sljit_compiler *compiler, sljit_s32 op,
                             src2, src2w, WORD);
         break;
     default:
+        SLJIT_ASSERT(0);
         return SLJIT_ERR_UNSUPPORTED;
 	}
 
@@ -3596,6 +3603,7 @@ SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_fset32(struct sljit_compiler *compiler,
 	                        sljit_s32 freg, sljit_f32 value)
 {
+    SLJIT_ASSERT(0);
     return SLJIT_ERR_UNSUPPORTED;
 }
 
@@ -3603,6 +3611,7 @@ SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_fset64(struct sljit_compiler *compiler,
 	                        sljit_s32 freg, sljit_f64 value)
 {
+    SLJIT_ASSERT(0);
     return SLJIT_ERR_UNSUPPORTED;
 }
 
@@ -3610,6 +3619,7 @@ SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
 	                       sljit_s32 freg, sljit_s32 reg)
 {
+    SLJIT_ASSERT(0);
     return SLJIT_ERR_UNSUPPORTED;
 }
 
@@ -3876,6 +3886,7 @@ sljit_s32 sljit_emit_op_flags(struct sljit_compiler *compiler, sljit_s32 op,
         e2kop_fd = mode32 ? E2K_XORs_fd : E2K_XORd_fd;
         break;
     default:
+        SLJIT_ASSERT(0);
         return SLJIT_ERR_UNSUPPORTED;
 	}
 
@@ -3924,6 +3935,7 @@ sljit_s32 sljit_cmp_info(sljit_s32 type)
             return 1;
 
         default:
+            SLJIT_ASSERT(0);
             return SLJIT_ERR_UNSUPPORTED;
     }
 }
@@ -4029,6 +4041,7 @@ sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
 	                             sljit_s32 dst_reg,
 	                             sljit_s32 mem_reg)
 {
+    SLJIT_ASSERT(0);
     return SLJIT_ERR_UNSUPPORTED;
 }
 
@@ -4040,6 +4053,7 @@ sljit_s32 sljit_emit_atomic_store(struct sljit_compiler *compiler, sljit_s32 op,
 	                              sljit_s32 mem_reg,
 	                              sljit_s32 temp_reg)
 {
+    SLJIT_ASSERT(0);
     return SLJIT_ERR_UNSUPPORTED;
 }
 
