@@ -2789,7 +2789,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
     // skip return
     arg_types = arg_types >> SLJIT_ARG_SHIFT;
     while (arg_types) {
-        arg_type = arg_types & 0xF;
+        arg_type = arg_types & SLJIT_ARG_MASK;
         // float
         if (arg_type & SLJIT_ARG_TYPE_F64) {
             emit_op(compiler, bundle, E2K_ADDd, REG_SRC2,
@@ -3854,18 +3854,38 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
     }
 
 	/* Remove return value. */
+    sljit_s32 arg_return = arg_types & SLJIT_ARG_MASK;
 	arg_types >>= SLJIT_ARG_SHIFT;
 
     // Pass args into new window due to e2k ABI
     // TODO: schedule
     BUNDLE_SETUP();
     sljit_u32 arg_num = 0;
+    sljit_s32 ri = 0, fri = 0;
 	while (arg_types) {
-        emit_alopf1(compiler, bundle, 0, E2K_ADDd, reg_map[SLJIT_R(arg_num)] | 0x80, 0 | 0xc0, arg_num);
-        emit_bundle_finalize(compiler, bundle);
+        if ((arg_types & SLJIT_ARG_MASK) >= SLJIT_ARG_TYPE_F64 ) {
+            emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                        freg_map[SLJIT_FR(fri)] | 0x80, 0 | 0xc0, arg_num);
+            fri++;
+        } else {
+            emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                        reg_map[SLJIT_R(ri)] | 0x80, 0 | 0xc0, arg_num);
+            ri++;
+        }
+        // emit_bundle_finalize(compiler, bundle);
 		arg_types >>= SLJIT_ARG_SHIFT;
         arg_num++;
+
+        // Limit by channel number
+        if ((arg_num % E2K_CHANNEL_NUMBER) == 0) {
+            emit_bundle_finalize(compiler, bundle);
+        }
 	}
+
+    // Maybe prev loop could not fill the wild command
+    if ((arg_num % E2K_CHANNEL_NUMBER) != 0) {
+        emit_bundle_finalize(compiler, bundle);
+    }
 
     emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, jump_reg, E2K_CTPR(1), DOUBLEWORD);
     emit_nop(compiler, bundle, 5);
@@ -3879,7 +3899,13 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
     emit_call(compiler, E2K_CTPR(1), 0, 0, E2K_ROTATED_REG_BASE);
 
     // move return reg into SLJIT_RETURN_REG
-    emit_alopf1(compiler, bundle, 0, E2K_ADDd, 0, 0 | 0xc0, reg_map[SLJIT_RETURN_REG] | 0x80);
+    if (arg_return >= SLJIT_ARG_TYPE_F64) {
+        emit_alopf1(compiler, bundle, 0, E2K_ADDd, 0, 0 | 0xc0,
+                    freg_map[SLJIT_RETURN_REG] | 0x80);
+    } else {
+        emit_alopf1(compiler, bundle, 0, E2K_ADDd, 0, 0 | 0xc0,
+                    reg_map[SLJIT_RETURN_REG] | 0x80);
+    }
     emit_bundle_finalize(compiler, bundle);
     return SLJIT_SUCCESS;
 }
