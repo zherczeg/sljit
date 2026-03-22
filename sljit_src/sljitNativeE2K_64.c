@@ -3375,8 +3375,32 @@ sljit_s32 sljit_emit_op2_shift(struct sljit_compiler *compiler, sljit_s32 op,
 	                           sljit_s32 src2, sljit_sw src2w,
 	                           sljit_sw shift_arg)
 {
-    SLJIT_ASSERT(0);
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_op2_shift(compiler, op, dst, dstw, src1, src1w, src2, src2w, shift_arg));
+	ADJUST_LOCAL_OFFSET(dst, dstw);
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+	ADJUST_LOCAL_OFFSET(src2, src2w);
+
+	shift_arg &= (sljit_sw)((sizeof(sljit_sw) * 8) - 1);
+    sljit_u32 mode32 = op & SLJIT_32;
+    sljit_u32 mode = mode32 ? WORD : DOUBLEWORD;
+    sljit_s32 shl = mode32 ? E2K_SHLs : E2K_SHLd;
+    sljit_s32 add = mode32 ? E2K_ADDs : E2K_ADDd;
+
+	if (src2 == SLJIT_IMM) {
+		src2w = src2w << shift_arg;
+		shift_arg = 0;
+	}
+
+	if (shift_arg == 0) {
+		SLJIT_SKIP_CHECKS(compiler);
+		return sljit_emit_op2(compiler, GET_OPCODE(op), dst, dstw, src1, src1w, src2, src2w);
+	}
+
+    signature_switcher2(compiler, shl, TMP_REG2, 0, src2, src2w, SLJIT_IMM, shift_arg, mode);
+    signature_switcher2(compiler, add, dst, dstw, src1, src1w, TMP_REG2, 0, mode);
+
+    return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
@@ -3954,8 +3978,9 @@ sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
     sljit_u32 mode = mode32 ? WORD : DOUBLEWORD;
 
     if (type & SLJIT_COMPARE_SELECT) {
-        // TODO: Support
-        SLJIT_ASSERT(0);
+        type &= ~SLJIT_COMPARE_SELECT;
+        FAIL_IF(sljit_emit_op2u(compiler, SLJIT_SUB | SLJIT_SET_Z | mode32, src1, src1w,
+                                src2_reg, 0));
     }
 
     // For pred inversion
