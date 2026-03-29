@@ -2722,21 +2722,23 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
     sljit_s32 scratches, sljit_s32 saveds, sljit_s32 local_size)
 {
     // -- default -------------------------------------------------------------
-	sljit_s32 fscratches;
-	sljit_s32 fsaveds;
-	sljit_s32 size;
+	sljit_s32 all_saveds;
 
     CHECK_ERROR();
     CHECK(check_sljit_emit_enter(compiler, options, arg_types, scratches, saveds, local_size));
     set_emit_enter(compiler, options, arg_types, scratches, saveds, local_size);
+    all_saveds = compiler->saveds + compiler->fsaveds;
 
     /*
-        All registers are scratch.
-        So we should save all saved registers on stack.
+        All registers are saved due to E2K register window mechanism.
+        So we shouldn't save all saved registers on stack.
         We don't reserve stack for call, this one will be done in sljit_[i]call.
     */
 
-    sljit_u32 stack_size = (saveds * 8) + local_size + (E2K_ROTATED_REG_SIZE * 8);
+    // TODO
+    //sljit_u32 stack_size = (all_saveds * sizeof(sljit_uw)) + local_size
+    //                        + (E2K_ROTATED_REG_SIZE * sizeof(sljit_uw));
+    sljit_u32 stack_size = local_size;
     SLJIT_ASSERT(stack_size < 0x7FFFFFFF); // 2**32 - 1
     compiler->local_size = stack_size;
 
@@ -2749,7 +2751,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
     /* -- setwd, setbn, setbp ---------------*/
     check_resource(compiler, bundle, RES_CS1);
     E2kSETR setr;
-    setr.fields.rbs    = E2K_ROTATED_REG_BASE;
+
+    setr.fields.rbs = E2K_ROTATED_REG_BASE;
+    // SKIP this opt due to we MUST change the register window
     setr.fields.rsz    = E2K_ROTATED_REG_SIZE - 1;
     setr.fields.rcur   = 0x0;
     setr.fields.psz    = E2K_PREG_WINDOW_SIZE;
@@ -2789,7 +2793,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
     // skip return
     arg_types = arg_types >> SLJIT_ARG_SHIFT;
     while (arg_types) {
-        arg_type = arg_types & SLJIT_ARG_MASK;
+        arg_type = arg_types & SLJIT_ARG_FULL_MASK;
         // float
         if (arg_type & SLJIT_ARG_TYPE_F64) {
             emit_op(compiler, bundle, E2K_ADDd, REG_SRC2,
@@ -2808,12 +2812,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
 
         // Limit by channel number
         if ((i % E2K_CHANNEL_NUMBER) == 0) {
-            emit_bundle_finalize(compiler, bundle);
+            if (fri || si) {
+                emit_bundle_finalize(compiler, bundle);
+            }
         }
     }
     // Maybe prev loop could not fill the wild command
     if ((i % E2K_CHANNEL_NUMBER) != 0) {
-        emit_bundle_finalize(compiler, bundle);
+        if (fri || si) {
+            emit_bundle_finalize(compiler, bundle);
+        }
     }
     // save input params on saved regs
     // TODO: Think about stack. It's cool e2k has a lot of registers.
@@ -2822,6 +2830,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
         emit_op_full(compiler, E2K_ADDd, REG_SRC1, SLJIT_R0+i, 0, 0, SLJIT_S0-i, DOUBLEWORD);
     }
     */
+
+    // E2K does not support fast call, get saveds from stack
+    if ((options & SLJIT_ENTER_REG_ARG) == SLJIT_ENTER_REG_ARG) {
+        // TODO: Bundle
+        for (sljit_s32 i = 0; i < compiler->saveds; i++) {
+            emit_load(compiler, SLJIT_S(i), 0,
+                      SLJIT_MEM1(SLJIT_SP), compiler->local_size + i*sizeof(sljit_uw),
+                      DOUBLEWORD);
+        }
+    }
 
 	return SLJIT_SUCCESS;
 }
@@ -2858,6 +2876,30 @@ sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)
 {
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_return_void(compiler));
+
+    /*
+        E2K register window restictions don't allow execute fast call
+        without changing register window. To have ability to keep saved
+        registers in called function we should:
+        1. Write target saved regs into callee param registers and these
+           registers will be restored with values from called function;
+        2. TODO: Or use ct (as call)/ct (as return) mechanism to simulate fast
+           call. This one is more complex to save chain of return addresses.
+    */
+    if ((compiler->options & SLJIT_ENTER_REG_ARG) == SLJIT_ENTER_REG_ARG) {
+        // Offset target SLJIT_R to keep return value in SLJIT_R0
+        BUNDLE_SETUP();
+        for (sljit_s32 i = 0; i < (compiler->options & 0x3); i++) {
+            emit_op(compiler, bundle, E2K_ADDd, REG_SRC2,
+                    0, SLJIT_S(i), 0, SLJIT_R(i+1), DOUBLEWORD);
+        }
+        if (compiler->options & 0x3) {
+            // Transfer data about kept regs into callee
+            emit_op(compiler, bundle, E2K_ADDd, REG_ZERO,
+                    0, compiler->options & 0x3, 0, SLJIT_R(4), DOUBLEWORD);
+            emit_bundle_finalize(compiler, bundle);
+        }
+    }
 
     emit_return(compiler, 0, 0);
 
@@ -3857,8 +3899,12 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
     sljit_s32 arg_return = arg_types & SLJIT_ARG_MASK;
 	arg_types >>= SLJIT_ARG_SHIFT;
 
+    /*
+        SLJIT does not support arg passing more than E2K ABI.
+        TODO: Now we don't reserve stack for args.
+    */
+
     // Pass args into new window due to e2k ABI
-    // TODO: schedule
     BUNDLE_SETUP();
     sljit_u32 arg_num = 0;
     sljit_s32 ri = 0, fri = 0;
@@ -3887,16 +3933,40 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
         emit_bundle_finalize(compiler, bundle);
     }
 
+    /* Pass saveds to caller
+       As we know, E2K does not support fast call, so we must provide
+       saved regs in callee function.
+    */
+    // ---------------------
+    if ((type & SLJIT_CALL_REG_ARG) == SLJIT_CALL_REG_ARG) {
+        // Reserve area
+        sljit_u32 src2 = -(sizeof(sljit_uw) * (compiler->saveds));
+        emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
+        emit_bundle_finalize(compiler, bundle);
+
+        // Pass registers
+        // TODO: Bundle
+        for (sljit_s32 i = 0; i < compiler->saveds; i++) {
+            emit_store(compiler, SLJIT_MEM1(SLJIT_SP),
+                       i*sizeof(sljit_uw),
+                       SLJIT_S(i), 0, DOUBLEWORD);
+        }
+    }
+    // --------------------
+
     emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, jump_reg, E2K_CTPR(1), DOUBLEWORD);
     emit_nop(compiler, bundle, 5);
     emit_bundle_finalize(compiler, bundle);
 
-    sljit_u32 src2 = -(arg_num * sizeof(sljit_uw));
-    emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
-    emit_bundle_finalize(compiler, bundle);
-
     // HS + SS = 2
     emit_call(compiler, E2K_CTPR(1), 0, 0, E2K_ROTATED_REG_BASE);
+
+    // Clean area
+    if ((type & SLJIT_CALL_REG_ARG) == SLJIT_CALL_REG_ARG) {
+        sljit_u32 src2 = (sizeof(sljit_uw) * (compiler->saveds));
+        emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
+        emit_bundle_finalize(compiler, bundle);
+    }
 
     // move return reg into SLJIT_RETURN_REG
     if (arg_return >= SLJIT_ARG_TYPE_F64) {
@@ -3908,8 +3978,56 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
     }
     emit_bundle_finalize(compiler, bundle);
 
+    /*
+        Get saved regs from called function.
+    */
+    if ((type & SLJIT_CALL_REG_ARG) == SLJIT_CALL_REG_ARG) {
+        // restore them:
+        // 1. Prepare 3 predicates
+        // 2. Update 1, 2 or 3 regs via predicates
+        // TODO: Possible bug in case of using E2K_PRED. But sljit does not
+        //       do it.
+        emit_alopf7(compiler, bundle, 0, E2K_CMPEdb,
+                       reg_map[SLJIT_R(4)], 1 | 0xc0, E2K_PRED(1-1));
+        emit_alopf7(compiler, bundle, 0, E2K_CMPEdb,
+                       reg_map[SLJIT_R(4)], 2 | 0xc0, E2K_PRED(2-1));
+        emit_alopf7(compiler, bundle, 0, E2K_CMPEdb,
+                       reg_map[SLJIT_R(4)], 3 | 0xc0, E2K_PRED(3-1));
+        emit_nop(compiler, bundle, 1);
+        emit_bundle_finalize(compiler, bundle);
+
+        sljit_s32 als_idx;
+        // 1
+        als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                              0 | 0xc0, reg_map[SLJIT_R(1)], (SLJIT_S0-1) | 0x80);
+        emit_rlp(compiler, bundle, als_idx, E2K_PRED(1), 0);
+        emit_bundle_finalize(compiler, bundle);
+        // 2
+        als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                              0 | 0xc0, reg_map[SLJIT_R(2)], (SLJIT_S1-1) | 0x80);
+        emit_rlp(compiler, bundle, als_idx, E2K_PRED(2), 0);
+        als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                              0 | 0xc0, reg_map[SLJIT_R(1)], (SLJIT_S0-1) | 0x80);
+        emit_rlp(compiler, bundle, als_idx, E2K_PRED(2), 0);
+        emit_bundle_finalize(compiler, bundle);
+        // 3
+        als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                              0 | 0xc0, reg_map[SLJIT_R(3)], (SLJIT_S2-1) | 0x80);
+        emit_rlp(compiler, bundle, als_idx, E2K_PRED(3), 0);
+        als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                              0 | 0xc0, reg_map[SLJIT_R(2)], (SLJIT_S1-1) | 0x80);
+        emit_rlp(compiler, bundle, als_idx, E2K_PRED(3), 0);
+        als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                              0 | 0xc0, reg_map[SLJIT_R(1)], (SLJIT_S0-1) | 0x80);
+        emit_rlp(compiler, bundle, als_idx, E2K_PRED(3), 0);
+        emit_bundle_finalize(compiler, bundle);
+    }
+
     if (type & SLJIT_CALL_RETURN) {
-        emit_return(compiler, 0, 0);
+        //emit_return(compiler, 0, 0);
+        compiler->skip_checks = 1;
+        sljit_emit_return_void(compiler);
+        compiler->skip_checks = 0;
     }
     return SLJIT_SUCCESS;
 }
