@@ -3981,37 +3981,37 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
         // TODO: Possible bug in case of using E2K_PRED. But sljit does not
         //       do it.
         emit_alopf7(compiler, bundle, 0, E2K_CMPEdb,
-                       reg_map[SLJIT_R(4)], 1 | 0xc0, E2K_PRED(1-1));
+                       reg_map[SLJIT_R(4)], 1 | 0xc0, pred_map[1]);
         emit_alopf7(compiler, bundle, 0, E2K_CMPEdb,
-                       reg_map[SLJIT_R(4)], 2 | 0xc0, E2K_PRED(2-1));
+                       reg_map[SLJIT_R(4)], 2 | 0xc0, pred_map[2]);
         emit_alopf7(compiler, bundle, 0, E2K_CMPEdb,
-                       reg_map[SLJIT_R(4)], 3 | 0xc0, E2K_PRED(3-1));
+                       reg_map[SLJIT_R(4)], 3 | 0xc0, pred_map[3]);
         emit_nop(compiler, bundle, 1);
         emit_bundle_finalize(compiler, bundle);
 
         sljit_s32 als_idx;
         // 1
         als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
-                              0 | 0xc0, reg_map[SLJIT_R(1)], (SLJIT_S0-1) | 0x80);
+                              0 | 0xc0, reg_map[SLJIT_R(1)], reg_map[SLJIT_S0] | 0x80);
         emit_rlp(compiler, bundle, als_idx, E2K_PRED(1), 0);
         emit_bundle_finalize(compiler, bundle);
         // 2
         als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
-                              0 | 0xc0, reg_map[SLJIT_R(2)], (SLJIT_S1-1) | 0x80);
+                              0 | 0xc0, reg_map[SLJIT_R(2)], reg_map[SLJIT_S1] | 0x80);
         emit_rlp(compiler, bundle, als_idx, E2K_PRED(2), 0);
         als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
-                              0 | 0xc0, reg_map[SLJIT_R(1)], (SLJIT_S0-1) | 0x80);
+                              0 | 0xc0, reg_map[SLJIT_R(1)], reg_map[SLJIT_S0] | 0x80);
         emit_rlp(compiler, bundle, als_idx, E2K_PRED(2), 0);
         emit_bundle_finalize(compiler, bundle);
         // 3
         als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
-                              0 | 0xc0, reg_map[SLJIT_R(3)], (SLJIT_S2-1) | 0x80);
+                              0 | 0xc0, reg_map[SLJIT_R(3)], reg_map[SLJIT_S2] | 0x80);
         emit_rlp(compiler, bundle, als_idx, E2K_PRED(3), 0);
         als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
-                              0 | 0xc0, reg_map[SLJIT_R(2)], (SLJIT_S1-1) | 0x80);
+                              0 | 0xc0, reg_map[SLJIT_R(2)], reg_map[SLJIT_S1] | 0x80);
         emit_rlp(compiler, bundle, als_idx, E2K_PRED(3), 0);
         als_idx = emit_alopf1(compiler, bundle, 0, E2K_ADDd,
-                              0 | 0xc0, reg_map[SLJIT_R(1)], (SLJIT_S0-1) | 0x80);
+                              0 | 0xc0, reg_map[SLJIT_R(1)], reg_map[SLJIT_S0] | 0x80);
         emit_rlp(compiler, bundle, als_idx, E2K_PRED(3), 0);
         emit_bundle_finalize(compiler, bundle);
     }
