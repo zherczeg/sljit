@@ -1639,11 +1639,9 @@ static void emit_copf2(struct sljit_compiler *compiler, E2kBundle *bundle,
   bundle->nop = nops
 
 /* -- Emit control-flow instructions -------------------------------------- */
-static void emit_ct(struct sljit_compiler *compiler,
+static void emit_ct(struct sljit_compiler *compiler, struct E2kBundle *bundle,
                     sljit_u32 ctpr, sljit_u32 pred, int inverted)
 {
-    BUNDLE_SETUP();
-
     check_resource(compiler, bundle, RES_SS); /* Uses only part of RES_SS */
     E2kSS syl;
     syl.i = 0;
@@ -1662,7 +1660,13 @@ static void emit_ct(struct sljit_compiler *compiler,
 
     bundle->ss = syl.i;
     bundle->f1++;
+}
 
+static void emit_ct_full(struct sljit_compiler *compiler,
+                    sljit_u32 ctpr, sljit_u32 pred, int inverted)
+{
+    BUNDLE_SETUP();
+    emit_ct(compiler, bundle, ctpr, pred, inverted);
     emit_bundle_finalize(compiler, bundle);
 }
 
@@ -1966,7 +1970,7 @@ static void emit_return(struct sljit_compiler *compiler,
     emit_nop_full(compiler, 4);
 
     emit_bundle_setup(compiler, bundle);
-    emit_ct(compiler, E2K_CTPR(3), pred, inverted);
+    emit_ct_full(compiler, E2K_CTPR(3), pred, inverted);
     emit_bundle_finalize(compiler, bundle);
 }
 
@@ -1979,7 +1983,7 @@ static void emit_ibranch(struct sljit_compiler *compiler,
     emit_bundle_finalize(compiler, bundle);
 
     emit_bundle_setup(compiler, bundle);
-    emit_ct(compiler, pred, inverted, 0);
+    emit_ct_full(compiler, pred, inverted, 0);
     emit_bundle_finalize(compiler, bundle);
 }
 
@@ -2001,7 +2005,7 @@ static void emit_ijmp(struct sljit_compiler *compiler, sljit_uw addr,
     emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR(1), DOUBLEWORD);
     emit_nop(compiler, bundle, 5);
     emit_bundle_finalize(compiler, bundle);
-    emit_ct(compiler, E2K_CTPR(1), pred, neg);
+    emit_ct_full(compiler, E2K_CTPR(1), pred, neg);
 }
 
 /* -- Emit generic operations --------------------------------------------- */
@@ -3751,19 +3755,13 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
         emit_bundle_finalize(compiler, bundle);
 
         // Force save return addr into TMP_REG1
-        // TODO: Compact code
         if (flag == SLJIT_FAST_CALL) {
-            // Current IP
-            // HS + ALS + ext = 4 with align
-            emit_alopf16(compiler, bundle, 0, E2K_RRd, 0x81, RSRC2(TMP_REG1));
-            emit_bundle_finalize(compiler, bundle);
-            // HS + ALS + LTS_hi + LTS_lo = 4
-            emit_alopf1_ri(compiler, bundle, 0, E2K_ADDd, TMP_REG1, 10*sizeof(sljit_u32), TMP_REG1, DOUBLEWORD);
-            emit_bundle_finalize(compiler, bundle);
+            // Save next IP after ct
+            emit_alopf16(compiler, bundle, 0, E2K_RRd, 0x82, RSRC2(TMP_REG1));
         }
 
-        // HS + SS = 2
-        emit_ct(compiler, E2K_CTPR(1), 0, 0);
+        emit_ct(compiler, bundle, E2K_CTPR(1), 0, 0);
+        emit_bundle_finalize(compiler, bundle);
     }
 
 	return jump;
@@ -3842,17 +3840,12 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type,
 
     // Force save return addr into TMP_REG1
     if (flag == SLJIT_FAST_CALL) {
-        // Current IP
-        // HS + ALS + ext = 4 with align
-        emit_alopf16(compiler, bundle, 0, E2K_RRd, 0x81, RSRC2(TMP_REG1));
-        emit_bundle_finalize(compiler, bundle);
-        // HS + ALS + LTS_hi + LTS_lo = 4
-        emit_alopf1_ri(compiler, bundle, 0, E2K_ADDd, TMP_REG1, 10*sizeof(sljit_u32), TMP_REG1, DOUBLEWORD);
-        emit_bundle_finalize(compiler, bundle);
+        // Next IP
+        emit_alopf16(compiler, bundle, 0, E2K_RRd, 0x82, RSRC2(TMP_REG1));
     }
 
-    // HS + SS = 2
-    emit_ct(compiler, E2K_CTPR(1), 0, 0);
+    emit_ct(compiler, bundle, E2K_CTPR(1), 0, 0);
+    emit_bundle_finalize(compiler, bundle);
 
     return SLJIT_SUCCESS;
 }
