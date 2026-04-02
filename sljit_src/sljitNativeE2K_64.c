@@ -3554,6 +3554,8 @@ sljit_s32 sljit_emit_fop1(struct sljit_compiler *compiler, sljit_s32 op,
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 	ADJUST_LOCAL_OFFSET(src, srcw);
 
+    sljit_uw abs_imm;
+
     // Choose reg map
     sljit_s32 fdst = dst, fsrc = src;
     if (SLJIT_IS_REG(dst)) {
@@ -3616,14 +3618,17 @@ sljit_s32 sljit_emit_fop1(struct sljit_compiler *compiler, sljit_s32 op,
     // TODO:
     case SLJIT_NEG_F64:
     //case SLJIT_NEG_F32:
-        SLJIT_ASSERT(0);
+        e2kop = mode32 ? E2K_XORs : E2K_XORd;
+        abs_imm = mode32 ? 0x80000000 : 0x8000000000000000;
+        signature_switcher2(compiler, e2kop, fdst, dstw, SLJIT_IMM, abs_imm,
+                            fsrc, srcw, mode);
         break;
     case SLJIT_ABS_F64:
     //case SLJIT_ABS_F32:
     // TODO: Support correctly
         e2kop = mode32 ? E2K_ANDs : E2K_ANDd;
-        sljit_uw abs_imm = mode32 ? 0x7FFFFFFF : 0x7FFFFFFFFFFFFFFF;
-        signature_switcher2(compiler, e2kop, fdst, dstw, 0, abs_imm,
+        abs_imm = mode32 ? 0x7FFFFFFF : 0x7FFFFFFFFFFFFFFF;
+        signature_switcher2(compiler, e2kop, fdst, dstw, SLJIT_IMM, abs_imm,
                             fsrc, srcw, mode);
         break;
     default:
