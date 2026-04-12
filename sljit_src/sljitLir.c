@@ -3505,6 +3505,7 @@ static void sljit_reset_read_only_buffers(struct sljit_read_only_buffer *buffers
 
 #include "sljitSerialize.c"
 
+#if !(defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
 static SLJIT_INLINE sljit_s32 emit_mov_before_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
 {
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
@@ -3519,6 +3520,7 @@ static SLJIT_INLINE sljit_s32 emit_mov_before_return(struct sljit_compiler *comp
 	SLJIT_SKIP_CHECKS(compiler);
 	return sljit_emit_op1(compiler, op, SLJIT_RETURN_REG, 0, src, srcw);
 }
+#endif /* SLJIT_CONFIG_E2K */
 
 #if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) \
 	&& !((defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) && defined __SOFTFP__) \
@@ -3535,6 +3537,7 @@ static SLJIT_INLINE sljit_s32 emit_fmov_before_return(struct sljit_compiler *com
 
 #endif /* !SLJIT_CONFIG_X86_32 && !(SLJIT_CONFIG_ARM_32 && __SOFTFP__) */
 
+#if !(defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
 {
 	CHECK_ERROR();
@@ -3549,6 +3552,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 	SLJIT_SKIP_CHECKS(compiler);
 	return sljit_emit_return_void(compiler);
 }
+#endif /* SLJIT_CONFIG_E2K */
 
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 	&& !(defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \

@@ -75,32 +75,44 @@
    - Replace slow flag generation by fast cmp native ops
 6. Full 32bit support *
 7. Check for nops in div and mul operations
+8. Reduce SAVED regs to accelerate context saving and restoring for REG_ARG calls
 
 * - func extension.
 ** - perf extension.
 */
 
+#include <sys/syscall.h>
+#include <asm/e2k_syswork.h>
+#include <unistd.h>
 
 SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
     return "e2k" SLJIT_CPUINFO;
 }
 
+/* E2K specific macro */
 #define E2K_CHANNEL_NUMBER 6
+#define E2K_CHANNEL_STORE_NUMBER 2
+#define E2K_CHANNEL_LOAD_NUMBER 4
+#if (__iset__ >= 6)
+#define E2K_MEM_LATENCY 4
+#else
+#define E2K_MEM_LATENCY 2
+#endif
 
 /* INT */
 /* SLJIT_SP */
 #define TMP_REG1 (SLJIT_SP + 1)         // signature_switcher and lower
-#define TMP_REG2 TMP_REG1 + 1           // all layers
-#define TMP_REG3 TMP_REG2 + 1           // upper than signature_switcher
-#define FLAG_REG TMP_REG3 + 1
-#define EXTRA_NREGS_NUM (FLAG_REG - SLJIT_SP + 1)
+#define TMP_REG2 (SLJIT_SP + 2)           // all layers
+#define TMP_REG3 (SLJIT_SP + 3)           // upper than signature_switcher
+#define FLAG_REG (SLJIT_SP + 4)
+#define EXTRA_NREGS_NUM 5
 /* FLOAT */
 // signature_switcher and lower
 #define TMP_FREG1 (SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
 #define TMP_FREG2 TMP_FREG1 + 1           // all layers
 #define TMP_FREG3 TMP_FREG2 + 1           // upper than signature_switcher
-#define EXTRA_FREGS_NUM (TMP_FREG3 - TMP_FREG1 + 1)
+#define EXTRA_FREGS_NUM 3
 
 #define FLAG_PREG 16
 #define TMP_PREG1 17
@@ -126,11 +138,9 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
     Control.
 */
 
-#define E2K_NREG_NUMBER (sljit_u32)(SLJIT_NUMBER_OF_REGISTERS \
-                        + EXTRA_NREGS_NUM)
-#define E2K_FREG_NUMBER (sljit_u32)(SLJIT_NUMBER_OF_FLOAT_REGISTERS \
-                        + EXTRA_FREGS_NUM)
-#define E2K_REG_NUMBER (sljit_u32)(E2K_NREG_NUMBER + E2K_FREG_NUMBER)
+#define E2K_NREG_NUMBER (SLJIT_NUMBER_OF_REGISTERS + EXTRA_NREGS_NUM)
+#define E2K_FREG_NUMBER (SLJIT_NUMBER_OF_FLOAT_REGISTERS + EXTRA_FREGS_NUM)
+#define E2K_REG_NUMBER (E2K_NREG_NUMBER + E2K_FREG_NUMBER)
 
 // Use the one reg_map
 #define E2K_FREG(fr) (fr + E2K_NREG_NUMBER)
@@ -140,46 +150,65 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 #define E2K_CTPR_NUMBER (sljit_u32)3
 
 // QP terms
+#if (E2K_REG_NUMBER != 64)
+#error "E2K_REG_NUMBER must be equal 64"
+#endif
+
 #define E2K_PREG_WINDOW_SIZE 24
-#define E2K_ROTATED_REG_BASE (E2K_REG_NUMBER >> 1)
+#define E2K_ROTATED_REG_BASE ((E2K_REG_NUMBER >> 1) - 4)
 #define E2K_ROTATED_REG_SIZE 4
-#define E2K_REG_WINDOW_SIZE  (E2K_REG_NUMBER >> 1) + E2K_ROTATED_REG_SIZE
+#define E2K_REG_WINDOW_SIZE  ((E2K_REG_NUMBER >> 1))
 
 
 /*
     64 regs only cause of ENTER_GET_REGS has mask 0xff
 */
 
+// Reg coding
+#define R(reg) reg | 0x80
+#define B(reg) reg
+
+// Imm coding
+#define CONST4(i)  i | 0xc0
+#define CONST16(i) i | 0xd0
+#define CONST32(i) i | 0xd8
+#define CONST64(i) i | 0xdc
+
+
+// r0
+#define E2K_CALLEE_RETURN_REG SLJIT_R(0)
+#define E2K_CALLER_RETURN_REG SLJIT_R(12)
+
 // + zero
 static const sljit_u8 reg_map[E2K_REG_NUMBER + 1] = {
     0,
     // scratch
-    0, 1, 2, 3, 4, 5, 6, 7,
-    8, 9, 10, 11, 12, 13, 14, 15,
-    16, 17, 18, 19,
+    B(0), B(1), B(2), B(3), B(4), B(5), B(6), B(7),     // ABI param regs
+    R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7),     // ABI input regs
+    R(8), R(9), R(10), R(11),
     // saved
-    20, 21, 22, 23, 24, 25, 26, 27,
-    28, 29, 30, 31, 32, 33, 34, 35,
-    36, 37, 38, 39,
-    40, // SLJIT_SP
-    41, // TMP_REG1
-    42, // TMP_REG2
-    43, // TMP_REG3
-    44, // FLAG_REG
+    R(12), R(13), R(14), R(15), R(16), R(17), R(18), R(19),
+    R(20), R(21), R(22), R(23), R(24), R(25), R(26), R(27),
+    R(28), R(29), R(30), R(31),
+    R(32), // SLJIT_SP
+    R(33), // TMP_REG1
+    R(34), // TMP_REG2
+    R(35), // TMP_REG3
+    R(36), // FLAG_REG
 
     // FLOATS
     // scratch
-    45, 46, 47, 48, 49, 50, 51, 52,
+    R(37), R(38), R(39), R(40), R(41), R(42), R(43), R(44),
     // saved
-    53, 54, 55, 56, 57, 58, 59, 60,
-    61, // TMP_FREG1
-    62, // TMP_FREG2
-    63, // TMP_FREG3
+    R(45), R(46), R(47), R(48), R(49), R(50), R(51), R(52),
+    R(53), // TMP_FREG1
+    R(54), // TMP_FREG2
+    R(55), // TMP_FREG3
 };
 
 // label for ctpr
-static const sljit_u8 ctpr_map[3] = {
-    0x11, 0x12, 0x13
+static const sljit_u8 ctpr_map[4] = {
+    0x0, 0x11, 0x12, 0x13
 };
 
 // pdst
@@ -497,6 +526,7 @@ typedef enum {
 /* -- Opcodes ------------------------------------------------------------- */
 
 #define E2K_DISP    0x0
+#define E2K_SDISP   0x2
 #define E2K_IBRANCH 0x0
 #define E2K_CALL    0x5
 #define E2K_RETURN  0x3
@@ -920,7 +950,7 @@ static SLJIT_INLINE int get_sylidx(struct sljit_compiler *compiler,
 
 #define checku4(x)  ((x) == (int32_t)(sljit_u8)(x & 0xf))
 #define checku5(x)  ((x) == (int32_t)(sljit_u8)(x & 0x1f))
-#define checki16(x) ((x) == (int32_t)(int16_t)(x))
+#define checki16(x) ((x) == (int32_t)(sljit_s16)(x))
 #define checku16(x) ((x) == (int32_t)(sljit_u16)(x))
 #define checki32(x) ((x) == (int32_t)(x))
 #define checku32(x) ((x) == (sljit_u32)(x))
@@ -956,9 +986,9 @@ static E2kOpT get_const_type(struct sljit_compiler *compiler,
         return E2K_CONST4;
     else if(checku5(val))
         return E2K_CONST5;
-    else if (checku16(val))
+    else if (checki16(val))
         return E2K_CONST16;
-    else if (checku32(val))
+    else if (checki32(val))
         return E2K_CONST32;
     else
         return E2K_CONST64;
@@ -1148,7 +1178,7 @@ static sljit_u32 emit_src1(struct sljit_compiler *compiler,
     if (type == E2K_REG) {
         switch (get_reg_type(compiler, bundle, src1)) {
         case E2K_REG_R:
-            return reg_map[src1] | 0x80;
+            return reg_map[src1];
         default:
             SLJIT_ASSERT(0);
             return 0;
@@ -1182,37 +1212,23 @@ static sljit_u32 emit_src2(struct sljit_compiler *compiler,
     if (type == E2K_REG) {
         switch (get_reg_type(compiler, bundle, src2)) {
         case E2K_REG_R:
-            return reg_map[src2] | 0x80;
+            return reg_map[src2];
         default:
             SLJIT_ASSERT(0);
             return 0;
         }
     } else {
-// Prevent sign extension in SUBd operation in case of f16 imm operand
-#if 0
-        switch (get_const_type(compiler, bundle, src2)) {
-        case E2K_CONST4:
-            return src2 | 0xc0;
-        case E2K_CONST5: case E2K_CONST16:
-            return (emit_lts(compiler, bundle, E2K_CONST16, src2) | 0xd0);
-        case E2K_CONST32:
-            return (emit_lts(compiler, bundle, E2K_CONST32, src2) | 0xd8);
-        case E2K_CONST64:
-            return (emit_lts(compiler, bundle, E2K_CONST64, src2) | 0xdc);
-        default:
-            SLJIT_ASSERT(0);
-            return 0;
-        }
-#else
         if ((mode & FORCE_LTS) == 0) {
             switch (get_const_type(compiler, bundle, src2)) {
             case E2K_CONST4:
                 return src2 | 0xc0;
             case E2K_CONST5:
+            /* deny CONST16 due to may be coded only in LTS1 and LTS0 */
             case E2K_CONST16:
             case E2K_CONST32:
+                return (emit_lts(compiler, bundle, E2K_CONST32, src2) | 0xd8);
             case E2K_CONST64:
-                break;
+                return (emit_lts(compiler, bundle, E2K_CONST64, src2) | 0xdc);
             default:
                 SLJIT_ASSERT(0);
                 return 0;
@@ -1235,7 +1251,6 @@ static sljit_u32 emit_src2(struct sljit_compiler *compiler,
                 SLJIT_ASSERT(0);
                 return 0;
         }
-#endif
     }
 }
 
@@ -1247,7 +1262,7 @@ static sljit_u32 emit_src3(struct sljit_compiler *compiler,
     if (type == E2K_REG) {
         switch (get_reg_type(compiler, bundle, src3)) {
         case E2K_REG_R:
-            return reg_map[src3] | 0x80;
+            return reg_map[src3];
         default:
             SLJIT_ASSERT(0);
         }
@@ -1264,7 +1279,7 @@ static sljit_u32 emit_dst(struct sljit_compiler *compiler,
     if (type == E2K_REG) {
         switch (get_reg_type(compiler, bundle, dst)) {
         case E2K_REG_R:
-            return reg_map[dst & 0xFF] | 0x80;
+            return reg_map[dst & 0xFF];
         case E2K_REG_CTPR:
             return ctpr_map[dst & 0xFF] | 0xd0;
         default:
@@ -1540,7 +1555,11 @@ static void emit_copf2(struct sljit_compiler *compiler, E2kBundle *bundle,
     check_resource(compiler, bundle, RES_CS0);
     E2kCopf2 syl;
     syl.i = 0;
-    syl.fields.disp = disp >> 3;
+    if (opc == E2K_SDISP) {
+        syl.fields.disp = disp;
+    } else {
+        syl.fields.disp = disp >> 3;
+    }
     syl.fields.opc = opc;
     if (ctpr) /* RID_CTPRX is nonnull */
       syl.fields.ctpr = ctpr_map[ctpr];
@@ -1678,7 +1697,7 @@ static void emit_call(struct sljit_compiler *compiler,
     check_resource(compiler, bundle, RES_SS); /* Uses only part of RES_SS */
     E2kSS syl;
     syl.i = 0;
-    if (pred) { /* RID_PREDX is nonnull  */
+    if ((pred & E2K_PRED) == E2K_PRED) {
         if (inverted) {
             syl.fields.ctcond = 0x60 + pred_map[pred];
         } else {
@@ -1965,10 +1984,10 @@ static void emit_return(struct sljit_compiler *compiler,
     SLJIT_ASSERT(pred & E2K_PRED);
 
     BUNDLE_SETUP();
-    emit_copf1(compiler, bundle, E2K_RETURN, E2K_CTPR | 2, 0);
+    emit_copf1(compiler, bundle, E2K_RETURN, E2K_CTPR | 3, 0);
     emit_bundle_finalize(compiler, bundle);
     emit_nop_full(compiler, 4);
-    emit_ct_full(compiler, E2K_CTPR | 2, pred, inverted);
+    emit_ct_full(compiler, E2K_CTPR | 3, pred, inverted);
 }
 
 static void emit_ibranch(struct sljit_compiler *compiler,
@@ -1978,7 +1997,7 @@ static void emit_ibranch(struct sljit_compiler *compiler,
     SLJIT_ASSERT(pred & E2K_PRED);
 
     BUNDLE_SETUP();
-    emit_copf2(compiler, bundle, E2K_IBRANCH, E2K_CTPR | 0, disp);
+    emit_copf2(compiler, bundle, E2K_IBRANCH, E2K_CTPR | 1, disp);
     emit_bundle_finalize(compiler, bundle);
 
     emit_bundle_setup(compiler, bundle);
@@ -2003,16 +2022,16 @@ static void emit_ijmp(struct sljit_compiler *compiler, sljit_uw addr,
 
     emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, addr, 0, TMP_REG1, DOUBLEWORD | FORCE_LTS);
     BUNDLE_SETUP();
-    emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR | 0, DOUBLEWORD);
+    emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR | 1, DOUBLEWORD);
     emit_nop(compiler, bundle, 5);
     emit_bundle_finalize(compiler, bundle);
-    emit_ct_full(compiler, E2K_CTPR | 0, pred, neg);
+    emit_ct_full(compiler, E2K_CTPR | 1, pred, neg);
 }
 
 /* -- Emit generic operations --------------------------------------------- */
 
 // Load into reg only
-static void emit_load(struct sljit_compiler *compiler,
+static void emit_load(struct sljit_compiler *compiler, E2kBundle *bundle,
                       sljit_s32 dst, sljit_uw dstw,
                       sljit_s32 src, sljit_uw srcw,
                       sljit_s32 mode) {
@@ -2022,8 +2041,6 @@ static void emit_load(struct sljit_compiler *compiler,
     if (!SLJIT_IS_REG(dst)) {
         SLJIT_ASSERT(0);
     }
-
-    BUNDLE_SETUP();
 
     sljit_u32 load_opc = 0;
     switch (mode & 0xF) {
@@ -2063,25 +2080,32 @@ static void emit_load(struct sljit_compiler *compiler,
     }
 
     if (SLJIT_IS_MEM0(src)) {
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf1_ii(compiler, bundle, 0, load_opc, 0x0, srcw, dst, lts_mode);
     } else if (SLJIT_IS_MEM1(src)) {
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf1_ri(compiler, bundle, 0, load_opc,
                        SLJIT_EXTRACT_REG(src), srcw, dst, lts_mode);
     } else if (SLJIT_IS_MEM2(src)) {
         emit_op_full(compiler, E2K_SHLd, REG_SRC1,
                      SLJIT_EXTRACT_SECOND_REG(src), srcw, 0, dst, lts_mode);
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf1_rr(compiler, bundle, 0, load_opc,
                        SLJIT_EXTRACT_REG(src), dst, dst, lts_mode);
     }
+}
 
+static void emit_load_full(struct sljit_compiler *compiler,
+                      sljit_s32 dst, sljit_uw dstw,
+                      sljit_s32 src, sljit_uw srcw,
+                      sljit_s32 mode) {
+    BUNDLE_SETUP();
+    emit_load(compiler, bundle, dst, dstw, src, srcw, mode);
     emit_bundle_finalize(compiler, bundle);
 }
 
 // Load into reg only
-static void emit_load_double(struct sljit_compiler *compiler,
+static void emit_load_double_full(struct sljit_compiler *compiler,
                              sljit_s32 dst1, sljit_uw dst1w,
                              sljit_s32 dst2, sljit_uw dst2w,
                              sljit_s32 src1, sljit_uw src1w,
@@ -2117,11 +2141,11 @@ static void emit_load_double(struct sljit_compiler *compiler,
     }
 
     if (SLJIT_IS_MEM0(src1)) {
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf1_ii(compiler, bundle, 0, load_opc, 0x0, src1w, dst1, DOUBLEWORD);
         emit_alopf1_ii(compiler, bundle, 0, load_opc, 0x0, src2w, dst2, DOUBLEWORD);
     } else if (SLJIT_IS_MEM1(src1)) {
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf1_ri(compiler, bundle, 0, load_opc,
                        SLJIT_EXTRACT_REG(src1), src1w, dst1, DOUBLEWORD);
         emit_alopf1_ri(compiler, bundle, 0, load_opc,
@@ -2134,7 +2158,7 @@ static void emit_load_double(struct sljit_compiler *compiler,
         emit_bundle_finalize(compiler, bundle);
         emit_op_full(compiler, E2K_ADDd, REG_SRC1,
                     TMP_REG2, sizeof(sljit_uw), 0, TMP_REG2, DOUBLEWORD);
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf1_rr(compiler, bundle, 0, load_opc,
                        SLJIT_EXTRACT_REG(src1), TMP_REG1, dst1, DOUBLEWORD);
         emit_alopf1_rr(compiler, bundle, 0, load_opc,
@@ -2145,7 +2169,7 @@ static void emit_load_double(struct sljit_compiler *compiler,
 }
 
 // Store reg only
-static void emit_store(struct sljit_compiler *compiler,
+static void emit_store(struct sljit_compiler *compiler, E2kBundle *bundle,
                        sljit_s32 dst, sljit_uw dstw,
                        sljit_s32 src, sljit_uw srcw,
                        sljit_s32 mode) {
@@ -2155,8 +2179,6 @@ static void emit_store(struct sljit_compiler *compiler,
     if (!SLJIT_IS_REG(src)) {
         SLJIT_ASSERT(0);
     }
-
-    BUNDLE_SETUP();
 
     sljit_u32 store_opc = 0;
     switch (mode & 0xF) {
@@ -2196,25 +2218,33 @@ static void emit_store(struct sljit_compiler *compiler,
     }
 
     if (SLJIT_IS_MEM0(dst)) {
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf3_ii(compiler, bundle, 0, store_opc, 0x0, dstw, src, lts_mode);
     } else if (SLJIT_IS_MEM1(dst)) {
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf3_ri(compiler, bundle, 0, store_opc,
                        SLJIT_EXTRACT_REG(dst), dstw, src, lts_mode);
     } else if (SLJIT_IS_MEM2(dst)) {
         emit_op_full(compiler, E2K_SHLd, REG_SRC1,
                      SLJIT_EXTRACT_SECOND_REG(dst), dstw, 0, TMP_REG2, lts_mode);
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf3_rr(compiler, bundle, 0, store_opc,
                        SLJIT_EXTRACT_REG(dst), TMP_REG2, src, lts_mode);
     }
+}
 
+// Store reg only
+static void emit_store_full(struct sljit_compiler *compiler,
+                       sljit_s32 dst, sljit_uw dstw,
+                       sljit_s32 src, sljit_uw srcw,
+                       sljit_s32 mode) {
+    BUNDLE_SETUP();
+    emit_store(compiler, bundle, dst, dstw, src, srcw, mode);
     emit_bundle_finalize(compiler, bundle);
 }
 
 // Store reg only
-static void emit_store_double(struct sljit_compiler *compiler,
+static void emit_store_double_full(struct sljit_compiler *compiler,
                               sljit_s32 dst1, sljit_uw dst1w,
                               sljit_s32 dst2, sljit_uw dst2w,
                               sljit_s32 src1, sljit_uw src1w,
@@ -2250,11 +2280,11 @@ static void emit_store_double(struct sljit_compiler *compiler,
     }
 
     if (SLJIT_IS_MEM0(dst1)) {
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf3_ii(compiler, bundle, 0, store_opc, 0x0, dst1w, src1, DOUBLEWORD);
         emit_alopf3_ii(compiler, bundle, 0, store_opc, 0x0, dst2w, src2, DOUBLEWORD);
     } else if (SLJIT_IS_MEM1(dst1)) {
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf3_ri(compiler, bundle, 0, store_opc,
                        SLJIT_EXTRACT_REG(dst1), dst1w, src1, DOUBLEWORD);
         emit_alopf3_ri(compiler, bundle, 0, store_opc,
@@ -2265,7 +2295,7 @@ static void emit_store_double(struct sljit_compiler *compiler,
         emit_op(compiler, bundle, E2K_SHLd, REG_SRC1,
                 SLJIT_EXTRACT_SECOND_REG(dst2), dst2w, 0, TMP_REG1, DOUBLEWORD);
         emit_bundle_finalize(compiler, bundle);
-        emit_nop(compiler, bundle, 4);
+        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
         emit_alopf3_rr(compiler, bundle, 0, store_opc,
                        SLJIT_EXTRACT_REG(dst1), TMP_REG2, src1, DOUBLEWORD);
         emit_alopf3_rr(compiler, bundle, 0, store_opc,
@@ -2291,7 +2321,7 @@ void signature_switcher1(struct sljit_compiler *compiler,
             emit_op_full(compiler, op, REG_SRC1 | REG_SRC3,
                          0, srcw, 0, dst, mode);
         } else if (SLJIT_IS_MEM(src)) {
-            emit_load(compiler, TMP_REG1, 0, src, srcw, mode);
+            emit_load_full(compiler, TMP_REG1, 0, src, srcw, mode);
             emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                          0, TMP_REG1, 0, dst, mode);
         } else {
@@ -2305,13 +2335,13 @@ void signature_switcher1(struct sljit_compiler *compiler,
             emit_op_full(compiler, op, REG_SRC1 | REG_SRC3,
                          0, srcw, 0, TMP_REG1, mode);
         } else if (SLJIT_IS_MEM(src)) {
-            emit_load(compiler, TMP_REG1, 0, src, srcw, mode);
+            emit_load_full(compiler, TMP_REG1, 0, src, srcw, mode);
             emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                          0, TMP_REG1, 0, TMP_REG1, mode);
         } else {
             SLJIT_ASSERT(0);
         }
-        emit_store(compiler, dst, dstw, TMP_REG1, 0, mode);
+        emit_store_full(compiler, dst, dstw, TMP_REG1, 0, mode);
     } else {
         SLJIT_ASSERT(0);
     }
@@ -2348,7 +2378,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 emit_op_full(compiler, op, tmp_signature,
                              tmp_operand, src2, 0, dst, mode);
             } else if (SLJIT_IS_MEM(src1)) {
-                emit_load(compiler, TMP_REG1, 0, src1, src1w, mode);
+                emit_load_full(compiler, TMP_REG1, 0, src1, src1w, mode);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                              TMP_REG1, src2, 0, dst, mode);
             } else {
@@ -2371,14 +2401,14 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 emit_op_full(compiler, op, tmp_signature,
                              tmp_operand, src2w, 0, dst, mode);
             } else if (SLJIT_IS_MEM(src1)) {
-                emit_load(compiler, TMP_REG1, 0, src1, src1w, mode);
+                emit_load_full(compiler, TMP_REG1, 0, src1, src1w, mode);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC3,
                              TMP_REG1, src2w, 0, dst, mode);
             } else {
                 SLJIT_ASSERT(0);
             }
         } else if (SLJIT_IS_MEM(src2)) {
-            emit_load(compiler, TMP_REG1, 0, src2, src2w, mode);
+            emit_load_full(compiler, TMP_REG1, 0, src2, src2w, mode);
             if (SLJIT_IS_REG(src1)) {
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                              src1, TMP_REG1, 0, dst, mode);
@@ -2395,7 +2425,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 emit_op_full(compiler, op, tmp_signature,
                              tmp_operand, TMP_REG1, 0, dst, mode);
             } else if (SLJIT_IS_MEM(src1)) {
-                emit_load(compiler, TMP_REG2, 0, src1, src1w, mode);
+                emit_load_full(compiler, TMP_REG2, 0, src1, src1w, mode);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                              TMP_REG2, TMP_REG1, 0, dst, mode);
             } else {
@@ -2422,7 +2452,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 emit_op_full(compiler, op, tmp_signature,
                              tmp_operand, src2, 0, TMP_REG1, mode);
             } else if (SLJIT_IS_MEM(src1)) {
-                emit_load(compiler, TMP_REG1, 0, src1, src1w, mode);
+                emit_load_full(compiler, TMP_REG1, 0, src1, src1w, mode);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                              TMP_REG1, src2, 0, TMP_REG1, mode);
             } else {
@@ -2445,14 +2475,14 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 emit_op_full(compiler, op, tmp_signature,
                              tmp_operand, src2w, 0, TMP_REG1, mode);
             } else if (SLJIT_IS_MEM(src1)) {
-                emit_load(compiler, TMP_REG1, 0, src1, src1w, mode);
+                emit_load_full(compiler, TMP_REG1, 0, src1, src1w, mode);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC3,
                              TMP_REG1, src2w, 0, TMP_REG1, mode);
             } else {
                 SLJIT_ASSERT(0);
             }
         } else if (SLJIT_IS_MEM(src2)) {
-            emit_load(compiler, TMP_REG1, 0, src2, src2w, mode);
+            emit_load_full(compiler, TMP_REG1, 0, src2, src2w, mode);
             if (SLJIT_IS_REG(src1)) {
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                              src1, TMP_REG1, 0, TMP_REG1, mode);
@@ -2469,7 +2499,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 emit_op_full(compiler, op, tmp_signature,
                              tmp_operand, TMP_REG1, 0, TMP_REG1, mode);
             } else if (SLJIT_IS_MEM(src1)) {
-                emit_load(compiler, TMP_REG2, 0, src1, src1w, mode);
+                emit_load_full(compiler, TMP_REG2, 0, src1, src1w, mode);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                              TMP_REG2, TMP_REG1, 0, TMP_REG1, mode);
             } else {
@@ -2478,7 +2508,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
         } else {
             SLJIT_ASSERT(0);
         }
-        emit_store(compiler, dst, dstw, TMP_REG1, 0, mode);
+        emit_store_full(compiler, dst, dstw, TMP_REG1, 0, mode);
     } else {
         SLJIT_ASSERT(0);
     }
@@ -2733,6 +2763,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 	}
 }
 
+#define ALIGN_QUADROWORD(x) (((x) + 15) & ~15)
+
+// Limit by channel number
+#define BUNDLE_FINALIZE_INNER(i, cond, num) \
+    do { \
+        if ((i % num) == 0) { \
+            if (cond) { \
+                emit_bundle_finalize(compiler, bundle); \
+            } \
+        } \
+    } while(0)
+// Maybe prev loop could not fill the wide command
+#define BUNDLE_FINALIZE_OUTER(i, cond, num) \
+    do { \
+        if ((i % num) != 0) { \
+            if (cond) { \
+                emit_bundle_finalize(compiler, bundle); \
+            } \
+        } \
+    } while(0)
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
     struct sljit_compiler *compiler,
     sljit_s32 options, sljit_s32 arg_types,
@@ -2779,11 +2830,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
 
     BUNDLE_SETUP();
 
-    /*
-        ENTER_REG_ARG.
-        Fast call without reg window management.
-    */
     if ((options & SLJIT_ENTER_REG_ARG) != SLJIT_ENTER_REG_ARG) {
+        /* General enter */
 
         /* -- setwd, setbn, setbp ---------------*/
         check_resource(compiler, bundle, RES_CS1);
@@ -2811,71 +2859,73 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
         lts0.fields.x1     = 0x0;
         bundle->lts[0] = lts0.i;
         bundle->f4++;
-
-        //fprintf(stderr, "E2K_REG_WINDOW_SIZE = %d\n", E2K_REG_WINDOW_SIZE);
-        //fprintf(stderr, "E2K_NREG_NUMBER = %d\n", E2K_NREG_NUMBER);
-        //fprintf(stderr, "E2K_FREG_NUMBER = %d\n", E2K_FREG_NUMBER);
-        //fprintf(stderr, "E2K_ALLREG_NUMBER = %d\n", E2K_ALLREG_NUMBER);
-        //fprintf(stderr, "E2K_REG_MAX = %d\n", E2K_REG_MAX);
-        //fprintf(stderr, "E2K_ROTATED_REG_BASE = %d\n", E2K_ROTATED_REG_BASE);
         /* -- setwd, setbn, setbp ---------------*/
     }
 
+    /*
+        ENTER_REG_ARG.
+        Fast call without reg window management.
+    */
     if ((options & SLJIT_ENTER_REG_ARG) == SLJIT_ENTER_REG_ARG) {
         // save return addr
-        emit_store(compiler, SLJIT_MEM1(SLJIT_SP), 0,
+        emit_store_full(compiler, SLJIT_MEM1(SLJIT_SP), 0,
                    TMP_REG1, 0, DOUBLEWORD);
     }
 
-    sljit_u32 src2 = -stack_size;
+    // allocate locals stack
+    sljit_u32 src2 = -ALIGN_QUADROWORD(stack_size);
     emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
     emit_bundle_finalize(compiler, bundle);
+
+    sljit_s32 arg_types_orig = arg_types;
+    /*
+        Correction sljit and e2k ABI compability
+    */
+    if ((options & SLJIT_ENTER_REG_ARG) != SLJIT_ENTER_REG_ARG) {
+        sljit_s32 si = 0, fri = 0, fsi = 0, i = 0;
+
+        // TODO: Bundle more efficiently
+        arg_types = arg_types >> SLJIT_ARG_SHIFT;
+        while (arg_types) {
+            emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                        R(i), CONST4(0), reg_map[SLJIT_R(i)]);
+            i++;
+            arg_types = (arg_types >> SLJIT_ARG_SHIFT);
+
+            BUNDLE_FINALIZE_INNER(i, i, E2K_CHANNEL_NUMBER);
+        }
+        BUNDLE_FINALIZE_OUTER(i, i, E2K_CHANNEL_NUMBER);
+    }
 
     if ((options & SLJIT_ENTER_REG_ARG) != SLJIT_ENTER_REG_ARG) {
         // distribute args to regs
         sljit_s32 arg_type;
         sljit_s32 si = 0, fri = 0, fsi = 0, i = 0;
+
         // skip return
-        arg_types = arg_types >> SLJIT_ARG_SHIFT;
+        arg_types = arg_types_orig >> SLJIT_ARG_SHIFT;
         while (arg_types) {
             arg_type = arg_types & SLJIT_ARG_FULL_MASK;
             // float
             if (arg_type & SLJIT_ARG_TYPE_F64) {
-                emit_op(compiler, bundle, E2K_ADDd, REG_SRC2,
-                        0, SLJIT_R(i), 0, E2K_FREG(SLJIT_FR(fri)), DOUBLEWORD);
+                emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                            R(i), CONST4(0), reg_map[E2K_FREG(SLJIT_FR(fri))]);
                 fri++;
             } else {
                 // saved
                 if (!(arg_type & SLJIT_ARG_TYPE_SCRATCH_REG)) {
-                    emit_op(compiler, bundle, E2K_ADDd, REG_SRC2,
-                            0, SLJIT_R(i), 0, SLJIT_S(si), DOUBLEWORD);
+                    emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                                R(i), CONST4(0), reg_map[SLJIT_S(si)]);
                     si++;
                 }
             }
             arg_types = (arg_types >> SLJIT_ARG_SHIFT);
             i++;
 
-            // Limit by channel number
-            if ((i % E2K_CHANNEL_NUMBER) == 0) {
-                if (fri || si) {
-                    emit_bundle_finalize(compiler, bundle);
-                }
-            }
+            BUNDLE_FINALIZE_INNER(i, (fri || si), E2K_CHANNEL_NUMBER);
         }
-        // Maybe prev loop could not fill the wild command
-        if ((i % E2K_CHANNEL_NUMBER) != 0) {
-            if (fri || si) {
-                emit_bundle_finalize(compiler, bundle);
-            }
-        }
+        BUNDLE_FINALIZE_OUTER(i, (fri || si), E2K_CHANNEL_NUMBER);
     }
-    // save input params on saved regs
-    // TODO: Think about stack. It's cool e2k has a lot of registers.
-    /*
-    for (sljit_s32 i = 0; i < saveds; i++) {
-        emit_op_full(compiler, E2K_ADDd, REG_SRC1, SLJIT_R0+i, 0, 0, SLJIT_S0-i, DOUBLEWORD);
-    }
-    */
 
 	return SLJIT_SUCCESS;
 }
@@ -2901,38 +2951,150 @@ sljit_s32 sljit_set_context(struct sljit_compiler *compiler,
     // ------------------------------------------------------------------------
 }
 
+static SLJIT_INLINE sljit_s32 emit_mov_before_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
+{
+	/* At the moment the pointer size is always equal to sljit_sw. May be changed in the future. */
+	if (src == SLJIT_RETURN_REG && (op == SLJIT_MOV || op == SLJIT_MOV_P))
+		return SLJIT_SUCCESS;
+
+	SLJIT_SKIP_CHECKS(compiler);
+	return sljit_emit_op1(compiler, op, SLJIT_RETURN_REG, 0, src, srcw);
+}
+
+static SLJIT_INLINE
+sljit_s32 emit_fmov_before_return(struct sljit_compiler *compiler, sljit_s32 op,
+                                  sljit_s32 src, sljit_sw srcw)
+{
+    SLJIT_SKIP_CHECKS(compiler);
+	if (src != SLJIT_RETURN_FREG) {
+        sljit_emit_fop1(compiler, op, SLJIT_RETURN_FREG, 0, src, srcw);
+    }
+
+    // TODO: Optimize float return
+    return sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0,
+                          E2K_FREG(SLJIT_RETURN_FREG), 0);
+}
+
+#define E2K_FAST_SYS_ENTRY_32 5
+#define E2K_FAST_SYS_ENTRY_64 6
+/*
+    Due to special ABI substitute return addr via syscall
+*/
+static substitute_return_addr(struct sljit_compiler *compiler,
+                              sljit_s32 src, sljit_sw srcw)
+{
+    BUNDLE_SETUP();
+
+    // syscall enter
+    emit_copf2(compiler, bundle, E2K_SDISP, E2K_CTPR | 1, E2K_FAST_SYS_ENTRY_64);
+    // emit_bundle_finalize(compiler, bundle);
+
+    sljit_s32 ip_reg = TMP_REG1;
+    if (SLJIT_IS_REG(src)) {
+        ip_reg = src;
+    } else {
+        signature_switcher2(compiler, E2K_ADDd, ip_reg, 0, SLJIT_IMM, 0,
+                            src, srcw, DOUBLEWORD);
+    }
+
+    emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                emit_src1(compiler, bundle, E2K_CONST, __NR_fast_sys_set_return),
+                0 | 0xc0, 0);
+    emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                emit_src1(compiler, bundle, E2K_CONST, 0),
+                emit_src2(compiler, bundle, E2K_REG, ip_reg, DOUBLEWORD), 1);
+    emit_bundle_finalize(compiler, bundle);
+
+    emit_call(compiler, E2K_CTPR | 1, E2K_PRED | 0, 0, E2K_ROTATED_REG_BASE);
+}
+
+/*
+    1. Manual context restore for "fast" calls.
+    2. Free stack context area.
+    See stack scheme in sljit_emit_enter.
+*/
+static restore_reg_arg_context(struct sljit_compiler *compiler)
+{
+    BUNDLE_SETUP();
+
+    sljit_s32 ii = 1;   // skip return addr
+    sljit_s32 channels = 0;
+
+    for (sljit_s32 i = 0; i < SLJIT_NUMBER_OF_SAVED_REGISTERS; i++, ii++) {
+        emit_load(compiler, bundle, SLJIT_S(i), 0,
+                  SLJIT_MEM1(SLJIT_SP), ii*sizeof(sljit_uw),
+                  DOUBLEWORD);
+        channels++;
+        BUNDLE_FINALIZE_INNER(channels, (channels), E2K_CHANNEL_LOAD_NUMBER);
+    }
+    BUNDLE_FINALIZE_OUTER(channels, (channels), E2K_CHANNEL_LOAD_NUMBER);
+
+    channels = 0;
+    for (sljit_s32 i = 0; i < SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS; i++, ii++) {
+        emit_load(compiler, bundle, E2K_FREG(SLJIT_FS(i)), 0,
+                  SLJIT_MEM1(SLJIT_SP), ii*sizeof(sljit_uw),
+                  DOUBLEWORD);
+        channels++;
+        BUNDLE_FINALIZE_INNER(channels, (channels), E2K_CHANNEL_LOAD_NUMBER);
+    }
+    BUNDLE_FINALIZE_OUTER(channels, (channels), E2K_CHANNEL_LOAD_NUMBER);
+
+    // Clean context area
+    sljit_s32 all_regs = SLJIT_NUMBER_OF_SAVED_REGISTERS + SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS;
+    sljit_u32 stack_reg_arg_sz = sizeof(sljit_uw) * (all_regs + 1);
+    sljit_u32 src2 = ALIGN_QUADROWORD(stack_reg_arg_sz);
+    emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
+    emit_bundle_finalize(compiler, bundle);
+}
+
 SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)
 {
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_return_void(compiler));
 
-    /*
-        // - clean locals
-        // - get return addr from stack
-        // - replace saved in case of SLJIT_ENTER_KEEP
-    */
     if ((compiler->options & SLJIT_ENTER_REG_ARG) == SLJIT_ENTER_REG_ARG) {
+        /*
+            // - clean locals
+            // - get return addr from stack
+            // - replace saved in case of SLJIT_ENTER_KEEP
+            // - TODO: Restore context
+        */
+
         BUNDLE_SETUP();
 
-        sljit_u32 src2 = compiler->local_size;
+        // clean locals
+        // ------------
+        sljit_u32 src2 = ALIGN_QUADROWORD(compiler->local_size);
         emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
         emit_bundle_finalize(compiler, bundle);
+        // ------------
 
-        emit_load(compiler, TMP_REG1, 0,
+        // prep return addr
+        // ----------------
+        emit_load_full(compiler, TMP_REG1, 0,
                   SLJIT_MEM1(SLJIT_SP), 0, DOUBLEWORD);
 
-        emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR | 0, DOUBLEWORD);
+        emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR | 1, DOUBLEWORD);
         emit_nop(compiler, bundle, 5);
         emit_bundle_finalize(compiler, bundle);
+        // ----------------
 
+        // keep saved regs
+        // ---------------
         // TODO: Bundle
         for (sljit_s32 i = 0; i < (compiler->options & 0x3); i++) {
-            emit_store(compiler, SLJIT_MEM1(SLJIT_SP), (i+1)*sizeof(sljit_uw),
+            emit_store_full(compiler, SLJIT_MEM1(SLJIT_SP), (i+1)*sizeof(sljit_uw),
                        SLJIT_S(i), 0, DOUBLEWORD);
         }
+        // TODO: Optimize. Prevent restore in case of keeping.
+        // ---------------
 
-        emit_ct_full(compiler, E2K_CTPR | 0, E2K_PRED | 0, 0);
+        // restore context
+        restore_reg_arg_context(compiler);
+
+        // jump
+        emit_ct_full(compiler, E2K_CTPR | 1, E2K_PRED | 0, 0);
         return SLJIT_SUCCESS;
     }
 
@@ -2941,12 +3103,92 @@ sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)
     return SLJIT_SUCCESS;
 }
 
+// TODO: STACK+1 to store and load with correct addrs
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32
+sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op,
+                  sljit_s32 src, sljit_sw srcw)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_return(compiler, op, src, srcw));
+
+	if (GET_OPCODE(op) < SLJIT_MOV_F64) {
+		FAIL_IF(emit_mov_before_return(compiler, op, src, srcw));
+	} else {
+		FAIL_IF(emit_fmov_before_return(compiler, op, src, srcw));
+	}
+
+    // Correct return code into r0
+    BUNDLE_SETUP();
+    emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                reg_map[SLJIT_RETURN_REG], CONST4(0), R(0));
+    emit_bundle_finalize(compiler, bundle);
+
+	SLJIT_SKIP_CHECKS(compiler);
+	return sljit_emit_return_void(compiler);
+}
+
 SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_return_to(struct sljit_compiler *compiler,
                                sljit_s32 src, sljit_sw srcw)
 {
-    SLJIT_ASSERT(0);
-    return SLJIT_ERR_UNSUPPORTED;
+    BUNDLE_SETUP();
+    // TODO: less code
+    if ((compiler->options & SLJIT_ENTER_REG_ARG) == SLJIT_ENTER_REG_ARG) {
+        // prep return addr
+        // ----------------
+        sljit_s32 ip_reg = TMP_REG1;
+        if (SLJIT_IS_REG(src)) {
+            ip_reg = src;
+        } else {
+            signature_switcher2(compiler, E2K_ADDd, ip_reg, 0, SLJIT_IMM, 0,
+                                src, srcw, DOUBLEWORD);
+        }
+
+        emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, ip_reg,
+                      E2K_CTPR | 1, DOUBLEWORD);
+        emit_nop(compiler, bundle, 5);
+        emit_bundle_finalize(compiler, bundle);
+        // ----------------
+
+        // clean locals
+        // Cleaning locals must be after addr preparing due to addr may be
+        // located on stack.
+        // ------------
+        sljit_u32 src2 = ALIGN_QUADROWORD(compiler->local_size);
+        emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
+        emit_bundle_finalize(compiler, bundle);
+        // ------------
+
+        // Keep saved regs
+        // ---------------
+        // TODO: Bundle
+        for (sljit_s32 i = 0; i < (compiler->options & 0x3); i++) {
+            emit_store_full(compiler, SLJIT_MEM1(SLJIT_SP), (i+1)*sizeof(sljit_uw),
+                       SLJIT_S(i), 0, DOUBLEWORD);
+        }
+        // TODO: Optimize. Prevent restore in case of keeping.
+        // ---------------
+
+        // restore context
+        restore_reg_arg_context(compiler);
+
+        emit_ct_full(compiler, E2K_CTPR | 1, E2K_PRED | 0, 0);
+        return SLJIT_SUCCESS;
+    } else {
+        /* General return */
+        emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                    reg_map[SLJIT_RETURN_REG], CONST4(0), R(0));
+        emit_bundle_finalize(compiler, bundle);
+
+        // Substitute return ip via syscall
+        substitute_return_addr(compiler, src, srcw);
+
+        //emit_return(compiler, E2K_PRED | 0, 0);
+        //return SLJIT_SUCCESS;
+	    SLJIT_SKIP_CHECKS(compiler);
+	    return sljit_emit_return_void(compiler);
+    }
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
@@ -3120,7 +3362,7 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
             emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, srcw, 0, TMP_REG3, mode);
             src_reg = TMP_REG3;
         } else if (SLJIT_IS_MEM(src)) {
-            emit_load(compiler, TMP_REG3, 0, src, srcw, mode);
+            emit_load_full(compiler, TMP_REG3, 0, src, srcw, mode);
             src_reg = TMP_REG3;
         } else {
             SLJIT_ASSERT(0);
@@ -3180,7 +3422,7 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
         }
 
         if (SLJIT_IS_MEM(dst)) {
-            emit_store(compiler, dst, dstw, dst_reg, 0, mode_store);
+            emit_store_full(compiler, dst, dstw, dst_reg, 0, mode_store);
         }
         break;
     default:
@@ -3402,7 +3644,7 @@ sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler, sljit_s32 op,
         src3_operand = TMP_REG3;
     } else if (SLJIT_IS_MEM(src3)) {
         src3_operand = TMP_REG3;
-        emit_load(compiler, TMP_REG3, 0, src3, src3w, mode);
+        emit_load_full(compiler, TMP_REG3, 0, src3, src3w, mode);
     } else {
         SLJIT_ASSERT(0);
     }
@@ -3537,7 +3779,12 @@ sljit_s32 sljit_get_register_index(sljit_s32 type, sljit_s32 reg)
     switch (type) {
         case SLJIT_GP_REGISTER:
         case SLJIT_FLOAT_REGISTER:
-		    return reg_map[reg];
+            // rotated base
+            if ((reg_map[reg] & REG_MASK) == reg_map[reg]) {
+		        return (reg_map[reg] & REG_MASK) + (E2K_ROTATED_REG_BASE << 1);
+            } else {
+		        return reg_map[reg] & REG_MASK;
+            }
         default:
             return -1;
     }
@@ -3556,20 +3803,6 @@ sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
     *inst = *(sljit_u32*)(instruction);
     compiler->size += size;
     return SLJIT_SUCCESS;
-}
-
-static SLJIT_INLINE
-sljit_s32 emit_fmov_before_return(struct sljit_compiler *compiler, sljit_s32 op,
-                                  sljit_s32 src, sljit_sw srcw)
-{
-    SLJIT_SKIP_CHECKS(compiler);
-	if (src != SLJIT_RETURN_FREG) {
-        sljit_emit_fop1(compiler, op, SLJIT_RETURN_FREG, 0, src, srcw);
-    }
-
-    // TODO: Optimize float return
-    return sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_RETURN_REG, 0,
-                          E2K_FREG(SLJIT_RETURN_FREG), 0);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
@@ -3800,7 +4033,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
     } else {
         emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, 0, 0, TMP_REG1, DOUBLEWORD | FORCE_LTS);
         BUNDLE_SETUP();
-        emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR | 0, DOUBLEWORD);
+        emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, TMP_REG1, E2K_CTPR | 1, DOUBLEWORD);
         emit_nop(compiler, bundle, 5);
         emit_bundle_finalize(compiler, bundle);
 
@@ -3810,7 +4043,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
             emit_alopf16(compiler, bundle, 0, E2K_RRd, 0x82, RSRC2(TMP_REG1));
         }
 
-        emit_ct(compiler, bundle, E2K_CTPR | 0, E2K_PRED | 0, 0);
+        emit_ct(compiler, bundle, E2K_CTPR | 1, E2K_PRED | 0, 0);
         emit_bundle_finalize(compiler, bundle);
     }
 
@@ -3875,7 +4108,7 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type,
         // We should calc jump len and replace movtd by disp.
     // indirect form
     } else if (SLJIT_IS_MEM(src)) {
-        emit_load(compiler, jump_reg, 0, src, srcw, DOUBLEWORD);
+        emit_load_full(compiler, jump_reg, 0, src, srcw, DOUBLEWORD);
     // indirect form
     } else if (SLJIT_IS_REG(src)) {
         jump_reg = src;
@@ -3884,7 +4117,7 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type,
     }
 
     BUNDLE_SETUP();
-    emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, jump_reg, E2K_CTPR | 0, DOUBLEWORD);
+    emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, jump_reg, E2K_CTPR | 1, DOUBLEWORD);
     emit_nop(compiler, bundle, 5);
     emit_bundle_finalize(compiler, bundle);
 
@@ -3894,7 +4127,7 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type,
         emit_alopf16(compiler, bundle, 0, E2K_RRd, 0x82, RSRC2(TMP_REG1));
     }
 
-    emit_ct(compiler, bundle, E2K_CTPR | 0, E2K_PRED | 0, 0);
+    emit_ct(compiler, bundle, E2K_CTPR | 1, E2K_PRED | 0, 0);
     emit_bundle_finalize(compiler, bundle);
 
     return SLJIT_SUCCESS;
@@ -3916,21 +4149,12 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
 
     // direct form, maybe IMM only
     if (SLJIT_IS_IMM(src)) {
-        //if (flag == SLJIT_JUMP) {
-        //// Patch in the future
-		//    jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
-		//    FAIL_IF_NULL(jump);
-		//    set_jump(jump, compiler, (sljit_u32)JUMP_ADDR);
-		//    jump->u.target = (sljit_uw)srcw;
-		//    jump->addr = compiler->size;
-        //}
-
         emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, srcw, 0, jump_reg, DOUBLEWORD);
         // TODO: Now MOVTd only, but for perf we want disp in the future.
         // We should calc jump len and replace movtd by disp.
     // indirect form
     } else if (SLJIT_IS_MEM(src)) {
-        emit_load(compiler, jump_reg, 0, src, srcw, DOUBLEWORD);
+        emit_load_full(compiler, jump_reg, 0, src, srcw, DOUBLEWORD);
     // indirect form
     } else if (SLJIT_IS_REG(src)) {
         jump_reg = src;
@@ -3948,104 +4172,93 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
     */
 
     BUNDLE_SETUP();
+
+    // Save context
+    // E2K call saves context, but SLJIT_CALL_REG_ARG not, do it manually.
+    // ---------------------
+    if ((type & SLJIT_CALL_REG_ARG) == SLJIT_CALL_REG_ARG) {
+        sljit_s32 all_regs = SLJIT_NUMBER_OF_SAVED_REGISTERS
+                             + SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS;
+        sljit_u32 stack_reg_arg_sz = sizeof(sljit_uw) * (all_regs + 1);
+
+        // Reserve area, +1 - return addr
+        sljit_u32 src2 = -(ALIGN_QUADROWORD(stack_reg_arg_sz));
+        emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
+        emit_bundle_finalize(compiler, bundle);
+
+        /* ii = 1 -> skip return addr */
+        sljit_s32 ii = 1, channels = 0;
+        for (sljit_s32 i = 0; i < SLJIT_NUMBER_OF_SAVED_REGISTERS; i++, ii++) {
+            emit_store(compiler, bundle, SLJIT_MEM1(SLJIT_SP), ii*sizeof(sljit_uw),
+                       SLJIT_S(i), 0, DOUBLEWORD);
+            channels++;
+            BUNDLE_FINALIZE_INNER(channels, (channels), E2K_CHANNEL_STORE_NUMBER);
+        }
+        BUNDLE_FINALIZE_OUTER(channels, (channels), E2K_CHANNEL_STORE_NUMBER);
+
+        channels = 0;
+        for (sljit_s32 i = 0; i < SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS; i++, ii++) {
+            emit_store(compiler, bundle, SLJIT_MEM1(SLJIT_SP), ii*sizeof(sljit_uw),
+                       E2K_FREG(SLJIT_FS(i)), 0, DOUBLEWORD);
+            channels++;
+            BUNDLE_FINALIZE_INNER(channels, (channels), E2K_CHANNEL_STORE_NUMBER);
+        }
+        BUNDLE_FINALIZE_OUTER(channels, (channels), E2K_CHANNEL_STORE_NUMBER);
+    }
+    // --------------------
+
+    // TODO: Up
+    emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, jump_reg, E2K_CTPR | 1, DOUBLEWORD);
+    emit_nop(compiler, bundle, 5);
+    emit_bundle_finalize(compiler, bundle);
+
     if ((type & SLJIT_CALL_REG_ARG) != SLJIT_CALL_REG_ARG) {
+        // TODO: Maybe remove
         // Pass args into new window due to e2k ABI
         sljit_u32 arg_num = 0;
         sljit_s32 ri = 0, fri = 0;
 	    while (arg_types) {
             if ((arg_types & SLJIT_ARG_MASK) >= SLJIT_ARG_TYPE_F64 ) {
                 emit_alopf1(compiler, bundle, 0, E2K_ADDd,
-                            reg_map[E2K_FREG(SLJIT_FR(fri))] | 0x80, 0 | 0xc0, arg_num);
+                            reg_map[E2K_FREG(SLJIT_FR(fri))], 0 | 0xc0, arg_num);
                 fri++;
             } else {
                 emit_alopf1(compiler, bundle, 0, E2K_ADDd,
-                            reg_map[SLJIT_R(ri)] | 0x80, 0 | 0xc0, arg_num);
+                            reg_map[SLJIT_R(ri)], 0 | 0xc0, arg_num);
                 ri++;
             }
-            // emit_bundle_finalize(compiler, bundle);
 	    	arg_types >>= SLJIT_ARG_SHIFT;
             arg_num++;
-
-            // Limit by channel number
-            if ((arg_num % E2K_CHANNEL_NUMBER) == 0) {
-                emit_bundle_finalize(compiler, bundle);
-            }
+            BUNDLE_FINALIZE_INNER(arg_num, arg_num, E2K_CHANNEL_NUMBER);
 	    }
 
-        // Maybe prev loop could not fill the wild command
-        if ((arg_num % E2K_CHANNEL_NUMBER) != 0) {
-            emit_bundle_finalize(compiler, bundle);
-        }
+        BUNDLE_FINALIZE_OUTER(arg_num, arg_num, E2K_CHANNEL_NUMBER);
     }
-
-    // Save context
-    // E2K call saves context, but SLJIT_CALL_REG_ARG not
-    sljit_s32 all_regs = compiler->saveds + compiler->fsaveds;
-    sljit_u32 stack_reg_arg_sz = sizeof(sljit_uw) * (all_regs + 1);
-    // ---------------------
-    if ((type & SLJIT_CALL_REG_ARG) == SLJIT_CALL_REG_ARG) {
-        // Reserve area, +1 - return addr
-        sljit_u32 src2 = -(stack_reg_arg_sz);
-        emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
-        emit_bundle_finalize(compiler, bundle);
-
-        // TODO: Bundle
-        // TODO: Save scratches?
-        sljit_s32 ii = 1;   // return addr
-        for (sljit_s32 i = 0; i < compiler->saveds; i++, ii++) {
-            emit_store(compiler, SLJIT_MEM1(SLJIT_SP), ii*sizeof(sljit_uw),
-                       SLJIT_S(i), 0, DOUBLEWORD);
-        }
-        for (sljit_s32 i = 0; i < compiler->fsaveds; i++, ii++) {
-            emit_store(compiler, SLJIT_MEM1(SLJIT_SP), ii*sizeof(sljit_uw),
-                       SLJIT_FS(i), 0, DOUBLEWORD);
-        }
-    }
-    // --------------------
-
-    emit_alopf2_r(compiler, bundle, 1, E2K_MOVTd, jump_reg, E2K_CTPR | 0, DOUBLEWORD);
-    emit_nop(compiler, bundle, 5);
-    emit_bundle_finalize(compiler, bundle);
 
     if ((type & SLJIT_CALL_REG_ARG) == SLJIT_CALL_REG_ARG) {
         emit_alopf16(compiler, bundle, 0, E2K_RRd, 0x82, RSRC2(TMP_REG1));
-        emit_ct(compiler, bundle, E2K_CTPR | 0, E2K_PRED | 0, 0);
+        emit_ct(compiler, bundle, E2K_CTPR | 1, E2K_PRED | 0, 0);
         emit_bundle_finalize(compiler, bundle);
     } else {
         // HS + SS = 2
-        emit_call(compiler, E2K_CTPR | 0, E2K_PRED | 0, 0, E2K_ROTATED_REG_BASE);
+        emit_call(compiler, E2K_CTPR | 1, E2K_PRED | 0, 0, E2K_ROTATED_REG_BASE);
     }
 
     // Restore context
     // --------------------
     // TODO: Bundle
-    if ((type & SLJIT_CALL_REG_ARG) == SLJIT_CALL_REG_ARG) {
-        sljit_s32 ii = 1;   // return addr
-        for (sljit_s32 i = 0; i < compiler->saveds; i++, ii++) {
-            emit_load(compiler, SLJIT_S(i), 0,
-                      SLJIT_MEM1(SLJIT_SP), ii*sizeof(sljit_uw),
-                      DOUBLEWORD);
-        }
-        for (sljit_s32 i = 0; i < compiler->fsaveds; i++, ii++) {
-            emit_load(compiler, SLJIT_FS(i), 0,
-                      SLJIT_MEM1(SLJIT_SP), ii*sizeof(sljit_uw),
-                      DOUBLEWORD);
-        }
-
-        sljit_u32 src2 = stack_reg_arg_sz;
-        emit_alopf12_i(compiler, bundle, 0, E2K_GETSP, src2, SLJIT_SP, WORD);
-        emit_bundle_finalize(compiler, bundle);
-    }
+    //if ((type & SLJIT_CALL_REG_ARG) == SLJIT_CALL_REG_ARG) {
+    //    restore_reg_arg_context(compiler);
+    //}
     // --------------------
 
-    // move return reg into SLJIT_RETURN_REG
+    // General call: move return reg into SLJIT_RETURN_REG
     if ((type & SLJIT_CALL_REG_ARG) != SLJIT_CALL_REG_ARG) {
         if (arg_return >= SLJIT_ARG_TYPE_F64) {
-            emit_alopf1(compiler, bundle, 0, E2K_ADDd, 0, 0 | 0xc0,
-                        reg_map[E2K_FREG(SLJIT_RETURN_REG)] | 0x80);
+            emit_alopf1(compiler, bundle, 0, E2K_ADDd, CONST4(0), B(0),
+                        reg_map[E2K_FREG(SLJIT_RETURN_REG)]);
         } else {
-            emit_alopf1(compiler, bundle, 0, E2K_ADDd, 0, 0 | 0xc0,
-                        reg_map[SLJIT_RETURN_REG] | 0x80);
+            emit_alopf1(compiler, bundle, 0, E2K_ADDd, CONST4(0), B(0), R(0));
         }
         emit_bundle_finalize(compiler, bundle);
     }
@@ -4185,7 +4398,7 @@ sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
     sljit_s32 e2kop = mode32 ? E2K_MERGEs : E2K_MERGEd;
     sljit_s32 als_idx;
     if (SLJIT_IS_MEM(src1)) {
-        emit_load(compiler, TMP_REG2, 0, src1, src1w, mode);
+        emit_load_full(compiler, TMP_REG2, 0, src1, src1w, mode);
         als_idx = emit_alopf1_rr(compiler, bundle, 0, e2kop,
                                  TMP_REG2, src2_reg, dst_reg, mode);
     } else if (SLJIT_IS_REG(src1)) {
@@ -4244,10 +4457,10 @@ sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
     }
 
     if (type & SLJIT_MEM_STORE) {
-        emit_store_double(compiler, mem, memw, mem, mem2w,
+        emit_store_double_full(compiler, mem, memw, mem, mem2w,
                           SLJIT_EXTRACT_REG(reg), 0, SLJIT_EXTRACT_SECOND_REG(reg), 0, DOUBLEWORD);
     } else {
-        emit_load_double(compiler, SLJIT_EXTRACT_REG(reg), 0, SLJIT_EXTRACT_SECOND_REG(reg), 0,
+        emit_load_double_full(compiler, SLJIT_EXTRACT_REG(reg), 0, SLJIT_EXTRACT_SECOND_REG(reg), 0,
                          mem, memw, mem, mem2w, DOUBLEWORD);
     }
 
