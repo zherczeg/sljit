@@ -179,6 +179,10 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 #define E2K_CALLEE_RETURN_REG SLJIT_R(0)
 #define E2K_CALLER_RETURN_REG SLJIT_R(12)
 
+#define VA_MSB  47
+#define VA_SIZE 48
+#define VA_MASK 0x0000FFFFFFFFFFFF
+
 // + zero
 static const sljit_u8 reg_map[E2K_REG_NUMBER + 1] = {
     0,
@@ -186,10 +190,10 @@ static const sljit_u8 reg_map[E2K_REG_NUMBER + 1] = {
     B(0), B(1), B(2), B(3), B(4), B(5), B(6), B(7),     // ABI param regs
     R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7),     // ABI input regs
     R(8), R(9), R(10), R(11),
-    // saved
     R(12), R(13), R(14), R(15), R(16), R(17), R(18), R(19),
-    R(20), R(21), R(22), R(23), R(24), R(25), R(26), R(27),
-    R(28), R(29), R(30), R(31),
+    R(20), R(21), R(22), R(23), R(24), R(25),
+    // saved
+    R(26), R(27), R(28), R(29), R(30), R(31),
     R(32), // SLJIT_SP
     R(33), // TMP_REG1
     R(34), // TMP_REG2
@@ -199,8 +203,9 @@ static const sljit_u8 reg_map[E2K_REG_NUMBER + 1] = {
     // FLOATS
     // scratch
     R(37), R(38), R(39), R(40), R(41), R(42), R(43), R(44),
+    R(45), R(46), R(47), R(48), R(49), R(50),
     // saved
-    R(45), R(46), R(47), R(48), R(49), R(50), R(51), R(52),
+    R(51), R(52),
     R(53), // TMP_FREG1
     R(54), // TMP_FREG2
     R(55), // TMP_FREG3
@@ -3758,14 +3763,27 @@ sljit_s32 sljit_emit_op_dst(struct sljit_compiler *compiler, sljit_s32 op,
 	CHECK(check_sljit_emit_op_dst(compiler, op, dst, dstw));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
+    BUNDLE_SETUP();
+
 	switch (op) {
 	case SLJIT_FAST_ENTER:
         // save return addr from TMP_REG1 into dst
         signature_switcher2(compiler, E2K_ADDd, dst, dstw, SLJIT_IMM, 0, TMP_REG1, 0, DOUBLEWORD);
 		break;
 	case SLJIT_GET_RETURN_ADDRESS:
-        SLJIT_ASSERT(0);
-        return SLJIT_ERR_UNSUPPORTED;
+        if ((compiler->options & SLJIT_ENTER_REG_ARG) == SLJIT_ENTER_REG_ARG) {
+            signature_switcher2(compiler, E2K_ADDd, dst, dstw,
+                      SLJIT_IMM, 0,
+                      SLJIT_MEM1(SLJIT_SP), ALIGN_QUADROWORD(compiler->local_size),
+                      DOUBLEWORD);
+        } else {
+            // TODO: Support alopf1 offset for float return, see icall 'move return reg'
+            emit_alopf16(compiler, bundle, 0, E2K_RRd, 0x51, RSRC2(TMP_REG1));
+            emit_bundle_finalize(compiler, bundle);
+            signature_switcher2(compiler, E2K_ANDd, dst, dstw,
+                                TMP_REG1, 0,
+                                SLJIT_IMM, VA_MASK, DOUBLEWORD);
+        }
 	}
 
 	return SLJIT_SUCCESS;
@@ -4213,7 +4231,7 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
     emit_bundle_finalize(compiler, bundle);
 
     if ((type & SLJIT_CALL_REG_ARG) != SLJIT_CALL_REG_ARG) {
-        // TODO: Maybe remove
+        // Maybe remove? No, checked.
         // Pass args into new window due to e2k ABI
         sljit_u32 arg_num = 0;
         sljit_s32 ri = 0, fri = 0;
@@ -4244,30 +4262,28 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler, sljit_s32 type,
         emit_call(compiler, E2K_CTPR | 1, E2K_PRED | 0, 0, E2K_ROTATED_REG_BASE);
     }
 
-    // Restore context
-    // --------------------
-    // TODO: Bundle
-    //if ((type & SLJIT_CALL_REG_ARG) == SLJIT_CALL_REG_ARG) {
-    //    restore_reg_arg_context(compiler);
-    //}
-    // --------------------
-
-    // General call: move return reg into SLJIT_RETURN_REG
+    // General call: move return reg into SLJIT_RETURN_REG.
+    // Integer arg is processed as b0, so we should copy float only.
     if ((type & SLJIT_CALL_REG_ARG) != SLJIT_CALL_REG_ARG) {
+        /* TODO: Possible bug due to return float reg cant be return int reg. */
         if (arg_return >= SLJIT_ARG_TYPE_F64) {
             emit_alopf1(compiler, bundle, 0, E2K_ADDd, CONST4(0), B(0),
                         reg_map[E2K_FREG(SLJIT_RETURN_REG)]);
-        } else {
-            emit_alopf1(compiler, bundle, 0, E2K_ADDd, CONST4(0), B(0), R(0));
+            emit_bundle_finalize(compiler, bundle);
         }
-        emit_bundle_finalize(compiler, bundle);
     }
 
     if (type & SLJIT_CALL_RETURN) {
-        //emit_return(compiler, 0, 0);
-        compiler->skip_checks = 1;
+        // Provide return value for caller in case of general call
+        if ((type & SLJIT_CALL_REG_ARG) != SLJIT_CALL_REG_ARG) {
+            if (arg_return < SLJIT_ARG_TYPE_F64) {
+                emit_alopf1(compiler, bundle, 0, E2K_ADDd, CONST4(0), B(0), R(0));
+                emit_bundle_finalize(compiler, bundle);
+            }
+        }
+
+	    SLJIT_SKIP_CHECKS(compiler);
         sljit_emit_return_void(compiler);
-        compiler->skip_checks = 0;
     }
     return SLJIT_SUCCESS;
 }
