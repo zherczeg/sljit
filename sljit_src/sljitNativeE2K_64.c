@@ -2884,7 +2884,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
 
     sljit_s32 arg_types_orig = arg_types;
     /*
-        Correction sljit and e2k ABI compability
+        Correction sljit and e2k ABI compability.
+        We should keep b0 as r0, but in prologue we should transfer r0 -> b0
+        due to reverse effect.
     */
     if ((options & SLJIT_ENTER_REG_ARG) != SLJIT_ENTER_REG_ARG) {
         sljit_s32 si = 0, fri = 0, fsi = 0, i = 0;
@@ -3796,13 +3798,14 @@ sljit_s32 sljit_get_register_index(sljit_s32 type, sljit_s32 reg)
 
     switch (type) {
         case SLJIT_GP_REGISTER:
-        case SLJIT_FLOAT_REGISTER:
             // rotated base
             if ((reg_map[reg] & REG_MASK) == reg_map[reg]) {
 		        return (reg_map[reg] & REG_MASK) + (E2K_ROTATED_REG_BASE << 1);
             } else {
 		        return reg_map[reg] & REG_MASK;
             }
+        case SLJIT_FLOAT_REGISTER:
+		    return reg_map[E2K_FREG(reg)];
         default:
             return -1;
     }
@@ -3929,38 +3932,50 @@ sljit_s32 sljit_emit_fop2(struct sljit_compiler *compiler, sljit_s32 op,
 	ADJUST_LOCAL_OFFSET(src1, src1w);
 	ADJUST_LOCAL_OFFSET(src2, src2w);
 
+    // Choose reg map
+    sljit_s32 fdst = dst, fsrc1 = src1, fsrc2 = src2;
+    if (SLJIT_IS_REG(dst)) {
+        fdst = E2K_FREG(fdst);
+    }
+    if (SLJIT_IS_REG(src1)) {
+        fsrc1 = E2K_FREG(fsrc1);
+    }
+    if (SLJIT_IS_REG(src2)) {
+        fsrc2 = E2K_FREG(fsrc2);
+    }
+
 	switch (GET_OPCODE(op)) {
     case SLJIT_ADD_F64:
-        signature_switcher2(compiler, E2K_FADDd, dst, dstw, src1, src1w,
-                            src2, src2w, DOUBLEWORD);
+        signature_switcher2(compiler, E2K_FADDd, fdst, dstw, fsrc1, src1w,
+                            fsrc2, src2w, DOUBLEWORD);
         break;
     case SLJIT_ADD_F32:
-        signature_switcher2(compiler, E2K_FADDs, dst, dstw, src1, src1w,
-                            src2, src2w, WORD);
+        signature_switcher2(compiler, E2K_FADDs, fdst, dstw, fsrc1, src1w,
+                            fsrc2, src2w, WORD);
         break;
     case SLJIT_SUB_F64:
-        signature_switcher2(compiler, E2K_FSUBd, dst, dstw, src1, src1w,
-                            src2, src2w, DOUBLEWORD);
+        signature_switcher2(compiler, E2K_FSUBd, fdst, dstw, fsrc1, src1w,
+                            fsrc2, src2w, DOUBLEWORD);
         break;
     case SLJIT_SUB_F32:
-        signature_switcher2(compiler, E2K_FSUBs, dst, dstw, src1, src1w,
-                            src2, src2w, WORD);
+        signature_switcher2(compiler, E2K_FSUBs, fdst, dstw, fsrc1, src1w,
+                            fsrc2, src2w, WORD);
         break;
     case SLJIT_MUL_F64:
-        signature_switcher2(compiler, E2K_FMULd, dst, dstw, src1, src1w,
-                            src2, src2w, DOUBLEWORD);
+        signature_switcher2(compiler, E2K_FMULd, fdst, dstw, fsrc1, src1w,
+                            fsrc2, src2w, DOUBLEWORD);
         break;
     case SLJIT_MUL_F32:
-        signature_switcher2(compiler, E2K_FMULs, dst, dstw, src1, src1w,
-                            src2, src2w, WORD);
+        signature_switcher2(compiler, E2K_FMULs, fdst, dstw, fsrc1, src1w,
+                            fsrc2, src2w, WORD);
         break;
     case SLJIT_DIV_F64:
-        signature_switcher2(compiler, E2K_FDIVd, dst, dstw, src1, src1w,
-                            src2, src2w, DOUBLEWORD);
+        signature_switcher2(compiler, E2K_FDIVd, fdst, dstw, fsrc1, src1w,
+                            fsrc2, src2w, DOUBLEWORD);
         break;
     case SLJIT_DIV_F32:
-        signature_switcher2(compiler, E2K_FDIVs, dst, dstw, src1, src1w,
-                            src2, src2w, WORD);
+        signature_switcher2(compiler, E2K_FDIVs, fdst, dstw, fsrc1, src1w,
+                            fsrc2, src2w, WORD);
         break;
     default:
         SLJIT_ASSERT(0);
