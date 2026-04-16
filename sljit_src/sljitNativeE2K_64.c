@@ -2930,7 +2930,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
     if ((options & SLJIT_ENTER_REG_ARG) != SLJIT_ENTER_REG_ARG) {
         // distribute args to regs
         sljit_s32 arg_type;
-        sljit_s32 si = 0, fri = 0, fsi = 0, i = 0;
+        sljit_s32 ri = 0, si = 0, fri = 0, fsi = 0, i = 0;
 
         // skip return
         arg_types = arg_types_orig >> SLJIT_ARG_SHIFT;
@@ -2943,18 +2943,24 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
                 fri++;
             } else {
                 // saved
-                if (!(arg_type & SLJIT_ARG_TYPE_SCRATCH_REG)) {
+                if ((arg_type & SLJIT_ARG_TYPE_SCRATCH_REG) != SLJIT_ARG_TYPE_SCRATCH_REG) {
                     emit_alopf1(compiler, bundle, 0, E2K_ADDd,
                                 R(i), CONST4(0), reg_map[SLJIT_S(si)]);
                     si++;
                 }
+                // scratch
+                if ((arg_type & SLJIT_ARG_TYPE_SCRATCH_REG) == SLJIT_ARG_TYPE_SCRATCH_REG) {
+                    emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                                R(i), CONST4(0), reg_map[SLJIT_R(ri)]);
+                }
+                ri++;
             }
             arg_types = (arg_types >> SLJIT_ARG_SHIFT);
             i++;
 
-            BUNDLE_FINALIZE_INNER(i, (fri || si), E2K_CHANNEL_NUMBER);
+            BUNDLE_FINALIZE_INNER(i, (fri || si || ri), E2K_CHANNEL_NUMBER);
         }
-        BUNDLE_FINALIZE_OUTER(i, (fri || si), E2K_CHANNEL_NUMBER);
+        BUNDLE_FINALIZE_OUTER(i, (fri || si || ri), E2K_CHANNEL_NUMBER);
     }
 
 	return SLJIT_SUCCESS;
