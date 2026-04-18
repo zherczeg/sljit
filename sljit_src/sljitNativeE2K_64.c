@@ -4110,8 +4110,56 @@ SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
 	                       sljit_s32 freg, sljit_s32 reg)
 {
-    SLJIT_ASSERT(0);
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
+
+    freg = E2K_FREG(freg);
+    sljit_u32 mode32 = op & SLJIT_32;
+    BUNDLE_SETUP();
+
+    switch(op & 0xF) {
+        case SLJIT_COPY_TO_F64:
+            emit_op_full(compiler, E2K_ADDd, REG_SRC1,
+                         reg, 0, 0, freg, DOUBLEWORD);
+            break;
+        case SLJIT_COPY32_TO_F32:
+            emit_op(compiler, bundle, E2K_SHLd, REG_SRC1,
+                    SLJIT_EXTRACT_REG(reg), 32, 0, TMP_REG1, DOUBLEWORD);
+            if (SLJIT_IS_REG_PAIR(reg)) {
+                emit_op(compiler, bundle, E2K_ANDd, REG_SRC1,
+                        SLJIT_EXTRACT_SECOND_REG(reg), 0xFFFFFFFF, 0, TMP_REG2, DOUBLEWORD);
+            } else {
+                emit_op(compiler, bundle, E2K_ANDd, REG_SRC1,
+                        freg, 0xFFFFFFFF, 0, TMP_REG2, DOUBLEWORD);
+            }
+            emit_bundle_finalize(compiler, bundle);
+            emit_op_full(compiler, E2K_ORd, REG_SRC1 | REG_SRC2,
+                         TMP_REG1, TMP_REG2, 0, freg, DOUBLEWORD);
+            break;
+        case SLJIT_COPY_FROM_F64:
+            emit_op_full(compiler, E2K_ADDd, REG_SRC1,
+                         freg, 0, 0, reg, DOUBLEWORD);
+            break;
+        case SLJIT_COPY32_FROM_F32:
+            emit_op(compiler, bundle, E2K_SHLd, REG_SRC1,
+                    SLJIT_EXTRACT_REG(freg), 32, 0, TMP_REG1, DOUBLEWORD);
+            if (SLJIT_IS_REG_PAIR(reg)) {
+                emit_op(compiler, bundle, E2K_ANDd, REG_SRC1,
+                        SLJIT_EXTRACT_SECOND_REG(freg), 0xFFFFFFFF, 0, TMP_REG2, DOUBLEWORD);
+            } else {
+                emit_op(compiler, bundle, E2K_ANDd, REG_SRC1,
+                        reg, 0xFFFFFFFF, 0, TMP_REG2, DOUBLEWORD);
+            }
+            emit_bundle_finalize(compiler, bundle);
+            emit_op_full(compiler, E2K_ORd, REG_SRC1 | REG_SRC2,
+                         TMP_REG1, TMP_REG2, 0, reg, DOUBLEWORD);
+            break;
+        default:
+            SLJIT_ASSERT(0);
+            break;
+
+    }
+    return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
