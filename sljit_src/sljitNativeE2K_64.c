@@ -4094,16 +4094,38 @@ SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_fset32(struct sljit_compiler *compiler,
 	                        sljit_s32 freg, sljit_f32 value)
 {
-    SLJIT_ASSERT(0);
-    return SLJIT_ERR_UNSUPPORTED;
+	union {
+		sljit_s32 imm;
+		sljit_f32 value;
+	} u;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fset32(compiler, freg, value));
+
+    freg = E2K_FREG(freg);
+    u.value = value;
+
+    emit_op_full(compiler, E2K_ADDs, REG_ZERO, 0, u.imm, 0, freg, DOUBLEWORD);
+    return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_fset64(struct sljit_compiler *compiler,
 	                        sljit_s32 freg, sljit_f64 value)
 {
-    SLJIT_ASSERT(0);
-    return SLJIT_ERR_UNSUPPORTED;
+	union {
+		sljit_sw imm;
+		sljit_f64 value;
+	} u;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fset64(compiler, freg, value));
+
+    freg = E2K_FREG(freg);
+    u.value = value;
+
+    emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, u.imm, 0, freg, DOUBLEWORD);
+    return SLJIT_SUCCESS;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
