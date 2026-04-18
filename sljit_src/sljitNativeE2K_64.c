@@ -2543,6 +2543,7 @@ void signature_switcher2(struct sljit_compiler *compiler,
 static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 type)
 {
     sljit_u32 neg = 0;
+    sljit_s32 als_idx;
     // WARNING
     // Sync with sljit_cmp_info
     BUNDLE_SETUP();
@@ -2610,9 +2611,11 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
                 SLJIT_ASSERT(0);
                 break;
         }
-    } else if (type < SLJIT_ORDERED_EQUAL) {
+    } else if (type <= SLJIT_SET_ORDERED_LESS_EQUAL) {
+        // Float
         switch (type) {
             case SLJIT_F_EQUAL:
+            case SLJIT_ORDERED_EQUAL:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
                                     DOUBLEWORD);
@@ -2620,6 +2623,7 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
                                TMP_REG2, IFL_ZF, E2K_PRED | FLAG_PREG, DOUBLEWORD);
                 break;
             case SLJIT_F_NOT_EQUAL:
+            case SLJIT_ORDERED_NOT_EQUAL:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF,
                                     DOUBLEWORD);
@@ -2627,6 +2631,7 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
                                TMP_REG2, IFL_ZERO, E2K_PRED | FLAG_PREG, DOUBLEWORD);
                 break;
             case SLJIT_F_LESS:
+            case SLJIT_ORDERED_LESS:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
                                     DOUBLEWORD);
@@ -2634,6 +2639,7 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
                                TMP_REG2, IFL_CF, E2K_PRED | FLAG_PREG, DOUBLEWORD);
                 break;
             case SLJIT_F_GREATER_EQUAL:
+            case SLJIT_ORDERED_GREATER_EQUAL:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_PF | IFL_CF,
                                     DOUBLEWORD);
@@ -2641,6 +2647,7 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
                                TMP_REG2, IFL_ZERO, E2K_PRED | FLAG_PREG, DOUBLEWORD);
                 break;
             case SLJIT_F_GREATER:
+            case SLJIT_ORDERED_GREATER:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
                                     DOUBLEWORD);
@@ -2648,12 +2655,19 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
                                TMP_REG2, IFL_ZERO, E2K_PRED | FLAG_PREG, DOUBLEWORD);
                 break;
             case SLJIT_F_LESS_EQUAL:
-                // TODO: unordered too
+            case SLJIT_ORDERED_LESS_EQUAL:
+                // TODO: slow
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
                                     DOUBLEWORD);
                 emit_alopf7_ri(compiler, bundle, 0, E2K_CMPBEsb,
                                TMP_REG2, IFL_ZERO, E2K_PRED | FLAG_PREG, DOUBLEWORD);
+                emit_bundle_finalize(compiler, bundle);
+                // ordered
+                als_idx = emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                                         TMP_REG2, IFL_ZF | IFL_PF | IFL_CF,
+                                         E2K_PRED | FLAG_PREG, DOUBLEWORD);
+                emit_rlp(compiler, bundle, als_idx, E2K_PRED | FLAG_PREG, 1);
                 neg = 1;
                 break;
             case SLJIT_UNORDERED:
@@ -2661,7 +2675,8 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
                                     FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
                                     DOUBLEWORD);
                 emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
-                               TMP_REG2, IFL_ZF | IFL_PF | IFL_CF, E2K_PRED | FLAG_PREG, DOUBLEWORD);
+                               TMP_REG2, IFL_ZF | IFL_PF | IFL_CF,
+                               E2K_PRED | FLAG_PREG, DOUBLEWORD);
                 break;
             case SLJIT_ORDERED:
                 signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
@@ -2670,10 +2685,72 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
                 emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
                                TMP_REG2, IFL_ZERO, E2K_PRED | FLAG_PREG, DOUBLEWORD);
                 break;
+
+            // Unordered
+            case SLJIT_UNORDERED_OR_NOT_EQUAL:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
+                                    DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG2, IFL_ZF,
+                               E2K_PRED | FLAG_PREG, DOUBLEWORD);
+                neg = 1;
+                break;
+            case SLJIT_UNORDERED_OR_GREATER_EQUAL:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
+                                    DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG2, IFL_CF,
+                               E2K_PRED | FLAG_PREG, DOUBLEWORD);
+                neg = 1;
+                break;
+            case SLJIT_UNORDERED_OR_LESS_EQUAL:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
+                                    DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG2, IFL_ZERO,
+                               E2K_PRED | FLAG_PREG, DOUBLEWORD);
+                neg = 1;
+                break;
+            case SLJIT_UNORDERED_OR_EQUAL:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF,
+                                    DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG2, IFL_ZF,
+                               E2K_PRED | FLAG_PREG, DOUBLEWORD);
+                break;
+            case SLJIT_UNORDERED_OR_LESS:
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_CF,
+                                    DOUBLEWORD);
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG2, IFL_CF,
+                               E2K_PRED | FLAG_PREG, DOUBLEWORD);
+                break;
+            case SLJIT_UNORDERED_OR_GREATER:
+                // TODO: slow
+                signature_switcher2(compiler, E2K_ANDs, TMP_REG2, 0,
+                                    FLAG_REG, 0, SLJIT_IMM, IFL_ZF | IFL_PF | IFL_CF,
+                                    DOUBLEWORD);
+                // greater
+                emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                               TMP_REG2, IFL_ZERO,
+                               E2K_PRED | FLAG_PREG, DOUBLEWORD);
+                emit_bundle_finalize(compiler, bundle);
+                // unordered
+                als_idx = emit_alopf7_ri(compiler, bundle, 0, E2K_CMPEsb,
+                                         TMP_REG2, IFL_ZF | IFL_PF | IFL_CF,
+                                         E2K_PRED | FLAG_PREG, DOUBLEWORD);
+                emit_rlp(compiler, bundle, als_idx, E2K_PRED | FLAG_PREG, 1);
+                break;
+
+            default:
+                SLJIT_ASSERT(0);
+                break;
         }
-    } else if (type <= SLJIT_SET_ORDERED_LESS_EQUAL) {
-        // TODO: ?
-        SLJIT_ASSERT(0);
     } else {
         SLJIT_ASSERT(0);
     }
@@ -4415,14 +4492,28 @@ sljit_s32 sljit_cmp_info(sljit_s32 type)
             return 0;
 
         case SLJIT_F_EQUAL:
+        case SLJIT_ORDERED_EQUAL:
         case SLJIT_F_NOT_EQUAL:
+        case SLJIT_ORDERED_NOT_EQUAL:
         case SLJIT_F_LESS:
+        case SLJIT_ORDERED_LESS:
         case SLJIT_F_GREATER_EQUAL:
+        case SLJIT_ORDERED_GREATER_EQUAL:
         case SLJIT_F_GREATER:
+        case SLJIT_ORDERED_GREATER:
         case SLJIT_F_LESS_EQUAL:
         case SLJIT_UNORDERED:
         case SLJIT_ORDERED:
+        case SLJIT_UNORDERED_OR_NOT_EQUAL:
+        case SLJIT_UNORDERED_OR_GREATER_EQUAL:
+        case SLJIT_UNORDERED_OR_LESS_EQUAL:
+        case SLJIT_UNORDERED_OR_EQUAL:
+        case SLJIT_UNORDERED_OR_LESS:
             return 1;
+
+        case SLJIT_UNORDERED_OR_GREATER:
+        case SLJIT_ORDERED_LESS_EQUAL:
+            return 2;
 
         default:
             SLJIT_ASSERT(0);
