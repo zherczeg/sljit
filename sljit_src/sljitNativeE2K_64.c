@@ -4569,16 +4569,12 @@ sljit_s32 sljit_cmp_info(sljit_s32 type)
     }
 }
 
-SLJIT_API_FUNC_ATTRIBUTE
-sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
-	                        sljit_s32 dst_reg,
-	                        sljit_s32 src1, sljit_sw src1w,
-	                        sljit_s32 src2_reg)
+static inline
+sljit_s32 emit_select(struct sljit_compiler *compiler, sljit_s32 type,
+	                  sljit_s32 dst_reg,
+	                  sljit_s32 src1, sljit_sw src1w,
+	                  sljit_s32 src2_reg)
 {
-	CHECK_ERROR();
-	CHECK(check_sljit_emit_select(compiler, type, dst_reg, src1, src1w, src2_reg));
-	ADJUST_LOCAL_OFFSET(src1, src1w);
-
     sljit_u32 mode32 = type & SLJIT_32;
     sljit_u32 mode = mode32 ? WORD : DOUBLEWORD;
 
@@ -4626,13 +4622,35 @@ sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
+sljit_s32 sljit_emit_select(struct sljit_compiler *compiler, sljit_s32 type,
+	                        sljit_s32 dst_reg,
+	                        sljit_s32 src1, sljit_sw src1w,
+	                        sljit_s32 src2_reg)
+{
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_select(compiler, type, dst_reg, src1, src1w, src2_reg));
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+    return emit_select(compiler, type, dst_reg, src1, src1w, src2_reg);
+}
+
+SLJIT_API_FUNC_ATTRIBUTE
 sljit_s32 sljit_emit_fselect(struct sljit_compiler *compiler, sljit_s32 type,
 	                         sljit_s32 dst_freg,
 	                         sljit_s32 src1, sljit_sw src1w,
 	                         sljit_s32 src2_freg)
 {
-    SLJIT_ASSERT(0);
-    return SLJIT_ERR_UNSUPPORTED;
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fselect(compiler, type, dst_freg, src1, src1w, src2_freg));
+	ADJUST_LOCAL_OFFSET(src1, src1w);
+
+    dst_freg = E2K_FREG(dst_freg);
+    if (SLJIT_IS_REG(src1)) {
+        src1 = E2K_FREG(src1);
+    }
+    src2_freg = E2K_FREG(src2_freg);
+
+    return emit_select(compiler, type, dst_freg, src1, src1w, src2_freg);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
