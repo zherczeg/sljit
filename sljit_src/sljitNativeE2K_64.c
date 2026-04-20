@@ -4125,6 +4125,16 @@ sljit_s32 sljit_emit_fop2(struct sljit_compiler *compiler, sljit_s32 op,
     sljit_u32 mode32 = op & SLJIT_32;
     sljit_u16 e2kop = 0, e2kop_fd = 0;
     sljit_s32 mode = mode32 ? WORD : DOUBLEWORD;
+    sljit_s32 add = mode32 ? E2K_ADDs : E2K_ADDd;
+    sljit_s32 and = mode32 ? E2K_ANDs : E2K_ANDd;
+    sljit_s32 or = mode32 ? E2K_ORs : E2K_ORd;
+    sljit_uw abs = mode32 ? 0x7FFFFFFF : 0x7FFFFFFFFFFFFFFF;
+    sljit_uw sign = mode32 ? 0x80000000 : 0x8000000000000000;
+
+    sljit_uw in1, in2;
+    sljit_s32 finalize = 0;
+
+    BUNDLE_SETUP();
 
 	switch (GET_OPCODE(op)) {
     case SLJIT_ADD_F64:
@@ -4142,6 +4152,40 @@ sljit_s32 sljit_emit_fop2(struct sljit_compiler *compiler, sljit_s32 op,
     case SLJIT_DIV_F64:
     // case SLJIT_DIV_F32:
         e2kop = mode32 ? E2K_FDIVs : E2K_FDIVd;
+        break;
+    case SLJIT_COPYSIGN_F64:
+    // case SLJIT_COPYSIGN_F32:
+        if (SLJIT_IS_MEM(fsrc1)) {
+            emit_load(compiler, bundle, TMP_REG1, 0, fsrc1, src1w, mode);
+            fsrc1 = TMP_REG1;
+            finalize = 1;
+        } else if (SLJIT_IS_IMM(fsrc1)) {
+            emit_op(compiler, bundle, add, REG_ZERO, 0, fsrc1, 0, TMP_REG1, mode);
+            fsrc1 = TMP_REG1;
+            finalize = 1;
+        }
+        if (SLJIT_IS_MEM(fsrc2)) {
+            emit_load(compiler, bundle, TMP_REG2, 0, fsrc2, src2w, mode);
+            fsrc2 = TMP_REG2;
+            finalize = 1;
+        } else if (SLJIT_IS_IMM(fsrc2)) {
+            emit_op(compiler, bundle, add, REG_ZERO, 0, fsrc2, 0, TMP_REG2, mode);
+            fsrc2 = TMP_REG2;
+            finalize = 1;
+        }
+        if (finalize) {
+            emit_bundle_finalize(compiler, bundle);
+        }
+
+        emit_op(compiler, bundle, and, REG_SRC1,
+                fsrc1, abs, 0, TMP_REG1, mode);
+        emit_op(compiler, bundle, and, REG_SRC1,
+                fsrc2, sign, 0, TMP_REG2, mode);
+        emit_bundle_finalize(compiler, bundle);
+
+        e2kop = or;
+        fsrc1 = TMP_REG1;
+        fsrc2 = TMP_REG2;
         break;
     default:
         SLJIT_ASSERT(0);
@@ -4816,7 +4860,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler, sljit_s32 
     sljit_u32 mode32 = op & SLJIT_32;
     sljit_s32 add = mode32 ? E2K_ADDs : E2K_ADDd;
     sljit_s32 and = mode32 ? E2K_ANDs : E2K_ANDd;
-    sljit_s32 or = mode32 ? E2K_ANDs : E2K_ANDd;
+    sljit_s32 or = mode32 ? E2K_ORs : E2K_ORd;
     sljit_s32 mode = mode32 ? WORD : DOUBLEWORD;
     sljit_s32 mode_store = mode;
 
