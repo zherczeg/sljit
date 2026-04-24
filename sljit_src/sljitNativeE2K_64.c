@@ -2785,8 +2785,6 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
 	code = (sljit_u8*)allocate_executable_memory(compiler->size,
                                                  options, exec_allocator_data,
                                                  &executable_offset);
-    SLJIT_CACHE_FLUSH(code, code + compiler->size);
-
 	PTR_FAIL_WITH_EXEC_IF(code);
 
 	reverse_buf(compiler);
@@ -2807,8 +2805,30 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
         buf = buf->next;
     }
 
+    /* Label alignment may be the only once due to all labels are aligned
+       at pregerenating stage. So aligned may be 0 or 1.  */
+    sljit_s32 aligned = 0;
+    sljit_s32 align_size = sizeof(sljit_uw);    /* e2k inst alignment */
+    sljit_uw  align_bound = 0;
+
     // LABELS
     while(label) {
+        if (label->u.index >= SLJIT_LABEL_ALIGNED) {
+            /* In emit_aligned_label we provide aligned access with nop,
+               so we can move real code up to save alignment in case of
+               unaligned mmap */
+            struct sljit_extended_label *ext_label = (struct sljit_extended_label*)label;
+            sljit_uw current_addr = (sljit_uw)code + label->size;
+            if ((ext_label->data == SLJIT_LABEL_ALIGN_16) && ((current_addr & 0xF) != 0)) {
+                sljit_uw copy_size = (sljit_uw)code + compiler->executable_size - current_addr;
+                void *dst = (void *)(current_addr - align_size);
+                void *src = (void*)current_addr;
+                SLJIT_MEMMOVE(dst, src, copy_size);
+                label->size -= align_size;
+                align_bound = (sljit_uw)code + label->size;
+                aligned = 1;
+            }
+        }
         label->u.addr = (sljit_uw)code + label->size;
         label = label->next;
     }
@@ -2818,7 +2838,13 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
     while (jump) {
 	    sljit_uw flags = jump->flags;
 	    sljit_uw addr = (flags & JUMP_ADDR) ? jump->u.target : jump->u.label->u.addr;
+        if (align_bound && (addr >= align_bound)) {
+            addr -= align_size;
+        }
 	    jump->addr = (sljit_uw)code + jump->addr;
+        if (align_bound && (jump->addr >= align_bound)) {
+            jump->addr -= align_size;
+        }
         sljit_set_const(jump->addr, SLJIT_MOV, addr, executable_offset);
         jump = jump->next;
     }
@@ -2826,9 +2852,11 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
     // CONSTS
     while(const_) {
         const_->addr = (sljit_uw)code + const_->addr;
+        if (align_bound && (const_->addr >= align_bound)) {
+            const_->addr -= align_size;
+        }
         const_ = const_->next;
     }
-
 
 	compiler->error = SLJIT_ERR_COMPILED;
 	compiler->executable_offset = executable_offset;
@@ -2837,6 +2865,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
 
 	code = (sljit_u8*)SLJIT_ADD_EXEC_OFFSET(code, executable_offset);
 
+    SLJIT_CACHE_FLUSH(code, code + compiler->size);
 	SLJIT_UPDATE_WX_FLAGS(code, (sljit_u8*)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset), 1);
 	return (void*)code;
 }
@@ -4316,7 +4345,61 @@ SLJIT_API_FUNC_ATTRIBUTE
 struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler,
     sljit_s32 alignment, struct sljit_read_only_buffer *buffers)
 {
-    return NULL;
+	sljit_uw mask, i;
+	struct sljit_label *label;
+	struct sljit_label *next_label;
+	struct sljit_extended_label *ext_label;
+
+	CHECK_ERROR_PTR();
+	CHECK_PTR(check_sljit_emit_aligned_label(compiler, alignment, buffers));
+
+	sljit_reset_read_only_buffers(buffers);
+    BUNDLE_SETUP();
+
+	if (alignment <= SLJIT_LABEL_ALIGN_8) {
+		SLJIT_SKIP_CHECKS(compiler);
+		label = sljit_emit_label(compiler);
+		PTR_FAIL_IF(!label);
+	} else {
+		/* The used space is filled with NOPs. */
+		// mask = ((sljit_uw)1 << alignment) - sizeof(sljit_uw);
+		mask = ((sljit_uw)1 << alignment);
+
+        /* We always fill with nops because we dont know alignment of address
+           from mmap */
+		for (i = (mask >> 4); i > 0; i--){
+            emit_bundle_finalize(compiler, bundle);
+        }
+
+		ext_label = (struct sljit_extended_label*)ensure_abuf(compiler, sizeof(struct sljit_extended_label));
+		PTR_FAIL_IF(!ext_label);
+		set_extended_label(ext_label, compiler, SLJIT_LABEL_ALIGNED, alignment);
+		label = &ext_label->label;
+	}
+
+	if (buffers == NULL)
+		return label;
+
+	next_label = label;
+
+	while (1) {
+		buffers->u.label = next_label;
+
+        // TODO: What is it?
+		for (i = (buffers->size + 3) >> 3; i > 0; i--)
+            emit_bundle_finalize(compiler, bundle);
+
+		buffers = buffers->next;
+
+		if (buffers == NULL)
+			break;
+
+		SLJIT_SKIP_CHECKS(compiler);
+		next_label = sljit_emit_label(compiler);
+		PTR_FAIL_IF(!next_label);
+	}
+
+	return label;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
