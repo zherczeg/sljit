@@ -2785,6 +2785,33 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
     return neg;
 }
 
+struct alignment_bound_vector {
+    sljit_s32 size;
+    sljit_s32 used;
+    sljit_uw *bound;
+};
+
+sljit_s32 alignment_bound_vector_add(struct alignment_bound_vector *align_vector,
+                                     sljit_uw addr)
+{
+    sljit_s32 add_chunk = 32;
+    sljit_s32 add_size = add_chunk * sizeof(sljit_uw);
+
+    /* only for init */
+    if (align_vector->size == 0) {
+        align_vector->bound = (sljit_uw*)malloc(add_size);
+        align_vector->size = add_chunk;
+    }
+    /* extend */
+    if (align_vector->size == align_vector->used) {
+        align_vector->bound = (sljit_uw*)realloc(align_vector->bound,
+                                                 align_vector->size + add_size);
+        align_vector->size = align_vector->size + add_size;
+    }
+    align_vector->bound[align_vector->used] = addr;
+    align_vector->used++;
+}
+
 SLJIT_API_FUNC_ATTRIBUTE
 void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
                           void *exec_allocator_data)
@@ -2831,28 +2858,40 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
         buf = buf->next;
     }
 
-    /* Label alignment may be the only once due to all labels are aligned
-       at pregerenating stage. So aligned may be 0 or 1.  */
-    sljit_s32 aligned = 0;
     sljit_s32 align_size = sizeof(sljit_uw);    /* e2k inst alignment */
-    sljit_uw  align_bound = 0;
+
+    struct alignment_bound_vector align_bound;
+    align_bound.size = 0;
+    align_bound.used = 0;
+    align_bound.bound = NULL;
+    sljit_uw align_bound_addr;
 
     // LABELS
     while(label) {
+        /* align next labels */
+        if (align_bound.used) {
+            label->size -= (align_size*(align_bound.used));
+        }
+
         if (label->u.index >= SLJIT_LABEL_ALIGNED) {
             /* In emit_aligned_label we provide aligned access with nop,
                so we can move real code up to save alignment in case of
                unaligned mmap */
             struct sljit_extended_label *ext_label = (struct sljit_extended_label*)label;
-            sljit_uw current_addr = (sljit_uw)code + label->size;
-            if ((ext_label->data == SLJIT_LABEL_ALIGN_16) && ((current_addr & 0xF) != 0)) {
-                sljit_uw copy_size = (sljit_uw)code + compiler->executable_size - current_addr;
-                void *dst = (void *)(current_addr - align_size);
-                void *src = (void*)current_addr;
-                SLJIT_MEMMOVE(dst, src, copy_size);
-                label->size -= align_size;
-                align_bound = (sljit_uw)code + label->size;
-                aligned = 1;
+            if (ext_label->data == SLJIT_LABEL_ALIGN_16) {
+                sljit_uw current_addr = (sljit_uw)code + label->size;
+
+                if ((current_addr & 0xF) != 0) {
+                    sljit_uw copy_size = (sljit_uw)code
+                                         + compiler->executable_size
+                                         - current_addr;
+                    void *dst = (void *)(current_addr - align_size);
+                    void *src = (void*)current_addr;
+                    SLJIT_MEMMOVE(dst, src, copy_size);
+                    label->size -= align_size;
+                    align_bound_addr = (sljit_uw)code + label->size;
+                    alignment_bound_vector_add(&align_bound, align_bound_addr);
+                }
             }
         }
         label->u.addr = (sljit_uw)code + label->size;
@@ -2863,14 +2902,19 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
     // TODO: Support short jumps
     while (jump) {
 	    sljit_uw flags = jump->flags;
-	    sljit_uw addr = (flags & JUMP_ADDR) ? jump->u.target : jump->u.label->u.addr;
-        if (align_bound && (addr >= align_bound)) {
-            addr -= align_size;
-        }
+	    sljit_uw addr = (flags & JUMP_ADDR) ? jump->u.target
+                                            : jump->u.label->u.addr;
+
 	    jump->addr = (sljit_uw)code + jump->addr;
-        if (align_bound && (jump->addr >= align_bound)) {
-            jump->addr -= align_size;
+        /* do offset with alignment number */
+        for (sljit_s32 i = 0; i < align_bound.used; i++) {
+            if (jump->addr >= align_bound.bound[i]) {
+                jump->addr -= align_size;
+            } else {
+                break;
+            }
         }
+
         sljit_set_const(jump->addr, SLJIT_MOV, addr, executable_offset);
         jump = jump->next;
     }
@@ -2878,9 +2922,16 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
     // CONSTS
     while(const_) {
         const_->addr = (sljit_uw)code + const_->addr;
-        if (align_bound && (const_->addr >= align_bound)) {
-            const_->addr -= align_size;
+
+        /* do offset with alignment number */
+        for (sljit_s32 i = 0; i < align_bound.used; i++) {
+            if (const_->addr >= align_bound.bound[i]) {
+                const_->addr -= align_size;
+            } else {
+                break;
+            }
         }
+
         const_ = const_->next;
     }
 
@@ -2890,6 +2941,8 @@ void* sljit_generate_code(struct sljit_compiler *compiler, sljit_s32 options,
 	compiler->executable_size = (sljit_uw)(compiler->size);
 
 	code = (sljit_u8*)SLJIT_ADD_EXEC_OFFSET(code, executable_offset);
+
+    free(align_bound.bound);
 
     SLJIT_CACHE_FLUSH(code, code + compiler->size);
 	SLJIT_UPDATE_WX_FLAGS(code, (sljit_u8*)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset), 1);
@@ -4444,7 +4497,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	PTR_FAIL_IF_NULL(jump);
-	set_jump(jump, compiler, type);
+	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 
     /* TODO:
         LTS: HS, ALS, LTS_hi, LTS_lo - 2.
@@ -4485,7 +4538,7 @@ struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 ty
 
 	jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
 	PTR_FAIL_IF(!jump);
-	set_jump(jump, compiler, type);
+	set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 
     /* TODO:
         LTS: HS, ALS, LTS_hi, LTS_lo - 2.
