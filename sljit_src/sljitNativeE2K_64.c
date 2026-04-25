@@ -2374,6 +2374,11 @@ void signature_switcher1(struct sljit_compiler *compiler,
 }
 
 #define NOT_SRC1(x) ((x < 0) || (x > 0xF))
+/* In case of zero operand these ops does not affect and may be optimized.
+   Useful for MOV operations.
+*/
+#define NON_AFFECTING_OP(op, srcw) \
+    (((op == E2K_ADDd) || (op == E2K_ADDs)) && (srcw == 0))
 
 // Analyze input types (const, mem, reg) and call correct op emit.
 // TODO: src1 as imm and mem is banned.
@@ -2427,31 +2432,43 @@ void signature_switcher2(struct sljit_compiler *compiler,
                 emit_op_full(compiler, op, tmp_signature,
                              tmp_operand, src2w, 0, dst, mode);
             } else if (SLJIT_IS_MEM(src1)) {
-                emit_load_full(compiler, TMP_REG1, 0, src1, src1w, mode);
-                emit_op_full(compiler, op, REG_SRC1 | REG_SRC3,
-                             TMP_REG1, src2w, 0, dst, mode);
+                if (NON_AFFECTING_OP(op, src2w)) {
+                    emit_load_full(compiler, dst, dstw, src1, src1w, mode);
+                } else {
+                    emit_load_full(compiler, TMP_REG1, 0, src1, src1w, mode);
+                    emit_op_full(compiler, op, REG_SRC1 | REG_SRC3,
+                                 TMP_REG1, src2w, 0, dst, mode);
+                }
             } else {
                 SLJIT_ASSERT(0);
             }
         } else if (SLJIT_IS_MEM(src2)) {
-            emit_load_full(compiler, TMP_REG1, 0, src2, src2w, mode);
             if (SLJIT_IS_REG(src1)) {
+                emit_load_full(compiler, TMP_REG1, 0, src2, src2w, mode);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                              src1, TMP_REG1, 0, dst, mode);
             } else if (SLJIT_IS_IMM(src1)) {
-                // src1 does not support 32 and 64 imm
-                sljit_uw tmp_operand = src1w;
-                sljit_u32 tmp_signature = REG_SRC2 | REG_SRC3;
-                if NOT_SRC1(src1w) {
-                    emit_op_full(compiler, E2K_ADDd, REG_ZERO,
-                                 0, src1w, 0, TMP_REG2, mode);
-                    tmp_operand = TMP_REG2;
-                    tmp_signature = REG_SRC1 | REG_SRC2 | REG_SRC3;
+                if (NON_AFFECTING_OP(op, src1w)) {
+                    emit_load_full(compiler, dst, dstw, src2, src2w, mode);
+                } else {
+                    emit_load_full(compiler, TMP_REG1, 0, src2, src2w, mode);
+                    // src1 does not support 32 and 64 imm
+                    sljit_uw tmp_operand = src1w;
+                    sljit_u32 tmp_signature = REG_SRC2 | REG_SRC3;
+                    if NOT_SRC1(src1w) {
+                        emit_op_full(compiler, E2K_ADDd, REG_ZERO,
+                                     0, src1w, 0, TMP_REG2, mode);
+                        tmp_operand = TMP_REG2;
+                        tmp_signature = REG_SRC1 | REG_SRC2 | REG_SRC3;
+                    }
+                    emit_op_full(compiler, op, tmp_signature,
+                                 tmp_operand, TMP_REG1, 0, dst, mode);
                 }
-                emit_op_full(compiler, op, tmp_signature,
-                             tmp_operand, TMP_REG1, 0, dst, mode);
             } else if (SLJIT_IS_MEM(src1)) {
-                emit_load_full(compiler, TMP_REG2, 0, src1, src1w, mode);
+                BUNDLE_SETUP();
+                emit_load(compiler, bundle, TMP_REG1, 0, src2, src2w, mode);
+                emit_load(compiler, bundle, TMP_REG2, 0, src1, src1w, mode);
+                emit_bundle_finalize(compiler, bundle);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                              TMP_REG2, TMP_REG1, 0, dst, mode);
             } else {
@@ -2502,30 +2519,39 @@ void signature_switcher2(struct sljit_compiler *compiler,
                              tmp_operand, src2w, 0, TMP_REG1, mode);
             } else if (SLJIT_IS_MEM(src1)) {
                 emit_load_full(compiler, TMP_REG1, 0, src1, src1w, mode);
-                emit_op_full(compiler, op, REG_SRC1 | REG_SRC3,
-                             TMP_REG1, src2w, 0, TMP_REG1, mode);
+                if (!NON_AFFECTING_OP(op, src2w)) {
+                    emit_op_full(compiler, op, REG_SRC1 | REG_SRC3,
+                                 TMP_REG1, src2w, 0, TMP_REG1, mode);
+                }
             } else {
                 SLJIT_ASSERT(0);
             }
         } else if (SLJIT_IS_MEM(src2)) {
-            emit_load_full(compiler, TMP_REG1, 0, src2, src2w, mode);
             if (SLJIT_IS_REG(src1)) {
+                emit_load_full(compiler, TMP_REG1, 0, src2, src2w, mode);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                              src1, TMP_REG1, 0, TMP_REG1, mode);
             } else if (SLJIT_IS_IMM(src1)) {
-                // src1 does not support 32 and 64 imm
-                sljit_uw tmp_operand = src1w;
-                sljit_u32 tmp_signature = REG_SRC2 | REG_SRC3;
-                if NOT_SRC1(src1w) {
-                    emit_op_full(compiler, E2K_ADDd, REG_ZERO,
-                                 0, src1w, 0, TMP_REG2, mode);
-                    tmp_operand = TMP_REG2;
-                    tmp_signature = REG_SRC1 | REG_SRC2 | REG_SRC3;
+                emit_load_full(compiler, TMP_REG1, 0, src2, src2w, mode);
+                if (!NON_AFFECTING_OP(op, src1w)) {
+                    emit_load_full(compiler, TMP_REG1, 0, src2, src2w, mode);
+                    // src1 does not support 32 and 64 imm
+                    sljit_uw tmp_operand = src1w;
+                    sljit_u32 tmp_signature = REG_SRC2 | REG_SRC3;
+                    if NOT_SRC1(src1w) {
+                        emit_op_full(compiler, E2K_ADDd, REG_ZERO,
+                                     0, src1w, 0, TMP_REG2, mode);
+                        tmp_operand = TMP_REG2;
+                        tmp_signature = REG_SRC1 | REG_SRC2 | REG_SRC3;
+                    }
+                    emit_op_full(compiler, op, tmp_signature,
+                                 tmp_operand, TMP_REG1, 0, TMP_REG1, mode);
                 }
-                emit_op_full(compiler, op, tmp_signature,
-                             tmp_operand, TMP_REG1, 0, TMP_REG1, mode);
             } else if (SLJIT_IS_MEM(src1)) {
-                emit_load_full(compiler, TMP_REG2, 0, src1, src1w, mode);
+                BUNDLE_SETUP();
+                emit_load(compiler, bundle, TMP_REG1, 0, src2, src2w, mode);
+                emit_load(compiler, bundle, TMP_REG2, 0, src1, src1w, mode);
+                emit_bundle_finalize(compiler, bundle);
                 emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
                              TMP_REG2, TMP_REG1, 0, TMP_REG1, mode);
             } else {
@@ -4362,7 +4388,6 @@ struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler,
 		PTR_FAIL_IF(!label);
 	} else {
 		/* The used space is filled with NOPs. */
-		// mask = ((sljit_uw)1 << alignment) - sizeof(sljit_uw);
 		mask = ((sljit_uw)1 << alignment);
 
         /* We always fill with nops because we dont know alignment of address
@@ -4385,8 +4410,8 @@ struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler,
 	while (1) {
 		buffers->u.label = next_label;
 
-        // TODO: What is it?
-		for (i = (buffers->size + 3) >> 3; i > 0; i--)
+        // Aligned inst align size. Keep in mind size may be less then DOUBLEWORD.
+		for (i = (buffers->size + 0x7) >> 3; i > 0; i--)
             emit_bundle_finalize(compiler, bundle);
 
 		buffers = buffers->next;
@@ -5020,10 +5045,20 @@ struct sljit_jump* sljit_emit_op_addr(struct sljit_compiler *compiler, sljit_s32
                             SLJIT_IMM, 0, DOUBLEWORD | FORCE_LTS);
 		break;
     case SLJIT_MOV_ABS_ADDR:
-        SLJIT_ASSERT(0);
+        signature_switcher2(compiler, E2K_ADDd, dst, dstw, SLJIT_IMM, 0,
+                            SLJIT_IMM, 0, DOUBLEWORD | FORCE_LTS);
 		break;
     case SLJIT_ADD_ABS_ADDR:
-        SLJIT_ASSERT(0);
+        if (SLJIT_IS_MEM(dst)) {
+            /* ldd with LTS
+               or
+               ldd with shld without LTS */
+            jump->addr += 2*sizeof(sljit_uw);
+        }
+
+        /* To prevent optimizing zero use 1 instead of 0*/
+        signature_switcher2(compiler, E2K_ADDd, dst, dstw, dst, dstw,
+                            SLJIT_IMM, 1, DOUBLEWORD | FORCE_LTS);
 		break;
 	default:
         SLJIT_ASSERT(0);
