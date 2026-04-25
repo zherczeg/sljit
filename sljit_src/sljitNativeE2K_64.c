@@ -4524,7 +4524,7 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler, sljit_s32 type,
 		    FAIL_IF_NULL(jump);
 		    set_jump(jump, compiler, (sljit_u32)JUMP_ADDR);
 		    jump->u.target = (sljit_uw)srcw;
-		    jump->addr = compiler->size;
+		    jump->addr = compiler->size + 2*sizeof(sljit_u32);
         }
 
         emit_op_full(compiler, E2K_ADDd, REG_ZERO, 0, srcw, 0, jump_reg, DOUBLEWORD);
