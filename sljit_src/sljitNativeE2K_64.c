@@ -3095,6 +3095,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
         Correction sljit and e2k ABI compability.
         We should keep b0 as r0, but in prologue we should transfer r0 -> b0
         due to reverse effect.
+
+        Also we must consider input types maybe 32bit.
+        In case of 32bit tag1 maybe 1, but we should ignore this.
     */
     if ((options & SLJIT_ENTER_REG_ARG) != SLJIT_ENTER_REG_ARG) {
         sljit_s32 si = 0, fri = 0, fsi = 0, i = 0;
@@ -3102,7 +3105,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
         // TODO: Bundle more efficiently
         arg_types = arg_types >> SLJIT_ARG_SHIFT;
         while (arg_types) {
-            emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+            sljit_s32 arg_type = arg_types & 0x7;
+            sljit_s32 op = E2K_ADDd;
+            if ((arg_type == SLJIT_ARG_TYPE_32) || (arg_type == SLJIT_ARG_TYPE_F32)) {
+                op = E2K_ADDs;
+            }
+
+            emit_alopf1(compiler, bundle, 0, op,
                         R(i), CONST4(0), reg_map[SLJIT_R(i)]);
             i++;
             arg_types = (arg_types >> SLJIT_ARG_SHIFT);
@@ -3120,22 +3129,27 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
         // skip return
         arg_types = arg_types_orig >> SLJIT_ARG_SHIFT;
         while (arg_types) {
+            sljit_s32 op = E2K_ADDd;
             arg_type = arg_types & SLJIT_ARG_FULL_MASK;
+            if (((arg_type & 0x7) == SLJIT_ARG_TYPE_32) || ((arg_type & 0x7) == SLJIT_ARG_TYPE_F32)) {
+                op = E2K_ADDs;
+            }
+
             // float
             if (arg_type & SLJIT_ARG_TYPE_F64) {
-                emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                emit_alopf1(compiler, bundle, 0, op,
                             R(i), CONST4(0), reg_map[E2K_FREG(SLJIT_FR(fri))]);
                 fri++;
             } else {
                 // saved
                 if ((arg_type & SLJIT_ARG_TYPE_SCRATCH_REG) != SLJIT_ARG_TYPE_SCRATCH_REG) {
-                    emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                    emit_alopf1(compiler, bundle, 0, op,
                                 R(i), CONST4(0), reg_map[SLJIT_S(si)]);
                     si++;
                 }
                 // scratch
                 if ((arg_type & SLJIT_ARG_TYPE_SCRATCH_REG) == SLJIT_ARG_TYPE_SCRATCH_REG) {
-                    emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                    emit_alopf1(compiler, bundle, 0, op,
                                 R(i), CONST4(0), reg_map[SLJIT_R(ri)]);
                 }
                 ri++;
