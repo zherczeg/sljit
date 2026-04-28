@@ -330,6 +330,8 @@ struct sljit_extended_label {
 
 #if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
 /* SLJIT_REWRITABLE_JUMP is 0x10000. */
+#   define IS_DISP          0x004
+#   define IS_PREPARED      0x40000
 #	define JUMP_MAX_SIZE	((sljit_uw)4*32)
 #endif /* SLJIT_CONFIG_E2K */
 
@@ -3576,7 +3578,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2r(struct sljit_compiler *compi
 
 #if !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
 	&& !(defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV) \
-	&& !(defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
+	&& !(defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH) \
+	&& !(defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 src1, sljit_sw src1w,
