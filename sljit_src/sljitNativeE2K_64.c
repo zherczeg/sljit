@@ -91,10 +91,13 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 #define E2K_CHANNEL_NUMBER 6
 #define E2K_CHANNEL_STORE_NUMBER 2
 #define E2K_CHANNEL_LOAD_NUMBER 4
+
+/* In cases we should wait for the latency */
+#define E2K_STORE_LATENCY 0
 #if (__iset__ >= 6)
-#define E2K_MEM_LATENCY 4
+#define E2K_LOAD_LATENCY 4
 #else
-#define E2K_MEM_LATENCY 2
+#define E2K_LOAD_LATENCY 2
 #endif
 
 /* INT */
@@ -2011,16 +2014,16 @@ static void emit_load(struct sljit_compiler *compiler, E2kBundle *bundle,
     }
 
     if (SLJIT_IS_MEM0(src)) {
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_LOAD_LATENCY);
         emit_alopf1_ii(compiler, bundle, 0, load_opc, 0x0, srcw, dst, lts_mode);
     } else if (SLJIT_IS_MEM1(src)) {
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_LOAD_LATENCY);
         emit_alopf1_ri(compiler, bundle, 0, load_opc,
                        SLJIT_EXTRACT_REG(src), srcw, dst, lts_mode);
     } else if (SLJIT_IS_MEM2(src)) {
         emit_op_full(compiler, E2K_SHLd, REG_SRC1,
                      SLJIT_EXTRACT_SECOND_REG(src), srcw, 0, dst, lts_mode);
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_LOAD_LATENCY);
         emit_alopf1_rr(compiler, bundle, 0, load_opc,
                        SLJIT_EXTRACT_REG(src), dst, dst, lts_mode);
     }
@@ -2075,11 +2078,11 @@ static void emit_load_double_full(struct sljit_compiler *compiler,
     }
 
     if (SLJIT_IS_MEM0(src1)) {
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_LOAD_LATENCY);
         emit_alopf1_ii(compiler, bundle, 0, load_opc, 0x0, src1w, dst1, DOUBLEWORD);
         emit_alopf1_ii(compiler, bundle, 0, load_opc, 0x0, src2w, dst2, DOUBLEWORD);
     } else if (SLJIT_IS_MEM1(src1)) {
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_LOAD_LATENCY);
         emit_alopf1_ri(compiler, bundle, 0, load_opc,
                        SLJIT_EXTRACT_REG(src1), src1w, dst1, DOUBLEWORD);
         emit_alopf1_ri(compiler, bundle, 0, load_opc,
@@ -2092,7 +2095,7 @@ static void emit_load_double_full(struct sljit_compiler *compiler,
         emit_bundle_finalize(compiler, bundle);
         emit_op_full(compiler, E2K_ADDd, REG_SRC1,
                     TMP_REG2, sizeof(sljit_uw), 0, TMP_REG2, DOUBLEWORD);
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_LOAD_LATENCY);
         emit_alopf1_rr(compiler, bundle, 0, load_opc,
                        SLJIT_EXTRACT_REG(src1), TMP_REG1, dst1, DOUBLEWORD);
         emit_alopf1_rr(compiler, bundle, 0, load_opc,
@@ -2154,16 +2157,16 @@ static void emit_store(struct sljit_compiler *compiler, E2kBundle *bundle,
     }
 
     if (SLJIT_IS_MEM0(dst)) {
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_STORE_LATENCY);
         emit_alopf3_ii(compiler, bundle, 0, store_opc, 0x0, dstw, src, lts_mode);
     } else if (SLJIT_IS_MEM1(dst)) {
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_STORE_LATENCY);
         emit_alopf3_ri(compiler, bundle, 0, store_opc,
                        SLJIT_EXTRACT_REG(dst), dstw, src, lts_mode);
     } else if (SLJIT_IS_MEM2(dst)) {
         emit_op_full(compiler, E2K_SHLd, REG_SRC1,
                      SLJIT_EXTRACT_SECOND_REG(dst), dstw, 0, TMP_REG2, lts_mode);
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_STORE_LATENCY);
         emit_alopf3_rr(compiler, bundle, 0, store_opc,
                        SLJIT_EXTRACT_REG(dst), TMP_REG2, src, lts_mode);
     }
@@ -2218,11 +2221,11 @@ static void emit_store_double_full(struct sljit_compiler *compiler,
     }
 
     if (SLJIT_IS_MEM0(dst1)) {
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_STORE_LATENCY);
         emit_alopf3_ii(compiler, bundle, 0, store_opc, 0x0, dst1w, src1, DOUBLEWORD);
         emit_alopf3_ii(compiler, bundle, 0, store_opc, 0x0, dst2w, src2, DOUBLEWORD);
     } else if (SLJIT_IS_MEM1(dst1)) {
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_STORE_LATENCY);
         emit_alopf3_ri(compiler, bundle, 0, store_opc,
                        SLJIT_EXTRACT_REG(dst1), dst1w, src1, DOUBLEWORD);
         emit_alopf3_ri(compiler, bundle, 0, store_opc,
@@ -2233,7 +2236,7 @@ static void emit_store_double_full(struct sljit_compiler *compiler,
         emit_op(compiler, bundle, E2K_SHLd, REG_SRC1,
                 SLJIT_EXTRACT_SECOND_REG(dst2), dst2w, 0, TMP_REG1, DOUBLEWORD);
         emit_bundle_finalize(compiler, bundle);
-        emit_nop(compiler, bundle, E2K_MEM_LATENCY);
+        emit_nop(compiler, bundle, E2K_STORE_LATENCY);
         emit_alopf3_rr(compiler, bundle, 0, store_opc,
                        SLJIT_EXTRACT_REG(dst1), TMP_REG2, src1, DOUBLEWORD);
         emit_alopf3_rr(compiler, bundle, 0, store_opc,
