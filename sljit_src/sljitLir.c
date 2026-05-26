@@ -330,7 +330,8 @@ struct sljit_extended_label {
 
 #if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
 /* SLJIT_REWRITABLE_JUMP is 0x10000. */
-#   define IS_DISP          0x004
+/* Flags info in low bits */
+#   define IS_DISP          0x400
 #   define IS_PREPARED      0x40000
 #	define JUMP_MAX_SIZE	((sljit_uw)4*32)
 #endif /* SLJIT_CONFIG_E2K */
