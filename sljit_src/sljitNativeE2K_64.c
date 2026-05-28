@@ -72,7 +72,7 @@
    - Emit flags
    - Emit pred
    - Replace slow flag generation by fast cmp native ops
-7. Check for nops in div and mul operations
+6. Check for nops in div and mul operations
 
 *  - func extension.
 ** - perf extension.
@@ -748,8 +748,8 @@ static void emit_bundle_setup(struct sljit_compiler *compiler,
 static E2kBundle _BUNDLE;
 
 /* Allowed stepler op */
-#define STEPLER_OPS_LEN 3
-static sljit_s32 STEPLER_OPS[STEPLER_OPS_LEN] = {SLJIT_MOV, SLJIT_ADD, SLJIT_AND};
+#define STEPLER_OPS_LEN 4
+static sljit_s32 STEPLER_OPS[STEPLER_OPS_LEN] = {SLJIT_MOV, SLJIT_ADD, SLJIT_AND, SLJIT_SUB};
 #define STEPLER_WIDTH E2K_CHANNEL_NUMBER
 typedef struct Stepler {
     sljit_s32 prev_op;
@@ -791,15 +791,6 @@ void stepler_setup()
         E2kBundle *bundle = &_BUNDLE; \
         BUNDLE_CLOSE(); \
         emit_bundle_setup(compiler, bundle)
-
-/*
-TODO: HERE
-1. Required to divide stepler_add_op on 2 funcs:
-   - before signature switcher for high level checking (checking only)
-   - inside of signature switcher for low level checking (real add)
-2. Other way
-*/
-
 
 /*
     Check for sljit IR restrictions for bundling.
@@ -1645,7 +1636,6 @@ static int emit_alopf8(struct sljit_compiler *compiler,
 static void emit_alef1(struct sljit_compiler *compiler, E2kBundle *bundle,
                        sljit_u32 op, sljit_u32 src3, int als_idx)
 {
-    // TODO: Check for v4
     /* No combined operations on 2 and 5 channels */
     int res = 1 << (RES_ALES_SHIFT + als_idx);
     check_resource(compiler, bundle, res);
@@ -1666,7 +1656,6 @@ static void emit_alef1(struct sljit_compiler *compiler, E2kBundle *bundle,
 static void emit_alef2(struct sljit_compiler *compiler, E2kBundle *bundle,
                        sljit_u32 op, int als_idx)
 {
-    // TODO: Check for v4
     /* No combined operations on 2 and 5 channels */
     int res = 1 << (RES_ALES_SHIFT + als_idx);
     check_resource(compiler, bundle, res);
@@ -3384,7 +3373,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 // Limit by channel number
 #define BUNDLE_FINALIZE_INNER(i, cond, num) \
     do { \
-        if ((i % num) == 0) { \
+        if (i && ((i % num) == 0)) { \
             if (cond) { \
                 emit_bundle_finalize(compiler, bundle); \
             } \
@@ -3494,18 +3483,66 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
     emit_bundle_finalize(compiler, bundle);
 
     arg_types_orig = arg_types;
-    /*
-        Correction sljit and e2k ABI compability.
-        We should keep b0 as r0, but in prologue we should transfer r0 -> b0
-        due to reverse effect.
-
-        Also we must consider input types maybe 32bit.
-        In case of 32bit tag1 maybe 1, but we should ignore this.
-    */
     if ((options & SLJIT_ENTER_REG_ARG) != SLJIT_ENTER_REG_ARG) {
+        /* Clean worker regs for input 32bit value, due to
+           high 32bit may content diagnostic type. Compile >= -O2 only. */
         ri = 0, si = 0, fri = 0, i = 0;
-        // TODO: Bundle more efficiently
-        arg_types = arg_types >> SLJIT_ARG_SHIFT;
+        arg_types = arg_types_orig >> SLJIT_ARG_SHIFT;
+        while (arg_types) {
+            arg_type = arg_types & 0x7;
+            // float
+            if (arg_type & SLJIT_ARG_TYPE_F64) {
+                if (arg_type & SLJIT_ARG_TYPE_F32) {
+                    emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                                CONST4(0), CONST4(0), reg_map[E2K_FREG(SLJIT_FR(fri))]);
+                    emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                                CONST4(0), CONST4(0), reg_map[SLJIT_R(i)]);
+                    i += 2;
+                }
+                fri++;
+            } else {
+                // saved
+                if ((arg_type & SLJIT_ARG_TYPE_SCRATCH_REG) != SLJIT_ARG_TYPE_SCRATCH_REG) {
+                    if (arg_type == SLJIT_ARG_TYPE_32) {
+                        emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                                    CONST4(0), CONST4(0), reg_map[SLJIT_S(si)]);
+                        emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                                    CONST4(0), CONST4(0), reg_map[SLJIT_R(i)]);
+                        i += 2;
+                    }
+                    si++;
+                }
+                // scratch
+                if ((arg_type & SLJIT_ARG_TYPE_SCRATCH_REG) == SLJIT_ARG_TYPE_SCRATCH_REG) {
+                    if (arg_type == SLJIT_ARG_TYPE_32) {
+                        emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                                    CONST4(0), CONST4(0), reg_map[SLJIT_R(ri)]);
+                        emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                                    CONST4(0), CONST4(0), reg_map[SLJIT_R(i)]);
+                        i += 2;
+                    }
+                }
+                ri++;
+            }
+            arg_types = (arg_types >> SLJIT_ARG_SHIFT);
+
+            BUNDLE_FINALIZE_INNER(i, (fri || si || ri), E2K_CHANNEL_NUMBER);
+        }
+        BUNDLE_FINALIZE_OUTER(i, (fri || si || ri), E2K_CHANNEL_NUMBER);
+
+        /*
+            Correction sljit and e2k ABI compability.
+            We should keep b0 as r0, but in prologue we should transfer r0 -> b0
+            due to reverse effect.
+
+            Also we must consider input types maybe 32bit.
+            In case of 32bit tag1 maybe 1, but we should ignore this.
+        */
+
+        stepler_setup();
+        ri = 0, si = 0, fri = 0, i = 0;
+        arg_types = arg_types_orig >> SLJIT_ARG_SHIFT;
+
         while (arg_types) {
             arg_type = arg_types & 0x7;
             op = E2K_ADDd;
@@ -3513,14 +3550,15 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
                 op = E2K_ADDs;
             }
 
+            stepler_add_op(compiler, op, R(i), CONST4(0), -1, reg_map[SLJIT_R(i)]);
             emit_alopf1(compiler, bundle, 0, op,
                         R(i), CONST4(0), reg_map[SLJIT_R(i)]);
             i++;
             arg_types = (arg_types >> SLJIT_ARG_SHIFT);
 
-            BUNDLE_FINALIZE_INNER(i, i, E2K_CHANNEL_NUMBER);
+            // BUNDLE_FINALIZE_INNER(i, i, E2K_CHANNEL_NUMBER);
         }
-        BUNDLE_FINALIZE_OUTER(i, i, E2K_CHANNEL_NUMBER);
+        // BUNDLE_FINALIZE_OUTER(i, i, E2K_CHANNEL_NUMBER);
     }
 
     if ((options & SLJIT_ENTER_REG_ARG) != SLJIT_ENTER_REG_ARG) {
@@ -3538,18 +3576,21 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
 
             // float
             if (arg_type & SLJIT_ARG_TYPE_F64) {
+                stepler_add_op(compiler, op, R(i), CONST4(0), -1, reg_map[E2K_FREG(SLJIT_FR(fri))]);
                 emit_alopf1(compiler, bundle, 0, op,
                             R(i), CONST4(0), reg_map[E2K_FREG(SLJIT_FR(fri))]);
                 fri++;
             } else {
                 // saved
                 if ((arg_type & SLJIT_ARG_TYPE_SCRATCH_REG) != SLJIT_ARG_TYPE_SCRATCH_REG) {
+                    stepler_add_op(compiler, op, R(i), CONST4(0), -1, reg_map[SLJIT_S(si)]);
                     emit_alopf1(compiler, bundle, 0, op,
                                 R(i), CONST4(0), reg_map[SLJIT_S(si)]);
                     si++;
                 }
                 // scratch
                 if ((arg_type & SLJIT_ARG_TYPE_SCRATCH_REG) == SLJIT_ARG_TYPE_SCRATCH_REG) {
+                    stepler_add_op(compiler, op, R(i), CONST4(0), -1, reg_map[SLJIT_R(ri)]);
                     emit_alopf1(compiler, bundle, 0, op,
                                 R(i), CONST4(0), reg_map[SLJIT_R(ri)]);
                 }
@@ -3558,9 +3599,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
             arg_types = (arg_types >> SLJIT_ARG_SHIFT);
             i++;
 
-            BUNDLE_FINALIZE_INNER(i, (fri || si || ri), E2K_CHANNEL_NUMBER);
+            //BUNDLE_FINALIZE_INNER(i, (fri || si || ri), E2K_CHANNEL_NUMBER);
         }
-        BUNDLE_FINALIZE_OUTER(i, (fri || si || ri), E2K_CHANNEL_NUMBER);
+        //BUNDLE_FINALIZE_OUTER(i, (fri || si || ri), E2K_CHANNEL_NUMBER);
+        BUNDLE_CLOSE();
     }
 
     return SLJIT_SUCCESS;
@@ -3572,7 +3614,6 @@ sljit_s32 sljit_set_context(struct sljit_compiler *compiler,
                             sljit_s32 scratches, sljit_s32 saveds,
                             sljit_s32 local_size)
 {
-    // TODO: Make as a shared function for sljit_emit_enter
     // -- default -------------------------------------------------------------
     sljit_u32 stack_size = local_size;
 
@@ -3642,6 +3683,8 @@ substitute_return_addr(struct sljit_compiler *compiler,
     emit_alopf1(compiler, bundle, 0, E2K_ADDd,
                 emit_src1(compiler, bundle, E2K_CONST, 0),
                 emit_src2(compiler, bundle, E2K_REG, ip_reg, DOUBLEWORD), 1);
+    emit_alopf1(compiler, bundle, 0, E2K_ADDd,
+                0 | 0xc0, 0 | 0xc0, 2);
     emit_bundle_finalize(compiler, bundle);
 
     emit_call(compiler, E2K_CTPR | 1, E2K_PRED | 0, 0, E2K_ROTATED_REG_BASE);
@@ -3935,8 +3978,7 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler, sljit_s32 op,
     sljit_u32 mode_store;
     sljit_uw order_const;
 
-    sljit_s32 bundling;
-    bundling = stepler_high_level_check(compiler, op, dst, dstw, src, srcw, 0, 0);
+    stepler_high_level_check(compiler, op, dst, dstw, src, srcw, 0, 0);
 
     CHECK_ERROR();
     CHECK(check_sljit_emit_op1(compiler, op, dst, dstw, src, srcw));
@@ -4281,14 +4323,14 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 typ
                                   sljit_s32 src2, sljit_sw src2w)
 {
     /* Default compare for most architectures. */
-    sljit_s32 flags, tmp_src, condition;
+    sljit_s32 tmp_src, condition;
     sljit_sw tmp_srcw;
     struct sljit_jump *jump;
     sljit_s32 mode32 = type & SLJIT_32;
     sljit_s32 mode   = mode32 ? WORD : DOUBLEWORD;
     sljit_s32 opc, offset;
-    sljit_u32 src1_u32, src2_u32;
-    sljit_sw  src1_sw, src2_sw;
+    sljit_u32 src1_u32 = 0, src2_u32 = 0;
+    sljit_sw  src1_sw = 0, src2_sw = 0;
     sljit_s32 neg = 0;
     BUNDLE_DECLARATION();
 
@@ -4334,11 +4376,6 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 typ
         src1w = src2w;
         src2w = tmp_srcw;
     }
-
-    if (condition <= SLJIT_NOT_ZERO)
-        flags = SLJIT_SET_Z;
-    else
-        flags = (condition & 0xfe) << VARIABLE_FLAG_SHIFT;
 
     // Prep operands
     if (SLJIT_IS_IMM(src1)) {
