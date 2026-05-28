@@ -925,7 +925,6 @@ sljit_s32 stepler_add_op(struct sljit_compiler *compiler,
         if (_BUNDLE.f1 > 1) {
             BUNDLE_CLOSE();
         }
-        // return 0;
     }
     dstl  = STEPLER.dst_len;
     src1l = STEPLER.src1_len;
@@ -951,7 +950,7 @@ sljit_s32 stepler_add_op(struct sljit_compiler *compiler,
         STEPLER.st_len++;
     }
 
-    return 1;
+    return allowed;
 }
 /* ------------------------- */
 
@@ -4287,8 +4286,9 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 typ
     struct sljit_jump *jump;
     sljit_s32 mode32 = type & SLJIT_32;
     sljit_s32 mode   = mode32 ? WORD : DOUBLEWORD;
-    sljit_s32 opc;
+    sljit_s32 opc, offset;
     sljit_u32 src1_u32, src2_u32;
+    sljit_sw  src1_sw, src2_sw;
     sljit_s32 neg = 0;
     BUNDLE_DECLARATION();
 
@@ -4358,21 +4358,43 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 typ
     /* Prepare jump */
     jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
     PTR_FAIL_IF_NULL(jump);
-    /* Put offset into flags as low bits */
-    set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP | IS_DISP | (bundle->f1 << 2));
-
-    /* Target:
-        CS0: HS, CS - 1.
-    */
-    //jump->addr = compiler->size + 1*sizeof(sljit_u32);
-    // max 7
     jump->addr = compiler->size;
 
     /* Without nop due to: (possible load) and CCTOPL op*/
     emit_copf2(compiler, bundle, E2K_DISP, 1 | E2K_CTPR, 0);
-    emit_bundle_finalize(compiler, bundle);     // prevent patch miss
 
-    // Prep operands
+    // Prep operands for check
+    if (SLJIT_IS_REG(src1)) {
+        src1_sw = src1;
+    } else if (SLJIT_IS_IMM(src1)) {
+        if (NOT_SRC1(src1w)) {
+            src1_sw = TMP_REG1;
+        } else {
+            src1_sw = src1w;
+        }
+    } else if (SLJIT_IS_MEM(src1)) {
+        src1_sw = TMP_REG1;
+    }
+    //
+    if (SLJIT_IS_REG(src2)) {
+        src2_sw = src2;
+    } else if (SLJIT_IS_IMM(src2)) {
+        src2_sw = src2w;
+    } else if (SLJIT_IS_MEM(src2)) {
+        src2_sw = TMP_REG2;
+    }
+
+    // schedule CMP
+    offset = bundle->f1 - 1;    /* minus CS0 */
+    if (stepler_add_op(compiler, E2K_CMPEdb, src1_sw, src2_sw, -1, -1)) {
+        offset = bundle->f1;    /* keep cmpe in mind */
+    }
+    set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP
+                             | IS_DISP | offset << 2);
+
+    /* Prep operands for op
+       We cant move this block up due to LTS must be packed in cmpe op
+    */
     if (SLJIT_IS_REG(src1)) {
         src1_u32 = RSRC1(src1);
     } else if (SLJIT_IS_IMM(src1)) {
@@ -4393,7 +4415,6 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 typ
         src2_u32 = RSRC2(TMP_REG2);
     }
 
-    // CMP
     switch (condition) {
         case SLJIT_EQUAL:
             opc = mode32 ? E2K_CMPEsb : E2K_CMPEdb;
