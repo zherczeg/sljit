@@ -554,7 +554,11 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 
 			if (!(jump->flags & SLJIT_REWRITABLE_JUMP)) {
 				if (jump->flags & JUMP_ADDR) {
-					if (jump->u.target <= 0x01ffffff)
+					if (jump->u.target <= 0x01ffffff
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) && (defined SLJIT_PASS_ENTRY_ADDR_TO_CALL && SLJIT_PASS_ENTRY_ADDR_TO_CALL)
+							&& !(jump->flags & IS_CALL)
+#endif
+							)
 						total_size = 1 - 1;
 #if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 					else if (jump->u.target < 0x80000000l)
@@ -575,7 +579,11 @@ static void reduce_code_size(struct sljit_compiler *compiler)
 							total_size = 1 - 1;
 						else if ((diff - 1) <= (0x01ffffff / SSIZE_OF(ins)) && (diff - 1) >= (-0x02000000 / SSIZE_OF(ins)))
 							total_size = 2 - 1;
-					} else if (diff <= (0x01ffffff / SSIZE_OF(ins)) && diff >= (-0x02000000 / SSIZE_OF(ins)))
+					} else if (
+#if (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) && (defined SLJIT_PASS_ENTRY_ADDR_TO_CALL && SLJIT_PASS_ENTRY_ADDR_TO_CALL)
+							!(jump->flags & IS_CALL) &&
+#endif
+							diff <= (0x01ffffff / SSIZE_OF(ins)) && diff >= (-0x02000000 / SSIZE_OF(ins)))
 						total_size = 1 - 1;
 				}
 			}
