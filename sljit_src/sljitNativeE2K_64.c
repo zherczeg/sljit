@@ -5424,17 +5424,11 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
         jump->addr = compiler->size;
 
         emit_copf2(compiler, bundle, E2K_DISP, 1 | E2K_CTPR, 0);
-        if(flag >= SLJIT_JUMP){
-            /* No CCTOPL */
-            emit_nop(compiler, bundle, 4);
-        }
-        emit_bundle_finalize(compiler, bundle, NULL);
+        emit_bundle_optimize_and_finalize(compiler, bundle);
     }
 
     if(flag < SLJIT_JUMP){
         neg = emit_flag_into_pred(compiler, flag);
-        // TODO
-        // emit_bundle_optimize_and_finalize(compiler, bundle);
         emit_ct_full(compiler, E2K_CTPR | 1, E2K_PRED | FLAG_PREG, neg);
     } else {
         // Force save return addr into TMP_REG1
