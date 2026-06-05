@@ -1733,7 +1733,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op1(struct sljit_compiler *compile
 #define TEST_ADD_IMM(src, srcw) \
 	((src) == SLJIT_IMM && (srcw) <= 0x7fff7fffl && (srcw) >= -0x80000000l)
 #define TEST_UI_IMM(src, srcw) \
-	((src) == SLJIT_IMM && !((srcw) & ~0xffffffff))
+	((src) == SLJIT_IMM && !((srcw) & ~(sljit_sw)0xffffffff))
 
 #define TEST_ADD_FORM1(op) \
 	(GET_FLAG_TYPE(op) == SLJIT_OVERFLOW \
