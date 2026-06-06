@@ -980,6 +980,8 @@ static int generate_transitions(struct compiler_common *compiler_common)
 	struct stack_item *item;
 
 	stack_init(depth);
+	if (compiler_common->dfa_size > (~(sljit_uw)0) / sizeof(struct stack_item))
+		return REGEX_MEMORY_ERROR;
 	compiler_common->dfa_transitions = (struct stack_item *)SLJIT_MALLOC(sizeof(struct stack_item) * compiler_common->dfa_size, NULL);
 	if (!compiler_common->dfa_transitions)
 		return REGEX_MEMORY_ERROR;
