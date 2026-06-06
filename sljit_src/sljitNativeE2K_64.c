@@ -717,7 +717,7 @@ static void emit_bundle_finalize(struct sljit_compiler *compiler,
                                  E2kBundle *bundle, sljit_u32 *target_addr);
 static void emit_bundle_optimize_and_finalize(struct sljit_compiler *compiler,
                                               E2kBundle *bundle);
-static void try_lift_disp(struct sljit_compiler *compiler, E2kBundle *bundle);
+static sljit_s32 try_lift_disp(struct sljit_compiler *compiler, E2kBundle *bundle);
 static void push_bundle_track(struct sljit_compiler *compiler, E2kBundle *bundle,
                               sljit_u32 *start_addr, sljit_sw offset);
 static sljit_u32 bundle_size_in_words(E2kBundle *b);
@@ -1310,10 +1310,14 @@ sljit_u32 bundle_size_in_words(E2kBundle *bundle)
 static void emit_bundle_optimize_and_finalize(struct sljit_compiler *compiler,
                                               E2kBundle *bundle)
 {
-    /* Lift disp to prevent prep-ct lock */
-    try_lift_disp(compiler, bundle);
+    sljit_s32 bundle_non_empty;
 
-    emit_bundle_finalize(compiler, bundle, NULL);
+    /* Lift disp to prevent prep-ct lock */
+    bundle_non_empty = try_lift_disp(compiler, bundle);
+
+    if (bundle_non_empty) {
+        emit_bundle_finalize(compiler, bundle, NULL);
+    }
 }
 
 /* inline memset in emit_bundle_setup */
@@ -1993,8 +1997,8 @@ static void emit_copf2(struct sljit_compiler *compiler, E2kBundle *bundle,
 /* -- Emit control-flow instructions -------------------------------------- */
 
 /* Try move disp upper else fallback without current bundle change */
-static void try_lift_disp(struct sljit_compiler *compiler,
-                          E2kBundle *bundle)
+static sljit_s32 try_lift_disp(struct sljit_compiler *compiler,
+                               E2kBundle *bundle)
 {
     struct sljit_jump *jump;
     sljit_s32 bt_count = bundle_tracker.count;
@@ -2005,19 +2009,24 @@ static void try_lift_disp(struct sljit_compiler *compiler,
     sljit_s32 target_entry_idx = -1;
     sljit_u32 new_jump_offset;
     struct sljit_jump *jump_tmp = NULL;
+    struct sljit_jump *jump_end = NULL;
+
+    sljit_s32 is_return = (((bundle->cs[0] >> 28) & 0x3) == E2K_RETURN);
 
     /* Nothing to lift */
     if (bundle->res & RES_CS0) {
-        return;
+        return bundle->f1 > 1;
     }
 
     /* lift after set_jump only */
-    SLJIT_ASSERT(compiler->last_jump);
+    if (!is_return) {
+        SLJIT_ASSERT(compiler->last_jump);
+    }
     jump = compiler->last_jump;
 
     /* Check for fragment bound crossing */
     if ((bt_count < 1) || (compiler->buf != bundle_tracker.tracker_frag)) {
-        return;
+        return bundle->f1 > 1;
     }
 
     /* Find optimal bundle */
@@ -2038,23 +2047,35 @@ static void try_lift_disp(struct sljit_compiler *compiler,
 
         /* Deny forcing label bound */
         if (compiler->last_label) {
-            if (bundle_tracker.entries[target_entry_idx].offset < compiler->last_label->size) {
+            if (bundle_tracker.entries[target_entry_idx].offset <= compiler->last_label->size) {
+                break;
+            }
+        }
+
+        /* Deny forcing last const bound */
+        if (compiler->last_const) {
+            if (bundle_tracker.entries[target_entry_idx].offset <= compiler->last_const->addr) {
                 break;
             }
         }
 
         /* Deny break patched bundles, i.e. sljit_emit_op_addr.
            Skip last jump.
+           HERE: is_return -> NULL
+                 DISP -> last_jump
         */
         // TODO: Accelerate?
         jump_tmp = compiler->jumps;
-        while (jump_tmp != compiler->last_jump) {
-            if (bundle_tracker.entries[target_entry_idx].offset < jump_tmp->addr) {
+        if (!is_return) {
+            jump_end = compiler->last_jump;
+        }
+        while (jump_tmp != jump_end) {
+            if (bundle_tracker.entries[target_entry_idx].offset <= jump_tmp->addr) {
                 break;
             }
             jump_tmp = jump_tmp->next;
         }
-        if (jump_tmp != compiler->last_jump) {
+        if (jump_tmp != jump_end) {
             break;
         }
 
@@ -2062,30 +2083,38 @@ static void try_lift_disp(struct sljit_compiler *compiler,
         target_entry_idx--;
     }
     if (!target_bundle) {
-        return;
+        return bundle->f1 > 1;
     }
     target_entry_idx++;         /* Restore actual idx */
 
     /* Check for fragment bound, max extra size */
-    if ((compiler->buf->used_size + 2*sizeof(sljit_s32)) >= BUF_SIZE)
-        return;
+    if ((compiler->buf->used_size + 2*sizeof(sljit_s32)) >= BUF_SIZE) {
+        return bundle->f1 > 1;
+    }
 
     // Insert disp upper
     target_orig_size = bundle_size_in_words(target_bundle);
-    emit_copf2(compiler, target_bundle, E2K_DISP, 1 | E2K_CTPR, 0);
+    if (!is_return) {
+        emit_copf2(compiler, target_bundle, E2K_DISP, 1 | E2K_CTPR, 0);
+    } else {
+        emit_copf1(compiler, target_bundle, E2K_RETURN, E2K_CTPR | 3, 0);
+    }
     target_new_size = bundle_size_in_words(target_bundle);
     target_diff_size = target_new_size - target_orig_size;
 
     // Remove disp in current bundle
+    // TODO: Only RES_CS0
     bundle->res |= RES_CS0;
     bundle->f1--;
     bundle->cs[0] = 0;
 
-    new_jump_offset = (sljit_u32)(target_bundle->f1 - 1);
-    jump->addr = bundle_tracker.entries[target_entry_idx].offset;
-    /* Not use set_jump to prevent next overwriting */
-    jump->flags = ((sljit_u32)jump->flags & SLJIT_REWRITABLE_JUMP)
-                  | IS_DISP | (new_jump_offset << 2);
+    if (!is_return) {
+        new_jump_offset = (sljit_u32)(target_bundle->f1 - 1);
+        jump->addr = bundle_tracker.entries[target_entry_idx].offset;
+        /* Not use set_jump to prevent next overwriting */
+        jump->flags = ((sljit_u32)jump->flags & SLJIT_REWRITABLE_JUMP)
+                      | IS_DISP | (new_jump_offset << 2);
+    }
 
     /* Bundles move right step */
     if (target_diff_size) {
@@ -2107,6 +2136,9 @@ static void try_lift_disp(struct sljit_compiler *compiler,
 
     // reset counter to prevent something wrong
     bundle_tracker.count = 0;
+
+    // prevent extra nop
+    return bundle->f1 > 1;
 }
 
 static void emit_ct(struct sljit_compiler *compiler, struct E2kBundle *bundle,
@@ -2405,8 +2437,7 @@ static void emit_return(struct sljit_compiler *compiler,
     SLJIT_ASSERT(pred & E2K_PRED);
 
     emit_copf1(compiler, bundle, E2K_RETURN, E2K_CTPR | 3, 0);
-    emit_bundle_finalize(compiler, bundle, NULL);
-    emit_nop_full(compiler, 4);
+    emit_bundle_optimize_and_finalize(compiler, bundle);
     emit_ct_full(compiler, E2K_CTPR | 3, pred, inverted);
 }
 
