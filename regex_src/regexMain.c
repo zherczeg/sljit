@@ -338,7 +338,7 @@ int main(int argc, char* argv[])
 			"(a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z){1000}",
 			64, 0, &err);
 		if (machine)
-			regex_free(machine);
+			regex_free_machine(machine);
 		else if (err != REGEX_MEMORY_ERROR) {
 			printf("FAIL: overflow regression returned unexpected error %d\n", err);
 			return 1;
