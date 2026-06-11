@@ -1876,6 +1876,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 	}
 
 	/* Step 2: generating branches (Right->Left). */
+	compiler_common.dfa_transitions = NULL;
 	error_code = generate_transitions(&compiler_common);
 	stack_destroy(&compiler_common.stack);
 	stack_destroy(&compiler_common.depth);
