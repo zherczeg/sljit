@@ -45,11 +45,13 @@
           v
 - [optionally] signature_switcher
   Helper to choose correct signature for operation.
+  [High level stepler check.]
           |
          \ /
           v
 - emit_[full_]op | emit_<special_OP>
   Generate human readable op.
+  [Bundle single instructions via stepler.]
           |
          \ /
           v
@@ -151,6 +153,7 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 // Reg coding
 #define R(reg) reg | 0x80
 #define B(reg) reg
+#define R0_OFFSET 8     /* r0 start index in reg_map */
 
 // Imm coding
 #define CONST4(i)  i | 0xc0
@@ -283,12 +286,15 @@ typedef enum SrcDstMask {
 /* Correct input src type, sync with SrcDstMask.
    Imm in case of 0, Reg in case of 1.
    Also add special control flags.
+   REG_SRC* shifted to provide place for real reg number.
+   TODO: A low prob to conflict with corresponding imm.
+   TODO: Remove alias and use only FMT?
 */
 typedef enum RegImmMask {
-    REG_ZERO = 0x0,
-    REG_SRC1 = 0x1,
-    REG_SRC2 = 0x2,
-    REG_SRC3 = 0x4,
+    REG_ZERO = FMT_ZERO,
+    REG_SRC1 = FMT_SRC1,
+    REG_SRC2 = FMT_SRC2,
+    REG_SRC3 = FMT_SRC3,
     FORCE_BUNDLE = 0x10000,
 } RegImmMask;
 
@@ -742,15 +748,20 @@ static E2kBundle _BUNDLE;
 static sljit_s32 STEPLER_OPS[STEPLER_OPS_LEN] = {SLJIT_MOV, SLJIT_ADD, SLJIT_AND, SLJIT_SUB};
 #define STEPLER_WIDTH E2K_CHANNEL_NUMBER
 typedef struct Stepler {
-    sljit_s32 prev_op;
+    /* generic data analysis */
     sljit_sw dst_list[STEPLER_WIDTH];
     sljit_sw src1_list[STEPLER_WIDTH];
     sljit_sw src2_list[STEPLER_WIDTH];
     sljit_sw src3_list[STEPLER_WIDTH];
-    sljit_s32 dst_len;
-    sljit_s32 src1_len;
-    sljit_s32 src2_len;
-    sljit_s32 src3_len;
+    /* specify src type: reg or imm */
+    sljit_sw src1_is_reg_list[STEPLER_WIDTH];
+    sljit_sw src2_is_reg_list[STEPLER_WIDTH];
+    sljit_sw src3_is_reg_list[STEPLER_WIDTH];
+    /* current data real len */
+    sljit_s32 len;
+    /* mem ops management */
+    sljit_sw is_ld_list[STEPLER_WIDTH];
+    sljit_sw is_st_list[STEPLER_WIDTH];
     sljit_s32 ld_len;
     sljit_s32 st_len;
 } Stepler;
@@ -759,11 +770,7 @@ static Stepler STEPLER;
 
 void stepler_setup()
 {
-    STEPLER.prev_op = -1;
-    STEPLER.dst_len  = 0;
-    STEPLER.src1_len = 0;
-    STEPLER.src2_len = 0;
-    STEPLER.src3_len = 0;
+    STEPLER.len  = 0;
     STEPLER.ld_len = 0;
     STEPLER.st_len = 0;
 }
@@ -791,7 +798,7 @@ sljit_s32 stepler_high_level_check(struct sljit_compiler *compiler,
                                    sljit_s32 src1, sljit_uw src1w,
                                    sljit_s32 src2, sljit_uw src2w)
 {
-    sljit_s32 dstl  = STEPLER.dst_len;
+    sljit_s32 len = STEPLER.len;
     sljit_s32 allowed = 0;
 
     SLJIT_UNUSED_ARG(src1w);
@@ -811,18 +818,18 @@ sljit_s32 stepler_high_level_check(struct sljit_compiler *compiler,
     SLJIT_UNUSED_ARG(src2);
 
     // no dst conflict
-    if (STEPLER.dst_len && (STEPLER.dst_list[dstl-1] == dst)) {
+    if (STEPLER.len && (STEPLER.dst_list[len-1] == dst)) {
         allowed = 0;
     }
 
     // dst and src not crossed for STORE
     if (SLJIT_IS_MEM(dst)) {
-        for (sljit_s32 i = 1; i <= STEPLER.dst_len; i++) {
-            if (src1 == STEPLER.dst_list[dstl-i]) {
+        for (sljit_s32 i = 1; i <= STEPLER.len; i++) {
+            if (src1 == STEPLER.dst_list[len-i]) {
                 allowed = 0;
                 break;
             }
-            if (src2 == STEPLER.dst_list[dstl-i]) {
+            if (src2 == STEPLER.dst_list[len-i]) {
                 allowed = 0;
                 break;
             }
@@ -846,7 +853,7 @@ static SLJIT_INLINE sljit_uw check_resource_stepler(struct sljit_compiler *compi
 }
 
 /* low level op */
-sljit_s32 stepler_check_op(struct sljit_compiler *compiler,
+sljit_s32 stepler_check_op(struct sljit_compiler *compiler, sljit_s32 reg_imm_mask,
                            sljit_s32 op,
                            sljit_sw src1, sljit_sw src2,
                            sljit_sw src3, sljit_sw dst)
@@ -854,9 +861,14 @@ sljit_s32 stepler_check_op(struct sljit_compiler *compiler,
     sljit_s32 allowed = 1;
     sljit_s32 is_ld = 0;
     sljit_s32 is_st = 0;
+    sljit_s32 src1_is_reg = ((reg_imm_mask & REG_SRC1) > 0);
+    sljit_s32 src2_is_reg = ((reg_imm_mask & REG_SRC2) > 0);
+    sljit_s32 src3_is_reg = ((reg_imm_mask & REG_SRC3) > 0);
+    SLJIT_UNUSED_ARG(src3_is_reg);
 
     SLJIT_UNUSED_ARG(src3);
     SLJIT_UNUSED_ARG(dst);
+    SLJIT_UNUSED_ARG(reg_imm_mask);
 
     if ((op >= E2K_LDb) && (op <= E2K_LDd)) {
         is_ld = 1;
@@ -870,14 +882,18 @@ sljit_s32 stepler_check_op(struct sljit_compiler *compiler,
         allowed = 0;
     }
 
-    // dst and src not crossed
-    for (sljit_s32 d = 0; d < STEPLER.dst_len; d++) {
-        if ((STEPLER.dst_list[d] == src1) || (STEPLER.dst_list[d] == src2)) {
+    // RAW check
+    for (sljit_s32 d = 0; d < STEPLER.len; d++) {
+        // Prevent the imm from mimicking a reg
+        if (((src1_is_reg) && (STEPLER.dst_list[d] == src1))
+            ||
+            ((src2_is_reg) && (STEPLER.dst_list[d] == src2))) {
             allowed = 0;
+            break;
         }
     }
 
-    // LTS
+    // LTS resource
     if (_BUNDLE.f4 > 2) {
         allowed = 0;
     }
@@ -900,15 +916,13 @@ sljit_s32 stepler_check_op(struct sljit_compiler *compiler,
 }
 
 /* low level op */
-sljit_s32 stepler_add_op(struct sljit_compiler *compiler,
+sljit_s32 stepler_add_op(struct sljit_compiler *compiler, sljit_s32 reg_imm_mask,
                          sljit_s32 op,
                          sljit_sw src1, sljit_sw src2,
                          sljit_sw src3, sljit_sw dst)
 {
-    sljit_s32 dstl  = STEPLER.dst_len;
-    sljit_s32 src1l = STEPLER.src1_len;
-    sljit_s32 src2l = STEPLER.src2_len;
-    sljit_s32 src3l = STEPLER.src3_len;
+    sljit_s32 len  = STEPLER.len;
+
     sljit_s32 allowed = 1;
     sljit_s32 is_ld = 0;
     sljit_s32 is_st = 0;
@@ -921,41 +935,41 @@ sljit_s32 stepler_add_op(struct sljit_compiler *compiler,
         is_st = 1;
     }
 
-    dstl  = STEPLER.dst_len;
-    src1l = STEPLER.src1_len;
-    src2l = STEPLER.src2_len;
-    src3l = STEPLER.src3_len;
+    STEPLER.dst_list[len]   = dst;
+    STEPLER.src1_list[len]  = src1;
+    STEPLER.src2_list[len]  = src2;
+    STEPLER.src3_list[len]  = src3;
 
-    STEPLER.dst_len++;
-    STEPLER.src1_len++;
-    STEPLER.src2_len++;
-    STEPLER.src3_len++;
-
-    STEPLER.prev_op = op;
-
-    STEPLER.dst_list[dstl]    = dst;
-    STEPLER.src1_list[src1l]  = src1;
-    STEPLER.src2_list[src2l]  = src2;
-    STEPLER.src3_list[src3l]  = src3;
-
+    /* mem ops management */
+    STEPLER.is_ld_list[len] = 0;
+    STEPLER.is_st_list[len] = 0;
     if (is_ld) {
+        STEPLER.is_ld_list[len] = 1;
         STEPLER.ld_len++;
     }
     if (is_st) {
+        STEPLER.is_st_list[len] = 1;
         STEPLER.st_len++;
     }
 
+    /* src type */
+    STEPLER.src1_is_reg_list[len] = ((reg_imm_mask & REG_SRC1) > 0);
+    STEPLER.src2_is_reg_list[len] = ((reg_imm_mask & REG_SRC2) > 0);
+    STEPLER.src3_is_reg_list[len] = ((reg_imm_mask & REG_SRC3) > 0);
+
+    STEPLER.len++;
     return allowed;
 }
 
 /* low level op */
 sljit_s32 stepler_check_add_op(struct sljit_compiler *compiler,
+                               sljit_s32 reg_imm_mask,
                                sljit_s32 op,
                                sljit_sw src1, sljit_sw src2,
                                sljit_sw src3, sljit_sw dst)
 {
     sljit_s32 allowed = 1;
-    allowed = stepler_check_op(compiler, op, src1, src2, src3, dst);
+    allowed = stepler_check_op(compiler, reg_imm_mask, op, src1, src2, src3, dst);
 
     if (!allowed) {
         if (_BUNDLE.f1 > 1) {
@@ -963,7 +977,7 @@ sljit_s32 stepler_check_add_op(struct sljit_compiler *compiler,
         }
     }
 
-    stepler_add_op(compiler, op, src1, src2, src3, dst);
+    stepler_add_op(compiler, reg_imm_mask, op, src1, src2, src3, dst);
 
     return allowed;
 }
@@ -2228,6 +2242,13 @@ static void emit_nop_full(struct sljit_compiler *compiler,
 }
 
 // Without MEM. Only imm and reg. Dst is always reg.
+/*
+    Warning!
+    Use stepler mechanism carefully.
+    Maximize stepler use inside emit_op function.
+    Try do not use stepler in other cases.
+    This one can provide more effective bundling and less error number.
+*/
 static void emit_op(struct sljit_compiler* compiler, E2kBundle *bundle,
                     sljit_s32 opcode, sljit_s32 reg_imm_mask,
                     sljit_sw src1, sljit_sw src2,
@@ -2256,7 +2277,8 @@ static void emit_op(struct sljit_compiler* compiler, E2kBundle *bundle,
     dstr = (sljit_u32)SLJIT_EXTRACT_REG(dst);
 
     if (!(reg_imm_mask & FORCE_BUNDLE)) {
-        stepler_check_add_op(compiler, opcode, src1, src2, src3, dst);
+        stepler_check_add_op(compiler, reg_imm_mask,
+                             opcode, src1, src2, src3, dst);
     }
 
     switch(format)
@@ -3814,9 +3836,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
                 op = E2K_ADDs;
             }
 
-            stepler_check_add_op(compiler, op, R(i), CONST4(0), -1, reg_map[SLJIT_R(i)]);
-            emit_alopf1(compiler, bundle, 0, op,
-                        R(i), CONST4(0), reg_map[SLJIT_R(i)]);
+            emit_op(compiler, bundle, op, REG_SRC1, SLJIT_R(R0_OFFSET+i), 0, 0, SLJIT_R(i), DOUBLEWORD);
             i++;
             arg_types = (arg_types >> SLJIT_ARG_SHIFT);
 
@@ -3839,23 +3859,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(
 
             // float
             if (arg_type & SLJIT_ARG_TYPE_F64) {
-                stepler_check_add_op(compiler, op, R(i), CONST4(0), -1, reg_map[E2K_FREG(SLJIT_FR(fri))]);
-                emit_alopf1(compiler, bundle, 0, op,
-                            R(i), CONST4(0), reg_map[E2K_FREG(SLJIT_FR(fri))]);
+                emit_op(compiler, bundle, op, REG_SRC1,
+                        SLJIT_R(R0_OFFSET+i), 0, 0, E2K_FREG(SLJIT_FR(fri)), DOUBLEWORD);
                 fri++;
             } else {
                 // saved
                 if ((arg_type & SLJIT_ARG_TYPE_SCRATCH_REG) != SLJIT_ARG_TYPE_SCRATCH_REG) {
-                    stepler_check_add_op(compiler, op, R(i), CONST4(0), -1, reg_map[SLJIT_S(si)]);
-                    emit_alopf1(compiler, bundle, 0, op,
-                                R(i), CONST4(0), reg_map[SLJIT_S(si)]);
+                    emit_op(compiler, bundle, op, REG_SRC1,
+                            SLJIT_R(R0_OFFSET+i), 0, 0, SLJIT_S(si), DOUBLEWORD);
                     si++;
                 }
                 // scratch
                 if ((arg_type & SLJIT_ARG_TYPE_SCRATCH_REG) == SLJIT_ARG_TYPE_SCRATCH_REG) {
-                    stepler_check_add_op(compiler, op, R(i), CONST4(0), -1, reg_map[SLJIT_R(ri)]);
-                    emit_alopf1(compiler, bundle, 0, op,
-                                R(i), CONST4(0), reg_map[SLJIT_R(ri)]);
+                    emit_op(compiler, bundle, op, REG_SRC1,
+                            SLJIT_R(R0_OFFSET+i), 0, 0, SLJIT_R(ri), DOUBLEWORD);
                 }
                 ri++;
             }
@@ -4589,6 +4606,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 typ
     sljit_sw  src1_sw = 0, src2_sw = 0;
     sljit_s32 neg = 0;
     sljit_s32 disp_bundled = 1;
+    sljit_s32 reg_imm_mask = REG_ZERO;
     BUNDLE_DECLARATION();
 
     CHECK_ERROR_PTR();
@@ -4660,28 +4678,33 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 typ
     // Prep operands for check
     if (SLJIT_IS_REG(src1)) {
         src1_sw = src1;
+        reg_imm_mask |= REG_SRC1;
     } else if (SLJIT_IS_IMM(src1)) {
         if (NOT_SRC1(src1w)) {
             src1_sw = TMP_REG1;
+            reg_imm_mask |= REG_SRC1;
         } else {
             src1_sw = src1w;
         }
     } else if (SLJIT_IS_MEM(src1)) {
         src1_sw = TMP_REG1;
+        reg_imm_mask |= REG_SRC1;
     }
     //
     if (SLJIT_IS_REG(src2)) {
         src2_sw = src2;
+        reg_imm_mask |= REG_SRC2;
     } else if (SLJIT_IS_IMM(src2)) {
         src2_sw = src2w;
     } else if (SLJIT_IS_MEM(src2)) {
         src2_sw = TMP_REG2;
+        reg_imm_mask |= REG_SRC2;
     }
 
     // schedule CMP
     offset = bundle->f1 - 1;    /* minus CS0 */
-    if (stepler_check_op(compiler, E2K_CMPEdb, src1_sw, src2_sw, -1, -1)) {
-        stepler_add_op(compiler, E2K_CMPEdb, src1_sw, src2_sw, -1, -1);
+    if (stepler_check_op(compiler, reg_imm_mask, E2K_CMPEdb, src1_sw, src2_sw, -1, -1)) {
+        stepler_add_op(compiler, reg_imm_mask, E2K_CMPEdb, src1_sw, src2_sw, -1, -1);
         offset++;               /* keep cmpe in mind */
         set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP
                                  | IS_DISP | offset << 2);
