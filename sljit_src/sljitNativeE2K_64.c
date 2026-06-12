@@ -744,8 +744,20 @@ static void emit_bundle_setup(struct sljit_compiler *compiler,
 static E2kBundle _BUNDLE;
 
 /* Allowed stepler op */
-#define STEPLER_OPS_LEN 4
-static sljit_s32 STEPLER_OPS[STEPLER_OPS_LEN] = {SLJIT_MOV, SLJIT_ADD, SLJIT_AND, SLJIT_SUB};
+// #define STEPLER_OPS_LEN 27
+static sljit_s32 STEPLER_OPS[] = {
+    SLJIT_MOV, SLJIT_MOV_P,
+    SLJIT_MOV32_U8, SLJIT_MOV_U8,
+    SLJIT_MOV32_S8, SLJIT_MOV_S8,
+    SLJIT_MOV32_U16, SLJIT_MOV_U16,
+    SLJIT_MOV32_S16, SLJIT_MOV_S16,
+    SLJIT_MOV_U32, SLJIT_MOV_S32,
+    SLJIT_MOV32,
+    SLJIT_ADD, SLJIT_SUB,    // SLJIT_MUL,
+    SLJIT_AND, SLJIT_OR, SLJIT_XOR,
+    SLJIT_MSHL, SLJIT_SHL, SLJIT_MLSHR, SLJIT_LSHR,
+    SLJIT_MASHR, SLJIT_ASHR, SLJIT_ROTL, SLJIT_ROTR};
+#define STEPLER_OPS_LEN (sljit_s32)(sizeof(STEPLER_OPS) / sizeof(STEPLER_OPS[0]))
 #define STEPLER_WIDTH E2K_CHANNEL_NUMBER
 typedef struct Stepler {
     /* generic data analysis */
@@ -822,20 +834,6 @@ sljit_s32 stepler_high_level_check(struct sljit_compiler *compiler,
         allowed = 0;
     }
 
-    // dst and src not crossed for STORE
-    if (SLJIT_IS_MEM(dst)) {
-        for (sljit_s32 i = 1; i <= STEPLER.len; i++) {
-            if (src1 == STEPLER.dst_list[len-i]) {
-                allowed = 0;
-                break;
-            }
-            if (src2 == STEPLER.dst_list[len-i]) {
-                allowed = 0;
-                break;
-            }
-        }
-    }
-
     if (!allowed) {
         BUNDLE_CLOSE();
     }
@@ -864,7 +862,6 @@ sljit_s32 stepler_check_op(struct sljit_compiler *compiler, sljit_s32 reg_imm_ma
     sljit_s32 src1_is_reg = ((reg_imm_mask & REG_SRC1) > 0);
     sljit_s32 src2_is_reg = ((reg_imm_mask & REG_SRC2) > 0);
     sljit_s32 src3_is_reg = ((reg_imm_mask & REG_SRC3) > 0);
-    SLJIT_UNUSED_ARG(src3_is_reg);
 
     SLJIT_UNUSED_ARG(src3);
     SLJIT_UNUSED_ARG(dst);
@@ -890,6 +887,12 @@ sljit_s32 stepler_check_op(struct sljit_compiler *compiler, sljit_s32 reg_imm_ma
             ((src2_is_reg) && (STEPLER.dst_list[d] == src2))) {
             allowed = 0;
             break;
+        }
+        if (is_st) {
+            if ((src3_is_reg) && (STEPLER.dst_list[d] == src3)) {
+                allowed = 0;
+                break;
+            }
         }
     }
 
@@ -5503,13 +5506,17 @@ struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 ty
                                    sljit_s32 arg_types)
 {
     struct sljit_jump *jump;
+    // sljit_s32 offset;
 
     BUNDLE_CLOSE();
+    // BUNDLE_DECLARATION();
     CHECK_ERROR_PTR();
     CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
     jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
     PTR_FAIL_IF(!jump);
+
+#if 1
     set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
 
     /* TODO:
@@ -5522,6 +5529,17 @@ struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler, sljit_s32 ty
     // TODO: optimize
     sljit_emit_icall(compiler, type & (~SLJIT_REWRITABLE_JUMP),
                      arg_types, TMP_REG1, 0);;
+#else
+    // TODO: Optimize by DISP
+    // Move code from icall into functions to prevent duplication
+    jump->addr = compiler->size;
+    emit_copf2(compiler, bundle, E2K_DISP, 1 | E2K_CTPR, 0);
+    offset = bundle->f1 - 1;    /* minus CS0 */
+    set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP
+                             | IS_DISP | offset << 2);
+    emit_bundle_optimize_and_finalize(compiler, bundle); 
+    emit_ct_full(compiler, E2K_CTPR | 1, 0, 0);
+#endif
     return jump;
 }
 
