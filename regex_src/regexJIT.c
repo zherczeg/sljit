@@ -980,6 +980,8 @@ static int generate_transitions(struct compiler_common *compiler_common)
 	struct stack_item *item;
 
 	stack_init(depth);
+	if (compiler_common->dfa_size > (~(sljit_uw)0) / sizeof(struct stack_item))
+		return REGEX_MEMORY_ERROR;
 	compiler_common->dfa_transitions = (struct stack_item *)SLJIT_MALLOC(sizeof(struct stack_item) * compiler_common->dfa_size, NULL);
 	if (!compiler_common->dfa_transitions)
 		return REGEX_MEMORY_ERROR;
@@ -1874,6 +1876,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 	}
 
 	/* Step 2: generating branches (Right->Left). */
+	compiler_common.dfa_transitions = NULL;
 	error_code = generate_transitions(&compiler_common);
 	stack_destroy(&compiler_common.stack);
 	stack_destroy(&compiler_common.depth);
