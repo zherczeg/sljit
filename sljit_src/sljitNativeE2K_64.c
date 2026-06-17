@@ -4133,7 +4133,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler,
     struct sljit_jump *jump;
     sljit_s32 mode32 = type & SLJIT_32;
     sljit_s32 mode   = mode32 ? WORD : DOUBLEWORD;
-    sljit_s32 opc, offset;
+    sljit_s32 opc = 0, offset;
     sljit_u32 src1_u32 = 0, src2_u32 = 0;
     sljit_sw  src1_sw = 0, src2_sw = 0;
     sljit_s32 neg = 0;
@@ -4322,6 +4322,9 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler,
         case SLJIT_ATOMIC_NOT_STORED:
             SLJIT_ASSERT(0);
             break;
+        default:
+            SLJIT_UNREACHABLE();
+            break;
     }
 
     emit_alopf7(compiler, bundle, 0, opc, src1_u32, src2_u32, E2K_PRED | FLAG_PREG);
@@ -4345,7 +4348,7 @@ sljit_s32 sljit_emit_shift_into(struct sljit_compiler *compiler,
     sljit_u32 mode32 = op & SLJIT_32;
     sljit_u32 mode = mode32 ? WORD : DOUBLEWORD;
     sljit_u32 value_mask = mode32 ? 31 : 63;
-    sljit_u32 src3_operand;
+    sljit_u32 src3_operand = 0;
     BUNDLE_SETUP();
 
     CHECK_ERROR();
@@ -4987,7 +4990,7 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
 {
     sljit_u32 neg = 0;
     sljit_s32 als_idx;
-    sljit_u32 e2kopc;
+    sljit_u32 e2kopc = 0;
 
     /* WARNING
        Sync with sljit_cmp_info */
@@ -5043,6 +5046,9 @@ static sljit_u32 emit_flag_into_pred(struct sljit_compiler *compiler, sljit_s32 
             case SLJIT_ATOMIC_STORED:
             case SLJIT_ATOMIC_NOT_STORED:
                 SLJIT_ASSERT(0);
+                break;
+            default:
+                SLJIT_UNREACHABLE();
                 break;
         }
 
