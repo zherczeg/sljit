@@ -143,6 +143,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	struct sljit_serialized_debug_info *serialized_debug_info;
 #endif /* SLJIT_ARGUMENT_CHECKS || SLJIT_DEBUG */
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    HashTable *jump_hash_table = ((E2kPrivate*)compiler->e2k_private)->jump_hash_table;
+#endif /* SLJIT_CONFIG_E2K */
 	sljit_uw counter, used_size;
 	sljit_u8 *result;
 	sljit_u8 *ptr;
@@ -162,6 +165,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 #if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
 	serialized_size += SLJIT_SERIALIZE_ALIGN(compiler->cpool_fill * (sizeof(sljit_uw) + 1));
 #endif /* SLJIT_CONFIG_ARM_V6 */
+
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    serialized_size += SLJIT_SERIALIZE_ALIGN(sizeof(HashTable));
+    serialized_size += SLJIT_SERIALIZE_ALIGN(jump_hash_table->cap*sizeof(HashEntry));
+#endif
 
 	/* Compute the size of the data. */
 	buf = compiler->buf;
@@ -234,6 +242,13 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_uw* sljit_serialize_compiler(struct sljit_compile
 	SLJIT_MEMCPY(ptr + compiler->cpool_fill * sizeof(sljit_uw), compiler->cpool_unique, compiler->cpool_fill);
 	ptr += SLJIT_SERIALIZE_ALIGN(compiler->cpool_fill * (sizeof(sljit_uw) + 1));
 #endif /* SLJIT_CONFIG_ARM_V6 */
+
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    SLJIT_MEMCPY(ptr, jump_hash_table, sizeof(HashTable));
+    ptr += SLJIT_SERIALIZE_ALIGN(sizeof(HashTable));
+    SLJIT_MEMCPY(ptr, jump_hash_table->e, jump_hash_table->cap*sizeof(HashEntry));
+    ptr += SLJIT_SERIALIZE_ALIGN(jump_hash_table->cap*sizeof(HashEntry));
+#endif
 
 #if (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 	serialized_compiler->delay_slot = compiler->delay_slot;
@@ -347,6 +362,9 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 	sljit_u8 *end = ptr + size;
 	sljit_uw i, type, used_size, aligned_size;
 	sljit_uw label_count, aligned_label_count;
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    HashTable *jump_hash_table;
+#endif /* SLJIT_CONFIG_E2K */
 	SLJIT_UNUSED_ARG(options);
 
 	if (size < sizeof(struct sljit_serialized_compiler) || (size & (sizeof(sljit_uw) - 1)) != 0)
@@ -359,6 +377,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 
 	compiler = sljit_create_compiler(allocator_data);
 	PTR_FAIL_IF(compiler == NULL);
+
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    jump_hash_table = ((E2kPrivate*)compiler->e2k_private)->jump_hash_table;
+#endif /* SLJIT_CONFIG_E2K */
 
 	compiler->label_count = serialized_compiler->label_count;
 	compiler->options = serialized_compiler->options;
@@ -393,6 +415,13 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 	SLJIT_MEMCPY(compiler->cpool_unique, ptr + used_size * sizeof(sljit_uw), used_size);
 	ptr += aligned_size;
 #endif /* SLJIT_CONFIG_ARM_V6 */
+
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    SLJIT_MEMCPY(jump_hash_table, ptr + sizeof(struct sljit_serialized_compiler), sizeof(HashTable));
+    ptr += sizeof(HashTable);
+    SLJIT_MEMCPY(jump_hash_table->e, ptr + sizeof(struct sljit_serialized_compiler), jump_hash_table->cap*sizeof(HashEntry));
+    ptr += jump_hash_table->cap*sizeof(HashEntry);
+#endif
 
 #if (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
 	compiler->delay_slot = serialized_compiler->delay_slot;

@@ -493,6 +493,7 @@ typedef enum EmitFlags {
     REG_SRC3 = 0x4,
     DST_CTPR = 0x8,
     REG_EMPTY = 0x10,
+    /* see STEPLER lower */
     STEPLER_CHECK_RESOURCE_ONLY = 0x100,
     STEPLER_NO_RAW_CHECK = 0x200,
 } EmitFlags;
@@ -1633,7 +1634,55 @@ static void emit_copf2(struct sljit_compiler *compiler,
 #define emit_nop(compiler, bundle, nops) \
   bundle->nop = nops
 
-/* -- Hash table ---------------------------------------------------------- */
+// TODO: move upper
+static void emit_bundle_setup(struct sljit_compiler *compiler,
+                              E2kBundle *bundle);
+static void emit_bundle_finalize(struct sljit_compiler *compiler,
+                                 E2kBundle *bundle,
+                                 sljit_u32 *target_addr);
+static sljit_s32 try_lift_inst(struct sljit_compiler *compiler,
+                               E2kBundle *bundle,
+                               sljit_s32 type);
+static void push_bundle_track(struct sljit_compiler *compiler,
+                              E2kBundle *bundle,
+                              sljit_u32 *start_addr,
+                              sljit_sw offset);
+static sljit_u32 bundle_size_in_words(E2kBundle *b);
+static SLJIT_INLINE sljit_uw check_resource(struct sljit_compiler *compiler,
+                                            E2kBundle *bundle,
+                                            sljit_uw mask);
+static sljit_s32 emit_op(struct sljit_compiler* compiler,
+                         E2kBundle *bundle,
+                         sljit_s32 opcode,
+                         sljit_s32 emit_flags,
+                         sljit_sw src1,
+                         sljit_sw src2,
+                         sljit_sw src3,
+                         sljit_sw dst,
+                         sljit_s32 mode);
+
+/* -- Optimization --------------------------------------------------------- */
+//TODO
+#define DECLARE_E2K_PRIVATE() \
+    E2kPrivate *e2k_private = (E2kPrivate*)compiler->e2k_private; \
+    BundleTracker *bundle_tracker = &e2k_private->bundle_tracker
+#define _BUNDLE ((E2kPrivate*)compiler->e2k_private)->bundle
+
+/* Backstep optimizing area for op lifting */
+#define LIFT_MAX_TRACK 5
+
+typedef struct {
+    sljit_u32   *start_addr;    /* real addr in buf */
+    sljit_uw    offset;         /* frag offset */
+    E2kBundle   bundle;
+} BundleTrackEntry;
+
+typedef struct {
+    BundleTrackEntry entries[LIFT_MAX_TRACK];
+    sljit_s32 count;
+    struct sljit_memory_fragment *tracker_frag;
+} BundleTracker;
+
 /* Hash table is used to save Bundle (IR) and then use in sljit_generate_code.
    This provides correct replacing MOVTd by disp to accelerate jump preparing. */
 typedef struct {
@@ -1648,7 +1697,14 @@ typedef struct {
     sljit_uw cnt;
 } HashTable;
 
-static void resize(struct sljit_compiler *compiler, HashTable* t)
+typedef struct {
+    E2kBundle bundle;
+    BundleTracker bundle_tracker;
+    HashTable* jump_hash_table;
+} E2kPrivate;
+
+
+static void hash_resize(struct sljit_compiler *compiler, HashTable* t)
 {
     sljit_uw new_cap = t->cap << 1;
     HashEntry* old_e;
@@ -1719,7 +1775,7 @@ void hash_insert(struct sljit_compiler *compiler,
     sljit_uw idx, start;
     SLJIT_UNUSED_ARG(compiler);
     if (!t || !b) return;
-    if (t->cnt >= (t->cap * 3) / 4) resize(compiler, t);
+    if (t->cnt >= (t->cap * 3) / 4) hash_resize(compiler, t);
 
     idx = addr % t->cap;
     start = idx;
@@ -1731,7 +1787,7 @@ void hash_insert(struct sljit_compiler *compiler,
         }
         idx = (idx + 1) % t->cap;
         if (idx == start) {     /* full (shouldn't happen after resize) */
-            resize(compiler, t);
+            hash_resize(compiler, t);
             idx = addr % t->cap;
             start = idx;
             while (t->e[idx].busy) idx = (idx + 1) % t->cap;
@@ -1760,36 +1816,9 @@ E2kBundle* hash_get(struct sljit_compiler *compiler, const HashTable* t, sljit_u
     return NULL;
 }
 
-static HashTable* g_hash_table = NULL;
-/* ------------------------------------------------------------------------ */
+//static HashTable* g_hash_table = NULL;
 
-/* -- Stepler ------------------------------------------------------------- */
-static void emit_bundle_setup(struct sljit_compiler *compiler,
-                              E2kBundle *bundle);
-static void emit_bundle_finalize(struct sljit_compiler *compiler,
-                                 E2kBundle *bundle,
-                                 sljit_u32 *target_addr);
-static sljit_s32 try_lift_inst(struct sljit_compiler *compiler,
-                               E2kBundle *bundle,
-                               sljit_s32 type);
-static void push_bundle_track(struct sljit_compiler *compiler,
-                              E2kBundle *bundle,
-                              sljit_u32 *start_addr,
-                              sljit_sw offset);
-static sljit_u32 bundle_size_in_words(E2kBundle *b);
-static SLJIT_INLINE sljit_uw check_resource(struct sljit_compiler *compiler,
-                                            E2kBundle *bundle,
-                                            sljit_uw mask);
-static sljit_s32 emit_op(struct sljit_compiler* compiler,
-                         E2kBundle *bundle,
-                         sljit_s32 opcode,
-                         sljit_s32 emit_flags,
-                         sljit_sw src1,
-                         sljit_sw src2,
-                         sljit_sw src3,
-                         sljit_sw dst,
-                         sljit_s32 mode);
-
+/* Stepler is used for lazy bundling algorithm */
 #define BUNDLE_CLOSE() \
         do { \
             stepler_setup(); \
@@ -1805,8 +1834,6 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
         E2kBundle *bundle = &_BUNDLE; \
         BUNDLE_CLOSE(); \
         emit_bundle_setup(compiler, bundle)
-
-static E2kBundle _BUNDLE;
 
 /* Allowed stepler op */
 static sljit_s32 STEPLER_OPS[] = {
@@ -2053,42 +2080,6 @@ static sljit_s32 stepler_check_add_op(struct sljit_compiler *compiler,
     return allowed;
 }
 
-/* -- Bundling ------------------------------------------------------------ */
-/* Backstep optimizing area for disp lifting */
-#define LIFT_MAX_TRACK 5
-
-typedef struct {
-    sljit_u32   *start_addr;    /* real addr in buf */
-    sljit_uw    offset;         /* frag offset */
-    E2kBundle   bundle;
-} BundleTrackEntry;
-
-typedef struct {
-    BundleTrackEntry entries[LIFT_MAX_TRACK];
-    sljit_s32 count;
-    struct sljit_memory_fragment *tracker_frag;
-} BundleTracker;
-
-/* init tracker */
-//static BundleTracker _bundle_tracker = {
-//    .entries = {0},
-//    .count = 0,
-//    .tracker_frag = NULL
-//};
-//BundleTracker *bundle_tracker = &_bundle_tracker;
-
-// TODO: find good place
-typedef struct {
-    BundleTracker bundle_tracker;
-
-
-} E2kPrivate;
-
-#define DECLARE_E2K_PRIVATE() \
-    E2kPrivate *e2k_private = (E2kPrivate*)compiler->e2k_private; \
-    BundleTracker *bundle_tracker = &e2k_private->bundle_tracker
-//#define DECLARE_E2K_PRIVATE()
-
 static void e2k_private_init(struct sljit_compiler *compiler)
 {
     E2kPrivate *e2k_private = (E2kPrivate *)SLJIT_MALLOC(sizeof(E2kPrivate),
@@ -2097,15 +2088,20 @@ static void e2k_private_init(struct sljit_compiler *compiler)
 
     e2k_private->bundle_tracker.count = 0;
     e2k_private->bundle_tracker.tracker_frag = NULL;
+    emit_bundle_setup(compiler, &e2k_private->bundle);
+    e2k_private->jump_hash_table = hash_create(compiler, 32);
 
     return;
 }
 
 static void e2k_private_free(struct sljit_compiler *compiler)
 {
+    hash_destroy(compiler, ((E2kPrivate *)compiler->e2k_private)->jump_hash_table);
     SLJIT_FREE(compiler->e2k_private, compiler->allocator_data);
     return;
 }
+
+/* -- Bundling ------------------------------------------------------------ */
 
 static SLJIT_INLINE void emit_bundle_setup(struct sljit_compiler *compiler,
                                            E2kBundle *bundle)
@@ -2204,10 +2200,9 @@ static SLJIT_INLINE sljit_s32 insert_bundle_track(struct sljit_compiler *compile
 #define LIFT_ERROR -1000
 
 #define INSERT_JUMP_INTO_HASHTABLE(jump_addr, bundle) \
-    if (!g_hash_table) { \
-        g_hash_table = hash_create(compiler, 32); \
-    } \
-    hash_insert(compiler, g_hash_table, jump_addr, bundle);
+    hash_insert(compiler, \
+                ((E2kPrivate*)compiler->e2k_private)->jump_hash_table, \
+                jump_addr, bundle)
 
 static SLJIT_INLINE void emit_lift_inst(struct sljit_compiler *compiler,
                                         E2kBundle *bundle,
@@ -3548,7 +3543,9 @@ static sljit_uw patch_jump(struct sljit_compiler *compiler,
         SLJIT_MEMCPY((void*)(start_addr), &disp, sizeof(sljit_u32));
     } else {
         if (compiler && ((((addr ^ target) >> 3) >> 28) == 0)) {
-            hash_bundle = hash_get(compiler, g_hash_table, addr_for_hash);
+            hash_bundle = hash_get(compiler,
+                                   ((E2kPrivate*)compiler->e2k_private)->jump_hash_table,
+                                   addr_for_hash);
             disp = (sljit_s32)(target - addr);
 
             // TODO: From here we start work global data in compiler
@@ -3741,8 +3738,6 @@ void* sljit_generate_code(struct sljit_compiler *compiler,
         }
         jump = jump->next;
     }
-    hash_destroy(compiler, g_hash_table);
-    g_hash_table = NULL;
 
     while(const_) {
         const_->addr = (sljit_uw)code + const_->addr;
@@ -3766,6 +3761,8 @@ void* sljit_generate_code(struct sljit_compiler *compiler,
     code = (sljit_u8*)SLJIT_ADD_EXEC_OFFSET(code, executable_offset);
 
     free(align_bound.bound);
+    hash_clear(compiler, ((E2kPrivate*)compiler->e2k_private)->jump_hash_table);
+    //g_hash_table = NULL;
 
     SLJIT_CACHE_FLUSH(code, code + compiler->size);
     SLJIT_UPDATE_WX_FLAGS(code, (sljit_u8*)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset), 1);

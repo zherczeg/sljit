@@ -492,8 +492,8 @@ static void init_compiler(void);
 #endif /* SLJIT_CONFIG_X86 || SLJIT_CONFIG_RISCV */
 
 #if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
-	static void e2k_private_init(struct sljit_compiler *compiler);
-	static void e2k_private_free(struct sljit_compiler *compiler);
+static void e2k_private_init(struct sljit_compiler *compiler);
+static void e2k_private_free(struct sljit_compiler *compiler);
 #endif /* SLJIT_CONFIG_E2K */
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data)
