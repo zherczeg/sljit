@@ -491,6 +491,11 @@ static sljit_s32 compiler_initialized = 0;
 static void init_compiler(void);
 #endif /* SLJIT_CONFIG_X86 || SLJIT_CONFIG_RISCV */
 
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+	static void e2k_private_init(struct sljit_compiler *compiler);
+	static void e2k_private_free(struct sljit_compiler *compiler);
+#endif /* SLJIT_CONFIG_E2K */
+
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data)
 {
 	struct sljit_compiler *compiler = (struct sljit_compiler*)SLJIT_MALLOC(sizeof(struct sljit_compiler), allocator_data);
@@ -571,6 +576,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allo
 	compiler->delay_slot = UNMOVABLE_INS;
 #endif /* SLJIT_CONFIG_MIPS */
 
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+	e2k_private_init(compiler);
+#endif /* SLJIT_CONFIG_E2K */
+
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
 		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	SLJIT_ASSERT(compiler->last_flags == 0 && compiler->logical_local_size == 0);
@@ -620,6 +629,11 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_compiler(struct sljit_compiler *compile
 #if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
 	SLJIT_FREE(compiler->cpool, allocator_data);
 #endif /* SLJIT_CONFIG_ARM_V6 */
+
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+	e2k_private_free(compiler);
+#endif /* SLJIT_CONFIG_E2K */
+
 	SLJIT_FREE(compiler, allocator_data);
 }
 
