@@ -1697,9 +1697,30 @@ typedef struct {
     sljit_uw cnt;
 } HashTable;
 
+#define STEPLER_WIDTH E2K_CHANNEL_NUMBER
+typedef struct Stepler {
+    /* generic data analysis */
+    sljit_sw dst_list[STEPLER_WIDTH];
+    sljit_sw src1_list[STEPLER_WIDTH];
+    sljit_sw src2_list[STEPLER_WIDTH];
+    sljit_sw src3_list[STEPLER_WIDTH];
+    /* specify src type: reg or imm */
+    sljit_sw src1_is_reg_list[STEPLER_WIDTH];
+    sljit_sw src2_is_reg_list[STEPLER_WIDTH];
+    sljit_sw src3_is_reg_list[STEPLER_WIDTH];
+    /* current data real len */
+    sljit_s32 len;
+    /* mem ops management */
+    sljit_sw is_ld_list[STEPLER_WIDTH];
+    sljit_sw is_st_list[STEPLER_WIDTH];
+    sljit_s32 ld_len;
+    sljit_s32 st_len;
+} Stepler;
+
 typedef struct {
     E2kBundle bundle;
     BundleTracker bundle_tracker;
+    Stepler stepler;
     HashTable* jump_hash_table;
 } E2kPrivate;
 
@@ -1821,7 +1842,7 @@ E2kBundle* hash_get(struct sljit_compiler *compiler, const HashTable* t, sljit_u
 /* Stepler is used for lazy bundling algorithm */
 #define BUNDLE_CLOSE() \
         do { \
-            stepler_setup(); \
+            stepler_setup(compiler); \
             if (_BUNDLE.f1 > 1) { \
                 emit_bundle_finalize(compiler, &_BUNDLE, (void*)0); \
             } \
@@ -1850,31 +1871,14 @@ static sljit_s32 STEPLER_OPS[] = {
     SLJIT_MASHR, SLJIT_ASHR, SLJIT_ROTL, SLJIT_ROTR};
 
 #define STEPLER_OPS_LEN (sljit_s32)(sizeof(STEPLER_OPS) / sizeof(STEPLER_OPS[0]))
-#define STEPLER_WIDTH E2K_CHANNEL_NUMBER
 
-typedef struct Stepler {
-    /* generic data analysis */
-    sljit_sw dst_list[STEPLER_WIDTH];
-    sljit_sw src1_list[STEPLER_WIDTH];
-    sljit_sw src2_list[STEPLER_WIDTH];
-    sljit_sw src3_list[STEPLER_WIDTH];
-    /* specify src type: reg or imm */
-    sljit_sw src1_is_reg_list[STEPLER_WIDTH];
-    sljit_sw src2_is_reg_list[STEPLER_WIDTH];
-    sljit_sw src3_is_reg_list[STEPLER_WIDTH];
-    /* current data real len */
-    sljit_s32 len;
-    /* mem ops management */
-    sljit_sw is_ld_list[STEPLER_WIDTH];
-    sljit_sw is_st_list[STEPLER_WIDTH];
-    sljit_s32 ld_len;
-    sljit_s32 st_len;
-} Stepler;
+//static Stepler STEPLER;
+#define STEPLER ((E2kPrivate*)compiler->e2k_private)->stepler
 
-static Stepler STEPLER;
-
-static void stepler_setup(void)
+static void stepler_setup(struct sljit_compiler *compiler)
 {
+    // TODO
+    SLJIT_UNUSED_ARG(compiler);
     STEPLER.len  = 0;
     STEPLER.ld_len = 0;
     STEPLER.st_len = 0;
@@ -2086,10 +2090,15 @@ static void e2k_private_init(struct sljit_compiler *compiler)
                                                    compiler->allocator_data);
     compiler->e2k_private = e2k_private;
 
+    /* tracker */
     e2k_private->bundle_tracker.count = 0;
     e2k_private->bundle_tracker.tracker_frag = NULL;
+    /* bundle */
     emit_bundle_setup(compiler, &e2k_private->bundle);
+    /* hash table */
     e2k_private->jump_hash_table = hash_create(compiler, 32);
+    /* stepler */
+    stepler_setup(compiler);
 
     return;
 }

@@ -364,6 +364,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 	sljit_uw label_count, aligned_label_count;
 #if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
     HashTable *jump_hash_table;
+    HashEntry *jump_hash_table_entries;
 #endif /* SLJIT_CONFIG_E2K */
 	SLJIT_UNUSED_ARG(options);
 
@@ -417,10 +418,13 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler *sljit_deserialize_compiler(sljit
 #endif /* SLJIT_CONFIG_ARM_V6 */
 
 #if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    /* save actual pointer before copying will rewrite jump_hash_table->e pointer */
+    jump_hash_table_entries = jump_hash_table->e;
     SLJIT_MEMCPY(jump_hash_table, ptr + sizeof(struct sljit_serialized_compiler), sizeof(HashTable));
-    ptr += sizeof(HashTable);
+    jump_hash_table->e = jump_hash_table_entries;
+    ptr += SLJIT_SERIALIZE_ALIGN(sizeof(HashTable));
     SLJIT_MEMCPY(jump_hash_table->e, ptr + sizeof(struct sljit_serialized_compiler), jump_hash_table->cap*sizeof(HashEntry));
-    ptr += jump_hash_table->cap*sizeof(HashEntry);
+    ptr += SLJIT_SERIALIZE_ALIGN(jump_hash_table->cap*sizeof(HashEntry));
 #endif
 
 #if (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
