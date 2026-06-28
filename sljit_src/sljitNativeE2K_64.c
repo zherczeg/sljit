@@ -372,7 +372,7 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
 #define BUNDLE_CLOSE() \
         do { \
             stepler_setup(compiler); \
-            if (BUNDLE.f1 > 1) { \
+            if ((BUNDLE.f1 + BUNDLE.f2 + BUNDLE.f3 + BUNDLE.f4) > 1) { \
                 emit_bundle_finalize(compiler, &BUNDLE, (void*)0); \
             } \
         } while(0)
@@ -381,7 +381,7 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
         E2kBundle *bundle = &BUNDLE
 
 #define BUNDLE_SETUP() \
-        E2kBundle *bundle = &BUNDLE; \
+        BUNDLE_DECLARATION(); \
         BUNDLE_CLOSE(); \
         emit_bundle_setup(compiler, bundle)
 
@@ -1423,7 +1423,7 @@ static void emit_alef1(struct sljit_compiler *compiler,
            should be revised in the new version. */
         bundle->f3++;
     } else {
-        SLJIT_ASSERT(0);
+        SLJIT_UNREACHABLE();
     }
 }
 
@@ -1443,7 +1443,7 @@ static void emit_alef2(struct sljit_compiler *compiler,
         bundle->ales[als_idx] = syl.i;
         bundle->f3++;
     } else {
-        SLJIT_ASSERT(0);
+        SLJIT_UNREACHABLE();
     }
 }
 
@@ -1965,7 +1965,7 @@ static sljit_s32 stepler_check_add_op(struct sljit_compiler *compiler,
     return allowed;
 }
 
-static void hash_resize(struct sljit_compiler *compiler, HashTable* t)
+static HashEntry *hash_resize(struct sljit_compiler *compiler, HashTable* t)
 {
     sljit_uw new_cap = t->cap << 1;
     HashEntry* old_e;
@@ -1976,7 +1976,7 @@ static void hash_resize(struct sljit_compiler *compiler, HashTable* t)
     HashEntry* new_e = calloc(new_cap, sizeof(HashEntry));
     if (!new_e) {
         compiler->error = SLJIT_ERR_ALLOC_FAILED;
-        return;
+        return 0;
     }
     old_e = t->e;
     old_cap = t->cap;
@@ -1992,6 +1992,7 @@ static void hash_resize(struct sljit_compiler *compiler, HashTable* t)
         }
     }
     SLJIT_FREE(old_e, compiler->allocator_data);
+    return t->e;
 }
 
 HashTable* hash_create(struct sljit_compiler *compiler, sljit_uw cap)
@@ -2038,7 +2039,11 @@ void hash_insert(struct sljit_compiler *compiler,
     sljit_uw idx, start;
     SLJIT_UNUSED_ARG(compiler);
     if (!t || !b) return;
-    if (t->cnt >= (t->cap * 3) / 4) hash_resize(compiler, t);
+    if (t->cnt >= (t->cap * 0.75)) {
+        if (!hash_resize(compiler, t)) {
+            return;
+        }
+    }
 
     idx = addr % t->cap;
     start = idx;
@@ -2050,7 +2055,9 @@ void hash_insert(struct sljit_compiler *compiler,
         }
         idx = (idx + 1) % t->cap;
         if (idx == start) {     /* full (shouldn't happen after resize) */
-            hash_resize(compiler, t);
+            if (!hash_resize(compiler, t)) {
+                return;
+            }
             idx = addr % t->cap;
             start = idx;
             while (t->e[idx].busy) idx = (idx + 1) % t->cap;
@@ -2495,6 +2502,10 @@ static void emit_bundle_finalize(struct sljit_compiler *compiler,
 
     if (target_addr == NULL) {
         inst = (sljit_u32*)ensure_buf(compiler, sizeof(sljit_u32)*hs_lng);
+        if (SLJIT_UNLIKELY(!inst)) {
+            compiler->error = SLJIT_ERR_ALLOC_FAILED;
+            return;
+        }
     } else {
         inst = target_addr;
     }
@@ -2661,7 +2672,7 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
                                           src1u32, src2, dstr, mode);
                     break;
                 default:
-                    SLJIT_ASSERT(0);
+                    SLJIT_UNREACHABLE();
                     break;
             }
             break;
@@ -2695,6 +2706,9 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
                                          SLJIT_EXTRACT_REG(dst),
                                          mode);
                     break;
+                default:
+                    SLJIT_UNREACHABLE();
+                    break;
             }
             break;
         case E2K_ALOPF3:
@@ -2717,7 +2731,7 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
                                           src1u32, src2, src3, mode);
                     break;
                 default:
-                    SLJIT_ASSERT(0);
+                    SLJIT_UNREACHABLE();
                     break;
             }
             break;
@@ -2740,6 +2754,9 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
                     return emit_alopf7_ii(compiler, bundle, 0, opcode,
                                           src1u32, src2, E2K_PRED | dstr, mode);
                     break;
+                default:
+                    SLJIT_UNREACHABLE();
+                    break;
             }
             break;
         case E2K_ALOPF8:
@@ -2754,10 +2771,13 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
                     return emit_alopf8_i(compiler, bundle, 0, opcode,
                                          src2, E2K_PRED | dstr, mode);
                     break;
+                default:
+                    SLJIT_UNREACHABLE();
+                    break;
             }
             break;
         case E2K_ALOPF10:
-            SLJIT_ASSERT(0);
+            SLJIT_UNREACHABLE();
             break;
         case E2K_ALOPF11:
             switch (src_type) {
@@ -2777,6 +2797,9 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
                     return emit_alopf11_ii(compiler, bundle, 0, opcode,
                                            src1u32, src2, dstr, mode);
                     break;
+                default:
+                    SLJIT_UNREACHABLE();
+                    break;
             }
             break;
         case E2K_ALOPF12:
@@ -2793,22 +2816,25 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
                                           dst,
                                           mode);
                     break;
+                default:
+                    SLJIT_UNREACHABLE();
+                    break;
             }
             break;
         case E2K_ALOPF13:
-            SLJIT_ASSERT(0);
+            SLJIT_UNREACHABLE();
             break;
         case E2K_ALOPF15:
-            SLJIT_ASSERT(0);
+            SLJIT_UNREACHABLE();
             break;
         case E2K_ALOPF16:
-            SLJIT_ASSERT(0);
+            SLJIT_UNREACHABLE();
             break;
         case E2K_ALOPF17:
-            SLJIT_ASSERT(0);
+            SLJIT_UNREACHABLE();
             break;
         case E2K_ALOPF19:
-            SLJIT_ASSERT(0);
+            SLJIT_UNREACHABLE();
             break;
         case E2K_ALOPF21:
             switch (src_type) {
@@ -2821,12 +2847,12 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
                                             src1r, src2, src3r, dstr, mode);
                     break;
                 default:
-                    SLJIT_ASSERT(0);
+                    SLJIT_UNREACHABLE();
                     break;
             }
             break;
         case E2K_ALOPF22:
-            SLJIT_ASSERT(0);
+            SLJIT_UNREACHABLE();
             break;
     }
 
@@ -3872,7 +3898,7 @@ sljit_s32 sljit_emit_enter(struct sljit_compiler *compiler,
         setr.fields.setbp  = 0x1;
         setr.fields.opc    = E2K_SETR0;
         bundle->cs[1] = setr.i;
-        bundle->f1++;
+        bundle->f2++;
 
         get_resource(compiler, bundle, RES_LTS0);
         lts0.fields.x      = 0x0;
@@ -4947,6 +4973,7 @@ sljit_s32 sljit_emit_op_custom(struct sljit_compiler *compiler,
     CHECK(check_sljit_emit_op_custom(compiler, instruction, size));
 
     inst = (sljit_u32*)ensure_buf(compiler, size);
+    FAIL_IF_NULL(inst);
     SLJIT_MEMCPY(inst, instruction, size);
     compiler->size += size;
 
