@@ -2404,7 +2404,7 @@ static sljit_s32 try_lift_inst(struct sljit_compiler *compiler,
     if ((type == LIFT_MOVTD) || (type == LIFT_MOVTD_UNCONDITIONAL)) {
         jump->addr = target_entry->offset;
         /* Not use set_jump to prevent next overwriting */
-        jump->flags = ((sljit_u32)jump->flags & SLJIT_REWRITABLE_JUMP);
+        jump->flags = ((sljit_u32)jump->flags);
 
         /* Save bundle to reemit in time of code generating */
         SLJIT_ASSERT(target_bundle->f4 > 1);
@@ -3489,40 +3489,35 @@ static SLJIT_INLINE sljit_s32 get_lts_offset(sljit_u32 *hs_addr,
 }
 
 /* addr - src inst start addr,
-   target_addr  - dst inst start addr.
+   target_addr - dst inst start addr.
 
-   Now two relocation types:
-   1. DISP with cs0 offset calculation;
-   2. MOVTd with LTS_hi offset calculation.
+   Now three relocation types:
+   1. DISP with cs0 offset calculation (not the first jump patching);
+   2. MOVTd with replacing by DISP or jump addr insertion (typical jump, the first
+      jump patching);
+   3. LTS_hi offset update after offst calculation (JUMP_MOV_ADDR only).
 
-   Basic jump patching mechanism:
+   Jump patching mechanism:
    1. [EMIT] Initial mixed MOVTd (indirect jump)
-   2. [CODEGEN] Replace by disp.
-
-   Return new address in case of disp replacing. */
-static sljit_uw patch_jump(struct sljit_compiler *compiler,
-                           sljit_uw addr,
-                           sljit_uw target,
-                           sljit_uw addr_for_hash)
+   2. [CODEGEN] Replace by disp. */
+static void patch_jump(struct sljit_compiler *compiler,
+                       sljit_uw addr,
+                       sljit_uw target,
+                       sljit_uw addr_for_hash)
 {
-    sljit_s32 opc, disp, cs0_off, lts_off, ctpr;
+    sljit_s32 opc, disp = 0, cs0_off, lts_off, ctpr;
     void *start_addr, *end_addr;
     sljit_s32 new_target_hi = (sljit_s32)((target >> 32) & 0xFFFFFFFF);
     sljit_s32 new_target_lo = (sljit_s32)(target & 0xFFFFFFFF);
 
-    sljit_s32 disp_replaced = 0;
     sljit_s32 orig_size, new_size;
-
-    E2kBundle disp_bundle;
     E2kBundle *hash_bundle;
-    if (compiler) {
-        emit_bundle_setup(compiler, &disp_bundle);
-    }
 
     cs0_off = get_cs0_offset((sljit_u32 *)addr);
     lts_off = get_lts_offset((sljit_u32 *)addr, 0);
 
     if (cs0_off) {
+        /* update disp in disp instruction, rare case */
         SLJIT_ASSERT((((addr ^ target) >> 3) >> 28) == 0);
         start_addr = (void *)(addr + cs0_off);
         end_addr   = start_addr + sizeof(sljit_s32);
@@ -3535,69 +3530,63 @@ static sljit_uw patch_jump(struct sljit_compiler *compiler,
         SLJIT_UPDATE_WX_FLAGS(start_addr, end_addr, 0);
         SLJIT_MEMCPY((void*)(start_addr), &disp, sizeof(sljit_u32));
     } else {
-        if (compiler && ((((addr ^ target) >> 3) >> 28) == 0)) {
+        /* lts (movtd or addd) */
+        if (compiler) {
+            /* all real jumps are saved in hash table*/
             hash_bundle = hash_get(compiler, HASH_TABLE, addr_for_hash);
-            disp = (sljit_s32)(target - addr);
+            SLJIT_ASSERT(hash_bundle); 
+        }
 
-            // TODO: From here we start work global data in compiler
-            //SLJIT_ASSERT(hash_bundle); 
-            if (hash_bundle) {
-                /* Bundle is bundled and saved in hash table.
-                   Replace movtd by disp */
-                orig_size = bundle_size_in_words(hash_bundle);
+        if (hash_bundle) {
+            /* Low LTS may be busy.
+               MOVTd will be inserted here as the last instr, so low LTSs are
+               correct already. */
+            switch (hash_bundle->res & RES_LTS_ALL) {
+                case 0:
+                    hash_bundle->res |= RES_LTS3 | RES_LTS2;
+                    break;
+                case RES_LTS3:
+                    hash_bundle->res |= RES_LTS2 | RES_LTS1;
+                    break;
+                case RES_LTS3 | RES_LTS2:
+                    hash_bundle->res |= RES_LTS1 | RES_LTS0;
+                    break;
+                default:
+                    SLJIT_UNREACHABLE();
+                    break;
+            }
 
-                /* Low LTS may be busy.
-                   MOVTd must be insterted as the last instr, so low LTS are
-                   correct already. */
-                switch (hash_bundle->res & RES_LTS_ALL) {
-                    case 0:
-                        hash_bundle->res |= RES_LTS3 | RES_LTS2;
-                        break;
-                    case RES_LTS3:
-                        hash_bundle->res |= RES_LTS2 | RES_LTS1;
-                        break;
-                    case RES_LTS3 | RES_LTS2:
-                        hash_bundle->res |= RES_LTS1 | RES_LTS0;
-                        break;
-                    default:
-                        SLJIT_UNREACHABLE();
-                        break;
-                }
-                ctpr = hash_bundle->als[0] & 0xF;
-                hash_bundle->res |= RES_ALS0;
-                hash_bundle->als[0] = 0;
-                hash_bundle->f1--;
-                hash_bundle->f4 -= 2;
+            orig_size = bundle_size_in_words(hash_bundle);
 
+            ctpr = hash_bundle->als[0] & 0xF;
+            hash_bundle->res |= RES_ALS0;
+            hash_bundle->als[0] = 0;
+            hash_bundle->f1--;
+            hash_bundle->f4 -= 2;
+
+            if ((((addr ^ target) >> 3) >> 28) == 0) {
+                /* replace movtd by disp */
+                disp = (sljit_s32)(target - addr);
                 emit_copf2(compiler, hash_bundle, E2K_DISP, ctpr | E2K_CTPR, disp);
                 /* save the same bundle size */
                 emit_op(compiler, hash_bundle, E2K_ADDd, REG_ZERO, 0, 0, 0,
                         JUMP_REG | E2K_EMPTY, DOUBLEWORD);
                 emit_op(compiler, hash_bundle, E2K_ADDd, REG_ZERO, 0, 0, 0,
                         JUMP_REG | E2K_EMPTY, DOUBLEWORD);
-                new_size = bundle_size_in_words(hash_bundle);
-
-                SLJIT_ASSERT(orig_size == new_size);
-
-                start_addr = (void *)(addr);
-                end_addr   = start_addr + orig_size*sizeof(sljit_s32);
-                SLJIT_UPDATE_WX_FLAGS(start_addr, end_addr, 0);
-                emit_bundle_finalize(compiler, hash_bundle, start_addr);
             } else {
-                /* bundle is not saved in hash table, bundle is not bundled */
-                ctpr = *(sljit_s32 *)(addr + sizeof(sljit_s32)) & 0xF;
-                emit_copf2(compiler, &disp_bundle, E2K_DISP, ctpr | E2K_CTPR, disp);
-                /* save the same bundle size*/
-                emit_op(compiler, &disp_bundle, E2K_ADDd, REG_ZERO, 0, 0, 0, JUMP_REG, DOUBLEWORD);
-                /* replace full bundle */
-                start_addr = (void *)(addr);
-                end_addr   = start_addr + 4*sizeof(sljit_s32);
-                SLJIT_UPDATE_WX_FLAGS(start_addr, end_addr, 0);
-                emit_bundle_finalize(compiler, &disp_bundle, start_addr);
-
+                emit_op(compiler, hash_bundle, E2K_MOVTd, DST_CTPR,
+                        0, target, 0, E2K_CTPR | ctpr, DOUBLEWORD | FORCE_LTS);
             }
-            disp_replaced = 1;
+            new_size = bundle_size_in_words(hash_bundle);
+
+            SLJIT_ASSERT(orig_size == new_size);
+
+            start_addr = (void *)(addr);
+            end_addr   = start_addr + orig_size*sizeof(sljit_s32);
+            SLJIT_UPDATE_WX_FLAGS(start_addr, end_addr, 0);
+            emit_bundle_finalize(compiler, hash_bundle, start_addr);
         } else {
+            /* JUMP_MOV_ADDR only */
             start_addr = (void*)(addr + lts_off);
             end_addr = start_addr + sizeof(sljit_uw);
 
@@ -3611,10 +3600,7 @@ static sljit_uw patch_jump(struct sljit_compiler *compiler,
 
     SLJIT_UPDATE_WX_FLAGS(start_addr, end_addr, 1);
     SLJIT_CACHE_FLUSH(start_addr, end_addr);
-    if (disp_replaced) {
-        return (sljit_uw)start_addr;
-    } else
-        return 0;
+    return;
 }
 
 SLJIT_API_FUNC_ATTRIBUTE
@@ -3633,7 +3619,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler,
 
     sljit_s32 align_size = sizeof(sljit_uw);    /* e2k inst alignment */
     struct alignment_bound_vector align_bound;
-    sljit_uw align_bound_addr, new_jump_addr;
+    sljit_uw align_bound_addr;
 
     BUNDLE_CLOSE();
     BUNDLE_TRACKER.count = 0;
@@ -3721,10 +3707,7 @@ void* sljit_generate_code(struct sljit_compiler *compiler,
         if (flags & JUMP_MOV_ADDR) {
             patch_jump(NULL, jump->addr, addr, 0);
         } else {
-            new_jump_addr = patch_jump(compiler, jump->addr, addr, addr_for_hash);
-            if (new_jump_addr) {
-                jump->addr = new_jump_addr;
-            }
+            patch_jump(compiler, jump->addr, addr, addr_for_hash);
         }
         jump = jump->next;
     }
@@ -4613,7 +4596,7 @@ static SLJIT_INLINE struct sljit_jump *prepare_jump(struct sljit_compiler* compi
     jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
     PTR_FAIL_IF_NULL(jump);
     jump->addr = compiler->size;
-    set_jump(jump, compiler, type & SLJIT_REWRITABLE_JUMP);
+    set_jump(jump, compiler, type);
     try_lift_inst(compiler, bundle, lift_type);
     return jump;
 }
@@ -4770,7 +4753,7 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler,
 
     emit_op(compiler, bundle, opc, emit_flags, src1_sw, src2_sw, 0,
             E2K_PRED | FLAG_PREG, mode);
-    jump = prepare_jump(compiler, type, LIFT_MOVTD);
+    jump = prepare_jump(compiler, type & SLJIT_REWRITABLE_JUMP, LIFT_MOVTD);
 
 
     emit_ct_full(compiler, E2K_CTPR | 1, E2K_PRED | FLAG_PREG, neg);
@@ -5668,11 +5651,12 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
     CHECK_PTR(check_sljit_emit_jump(compiler, type));
 
     if(flag < SLJIT_JUMP){
-        jump = prepare_jump(compiler, type, LIFT_MOVTD);
+        jump = prepare_jump(compiler, type & SLJIT_REWRITABLE_JUMP, LIFT_MOVTD);
         neg = emit_flag_into_pred(compiler, flag);
         emit_ct_full(compiler, E2K_CTPR | 1, E2K_PRED | FLAG_PREG, neg);
     } else {
-        jump = prepare_jump(compiler, type, LIFT_MOVTD_UNCONDITIONAL);
+        jump = prepare_jump(compiler, type & SLJIT_REWRITABLE_JUMP,
+                            LIFT_MOVTD_UNCONDITIONAL);
         /* Force save return addr into TMP_REG1 */
         if (flag == SLJIT_FAST_CALL) {
             /* Save next IP after ct */
@@ -5767,7 +5751,7 @@ struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler,
     CHECK_ERROR_PTR();
     CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
-    jump = prepare_jump(compiler, type, LIFT_MOVTD);
+    jump = prepare_jump(compiler, type & SLJIT_REWRITABLE_JUMP, LIFT_MOVTD);
 
     /* SLJIT does not support arg passing more than E2K ABI.
        Now we don't reserve stack for args due to sljit can operate only with
@@ -5795,6 +5779,7 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler,
                            sljit_sw srcw)
 {
     struct sljit_jump *jump;
+    sljit_s32 ctpr = 1;
     sljit_u32 flag = type & 0xFF;
     sljit_s32 jump_reg = JUMP_REG;
     BUNDLE_SETUP();
@@ -5807,17 +5792,14 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler,
 
     if (SLJIT_IS_IMM(src)) {
         if (flag == SLJIT_JUMP) {
-            /* Patch in the future */
-            jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
-            FAIL_IF_NULL(jump);
-            set_jump(jump, compiler, (sljit_u32)JUMP_ADDR);
-            jump->u.target = (sljit_uw)srcw;
-            jump->addr = compiler->size;
+            jump = prepare_jump(compiler, JUMP_ADDR, LIFT_MOVTD_UNCONDITIONAL);
+            jump->u.target = srcw;
+            ctpr = 2;
+        } else {
+            emit_op(compiler, bundle, E2K_MOVTd, DST_CTPR,
+                    0, srcw, 0, E2K_CTPR | 1, DOUBLEWORD);
+            BUNDLE_CLOSE();
         }
-
-        emit_op(compiler, bundle, E2K_MOVTd, DST_CTPR,
-                0, srcw, 0, E2K_CTPR | 1, DOUBLEWORD);
-        BUNDLE_CLOSE();
     } else if (SLJIT_IS_MEM(src)) {
         emit_load_full(compiler, jump_reg, 0, src, srcw, DOUBLEWORD);
         emit_op(compiler, bundle, E2K_MOVTd, REG_SRC2 | DST_CTPR,
@@ -5837,7 +5819,7 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler,
         emit_alopf16(compiler, bundle, 0, E2K_RRd, nip, RSRC2(TMP_REG1));
     }
 
-    emit_ct(compiler, bundle, E2K_CTPR | 1, E2K_PRED | 0, 0);
+    emit_ct(compiler, bundle, E2K_CTPR | ctpr, E2K_PRED | 0, 0);
     BUNDLE_CLOSE();
 
     return SLJIT_SUCCESS;
