@@ -2339,10 +2339,12 @@ static sljit_s32 try_lift_inst(struct sljit_compiler *compiler,
         target_entry_tmp = &BUNDLE_TRACKER.entries[target_entry_idx];
         target_bundle_tmp = &target_entry_tmp->bundle;
 
-        if ((type == LIFT_MOVTD_UNCONDITIONAL) && (INDIRECT_JUMP_FOUND(target_bundle_tmp))) {
-            /* We allow lift upper than ct, but we should not lift upper than branch.
-               There is no error due to unconditional jump uses ctpr2 instead of ctpr 1.*/
-            break;
+        if (type == LIFT_MOVTD_UNCONDITIONAL) {
+            if (INDIRECT_JUMP_FOUND(target_bundle_tmp)) {
+                /* We allow lift upper than ct, but we should not lift upper than branch.
+                   There is no error due to unconditional jump uses ctpr2 instead of ctpr 1.*/
+                break;
+            }
         } else if ((target_bundle_tmp->res & RES_SS) == 0) {
             /* Deny control preparation mix - deny lift upper than ct */
             break;
