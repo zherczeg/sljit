@@ -3542,7 +3542,7 @@ static void patch_jump(struct sljit_compiler *compiler,
     sljit_s32 new_target_lo = (sljit_s32)(target & 0xFFFFFFFF);
 
     sljit_s32 orig_size, new_size;
-    E2kBundle *hash_bundle;
+    E2kBundle *hash_bundle = NULL;
 
     cs0_off = get_cs0_offset((sljit_u32 *)addr);
     lts_off = get_lts_offset((sljit_u32 *)addr, 0);
