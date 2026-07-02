@@ -10205,6 +10205,8 @@ static void test82(void)
 	/* jump chain */
 	jump0 = sljit_emit_jump(compiler, SLJIT_FAST_CALL);
 	jump1 = sljit_emit_jump(compiler, SLJIT_JUMP);
+	sljit_set_target(sljit_emit_jump(compiler, SLJIT_FAST_CALL), 0);
+	sljit_set_target( sljit_emit_jump(compiler, SLJIT_JUMP), 0);
 	/* return */
 	label0 = sljit_emit_label(compiler);
 	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
