@@ -3596,10 +3596,10 @@ static void patch_jump(struct sljit_compiler *compiler,
                 disp = (sljit_s32)(target - addr);
                 emit_copf2(compiler, hash_bundle, E2K_DISP, ctpr | E2K_CTPR, disp);
                 /* save the same bundle size */
-                emit_op(compiler, hash_bundle, E2K_ADDd, REG_ZERO, 0, 0, 0,
-                        JUMP_REG | E2K_EMPTY, DOUBLEWORD);
-                emit_op(compiler, hash_bundle, E2K_ADDd, REG_ZERO, 0, 0, 0,
-                        JUMP_REG | E2K_EMPTY, DOUBLEWORD);
+                emit_op(compiler, hash_bundle, E2K_ADDd, REG_ZERO | STEPLER_CHECK_RESOURCE_ONLY,
+                        0, 0, 0, JUMP_REG | E2K_EMPTY, DOUBLEWORD);
+                emit_op(compiler, hash_bundle, E2K_ADDd, REG_ZERO | STEPLER_CHECK_RESOURCE_ONLY,
+                        0, 0, 0, JUMP_REG | E2K_EMPTY, DOUBLEWORD);
             } else {
                 emit_op(compiler, hash_bundle, E2K_MOVTd, DST_CTPR,
                         0, target, 0, E2K_CTPR | ctpr, DOUBLEWORD | FORCE_LTS);
@@ -5634,6 +5634,8 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
     struct sljit_jump *jump = NULL;
     sljit_u32 neg = 0;
     sljit_u32 flag = type & 0xFF;
+    E2kBundle *last_bundle = NULL;
+    BundleTrackEntry *last_entry = NULL;
     BUNDLE_SETUP();
     SLJIT_DEBUG_TRACE(type);
 
@@ -5653,16 +5655,48 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
         neg = emit_flag_into_pred(compiler, flag);
         emit_ct_full(compiler, E2K_CTPR | SWITCH_CTPR, E2K_PRED | FLAG_PREG, neg);
     } else {
-        jump = prepare_jump(compiler, type & SLJIT_REWRITABLE_JUMP,
-                            LIFT_MOVTD_UNCONDITIONAL);
-        /* Force save return addr into TMP_REG1 */
-        if (flag == SLJIT_FAST_CALL) {
-            /* Save next IP after ct */
-            emit_alopf16(compiler, bundle, 0, E2K_RRd, nip, RSRC2(TMP_REG1));
+        if (BUNDLE_TRACKER.count) {
+            /* optimize SLJIT_FAST_CALL, SLJIT_JUMP sequence,
+               see Reserve place for LTS lower */
+            last_bundle = &BUNDLE_TRACKER.entries[BUNDLE_TRACKER.count-1].bundle;
+            last_entry = &BUNDLE_TRACKER.entries[BUNDLE_TRACKER.count-1];
+            if (!check_resource_multiple(compiler, last_bundle, RES_ALS0 | RES_ALS1 | RES_ALS2, 3)
+                    && RETURN_CT_FOUND(last_bundle)
+                    && (((last_bundle->als[0] >> 24) & 0xFF) == e2kop[E2K_RRd].opc)) {
+                jump = (struct sljit_jump*)ensure_abuf(compiler, sizeof(struct sljit_jump));
+                PTR_FAIL_IF(!jump);
+                set_mov_addr(jump, compiler, 0);
+                jump->addr = last_entry->offset;
+                last_bundle->res |= RES_ALS_ALL | RES_ALES_ALL;
+                last_bundle->als[0] = 0;
+                last_bundle->als[1] = 0;
+                last_bundle->als[2] = 0;
+                last_bundle->f1 -= 3;
+                emit_op(compiler, last_bundle, E2K_ADDd, REG_ZERO, 0, -1, 0, TMP_REG1,
+                        DOUBLEWORD | FORCE_LTS);
+                emit_bundle_finalize(compiler, last_bundle, last_entry->start_addr);
+            } else {
+                last_bundle = NULL;
+            }
         }
 
-        emit_ct(compiler, bundle, E2K_CTPR | SWITCH_CTPR, E2K_PRED | 0, 0);
-        BUNDLE_CLOSE();
+        if (!last_bundle) {
+            jump = prepare_jump(compiler, type & SLJIT_REWRITABLE_JUMP,
+                                LIFT_MOVTD_UNCONDITIONAL);
+            /* Force save return addr into TMP_REG1 */
+            if (flag == SLJIT_FAST_CALL) {
+                /* Save next IP after ct */
+                emit_alopf16(compiler, bundle, 0, E2K_RRd, nip, RSRC2(TMP_REG1));
+                /* Reserve place for LTS */
+                emit_op(compiler, bundle, E2K_ADDd, REG_ZERO | STEPLER_CHECK_RESOURCE_ONLY, 0, 0, 0,
+                        JUMP_REG | E2K_EMPTY, DOUBLEWORD);
+                emit_op(compiler, bundle, E2K_ADDd, REG_ZERO | STEPLER_CHECK_RESOURCE_ONLY, 0, 0, 0,
+                        JUMP_REG | E2K_EMPTY, DOUBLEWORD);
+            }
+
+            emit_ct(compiler, bundle, E2K_CTPR | SWITCH_CTPR, E2K_PRED | 0, 0);
+            BUNDLE_CLOSE();
+        }
     }
 
     return jump;
