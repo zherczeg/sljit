@@ -578,6 +578,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allo
 
 #if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
 	e2k_private_init(compiler);
+    compiler->ctpr = 1;
 #endif /* SLJIT_CONFIG_E2K */
 
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \

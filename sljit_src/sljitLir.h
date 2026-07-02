@@ -627,6 +627,7 @@ struct sljit_compiler {
 #if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
     /* optimization requires global compiler data */
     void* e2k_private;
+    sljit_s32 ctpr;
 #endif /* SLJIT_CONFIG_E2K */
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)

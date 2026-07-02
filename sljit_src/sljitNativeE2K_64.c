@@ -2192,6 +2192,19 @@ static SLJIT_INLINE sljit_s32 insert_bundle_track(struct sljit_compiler *compile
                 HASH_TABLE, \
                 jump_addr, bundle)
 
+/* To optimize jump preparation we dynamically switch ctpr number. This
+   provides mixing preparations and reduce latency. */
+#define SWITCH_CTPR_MIN 1
+#define SWITCH_CTPR_MAX 2
+#define SWITCH_CTPR compiler->ctpr
+static SLJIT_INLINE void switch_ctpr(struct sljit_compiler *compiler)
+{
+    sljit_s32 ctpr = SWITCH_CTPR;
+    /* Keep in mind SWITCH_CTPR may be ctpr3 */
+    ctpr = (ctpr >= SWITCH_CTPR_MAX) ? SWITCH_CTPR_MIN : ctpr + 1;
+    SWITCH_CTPR = ctpr;
+}
+
 static SLJIT_INLINE void emit_lift_inst(struct sljit_compiler *compiler,
                                         E2kBundle *bundle,
                                         sljit_s32 type,
@@ -2199,18 +2212,18 @@ static SLJIT_INLINE void emit_lift_inst(struct sljit_compiler *compiler,
 {
     switch(type) {
         case LIFT_DISP:
-            emit_copf2(compiler, bundle, E2K_DISP, 1 | E2K_CTPR, 0);
+            emit_copf2(compiler, bundle, E2K_DISP, E2K_CTPR | SWITCH_CTPR, 0);
             break;
         case LIFT_MOVTD:
             emit_op(compiler, bundle, E2K_MOVTd, DST_CTPR,
-                    0, 0, 0, E2K_CTPR | 1, DOUBLEWORD | FORCE_LTS);
+                    0, 0, 0, E2K_CTPR | SWITCH_CTPR, DOUBLEWORD | FORCE_LTS);
             break;
         case LIFT_RETURN:
-            emit_copf1(compiler, bundle, E2K_RETURN, E2K_CTPR | 3, 0);
+            emit_copf1(compiler, bundle, E2K_RETURN, E2K_CTPR | RETURN_CTPR, 0);
             break;
         case LIFT_MOVTD_UNCONDITIONAL:
             emit_op(compiler, bundle, E2K_MOVTd, DST_CTPR,
-                    0, 0, 0, E2K_CTPR | 2, DOUBLEWORD | FORCE_LTS);
+                    0, 0, 0, E2K_CTPR | SWITCH_CTPR, DOUBLEWORD | FORCE_LTS);
             break;
         default:
             SLJIT_UNREACHABLE();
@@ -2266,10 +2279,8 @@ static SLJIT_INLINE sljit_s32 mem_cross_fallback(struct sljit_compiler *compiler
 #define INDIRECT_BRANCH_FOUND(bundle) \
     ((ALOPF1_OPC(bundle, 0) == e2kop[E2K_MOVTd].opc) && (bundle->f4 >=2))
 #define CT_FOUND(bundle) ((bundle->res & RES_SS) == 0)
-#define UNCOND_CT_FOUND(bundle) \
-    ((CT_FOUND(bundle)) && (((bundle->ss >> 10) & 0x3) == UNCOND_CTPR))
-#define COND_CT_FOUND(bundle) \
-    ((CT_FOUND(bundle)) && (((bundle->ss >> 10) & 0x3) == COND_CTPR))
+#define SWITCH_CT_FOUND(bundle) \
+    ((CT_FOUND(bundle)) && (((bundle->ss >> 10) & 0x3) == SWITCH_CTPR))
 #define RETURN_CT_FOUND(bundle) \
     ((CT_FOUND(bundle)) && (((bundle->ss >> 10) & 0x3) == RETURN_CTPR))
 #define CONTROL_SYL_FOUND(bundle) \
@@ -2326,21 +2337,15 @@ static sljit_s32 try_lift_inst(struct sljit_compiler *compiler,
             break;
         }
 
-        /* Allow mix only different jump types */
-        if (type == LIFT_MOVTD_UNCONDITIONAL) {
-            if (UNCOND_CT_FOUND(target_bundle_tmp)) {
-                break;
-            }
-        } else if (type == LIFT_MOVTD) {
-            if (COND_CT_FOUND(target_bundle_tmp)) {
-                break;
-            }
-        } else if (type == LIFT_RETURN) {
-            if (RETURN_CT_FOUND(target_bundle_tmp)) {
-                break;
-            }
-        } else {
-            SLJIT_UNREACHABLE();
+        /* prevent jump mixing */
+        if (SWITCH_CT_FOUND(target_bundle_tmp)) {
+            break;
+        }
+
+        /* Return reg is used for fast calls, inside fast call these ctpr regs
+           maybe rewritten. */
+        if (RETURN_CT_FOUND(target_bundle_tmp)) {
+            break;
         }
 
         /* multi disp, setr, setwd, call, etc */
@@ -4011,7 +4016,8 @@ static void substitute_return_addr(struct sljit_compiler *compiler,
     sljit_s32 ip_reg = TMP_REG1;
     BUNDLE_DECLARATION();
 
-    emit_copf2(compiler, bundle, E2K_SDISP, E2K_CTPR | 1, E2K_FAST_SYS_ENTRY_64);
+    switch_ctpr(compiler);
+    emit_copf2(compiler, bundle, E2K_SDISP, E2K_CTPR | SWITCH_CTPR, E2K_FAST_SYS_ENTRY_64);
 
     if (SLJIT_IS_REG(src)) {
         ip_reg = src;
@@ -4025,7 +4031,7 @@ static void substitute_return_addr(struct sljit_compiler *compiler,
     emit_op(compiler, bundle, E2K_ADDd, REG_ZERO, 0, 0, 0, SLJIT_R2, DOUBLEWORD);
     BUNDLE_CLOSE();
 
-    emit_call(compiler, E2K_CTPR | 1, E2K_PRED | 0, 0, E2K_ROTATED_REG_BASE);
+    emit_call(compiler, E2K_CTPR | SWITCH_CTPR, E2K_PRED | 0, 0, E2K_ROTATED_REG_BASE);
 }
 
 /*  1. Manual context restore for "fast" calls.
@@ -4081,8 +4087,9 @@ sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)
         emit_load_full(compiler, JUMP_REG, 0,
                        SLJIT_MEM1(SLJIT_SP), 0, LOAD_DOUBLEWORD);
 
+        switch_ctpr(compiler);
         emit_op(compiler, bundle, E2K_MOVTd, REG_SRC2 | DST_CTPR,
-                0, JUMP_REG, 0, E2K_CTPR | 1, DOUBLEWORD);
+                0, JUMP_REG, 0, E2K_CTPR | SWITCH_CTPR, DOUBLEWORD);
 
         /* keep saved regs */
         for (reg_idx = 0; reg_idx < (compiler->options & 0x3); reg_idx++) {
@@ -4091,7 +4098,7 @@ sljit_s32 sljit_emit_return_void(struct sljit_compiler *compiler)
         }
 
         restore_reg_arg_context(compiler, 0);
-        emit_ct_full(compiler, E2K_CTPR | COND_CTPR, E2K_PRED | 0, 0);
+        emit_ct_full(compiler, E2K_CTPR | SWITCH_CTPR, E2K_PRED | 0, 0);
         return SLJIT_SUCCESS;
     }
 
@@ -4146,8 +4153,9 @@ sljit_s32 sljit_emit_return_to(struct sljit_compiler *compiler,
                                 src, srcw, DOUBLEWORD);
         }
 
+        switch_ctpr(compiler);
         emit_op(compiler, bundle, E2K_MOVTd, REG_SRC2 | DST_CTPR,
-                0, ip_reg, 0, E2K_CTPR | 1, DOUBLEWORD);
+                0, ip_reg, 0, E2K_CTPR | SWITCH_CTPR, DOUBLEWORD);
 
         /* Cleaning locals must be after addr preparing due to addr may be
            located on stack. */
@@ -4157,7 +4165,7 @@ sljit_s32 sljit_emit_return_to(struct sljit_compiler *compiler,
 
         /* restore only not kept regs */
         restore_reg_arg_context(compiler, compiler->options & 0x3);
-        emit_ct_full(compiler, E2K_CTPR | COND_CTPR, E2K_PRED | 0, 0);
+        emit_ct_full(compiler, E2K_CTPR | SWITCH_CTPR, E2K_PRED | 0, 0);
         return SLJIT_SUCCESS;
     } else {
         /* General return */
@@ -4755,10 +4763,9 @@ struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler,
 
     emit_op(compiler, bundle, opc, emit_flags, _src1, _src2, 0,
             E2K_PRED | FLAG_PREG, mode);
+    switch_ctpr(compiler);
     jump = prepare_jump(compiler, type & SLJIT_REWRITABLE_JUMP, LIFT_MOVTD);
-
-
-    emit_ct_full(compiler, E2K_CTPR | COND_CTPR, E2K_PRED | FLAG_PREG, neg);
+    emit_ct_full(compiler, E2K_CTPR | SWITCH_CTPR, E2K_PRED | FLAG_PREG, neg);
     return jump;
 }
 
@@ -5633,10 +5640,18 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
     CHECK_ERROR_PTR();
     CHECK_PTR(check_sljit_emit_jump(compiler, type));
 
+    if (flag == SLJIT_FAST_CALL) {
+        /* In fast call ctpr regs may be rewritten. So we block lifting
+           upper than ct ctpr3. */
+        SWITCH_CTPR = RETURN_CTPR;
+    } else {
+        switch_ctpr(compiler);
+    }
+
     if(flag < SLJIT_JUMP){
         jump = prepare_jump(compiler, type & SLJIT_REWRITABLE_JUMP, LIFT_MOVTD);
         neg = emit_flag_into_pred(compiler, flag);
-        emit_ct_full(compiler, E2K_CTPR | COND_CTPR, E2K_PRED | FLAG_PREG, neg);
+        emit_ct_full(compiler, E2K_CTPR | SWITCH_CTPR, E2K_PRED | FLAG_PREG, neg);
     } else {
         jump = prepare_jump(compiler, type & SLJIT_REWRITABLE_JUMP,
                             LIFT_MOVTD_UNCONDITIONAL);
@@ -5646,15 +5661,15 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
             emit_alopf16(compiler, bundle, 0, E2K_RRd, nip, RSRC2(TMP_REG1));
         }
 
-        emit_ct(compiler, bundle, E2K_CTPR | UNCOND_CTPR, E2K_PRED | 0, 0);
+        emit_ct(compiler, bundle, E2K_CTPR | SWITCH_CTPR, E2K_PRED | 0, 0);
         BUNDLE_CLOSE();
     }
 
     return jump;
 }
 
-static void save_context(struct sljit_compiler *compiler,
-                         E2kBundle *bundle)
+static void save_context_and_ct(struct sljit_compiler *compiler,
+                                E2kBundle *bundle)
 {
     /* Save context
        E2K call saves context, but SLJIT_CALL_REG_ARG not, do it manually. */
@@ -5682,7 +5697,7 @@ static void save_context(struct sljit_compiler *compiler,
     }
 
     emit_alopf16(compiler, bundle, 0, E2K_RRd, nip, RSRC2(TMP_REG1));
-    emit_ct(compiler, bundle, E2K_CTPR | COND_CTPR, E2K_PRED | 0, 0);
+    emit_ct(compiler, bundle, E2K_CTPR | SWITCH_CTPR, E2K_PRED | 0, 0);
     BUNDLE_CLOSE();
 }
 
@@ -5696,7 +5711,7 @@ static void prep_args_for_call_then_call(struct sljit_compiler *compiler,
 
     arg_return = arg_types & SLJIT_ARG_MASK;
     parse_arg_types(compiler, bundle, arg_types, PARSE_PREPARE_CALL);
-    emit_call(compiler, E2K_CTPR | 1, E2K_PRED | 0, 0, E2K_ROTATED_REG_BASE);
+    emit_call(compiler, E2K_CTPR | SWITCH_CTPR, E2K_PRED | 0, 0, E2K_ROTATED_REG_BASE);
 
     if (arg_return >= SLJIT_ARG_TYPE_F64) {
         emit_op(compiler, bundle, E2K_ADDd, REG_SRC2,
@@ -5735,6 +5750,7 @@ struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler,
     CHECK_ERROR_PTR();
     CHECK_PTR(check_sljit_emit_call(compiler, type, arg_types));
 
+    switch_ctpr(compiler);
     jump = prepare_jump(compiler, type & SLJIT_REWRITABLE_JUMP, LIFT_MOVTD);
 
     /* SLJIT does not support arg passing more than E2K ABI.
@@ -5742,10 +5758,8 @@ struct sljit_jump* sljit_emit_call(struct sljit_compiler *compiler,
        4 args. */
 
     if (is_call_reg_arg) {
-        save_context(compiler, bundle);
-    }
-
-    if (!is_call_reg_arg) {
+        save_context_and_ct(compiler, bundle);
+    } else {
         prep_args_for_call_then_call(compiler, bundle, arg_types);
     }
 
@@ -5763,7 +5777,6 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler,
                            sljit_sw srcw)
 {
     struct sljit_jump *jump;
-    sljit_s32 ctpr = COND_CTPR;
     sljit_u32 flag = type & 0xFF;
     sljit_s32 jump_reg = JUMP_REG;
     BUNDLE_SETUP();
@@ -5775,25 +5788,32 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler,
     /* Make possible to read variable from callee function */
     ADJUST_LOCAL_OFFSET(src, srcw);
 
+    if (flag == SLJIT_FAST_CALL) {
+        /* In fast call ctpr regs may be rewritten. So we block lifting
+           upper than ct ctpr3. */
+        SWITCH_CTPR = RETURN_CTPR;
+    } else {
+        switch_ctpr(compiler);
+    }
+
     if (SLJIT_IS_IMM(src)) {
         if (flag == SLJIT_JUMP) {
             jump = prepare_jump(compiler, JUMP_ADDR, LIFT_MOVTD_UNCONDITIONAL);
             jump->u.target = srcw;
-            ctpr = UNCOND_CTPR;
         } else {
             emit_op(compiler, bundle, E2K_MOVTd, DST_CTPR,
-                    0, srcw, 0, E2K_CTPR | 1, DOUBLEWORD);
+                    0, srcw, 0, E2K_CTPR | SWITCH_CTPR, DOUBLEWORD);
             BUNDLE_CLOSE();
         }
     } else if (SLJIT_IS_MEM(src)) {
         emit_load_full(compiler, jump_reg, 0, src, srcw, DOUBLEWORD);
         emit_op(compiler, bundle, E2K_MOVTd, REG_SRC2 | DST_CTPR,
-                0, jump_reg, 0, E2K_CTPR | 1, DOUBLEWORD);
+                0, jump_reg, 0, E2K_CTPR | SWITCH_CTPR, DOUBLEWORD);
         BUNDLE_CLOSE();
     } else if (SLJIT_IS_REG(src)) {
         jump_reg = src;
         emit_op(compiler, bundle, E2K_MOVTd, REG_SRC2 | DST_CTPR,
-                0, jump_reg, 0, E2K_CTPR | 1, DOUBLEWORD);
+                0, jump_reg, 0, E2K_CTPR | SWITCH_CTPR, DOUBLEWORD);
         BUNDLE_CLOSE();
     } else {
         SLJIT_ASSERT(0);
@@ -5804,7 +5824,7 @@ sljit_s32 sljit_emit_ijump(struct sljit_compiler *compiler,
         emit_alopf16(compiler, bundle, 0, E2K_RRd, nip, RSRC2(TMP_REG1));
     }
 
-    emit_ct(compiler, bundle, E2K_CTPR | ctpr, E2K_PRED | 0, 0);
+    emit_ct(compiler, bundle, E2K_CTPR | SWITCH_CTPR, E2K_PRED | 0, 0);
     BUNDLE_CLOSE();
 
     return SLJIT_SUCCESS;
@@ -5840,8 +5860,9 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler,
     }
 
     /* prep jump */
+    switch_ctpr(compiler);
     emit_op(compiler, bundle, E2K_MOVTd, REG_SRC2 | DST_CTPR,
-            0, jump_reg, 0, E2K_CTPR | 1, DOUBLEWORD);
+            0, jump_reg, 0, E2K_CTPR | SWITCH_CTPR, DOUBLEWORD);
     emit_nop(compiler, bundle, 5);
     BUNDLE_CLOSE();
 
@@ -5850,10 +5871,8 @@ sljit_s32 sljit_emit_icall(struct sljit_compiler *compiler,
        4 args. */
 
     if (is_call_reg_arg) {
-        save_context(compiler, bundle);
-    }
-
-    if (!is_call_reg_arg) {
+        save_context_and_ct(compiler, bundle);
+    } else {
         prep_args_for_call_then_call(compiler, bundle, arg_types);
     }
 
