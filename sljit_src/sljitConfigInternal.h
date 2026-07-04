@@ -443,8 +443,8 @@ typedef double sljit_f64;
 #define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
 #define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_ZERO
 #elif (defined SLJIT_CONFIG_ALPHA && SLJIT_CONFIG_ALPHA)
-/* TODO: Alpha CVTTQ returns a modulo (wrapped) result on overflow rather than
-   saturating; the backend must emit range-check fixups so these hold. */
+/* CVTTQ/SVC uses software completion; sljit_emit_fop1_conv_sw_from_f64
+   emits FCMPLT/CMPTEQ + CMOVNE/CMOVEQ fixups to enforce saturation. */
 #define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
 #define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
 #define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_ZERO
