@@ -248,6 +248,7 @@ static const sljit_u8 vreg_map[SLJIT_NUMBER_OF_VECTOR_REGISTERS + 3] = {
 
 #define ADD		(F7(0x0) | F3(0x0) | OPC(0x33))
 #define ADDI		(F3(0x0) | OPC(0x13))
+#define ADD_UW		(F7(0x4) | F3(0x0) | OPC(0x3b))
 #define AND		(F7(0x0) | F3(0x7) | OPC(0x33))
 #define ANDI		(F3(0x7) | OPC(0x13))
 #define AUIPC		(OPC(0x17))
@@ -1983,6 +1984,8 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_MOV_U32:
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
 		if ((flags & (REG_DEST | REG2_SOURCE)) == (REG_DEST | REG2_SOURCE)) {
+			if (RISCV_HAS_BITMANIP_A(93))
+				return push_inst(compiler, ADD_UW | RD(dst) | RS1(src2) | RS2(TMP_ZERO));
 			FAIL_IF(push_inst(compiler, SLLI | RD(dst) | RS1(src2) | IMM_I(32)));
 			return push_inst(compiler, SRLI | RD(dst) | RS1(dst) | IMM_I(32));
 		}
