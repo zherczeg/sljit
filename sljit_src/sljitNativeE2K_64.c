@@ -3064,6 +3064,7 @@ static void emit_load(struct sljit_compiler *compiler,
     sljit_u32 load_opc = 0;
     sljit_s32 lts_mode = DOUBLEWORD;
     sljit_s32 latency;
+    sljit_s32 tmp_reg = TMP_REG2;
     SLJIT_UNUSED_ARG(dstw);
 
     ASSERT_MEM(src, dst);
@@ -3079,11 +3080,15 @@ static void emit_load(struct sljit_compiler *compiler,
                 SLJIT_EXTRACT_REG(src), srcw, 0, dst, lts_mode);
         emit_nop(compiler, bundle, latency);
     } else if (SLJIT_IS_MEM2(src)) {
-        emit_op(compiler, bundle, E2K_SHLd, REG_SRC1,
-                SLJIT_EXTRACT_SECOND_REG(src), srcw, 0, dst, lts_mode);
-        BUNDLE_CLOSE();
+        if (srcw) {
+            emit_op(compiler, bundle, E2K_SHLd, REG_SRC1,
+                    SLJIT_EXTRACT_SECOND_REG(src), srcw, 0, tmp_reg, lts_mode);
+            BUNDLE_CLOSE();
+        } else {
+            tmp_reg = SLJIT_EXTRACT_SECOND_REG(src);
+        }
         emit_op(compiler, bundle, load_opc, REG_SRC1 | REG_SRC2,
-                SLJIT_EXTRACT_REG(src), dst, 0, dst, lts_mode);
+                SLJIT_EXTRACT_REG(src), tmp_reg, 0, dst, lts_mode);
         emit_nop(compiler, bundle, latency);
     }
 }
@@ -4292,9 +4297,15 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler,
         break;
     case SLJIT_MOV_U8:
     case SLJIT_MOV32_U8:
-        signature_switcher2(compiler, GET_E2K_OPC(E2K_AND), dst, dstw,
-                            src, srcw, SLJIT_IMM, 0xFF,
-                            BYTE | EXTEND_LTS);
+        /* LOAD does not require cut mask*/
+        if (SLJIT_IS_MEM(src)) {
+            signature_switcher2(compiler, GET_E2K_OPC(E2K_ADD), dst, dstw,
+                                SLJIT_IMM, 0, src, srcw, BYTE);
+        } else {
+            signature_switcher2(compiler, GET_E2K_OPC(E2K_AND), dst, dstw,
+                                src, srcw, SLJIT_IMM, 0xFF,
+                                BYTE | EXTEND_LTS);
+        }
         break;
     case SLJIT_MOV32_S8:
     case SLJIT_MOV_S8:
@@ -4303,25 +4314,34 @@ sljit_s32 sljit_emit_op1(struct sljit_compiler *compiler,
         break;
     case SLJIT_MOV32_U16:
     case SLJIT_MOV_U16:
-        signature_switcher2(compiler, GET_E2K_OPC(E2K_AND), dst, dstw,
-                            src, srcw, SLJIT_IMM, 0xFFFF, HALFWORD | EXTEND_LTS);
+        /* LOAD does not require cut mask*/
+        if (SLJIT_IS_MEM(src)) {
+            signature_switcher2(compiler, GET_E2K_OPC(E2K_ADD), dst, dstw,
+                                SLJIT_IMM, 0, src, srcw, HALFWORD);
+        } else {
+            signature_switcher2(compiler, GET_E2K_OPC(E2K_AND), dst, dstw,
+                                src, srcw, SLJIT_IMM, 0xFFFF, HALFWORD | EXTEND_LTS);
+        }
         break;
     case SLJIT_MOV32_S16:
     case SLJIT_MOV_S16:
         signature_switcher2(compiler, E2K_SXT, dst, dstw,
                             SLJIT_IMM, SXT_EXTEND_16, src, srcw, HALFWORD);
         break;
+    case SLJIT_MOV32:
     case SLJIT_MOV_U32:
-        signature_switcher2(compiler, GET_E2K_OPC(E2K_AND), dst, dstw,
-                            src, srcw, SLJIT_IMM, 0xFFFFFFFF, WORD | EXTEND_LTS);
+        /* LOAD does not require cut mask*/
+        if (SLJIT_IS_MEM(src)) {
+            signature_switcher2(compiler, GET_E2K_OPC(E2K_ADD), dst, dstw,
+                                SLJIT_IMM, 0, src, srcw, WORD);
+        } else {
+            signature_switcher2(compiler, GET_E2K_OPC(E2K_AND), dst, dstw,
+                                src, srcw, SLJIT_IMM, 0xFFFFFFFF, WORD | EXTEND_LTS);
+        }
         break;
     case SLJIT_MOV_S32:
         signature_switcher2(compiler, E2K_SXT, dst, dstw,
                             SLJIT_IMM, SXT_EXTEND_32, src, srcw, WORD);
-        break;
-    case SLJIT_MOV32:
-        signature_switcher2(compiler, E2K_ANDd, dst, dstw,
-                            src, srcw, SLJIT_IMM, 0xFFFFFFFF, WORD);
         break;
     case SLJIT_CLZ:
         signature_switcher1(compiler, E2K_LZCNTd, dst, dstw, src, srcw, DOUBLEWORD);
