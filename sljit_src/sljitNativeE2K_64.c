@@ -1947,7 +1947,7 @@ static HashEntry *hash_resize(struct sljit_compiler *compiler, HashTable* t)
     return t->e;
 }
 
-HashTable* hash_create(struct sljit_compiler *compiler, sljit_uw cap)
+static HashTable* hash_create(struct sljit_compiler *compiler, sljit_uw cap)
 {
     HashTable *t;
     if (cap < 4) cap = 4;
@@ -1968,7 +1968,7 @@ HashTable* hash_create(struct sljit_compiler *compiler, sljit_uw cap)
     return t;
 }
 
-void hash_destroy(struct sljit_compiler *compiler, HashTable* t)
+static void hash_destroy(struct sljit_compiler *compiler, HashTable* t)
 {
     SLJIT_UNUSED_ARG(compiler);
     if (t) {
@@ -1977,16 +1977,16 @@ void hash_destroy(struct sljit_compiler *compiler, HashTable* t)
     }
 }
 
-void hash_clear(struct sljit_compiler *compiler, HashTable* t)
+static void hash_clear(struct sljit_compiler *compiler, HashTable* t)
 {
     SLJIT_UNUSED_ARG(compiler);
     if (t) { memset(t->e, 0, t->cap * sizeof(HashEntry)); t->cnt = 0; }
 }
 
-void hash_insert(struct sljit_compiler *compiler,
-                 HashTable* t,
-                 sljit_uw addr,
-                 const E2kBundle* b)
+static void hash_insert(struct sljit_compiler *compiler,
+                        HashTable* t,
+                        sljit_uw addr,
+                        const E2kBundle* b)
 {
     sljit_uw idx, start;
     SLJIT_UNUSED_ARG(compiler);
@@ -2022,7 +2022,7 @@ void hash_insert(struct sljit_compiler *compiler,
     t->cnt++;
 }
 
-E2kBundle* hash_get(struct sljit_compiler *compiler, const HashTable* t, sljit_uw addr)
+static E2kBundle* hash_get(struct sljit_compiler *compiler, const HashTable* t, sljit_uw addr)
 {
     sljit_uw idx, start;
     SLJIT_UNUSED_ARG(compiler);
