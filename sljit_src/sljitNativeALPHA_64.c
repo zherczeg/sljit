@@ -963,11 +963,91 @@ static const sljit_ins data_transfer_insts[16 + 4] = {
 /* s   l */ LDS,
 };
 
+/* Synthesize byte or halfword load/store on pre-EV56 Alpha (no BWX extension).
+ * Uses LDQ_U + EXTBL/EXTWL[H] / INSBL/INSWL[H] / MSKBL/MSKWL[H] + STQ_U.
+ * base must be a register; offset is a signed 16-bit displacement. */
+static sljit_s32 emit_no_bwx_mem(struct sljit_compiler *compiler, sljit_s32 flags,
+	sljit_s32 reg, sljit_s32 base, sljit_sw offset)
+{
+	sljit_s32 is_byte = ((flags & 0x6) == BYTE_DATA);
+	sljit_s32 is_signed = (flags & SIGNED_DATA) != 0;
+
+	/* TMP_REG1 = actual byte address; LDQ_U will mask the low 3 bits to align. */
+	FAIL_IF(push_inst(compiler, LDA | RA(TMP_REG1) | RB(base) | DISP16(offset)));
+
+	if (flags & LOAD_DATA) {
+		FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0)));
+
+		if (is_byte) {
+			FAIL_IF(push_inst(compiler, EXTBL | RA(TMP_REG2) | RB(TMP_REG1) | RC(reg)));
+			if (is_signed) {
+				FAIL_IF(push_inst(compiler, SLL | RA(reg) | ALPHA_LIT(56) | RC(reg)));
+				return push_inst(compiler, SRA | RA(reg) | ALPHA_LIT(56) | RC(reg));
+			}
+			return SLJIT_SUCCESS;
+		}
+
+		/* Halfword may span two aligned quadwords; load both. */
+		FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG3) | RB(TMP_REG1) | DISP16(1)));
+		FAIL_IF(push_inst(compiler, EXTWL | RA(TMP_REG2) | RB(TMP_REG1) | RC(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, EXTWH | RA(TMP_REG3) | RB(TMP_REG1) | RC(TMP_REG3)));
+		FAIL_IF(push_inst(compiler, BIS   | RA(TMP_REG2) | RB(TMP_REG3) | RC(reg)));
+		if (is_signed) {
+			FAIL_IF(push_inst(compiler, SLL | RA(reg) | ALPHA_LIT(48) | RC(reg)));
+			return push_inst(compiler, SRA | RA(reg) | ALPHA_LIT(48) | RC(reg));
+		}
+		return SLJIT_SUCCESS;
+	}
+
+	/* Store: INSBL/INSWL read reg before LDQ_U clobbers TMP_REG2, but for
+	   halfword stores the data must survive two LDQ_U/INSWx pairs.  Save to
+	   TMP_REG4 (r29/gp, never used in JIT code) when reg aliases a scratch. */
+
+	if (is_byte) {
+		/* Emit INSBL first so reg may safely alias TMP_REG2 or TMP_REG3. */
+		FAIL_IF(push_inst(compiler, INSBL | RA(reg)      | RB(TMP_REG1) | RC(TMP_REG3)));
+		FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0)));
+		FAIL_IF(push_inst(compiler, MSKBL | RA(TMP_REG2) | RB(TMP_REG1) | RC(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, BIS   | RA(TMP_REG2) | RB(TMP_REG3) | RC(TMP_REG2)));
+		return push_inst(compiler, STQ_U  | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0));
+	}
+
+	/* Halfword store: data must survive two LDQ_U loads; save if aliased. */
+	if (reg == TMP_REG2 || reg == TMP_REG3) {
+		FAIL_IF(push_inst(compiler, BIS | RA(reg) | RB(TMP_ZERO) | RC(TMP_REG4)));
+		reg = TMP_REG4;
+	}
+	/* Lower aligned quadword. */
+	FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0)));
+	FAIL_IF(push_inst(compiler, MSKWL | RA(TMP_REG2) | RB(TMP_REG1) | RC(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, INSWL | RA(reg)      | RB(TMP_REG1) | RC(TMP_REG3)));
+	FAIL_IF(push_inst(compiler, BIS   | RA(TMP_REG2) | RB(TMP_REG3) | RC(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, STQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0)));
+	/* Upper aligned quadword. */
+	FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(1)));
+	FAIL_IF(push_inst(compiler, MSKWH | RA(TMP_REG2) | RB(TMP_REG1) | RC(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, INSWH | RA(reg)      | RB(TMP_REG1) | RC(TMP_REG3)));
+	FAIL_IF(push_inst(compiler, BIS   | RA(TMP_REG2) | RB(TMP_REG3) | RC(TMP_REG2)));
+	return push_inst(compiler, STQ_U  | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(1));
+}
+
 static sljit_s32 push_mem_inst(struct sljit_compiler *compiler, sljit_s32 flags, sljit_s32 reg, sljit_s32 base, sljit_sw offset)
 {
 	sljit_ins ins;
 
 	SLJIT_ASSERT(FAST_IS_REG(base) && offset <= SIMM_MAX && offset >= SIMM_MIN);
+
+	/* LDBU/LDWU/STB/STW require the BWX extension (EV56+).  Synthesize
+	 * using LDQ_U + EXT/INS/MSK + STQ_U on pre-EV56 hardware.  Only integer
+	 * accesses qualify: SINGLE_DATA also has the BYTE_DATA bits set, but it
+	 * transfers a floating point register with LDS/STS, which always exist. */
+	if ((flags & MEM_MASK) <= GPR_REG
+			&& ((flags & 0x6) == BYTE_DATA || (flags & 0x6) == HALF_DATA)) {
+		if (!cpu_feature_list)
+			get_cpu_features();
+		if (!(cpu_feature_list & ALPHA_HWCAP_BWX))
+			return emit_no_bwx_mem(compiler, flags, reg, base, offset);
+	}
 
 	ins = data_transfer_insts[flags & MEM_MASK] | RB(base) | DISP16(offset);
 	if ((flags & MEM_MASK) <= GPR_REG)
