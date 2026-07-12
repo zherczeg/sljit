@@ -41,6 +41,9 @@ typedef sljit_u32 sljit_ins;
 #define TMP_REG1	(SLJIT_NUMBER_OF_REGISTERS + 2)
 #define TMP_REG2	(SLJIT_NUMBER_OF_REGISTERS + 3)
 #define TMP_REG3	(SLJIT_NUMBER_OF_REGISTERS + 4)
+/* r29 (gp) is unused in JIT-compiled code; used as 4th scratch when reg
+   aliases TMP_REG2 or TMP_REG3 in the unaligned store synthesizers. */
+#define TMP_REG4	(SLJIT_NUMBER_OF_REGISTERS + 7)
 #define TMP_ZERO	0
 
 /* Flags are kept in volatile registers. */
@@ -52,11 +55,11 @@ typedef sljit_u32 sljit_ins;
 #define TMP_FREG2	(SLJIT_NUMBER_OF_FLOAT_REGISTERS + 2)
 
 /* Maps sljit register indices onto Alpha physical registers. */
-static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 7] = {
+static const sljit_u8 reg_map[SLJIT_NUMBER_OF_REGISTERS + 8] = {
 	31,
 	0, 1, 2, 3, 4, 5, 6, 7, 8, 16, 17, 18, 19, 20, 21, 22, 23,
 	9, 10, 11, 12, 13, 14, 15,
-	30, 28, 26, 27, 25, 24
+	30, 28, 26, 27, 25, 24, 29
 };
 
 static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
@@ -142,9 +145,27 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 
 /* Shift / byte manipulation (op 0x12). */
 #define EXTBL		(OP(0x12) | FUNC(0x06))
+#define EXTWL		(OP(0x12) | FUNC(0x16))
+#define EXTLL		(OP(0x12) | FUNC(0x26))
+#define EXTQL		(OP(0x12) | FUNC(0x36))
 #define INSBL		(OP(0x12) | FUNC(0x0b))
 #define MSKBL		(OP(0x12) | FUNC(0x02))
+#define INSWL		(OP(0x12) | FUNC(0x1b))
+#define INSLL		(OP(0x12) | FUNC(0x2b))
+#define INSQL		(OP(0x12) | FUNC(0x3b))
+#define MSKWL		(OP(0x12) | FUNC(0x12))
+#define MSKLL		(OP(0x12) | FUNC(0x22))
+#define MSKQL		(OP(0x12) | FUNC(0x32))
 #define ZAPNOT		(OP(0x12) | FUNC(0x31))
+#define EXTWH		(OP(0x12) | FUNC(0x5a))
+#define EXTLH		(OP(0x12) | FUNC(0x6a))
+#define EXTQH		(OP(0x12) | FUNC(0x7a))
+#define MSKWH		(OP(0x12) | FUNC(0x52))
+#define MSKLH		(OP(0x12) | FUNC(0x62))
+#define MSKQH		(OP(0x12) | FUNC(0x72))
+#define INSWH		(OP(0x12) | FUNC(0x57))
+#define INSLH		(OP(0x12) | FUNC(0x67))
+#define INSQH		(OP(0x12) | FUNC(0x77))
 #define SRL		(OP(0x12) | FUNC(0x34))
 #define SLL		(OP(0x12) | FUNC(0x39))
 #define SRA		(OP(0x12) | FUNC(0x3c))
@@ -2935,17 +2956,175 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 
 #undef FLOAT_DATA
 
+/* Materialize the effective address of (mem, memw) into *mem (a register), *memw=0.
+ * Uses TMP_REG1 for any computation; TMP_REG3 as scratch for load_immediate. */
+static sljit_s32 update_mem_addr(struct sljit_compiler *compiler,
+	sljit_s32 *mem, sljit_sw *memw)
+{
+	sljit_s32 arg = *mem;
+	sljit_sw argw = *memw;
+
+	if (SLJIT_UNLIKELY(arg & OFFS_REG_MASK)) {
+		argw &= 0x3;
+		if (SLJIT_UNLIKELY(argw != 0)) {
+			FAIL_IF(push_inst(compiler, SLL | RA(OFFS_REG(arg)) | ALPHA_LIT(argw) | RC(TMP_REG1)));
+			FAIL_IF(push_inst(compiler, ADDQ | RA(TMP_REG1) | RB(arg & REG_MASK) | RC(TMP_REG1)));
+		} else
+			FAIL_IF(push_inst(compiler, ADDQ | RA(arg & REG_MASK) | RB(OFFS_REG(arg)) | RC(TMP_REG1)));
+		*mem = TMP_REG1;
+		*memw = 0;
+		return SLJIT_SUCCESS;
+	}
+
+	*mem = arg & REG_MASK;
+	if (argw == 0)
+		return SLJIT_SUCCESS;
+
+	if (argw >= SIMM_MIN && argw <= SIMM_MAX) {
+		FAIL_IF(push_inst(compiler, LDA | RA(TMP_REG1) | RB(*mem) | DISP16(argw)));
+		*mem = TMP_REG1;
+		*memw = 0;
+		return SLJIT_SUCCESS;
+	}
+
+	FAIL_IF(load_immediate(compiler, TMP_REG1, argw, TMP_REG3));
+	if (arg & REG_MASK)
+		FAIL_IF(push_inst(compiler, ADDQ | RA(TMP_REG1) | RB(arg & REG_MASK) | RC(TMP_REG1)));
+	*mem = TMP_REG1;
+	*memw = 0;
+	return SLJIT_SUCCESS;
+}
+
+/* Synthesize an unaligned multi-byte memory access using LDQ_U + EXT/INS/MSK + STQ_U.
+ * Called only when SLJIT_MEM_UNALIGNED is set and the operand is wider than 8 bits.
+ * Clobbers TMP_REG1, TMP_REG2, TMP_REG3. */
+static sljit_s32 emit_unaligned_mem(struct sljit_compiler *compiler,
+	sljit_s32 type, sljit_s32 reg, sljit_s32 mem, sljit_sw memw)
+{
+	sljit_s32 op = GET_OPCODE(type);
+	sljit_ins extl, exth, mskl, mskh, insl, insh;
+	sljit_sw hi_off;
+
+	ADJUST_LOCAL_OFFSET(mem, memw);
+	FAIL_IF(update_mem_addr(compiler, &mem, &memw));
+
+	/* Ensure the effective address is in TMP_REG1: used as the LDQ_U/STQ_U
+	 * base and as the byte-position argument (low 3 bits) to EXT/INS/MSK. */
+	if (mem != TMP_REG1)
+		FAIL_IF(push_inst(compiler, BIS | RA(mem) | RB(TMP_ZERO) | RC(TMP_REG1)));
+
+	switch (op) {
+	case SLJIT_MOV_U16:
+	case SLJIT_MOV_S16:
+		extl = EXTWL; exth = EXTWH;
+		mskl = MSKWL; mskh = MSKWH;
+		insl = INSWL; insh = INSWH;
+		hi_off = 1;
+		break;
+	case SLJIT_MOV_U32:
+	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
+		extl = EXTLL; exth = EXTLH;
+		mskl = MSKLL; mskh = MSKLH;
+		insl = INSLL; insh = INSLH;
+		hi_off = 3;
+		break;
+	default: /* SLJIT_MOV, SLJIT_MOV_P */
+		extl = EXTQL; exth = EXTQH;
+		mskl = MSKQL; mskh = MSKQH;
+		insl = INSQL; insh = INSQH;
+		hi_off = 7;
+		break;
+	}
+
+	if (type & SLJIT_MEM_STORE) {
+		/* Read-modify-write both aligned quadwords that overlap the value.
+		 * Save reg to TMP_REG4 (r29/gp) if it aliases TMP_REG2 or TMP_REG3
+		 * so the data survives the two LDQ_U/INS sequences. */
+		if (reg == TMP_REG2 || reg == TMP_REG3) {
+			FAIL_IF(push_inst(compiler, BIS | RA(reg) | RB(TMP_ZERO) | RC(TMP_REG4)));
+			reg = TMP_REG4;
+		}
+
+		/* Upper aligned quadword. */
+		FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(hi_off)));
+		FAIL_IF(push_inst(compiler, mskh  | RA(TMP_REG2) | RB(TMP_REG1) | RC(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, insh  | RA(reg)      | RB(TMP_REG1) | RC(TMP_REG3)));
+		FAIL_IF(push_inst(compiler, BIS   | RA(TMP_REG2) | RB(TMP_REG3) | RC(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, STQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(hi_off)));
+
+		/* Lower aligned quadword. */
+		FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0)));
+		FAIL_IF(push_inst(compiler, mskl  | RA(TMP_REG2) | RB(TMP_REG1) | RC(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, insl  | RA(reg)      | RB(TMP_REG1) | RC(TMP_REG3)));
+		FAIL_IF(push_inst(compiler, BIS   | RA(TMP_REG2) | RB(TMP_REG3) | RC(TMP_REG2)));
+		return push_inst(compiler, STQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0));
+	}
+
+	/* Load: extract pieces from two aligned quadwords and combine.
+	 * Extract hi portion first, then lo, so the final BIS can write to any reg. */
+	FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0)));
+	FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG3) | RB(TMP_REG1) | DISP16(hi_off)));
+	FAIL_IF(push_inst(compiler, exth  | RA(TMP_REG3) | RB(TMP_REG1) | RC(TMP_REG3)));
+	FAIL_IF(push_inst(compiler, extl  | RA(TMP_REG2) | RB(TMP_REG1) | RC(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, BIS   | RA(TMP_REG2) | RB(TMP_REG3) | RC(reg)));
+
+	switch (op) {
+	case SLJIT_MOV_S16:
+		FAIL_IF(push_inst(compiler, SLL | RA(reg) | ALPHA_LIT(48) | RC(reg)));
+		return push_inst(compiler, SRA | RA(reg) | ALPHA_LIT(48) | RC(reg));
+	case SLJIT_MOV_S32:
+	case SLJIT_MOV32:
+		/* ADDL sign-extends bits 31:0 to 64 bits. */
+		return push_inst(compiler, ADDL | RA(reg) | RB(TMP_ZERO) | RC(reg));
+	default:
+		return SLJIT_SUCCESS;
+	}
+}
+
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 reg,
 	sljit_s32 mem, sljit_sw memw)
 {
 	sljit_s32 flags;
+	sljit_s32 op;
 
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_mem(compiler, type, reg, mem, memw));
 
-	if (!(reg & REG_PAIR_MASK))
+	if (!(reg & REG_PAIR_MASK)) {
+		op = GET_OPCODE(type);
+		/* When any alignment hint is set, check whether the guaranteed alignment
+		 * meets Alpha's natural-alignment requirement for this operand size:
+		 *   16-bit: 2B  (ALIGNED_16 or ALIGNED_32 suffices)
+		 *   32-bit: 4B  (only ALIGNED_32 suffices)
+		 *   64-bit: 8B  (no hint flag provides this guarantee)
+		 * If the guarantee falls short, synthesize with LDQ_U + EXT/INS/MSK. */
+		if (type & (SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)) {
+			if (op == SLJIT_MOV_U8 || op == SLJIT_MOV_S8)
+				return sljit_emit_mem_unaligned(compiler, type, reg, mem, memw);
+			if ((op == SLJIT_MOV_U16 || op == SLJIT_MOV_S16)
+					&& !(type & SLJIT_MEM_UNALIGNED))
+				return sljit_emit_mem_unaligned(compiler, type, reg, mem, memw);
+			if ((op == SLJIT_MOV_U32 || op == SLJIT_MOV_S32 || op == SLJIT_MOV32)
+					&& (type & SLJIT_MEM_ALIGNED_32))
+				return sljit_emit_mem_unaligned(compiler, type, reg, mem, memw);
+			return emit_unaligned_mem(compiler, type, reg, mem, memw);
+		}
 		return sljit_emit_mem_unaligned(compiler, type, reg, mem, memw);
+	}
+
+	/* Pair register path.  LDQ/STQ require 8B alignment; no hint flag
+	 * provides that guarantee, so synthesize both QW accesses when any
+	 * alignment/unaligned flag is present.  After emit_unaligned_mem
+	 * returns, TMP_REG1 always holds the effective address. */
+	if (type & (SLJIT_MEM_UNALIGNED | SLJIT_MEM_ALIGNED_16 | SLJIT_MEM_ALIGNED_32)) {
+		FAIL_IF(emit_unaligned_mem(compiler, type, REG_PAIR_FIRST(reg), mem, memw));
+		FAIL_IF(push_inst(compiler, LDA | RA(TMP_REG1) | RB(TMP_REG1) | DISP16(SSIZE_OF(sw))));
+		return emit_unaligned_mem(compiler, type, REG_PAIR_SECOND(reg), SLJIT_MEM1(TMP_REG1), 0);
+	}
+
+	ADJUST_LOCAL_OFFSET(mem, memw);
 
 	if (SLJIT_UNLIKELY(mem & OFFS_REG_MASK)) {
 		memw &= 0x3;
@@ -2981,6 +3160,84 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 }
 
 #undef TO_ARGW_HI
+
+SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compiler, sljit_s32 type,
+	sljit_s32 freg,
+	sljit_s32 mem, sljit_sw memw)
+{
+	sljit_ins extl, exth, mskl, mskh, insl, insh, ftox, itofx;
+	sljit_sw hi_off;
+
+	CHECK_ERROR();
+	CHECK(check_sljit_emit_fmem(compiler, type, freg, mem, memw));
+
+	/* Alpha FP load/store (LDS/LDT/STS/STT) require natural alignment.
+	 * Synthesize unaligned FP access using integer LDQ_U+EXT/INS/MSK+STQ_U
+	 * combined with ITOFS/ITOFT (FIX extension) for the integer<->FP transfer.
+	 * Without FIX, fall back to the generic path and accept the kernel fixup. */
+	if (!cpu_feature_list)
+		get_cpu_features();
+	if (!(cpu_feature_list & ALPHA_HWCAP_FIX))
+		return sljit_emit_fmem_unaligned(compiler, type, freg, mem, memw);
+
+	/* F32 = SLJIT_MOV_F64 | SLJIT_32; distinguish by the SLJIT_32 flag, not
+	 * the low opcode byte (which is always SLJIT_MOV_F64 for both widths). */
+	if (type & SLJIT_32) {
+		/* LDS requires 4-byte alignment; ALIGNED_32 guarantees 4B. */
+		if ((type & SLJIT_MEM_ALIGNED_32) && !(type & SLJIT_MEM_UNALIGNED))
+			return sljit_emit_fmem_unaligned(compiler, type, freg, mem, memw);
+		ftox = FTOIS; itofx = ITOFS;
+		extl = EXTLL; exth = EXTLH;
+		mskl = MSKLL; mskh = MSKLH;
+		insl = INSLL; insh = INSLH;
+		hi_off = 3;
+	} else {
+		/* LDT requires 8-byte alignment; no hint flag guarantees that. */
+		ftox = FTOIT; itofx = ITOFT;
+		extl = EXTQL; exth = EXTQH;
+		mskl = MSKQL; mskh = MSKQH;
+		insl = INSQL; insh = INSQH;
+		hi_off = 7;
+	}
+
+	ADJUST_LOCAL_OFFSET(mem, memw);
+	FAIL_IF(update_mem_addr(compiler, &mem, &memw));
+	if (mem != TMP_REG1)
+		FAIL_IF(push_inst(compiler, BIS | RA(mem) | RB(TMP_ZERO) | RC(TMP_REG1)));
+
+	if (type & SLJIT_MEM_STORE) {
+		/* Copy FP source to TMP_FREG1 so we can read its integer bits twice
+		 * (once per aligned quadword) using FTOIS/FTOIT without needing a
+		 * spare GPR to hold the value across the two RMW sequences. */
+		FAIL_IF(push_inst(compiler, CPYS | FA(freg) | FB(freg) | FC(TMP_FREG1)));
+
+		/* Upper aligned quadword. */
+		FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(hi_off)));
+		FAIL_IF(push_inst(compiler, mskh  | RA(TMP_REG2) | RB(TMP_REG1) | RC(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, ftox  | FA(TMP_FREG1) | RC(TMP_REG3)));
+		FAIL_IF(push_inst(compiler, insh  | RA(TMP_REG3) | RB(TMP_REG1) | RC(TMP_REG3)));
+		FAIL_IF(push_inst(compiler, BIS   | RA(TMP_REG2) | RB(TMP_REG3) | RC(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, STQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(hi_off)));
+
+		/* Lower aligned quadword. */
+		FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0)));
+		FAIL_IF(push_inst(compiler, mskl  | RA(TMP_REG2) | RB(TMP_REG1) | RC(TMP_REG2)));
+		FAIL_IF(push_inst(compiler, ftox  | FA(TMP_FREG1) | RC(TMP_REG3)));
+		FAIL_IF(push_inst(compiler, insl  | RA(TMP_REG3) | RB(TMP_REG1) | RC(TMP_REG3)));
+		FAIL_IF(push_inst(compiler, BIS   | RA(TMP_REG2) | RB(TMP_REG3) | RC(TMP_REG2)));
+		return push_inst(compiler, STQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0));
+	}
+
+	/* Load: extract pieces from two aligned quadwords, combine, then
+	 * move to the FP register via ITOFS/ITOFT. Write the combined integer
+	 * result to TMP_REG1 (addr is no longer needed after the EXT steps). */
+	FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG2) | RB(TMP_REG1) | DISP16(0)));
+	FAIL_IF(push_inst(compiler, LDQ_U | RA(TMP_REG3) | RB(TMP_REG1) | DISP16(hi_off)));
+	FAIL_IF(push_inst(compiler, exth  | RA(TMP_REG3) | RB(TMP_REG1) | RC(TMP_REG3)));
+	FAIL_IF(push_inst(compiler, extl  | RA(TMP_REG2) | RB(TMP_REG1) | RC(TMP_REG2)));
+	FAIL_IF(push_inst(compiler, BIS   | RA(TMP_REG2) | RB(TMP_REG3) | RC(TMP_REG1)));
+	return push_inst(compiler, itofx | RA(TMP_REG1) | FC(freg));
+}
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_atomic_load(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 dst_reg,
