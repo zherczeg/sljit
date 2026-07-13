@@ -1780,10 +1780,6 @@ static SLJIT_INLINE sljit_s32 stepler_check_op(struct sljit_compiler *compiler,
     sljit_s32 src2_is_reg = ((emit_flags & REG_SRC2) > 0);
     sljit_s32 src3_is_reg = ((emit_flags & REG_SRC3) > 0);
 
-    SLJIT_UNUSED_ARG(src3);
-    SLJIT_UNUSED_ARG(dst);
-    SLJIT_UNUSED_ARG(emit_flags);
-
     if (!check_resource(compiler, &BUNDLE, e2kop[op].mask)) {
         allowed = 0;
     }
@@ -2093,6 +2089,12 @@ static SLJIT_INLINE void emit_bundle_setup(struct sljit_compiler *compiler,
     bundle->hs_cds = 0;
     bundle->nop = 0;
     bundle->ss = 0;
+    bundle->cds[0] = 0;
+    bundle->cds[1] = 0;
+    bundle->cds[2] = 0;
+    bundle->cds[3] = 0;
+    bundle->cds[4] = 0;
+    bundle->cds[5] = 0;
 #endif
     bundle->res = RES_INIT;
     bundle->f1 = 1;     /* HS itself */
@@ -2561,7 +2563,7 @@ static void emit_bundle_finalize(struct sljit_compiler *compiler,
         }
     }
 
-    /* PLS not suppoted in current version */
+    /* PLS not supported in current version */
 
     /* CDS[0-5], 16-bit */
     inst16 = (sljit_u16 *)inst;
@@ -3278,7 +3280,6 @@ static void signature_switcher2(struct sljit_compiler *compiler,
     /* default: all regs */
     sljit_uw _src1 = src1;
     sljit_uw _src2 = src2;
-    SLJIT_UNUSED_ARG(dstw);
 
     /* optimizing cases, emit only one op instead of 2+ ops */
     if (SLJIT_IS_REG(dst)) {
