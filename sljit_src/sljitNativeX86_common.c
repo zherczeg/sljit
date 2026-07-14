@@ -572,12 +572,13 @@ static void get_cpu_features(void)
 			feature_list |= CPU_FEATURE_OSXSAVE;
 		if (info[2] & 0x10000000)
 			feature_list |= CPU_FEATURE_AVX;
-#if (defined SLJIT_DETECT_SSE2 && SLJIT_DETECT_SSE2)
-		if (info[3] & 0x4000000)
-			feature_list |= CPU_FEATURE_SSE2;
-#endif
 		if (info[3] & 0x8000)
 			feature_list |= CPU_FEATURE_CMOV;
+#if (defined(SLJIT_DETECT_SSE2) && SLJIT_DETECT_SSE2) \
+	&& (defined(__SSE2__) || (defined(_WIN64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)))
+		if ((info[3] & 0x5000000) == 0x5000000)
+			feature_list |= CPU_FEATURE_SSE2;
+#endif
 	}
 
 	info[0] = 0x80000000;
@@ -592,7 +593,11 @@ static void get_cpu_features(void)
 			feature_list |= CPU_FEATURE_LZCNT;
 	}
 
-	if ((feature_list & CPU_FEATURE_OSXSAVE) && (execute_get_xcr0_low() & 0x4) == 0)
+#if defined(SLJIT_CONFIG_X86_32) && SLJIT_CONFIG_X86_32
+	if (!(feature_list & CPU_FEATURE_SSE2))
+		feature_list &= ~(sljit_u32)CPU_FEATURE_SSE41;
+#endif
+	if (!(feature_list & CPU_FEATURE_OSXSAVE) || (execute_get_xcr0_low() & 0x4) == 0)
 		feature_list &= ~(sljit_u32)(CPU_FEATURE_AVX | CPU_FEATURE_AVX2);
 
 	cpu_feature_list = feature_list;
