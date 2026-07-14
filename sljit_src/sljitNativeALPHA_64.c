@@ -557,6 +557,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 			get_cpu_features();
 		return (cpu_feature_list & ALPHA_HWCAP_CIX) ? 1 : 0;
 	case SLJIT_HAS_PREFETCH:
+		return 1;
 	case SLJIT_HAS_ROT:
 	case SLJIT_HAS_ATOMIC:
 	case SLJIT_HAS_SIMD:
@@ -2052,6 +2053,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op2_shift(struct sljit_compiler *c
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *compiler, sljit_s32 op,
 	sljit_s32 src, sljit_sw srcw)
 {
+	sljit_s32 base;
+
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_op_src(compiler, op, src, srcw));
 	ADJUST_LOCAL_OFFSET(src, srcw);
@@ -2065,11 +2068,37 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 
 		return push_inst(compiler, JMP | RA(TMP_ZERO) | RB(RETURN_ADDR_REG));
 	case SLJIT_SKIP_FRAMES_BEFORE_FAST_RETURN:
+		return SLJIT_SUCCESS;
 	case SLJIT_PREFETCH_L1:
 	case SLJIT_PREFETCH_L2:
 	case SLJIT_PREFETCH_L3:
 	case SLJIT_PREFETCH_ONCE:
-		return SLJIT_SUCCESS;
+		/* PREFETCH = LDL R31, disp(Rb). This is a hint which is discarded when
+		   the address is invalid, so the address is only computed, never
+		   dereferenced by an actual load. */
+		base = src & REG_MASK;
+
+		if (src & OFFS_REG_MASK) {
+			srcw &= 0x3;
+
+			if (srcw) {
+				FAIL_IF(push_inst(compiler, SLL | RA(OFFS_REG(src)) | ALPHA_LIT(srcw) | RC(TMP_REG1)));
+				FAIL_IF(push_inst(compiler, ADDQ | RA(TMP_REG1) | RB(base) | RC(TMP_REG1)));
+			} else
+				FAIL_IF(push_inst(compiler, ADDQ | RA(base) | RB(OFFS_REG(src)) | RC(TMP_REG1)));
+
+			return push_inst(compiler, LDL | RA(TMP_ZERO) | RB(TMP_REG1) | DISP16(0));
+		}
+
+		if (srcw >= SIMM_MIN && srcw <= SIMM_MAX)
+			return push_inst(compiler, LDL | RA(TMP_ZERO) | RB(base) | DISP16(srcw));
+
+		FAIL_IF(load_immediate(compiler, TMP_REG1, TO_ARGW_HI(srcw), TMP_REG3));
+
+		if (base != 0)
+			FAIL_IF(push_inst(compiler, ADDQ | RA(TMP_REG1) | RB(base) | RC(TMP_REG1)));
+
+		return push_inst(compiler, LDL | RA(TMP_ZERO) | RB(TMP_REG1) | DISP16(srcw - TO_ARGW_HI(srcw)));
 	}
 
 	return SLJIT_SUCCESS;
