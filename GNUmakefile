@@ -71,7 +71,7 @@ $(BINDIR)/sljitLir.o : $(BINDIR)/.keep $(SLJIT_LIR_FILES) $(SLJIT_HEADERS)
 $(BINDIR)/sljitMain.o : $(TESTDIR)/sljitMain.c $(BINDIR)/.keep $(SLJIT_HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $(TESTDIR)/sljitMain.c
 
-$(BINDIR)/regexMain.o : $(REGEXDIR)/regexMain.c $(BINDIR)/.keep $(SLJIT_HEADERS)
+$(BINDIR)/regexMain.o : $(REGEXDIR)/regexMain.c $(BINDIR)/.keep $(SLJIT_HEADERS) $(REGEXDIR)/regexJIT.h
 	$(CC) $(CPPFLAGS) $(REGEX_CFLAGS) -c -o $@ $(REGEXDIR)/regexMain.c
 
 $(BINDIR)/regexJIT.o : $(REGEXDIR)/regexJIT.c $(BINDIR)/.keep $(SLJIT_HEADERS) $(REGEXDIR)/regexJIT.h

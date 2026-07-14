@@ -121,6 +121,7 @@ jobs:
           make all
       - name: Run tests
         run: |
+          ./qemu-9.0.2/build/${{ matrix.arch.qemu.name }} ./bin/regex_test -s
           ./qemu-9.0.2/build/${{ matrix.arch.qemu.name }} ./bin/sljit_test -v
 
   build-test-on-x86_x64:
@@ -148,4 +149,5 @@ jobs:
           make all
       - name: Run Tests
         run: |
+          ./bin/regex_test -s
           ./bin/sljit_test -v
