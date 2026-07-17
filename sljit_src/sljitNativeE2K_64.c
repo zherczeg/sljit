@@ -1776,9 +1776,9 @@ static SLJIT_INLINE sljit_s32 stepler_check_op(struct sljit_compiler *compiler,
     sljit_s32 is_ld = 0;
     sljit_s32 is_st = 0;
     sljit_s32 idx = 0;
-    sljit_s32 src1_is_reg = ((emit_flags & REG_SRC1) > 0);
-    sljit_s32 src2_is_reg = ((emit_flags & REG_SRC2) > 0);
-    sljit_s32 src3_is_reg = ((emit_flags & REG_SRC3) > 0);
+    sljit_s32 src1_is_reg = ((src1 != -1) && ((emit_flags & REG_SRC1) > 0));
+    sljit_s32 src2_is_reg = ((src2 != -1) && ((emit_flags & REG_SRC2) > 0));
+    sljit_s32 src3_is_reg = ((src3 != -1) && ((emit_flags & REG_SRC3) > 0));
 
     if (!check_resource(compiler, &BUNDLE, e2kop[op].mask)) {
         allowed = 0;
@@ -1814,7 +1814,7 @@ static SLJIT_INLINE sljit_s32 stepler_check_op(struct sljit_compiler *compiler,
         /* no dst conflict */
         #pragma loop count(3)
         for (idx = STEPLER.len; idx > 0; idx--) {
-            if (STEPLER.len && (STEPLER.dst_list[idx-1] == dst)) {
+            if (STEPLER.len && (dst != -1) && (STEPLER.dst_list[idx-1] == dst)) {
                 allowed = 0;
             }
         }
