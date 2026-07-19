@@ -10241,7 +10241,7 @@ static void test83(void)
 	/* Filling bundle with multiple stores. */
 	executable_code code;
 	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
-	sljit_sw buf[12];
+	sljit_sw buf[6];
 	sljit_s32 i;
 
 	if (verbose)
@@ -10249,20 +10249,22 @@ static void test83(void)
 
 	FAILED(!compiler, "cannot create compiler\n");
 
-	for (i = 0; i < 12; i++)
+	for (i = 0; i < 5; i++)
 		buf[i] = 0;
-	buf[0] = 5678;
 
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 3, 2, 0);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 9999);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 8888);
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_IMM, 7777);
 	/* buf[1] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_R0, 0);
 	/* buf[2] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 2*sizeof(sljit_sw), SLJIT_R1, 0);
 	/* buf[3] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 3*sizeof(sljit_sw), SLJIT_R2, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 3*sizeof(sljit_sw), SLJIT_IMM, 7777);
+	/* buf[4] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4*sizeof(sljit_sw), SLJIT_IMM, 6666);
+	/* buf[5] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4*sizeof(sljit_sw), SLJIT_IMM, 5555);
 
 	sljit_emit_return_void(compiler);
 
@@ -10274,6 +10276,8 @@ static void test83(void)
 	FAILED(buf[1] != 9999, "test83 case 1 failed\n");
 	FAILED(buf[2] != 8888, "test83 case 2 failed\n");
 	FAILED(buf[3] != 7777, "test83 case 3 failed\n");
+	FAILED(buf[4] != 6666, "test83 case 4 failed\n");
+	FAILED(buf[5] != 5555, "test83 case 5 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
