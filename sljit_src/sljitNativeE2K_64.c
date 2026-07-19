@@ -122,16 +122,19 @@ SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 
 /* SLJIT_SP */
 #define TMP_REG1 (SLJIT_SP + 1)             /* signature_switcher and lower */
-#define TMP_REG2 (SLJIT_SP + 2)             /* all layers */
-#define TMP_REG3 (SLJIT_SP + 3)             /* upper than signature_switcher */
-#define JUMP_REG (SLJIT_SP + 4)             /* for jumps only */
-#define FLAG_REG (SLJIT_SP + 5)
-#define EXTRA_NREGS_NUM 6
+#define TMP_REG2 (SLJIT_SP + 2)             /* signature_switcher and lower */
+#define TMP_REG3 (SLJIT_SP + 3)             /* all layers */
+#define TMP_REG4 (SLJIT_SP + 4)             /* all layers */
+#define TMP_REG5 (SLJIT_SP + 5)             /* all layers + OPT_REG */
+#define TMP_REG6 (SLJIT_SP + 6)             /* all layers + DEST_REG */
+#define JUMP_REG (SLJIT_SP + 7)             /* for jumps only */
+#define FLAG_REG (SLJIT_SP + 8)
+#define EXTRA_NREGS_NUM 9
 
 /* signature_switcher and lower */
-#define TMP_FREG1 (SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1)
-#define TMP_FREG2 TMP_FREG1 + 1           /* all layers */
-#define TMP_FREG3 TMP_FREG2 + 1           /* upper than signature_switcher */
+#define TMP_FREG1 (SLJIT_NUMBER_OF_FLOAT_REGISTERS + 1) /* signature_switcher and lower */
+#define TMP_FREG2 TMP_FREG1 + 1                         /* all layers */
+#define TMP_FREG3 TMP_FREG2 + 1                         /* all layers + DEST_FREG */
 #define EXTRA_FREGS_NUM 3
 
 #define FLAG_PREG 16
@@ -254,13 +257,16 @@ static const sljit_u8 reg_map[E2K_REG_NUMBER + 1] = {
     R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7),     /* ABI input regs */
     R(8), R(9), R(10), R(11),
     R(12), R(13), R(14), R(15), R(16), R(17), R(18), R(19),
-    R(20), R(21), R(22), R(23), R(24), R(25),
+    R(20), R(21), R(22),
     /* saved */
-    R(26), R(27), R(28), R(29), R(30),
-    R(31),  /* SLJIT_SP */
-    R(32),  /* TMP_REG1 */
-    R(33),  /* TMP_REG2 */
-    R(34),  /* TMP_REG3 */
+    R(23), R(24), R(25), R(26), R(27),
+    R(28),  /* SLJIT_SP */
+    R(29),  /* TMP_REG1 */
+    R(30),  /* TMP_REG2 */
+    R(31),  /* TMP_REG3 */
+    R(32),  /* TMP_REG4 */
+    R(33),  /* TMP_REG5 */
+    R(34),  /* TMP_REG6 */
     R(35),  /* JUMP_REG */
     R(36),  /* FLAG_REG */
 
@@ -4020,7 +4026,8 @@ static void substitute_return_addr(struct sljit_compiler *compiler,
                             src, srcw, DOUBLEWORD);
     }
 
-    emit_op(compiler, bundle, E2K_ADDd, REG_ZERO, __NR_fast_sys_set_return, 0, 0, SLJIT_R0, DOUBLEWORD);
+    emit_op(compiler, bundle, E2K_ADDd, REG_ZERO,
+            __NR_fast_sys_set_return, 0, 0, SLJIT_R0, DOUBLEWORD);
     emit_op(compiler, bundle, E2K_ADDd, REG_SRC2, 0, ip_reg, 0, SLJIT_R1, DOUBLEWORD);
     emit_op(compiler, bundle, E2K_ADDd, REG_ZERO, 0, 0, 0, SLJIT_R2, DOUBLEWORD);
     BUNDLE_CLOSE();
