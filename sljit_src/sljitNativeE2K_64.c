@@ -3353,37 +3353,25 @@ static void signature_switcher1(struct sljit_compiler *compiler,
                                 sljit_sw srcw,
                                 sljit_s32 mode)
 {
+    sljit_u32 emit_flags = REG_SRC3;
+    /* default: src is reg */
+    sljit_uw _src = src;
+
+    if (SLJIT_IS_REG(src)) {
+        emit_flags |= REG_SRC2;
+    } else if (SLJIT_IS_IMM(src)) {
+        _src = srcw;
+    } else if (SLJIT_IS_MEM(src)) {
+        emit_load(compiler, &BUNDLE, TMP_REG1, 0, src, srcw, mode);
+        _src = TMP_REG1;
+        emit_flags |= REG_SRC2;
+    }
+
     if (SLJIT_IS_REG(dst)) {
-        if (SLJIT_IS_REG(src)) {
-            emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                         0, src, 0, dst, mode);
-        } else if (SLJIT_IS_IMM(src)) {
-            emit_op_full(compiler, op, REG_SRC1 | REG_SRC3,
-                         0, srcw, 0, dst, mode);
-        } else if (SLJIT_IS_MEM(src)) {
-            emit_load_full(compiler, TMP_REG1, 0, src, srcw, mode);
-            emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                         0, TMP_REG1, 0, dst, mode);
-        } else {
-            SLJIT_ASSERT(0);
-        }
+        emit_op(compiler, &BUNDLE, op, emit_flags, 0, _src, 0, dst, mode);
     } else if (SLJIT_IS_MEM(dst)) {
-        if (SLJIT_IS_REG(src)) {
-            emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                         0, src, 0, TMP_REG1, mode);
-        } else if (SLJIT_IS_IMM(src)) {
-            emit_op_full(compiler, op, REG_SRC1 | REG_SRC3,
-                         0, srcw, 0, TMP_REG1, mode);
-        } else if (SLJIT_IS_MEM(src)) {
-            emit_load_full(compiler, TMP_REG1, 0, src, srcw, mode);
-            emit_op_full(compiler, op, REG_SRC1 | REG_SRC2 | REG_SRC3,
-                         0, TMP_REG1, 0, TMP_REG1, mode);
-        } else {
-            SLJIT_ASSERT(0);
-        }
-        emit_store_full(compiler, dst, dstw, TMP_REG1, 0, mode);
-    } else {
-        SLJIT_ASSERT(0);
+        emit_op(compiler, &BUNDLE, op, emit_flags, 0, _src, 0, TMP_REG1, mode);
+        emit_store(compiler, &BUNDLE, dst, dstw, TMP_REG1, 0, mode);
     }
 }
 
