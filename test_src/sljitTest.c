@@ -10264,7 +10264,7 @@ static void test83(void)
 	/* buf[4] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4*sizeof(sljit_sw), SLJIT_IMM, 6666);
 	/* buf[5] */
-	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4*sizeof(sljit_sw), SLJIT_IMM, 5555);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5*sizeof(sljit_sw), SLJIT_IMM, 5555);
 
 	sljit_emit_return_void(compiler);
 
