@@ -1127,6 +1127,75 @@ static sljit_s32 emit_cmp_flag(struct sljit_compiler *compiler, sljit_s32 flag_t
 	return SLJIT_SUCCESS;
 }
 
+/* Count leading zeroes of a 64 bit value without the CIX extension (pre-EV67).
+   Branchless binary search: at each step the top half of the remaining window
+   is tested, and is either skipped (adding its width to the count) or becomes
+   the new window.  A zero input yields 64.
+
+   src_r is read by the first instruction only, so it may be any of the scratch
+   registers this clobbers (OTHER_FLAG, EQUAL_FLAG, TMP_REG3). */
+static sljit_s32 emit_clz64_no_cix(struct sljit_compiler *compiler, sljit_s32 dst_r, sljit_s32 src_r)
+{
+	sljit_s32 shift;
+
+	/* The window under consideration, and the count of zeroes above it. */
+	FAIL_IF(push_inst(compiler, BIS | RA(src_r) | RB(TMP_ZERO) | RC(OTHER_FLAG)));
+	FAIL_IF(push_inst(compiler, LDA | RA(dst_r) | RB(TMP_ZERO) | DISP16(0)));
+
+	for (shift = 32; shift > 0; shift >>= 1) {
+		FAIL_IF(push_inst(compiler, SRL | RA(OTHER_FLAG) | ALPHA_LIT(shift) | RC(EQUAL_FLAG)));
+		FAIL_IF(push_inst(compiler, ADDQ | RA(dst_r) | ALPHA_LIT(shift) | RC(TMP_REG3)));
+		/* Top half empty: skip it and count its width. */
+		FAIL_IF(push_inst(compiler, CMOVEQ | RA(EQUAL_FLAG) | RB(TMP_REG3) | RC(dst_r)));
+		/* Otherwise the top half becomes the new window. */
+		FAIL_IF(push_inst(compiler, CMOVNE | RA(EQUAL_FLAG) | RB(EQUAL_FLAG) | RC(OTHER_FLAG)));
+	}
+
+	/* The window is now a single bit; if it is clear the input was zero. */
+	FAIL_IF(push_inst(compiler, ADDQ | RA(dst_r) | ALPHA_LIT(1) | RC(TMP_REG3)));
+	return push_inst(compiler, CMOVEQ | RA(OTHER_FLAG) | RB(TMP_REG3) | RC(dst_r));
+}
+
+/* SLJIT_CLZ / SLJIT_CTZ on CPUs without CIX. */
+static sljit_s32 emit_clz_ctz_no_cix(struct sljit_compiler *compiler, sljit_s32 op,
+	sljit_s32 opcode, sljit_s32 dst_r, sljit_s32 src_r)
+{
+	sljit_s32 src = src_r;
+
+	if (op & SLJIT_32) {
+		/* Operate on the zero extended low word. */
+		FAIL_IF(push_inst(compiler, ZAPNOT | RA(src_r) | ALPHA_LIT(0x0f) | RC(TMP_REG3)));
+		src = TMP_REG3;
+	}
+
+	if (opcode == SLJIT_CLZ) {
+		FAIL_IF(emit_clz64_no_cix(compiler, dst_r, src));
+
+		/* A zero extended word has 32 extra leading zeroes, and a zero input
+		   correctly ends up as 64 - 32. */
+		if (op & SLJIT_32)
+			return push_inst(compiler, SUBQ | RA(dst_r) | ALPHA_LIT(32) | RC(dst_r));
+		return SLJIT_SUCCESS;
+	}
+
+	/* ctz(x) == 64 - clz(~x & (x - 1)), which needs no special case for zero:
+	   the mask is then all ones, so clz is 0 and the result is 64. */
+	FAIL_IF(push_inst(compiler, LDA | RA(EQUAL_FLAG) | RB(src) | DISP16(-1)));
+	FAIL_IF(push_inst(compiler, BIC | RA(EQUAL_FLAG) | RB(src) | RC(EQUAL_FLAG)));
+	FAIL_IF(emit_clz64_no_cix(compiler, dst_r, EQUAL_FLAG));
+	FAIL_IF(push_inst(compiler, LDA | RA(OTHER_FLAG) | RB(TMP_ZERO) | DISP16(64)));
+	FAIL_IF(push_inst(compiler, SUBQ | RA(OTHER_FLAG) | RB(dst_r) | RC(dst_r)));
+
+	if (!(op & SLJIT_32))
+		return SLJIT_SUCCESS;
+
+	/* A zero low word gives 64 here, but the 32 bit result must be 32.  No
+	   other input can reach 64, so the value alone identifies the case. */
+	FAIL_IF(push_inst(compiler, CMPEQ | RA(dst_r) | ALPHA_LIT(64) | RC(EQUAL_FLAG)));
+	FAIL_IF(push_inst(compiler, LDA | RA(OTHER_FLAG) | RB(TMP_ZERO) | DISP16(32)));
+	return push_inst(compiler, CMOVNE | RA(EQUAL_FLAG) | RB(OTHER_FLAG) | RC(dst_r));
+}
+
 static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 flags,
 	sljit_s32 dst, sljit_s32 src1, sljit_sw src2)
 {
@@ -1169,6 +1238,12 @@ static SLJIT_INLINE sljit_s32 emit_single_op(struct sljit_compiler *compiler, sl
 	case SLJIT_CLZ:
 	case SLJIT_CTZ:
 		SLJIT_ASSERT(src1 == TMP_ZERO && !(flags & SRC2_IMM));
+		/* CTLZ/CTTZ require the CIX extension (EV67+). */
+		if (!cpu_feature_list)
+			get_cpu_features();
+		if (!(cpu_feature_list & ALPHA_HWCAP_CIX))
+			return emit_clz_ctz_no_cix(compiler, op, opcode, dst, src2r);
+
 		if (op & SLJIT_32) {
 			if (opcode == SLJIT_CLZ) {
 				FAIL_IF(push_inst(compiler, ZAPNOT | RA(src2r) | ALPHA_LIT(0x0f) | RC(OTHER_FLAG)));
