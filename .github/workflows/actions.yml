@@ -123,6 +123,37 @@ jobs:
         run: |
           ./qemu-9.0.2/build/${{ matrix.arch.qemu.name }} ./bin/sljit_test -v
 
+  build-test-on-alpha:
+    name: Build and test on alpha (${{ matrix.cpu }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # The backend selects instructions at runtime with AMASK, so one CPU
+        # per extension set is enough to cover every path.  EV4 and EV5 (no
+        # BWX) are not covered because the distribution libc requires BWX.
+        cpu:
+          - ev56 # BWX
+          - ev6 # BWX + FIX
+          - ev67 # BWX + FIX + CIX
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install compiler and qemu
+        run: |
+          sudo apt update
+          sudo apt install -y make gcc-alpha-linux-gnu qemu-user
+      - name: Build
+        env:
+          CROSS_COMPILER: alpha-linux-gnu-gcc
+          EXTRA_LDFLAGS: -static
+        run: |
+          make all
+      - name: Run tests
+        run: |
+          qemu-alpha -cpu ${{ matrix.cpu }} ./bin/sljit_test -v
+
   build-test-on-x86_x64:
     strategy:
       fail-fast: false
