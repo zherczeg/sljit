@@ -372,7 +372,8 @@ typedef int sljit_sw;
 	&& !(defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64) \
 	&& !(defined SLJIT_CONFIG_RISCV_64 && SLJIT_CONFIG_RISCV_64) \
 	&& !(defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
-	&& !(defined SLJIT_CONFIG_LOONGARCH_64 && SLJIT_CONFIG_LOONGARCH_64)
+	&& !(defined SLJIT_CONFIG_LOONGARCH_64 && SLJIT_CONFIG_LOONGARCH_64) \
+	&& !(defined SLJIT_CONFIG_ALPHA_64 && SLJIT_CONFIG_ALPHA_64)
 #define SLJIT_32BIT_ARCHITECTURE 1
 #define SLJIT_WORD_SHIFT 2
 typedef unsigned int sljit_uw;
@@ -438,6 +439,12 @@ typedef double sljit_f64;
 #define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
 #define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_MIN_INT
 #elif (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
+#define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_ZERO
+#elif (defined SLJIT_CONFIG_ALPHA && SLJIT_CONFIG_ALPHA)
+/* CVTTQ/SVC uses software completion; sljit_emit_fop1_conv_sw_from_f64
+   emits FCMPLT/CMPTEQ + CMOVNE/CMOVEQ fixups to enforce saturation. */
 #define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
 #define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
 #define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_ZERO
@@ -765,6 +772,31 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_UPPER_BITS_SIGN_EXTENDED 1
 #define SLJIT_SHARED_COMPARISON_FLAGS 1
 
+#elif (defined SLJIT_CONFIG_ALPHA && SLJIT_CONFIG_ALPHA)
+
+/* Alpha has 32 general registers (r31 hardwired zero) and 32 float registers
+   (f31 hardwired zero). Reserved: r31 (zero), r30 (sp), r29 (gp, unused by the
+   JIT). Backend temporaries: r24, r25, r26 (ra), r27 (pv), r28 (at). Exposed:
+   17 scratch (r0-r8, r16-r23) + 7 callee-saved (r9-r15). */
+#define SLJIT_NUMBER_OF_REGISTERS 24
+#define SLJIT_NUMBER_OF_SAVED_REGISTERS 7
+#define SLJIT_NUMBER_OF_TEMPORARY_REGISTERS 5
+#define SLJIT_NUMBER_OF_FLOAT_REGISTERS 28
+#define SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS 8
+#define SLJIT_NUMBER_OF_TEMPORARY_FLOAT_REGISTERS 2
+#define SLJIT_TMP_DEST_REG SLJIT_TMP_R1
+#define SLJIT_TMP_OPT_REG SLJIT_TMP_R0
+#define SLJIT_TMP_FLAG_REG SLJIT_TMP_R3
+#define SLJIT_TMP_DEST_FREG SLJIT_TMP_FR0
+/* One word is reserved at the bottom of the frame: CPUs without the FIX
+   extension have no register to register move between the integer and float
+   register files, so values are bounced through this slot instead. */
+#define SLJIT_LOCALS_OFFSET_BASE ((sljit_s32)sizeof(sljit_sw))
+#define SLJIT_MASKED_SHIFT 1
+#define SLJIT_MASKED_SHIFT32 1
+#define SLJIT_UPPER_BITS_SIGN_EXTENDED 1
+#define SLJIT_SHARED_COMPARISON_FLAGS 1
+
 #elif (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 
 /* Just to have something. */
@@ -870,7 +902,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 	|| (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
 	|| (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV) \
 	|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
-	|| (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
+	|| (defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH) \
+	|| (defined SLJIT_CONFIG_ALPHA && SLJIT_CONFIG_ALPHA)
 #define SLJIT_HAS_STATUS_FLAGS_STATE 1
 #endif
 
