@@ -304,6 +304,46 @@ static void get_cpu_features(void)
 	cpu_feature_list = features;
 }
 
+/* Move a raw bit pattern between the integer and floating point register
+   files.  ITOFS/ITOFT/FTOIS/FTOIT require the FIX extension (EV6+); older
+   CPUs have no such instruction, so the value is bounced through the word
+   reserved at the bottom of the frame by SLJIT_LOCALS_OFFSET_BASE.  The
+   store/load pair is chosen to perform the same format conversion as the
+   instruction it replaces: LDS/STS convert S format, LDT/STT do not. */
+static sljit_s32 emit_int_to_float(struct sljit_compiler *compiler, sljit_s32 is_32, sljit_s32 freg, sljit_s32 reg)
+{
+	if (!cpu_feature_list)
+		get_cpu_features();
+
+	if (cpu_feature_list & ALPHA_HWCAP_FIX)
+		return push_inst(compiler, (is_32 ? ITOFS : ITOFT) | RA(reg) | FC(freg));
+
+	FAIL_IF(push_inst(compiler, (is_32 ? STL : STQ) | RA(reg) | RB(SLJIT_SP) | DISP16(0)));
+	return push_inst(compiler, (is_32 ? LDS : LDT) | FA(freg) | RB(SLJIT_SP) | DISP16(0));
+}
+
+/* Number of instructions emitted by the two helpers above, needed by callers
+   which branch over a block containing a transfer. */
+static sljit_s32 int_float_move_size(void)
+{
+	if (!cpu_feature_list)
+		get_cpu_features();
+
+	return (cpu_feature_list & ALPHA_HWCAP_FIX) ? 1 : 2;
+}
+
+static sljit_s32 emit_float_to_int(struct sljit_compiler *compiler, sljit_s32 is_32, sljit_s32 reg, sljit_s32 freg)
+{
+	if (!cpu_feature_list)
+		get_cpu_features();
+
+	if (cpu_feature_list & ALPHA_HWCAP_FIX)
+		return push_inst(compiler, (is_32 ? FTOIS : FTOIT) | FA(freg) | RC(reg));
+
+	FAIL_IF(push_inst(compiler, (is_32 ? STS : STT) | FA(freg) | RB(SLJIT_SP) | DISP16(0)));
+	return push_inst(compiler, (is_32 ? LDL : LDQ) | RA(reg) | RB(SLJIT_SP) | DISP16(0));
+}
+
 /* --------------------------------------------------------------------- */
 /*  Jumps                                                                 */
 /* --------------------------------------------------------------------- */
@@ -547,10 +587,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		return 1;
 	case SLJIT_HAS_COPY_F32:
 	case SLJIT_HAS_COPY_F64:
-		/* ITOFS/ITOFT/FTOIS/FTOIT require the FIX extension (EV6+). */
-		if (!cpu_feature_list)
-			get_cpu_features();
-		return (cpu_feature_list & ALPHA_HWCAP_FIX) ? 1 : 0;
+		/* Uses ITOFS/ITOFT/FTOIS/FTOIT when the FIX extension (EV6+) is
+		   available, and a stack round trip otherwise. */
+		return 1;
 	case SLJIT_HAS_CLZ:
 	case SLJIT_HAS_CTZ:
 		if (!cpu_feature_list)
@@ -2253,27 +2292,27 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_sw_from_f64(struct sljit_comp
 
 	/* In-range truncation toward zero (valid while the value fits). */
 	FAIL_IF(push_inst(compiler, CVTTQ | FB(src) | FC(TMP_FREG2)));
-	FAIL_IF(push_inst(compiler, FTOIT | FA(TMP_FREG2) | RC(dst_r)));
+	FAIL_IF(emit_float_to_int(compiler, 0, dst_r, TMP_FREG2));
 
 	/* Saturate high: src >= 2^(w-1) -> max. CMPTLE leaves 2.0/0.0. */
 	FAIL_IF(load_immediate(compiler, TMP_REG1, hi_bits, TMP_REG3));
-	FAIL_IF(push_inst(compiler, ITOFT | RA(TMP_REG1) | FC(TMP_FREG2)));
+	FAIL_IF(emit_int_to_float(compiler, 0, TMP_FREG2, TMP_REG1));
 	FAIL_IF(push_inst(compiler, CMPTLE | FA(TMP_FREG2) | FB(src) | FC(TMP_FREG2)));
-	FAIL_IF(push_inst(compiler, FTOIT | FA(TMP_FREG2) | RC(OTHER_FLAG)));
+	FAIL_IF(emit_float_to_int(compiler, 0, OTHER_FLAG, TMP_FREG2));
 	FAIL_IF(load_immediate(compiler, TMP_REG1, sat_max, TMP_REG3));
 	FAIL_IF(push_inst(compiler, CMOVNE | RA(OTHER_FLAG) | RB(TMP_REG1) | RC(dst_r)));
 
 	/* Saturate low: src < -2^(w-1) -> min. */
 	FAIL_IF(load_immediate(compiler, TMP_REG1, lo_bits, TMP_REG3));
-	FAIL_IF(push_inst(compiler, ITOFT | RA(TMP_REG1) | FC(TMP_FREG2)));
+	FAIL_IF(emit_int_to_float(compiler, 0, TMP_FREG2, TMP_REG1));
 	FAIL_IF(push_inst(compiler, CMPTLT | FA(src) | FB(TMP_FREG2) | FC(TMP_FREG2)));
-	FAIL_IF(push_inst(compiler, FTOIT | FA(TMP_FREG2) | RC(OTHER_FLAG)));
+	FAIL_IF(emit_float_to_int(compiler, 0, OTHER_FLAG, TMP_FREG2));
 	FAIL_IF(load_immediate(compiler, TMP_REG1, sat_min, TMP_REG3));
 	FAIL_IF(push_inst(compiler, CMOVNE | RA(OTHER_FLAG) | RB(TMP_REG1) | RC(dst_r)));
 
 	/* NaN -> 0 (an ordered self-compare is false only for NaN). */
 	FAIL_IF(push_inst(compiler, CMPTEQ | FA(src) | FB(src) | FC(TMP_FREG2)));
-	FAIL_IF(push_inst(compiler, FTOIT | FA(TMP_FREG2) | RC(OTHER_FLAG)));
+	FAIL_IF(emit_float_to_int(compiler, 0, OTHER_FLAG, TMP_FREG2));
 	FAIL_IF(push_inst(compiler, CMOVEQ | RA(OTHER_FLAG) | RB(TMP_ZERO) | RC(dst_r)));
 
 	if (dst & SLJIT_MEM)
@@ -2297,7 +2336,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_sw(struct sljit_comp
 		src = TMP_REG1;
 	}
 
-	FAIL_IF(push_inst(compiler, ITOFT | RA(src) | FC(TMP_FREG1)));
+	FAIL_IF(emit_int_to_float(compiler, 0, TMP_FREG1, src));
 	FAIL_IF(push_inst(compiler, ((op & SLJIT_32) ? CVTQS : CVTQT) | FB(TMP_FREG1) | FC(dst_r)));
 
 	if (dst & SLJIT_MEM)
@@ -2325,7 +2364,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_uw(struct sljit_comp
 		/* An unsigned 32 bit value is a small positive 64 bit integer, so the
 		   signed conversion is exact once the low word is zero-extended. */
 		FAIL_IF(push_inst(compiler, ZAPNOT | RA(src) | ALPHA_LIT(0x0f) | RC(TMP_REG1)));
-		FAIL_IF(push_inst(compiler, ITOFT | RA(TMP_REG1) | FC(TMP_FREG1)));
+		FAIL_IF(emit_int_to_float(compiler, 0, TMP_FREG1, TMP_REG1));
 		FAIL_IF(push_inst(compiler, cvt | FB(TMP_FREG1) | FC(dst_r)));
 
 		if (dst & SLJIT_MEM)
@@ -2342,16 +2381,17 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_uw(struct sljit_comp
 	}
 
 	/* While bit 63 is clear the signed conversion is exact. */
-	FAIL_IF(push_inst(compiler, ITOFT | RA(src) | FC(TMP_FREG1)));
+	FAIL_IF(emit_int_to_float(compiler, 0, TMP_FREG1, src));
 	FAIL_IF(push_inst(compiler, cvt | FB(TMP_FREG1) | FC(dst_r)));
 
 	/* Otherwise convert (src >> 1) | (src & 1) (round-to-odd keeps the dropped
-	   bit sticky) and double the result. The branch skips the 6 fixup insns. */
-	FAIL_IF(push_inst(compiler, BGE | RA(src) | (6 & 0x1fffff)));
+	   bit sticky) and double the result. The branch skips the fixup, which is
+	   five instructions plus the integer to float transfer. */
+	FAIL_IF(push_inst(compiler, BGE | RA(src) | ((sljit_ins)(5 + int_float_move_size()) & 0x1fffff)));
 	FAIL_IF(push_inst(compiler, SRL | RA(src) | ALPHA_LIT(1) | RC(TMP_REG2)));
 	FAIL_IF(push_inst(compiler, AND | RA(src) | ALPHA_LIT(1) | RC(TMP_REG3)));
 	FAIL_IF(push_inst(compiler, BIS | RA(TMP_REG2) | RB(TMP_REG3) | RC(TMP_REG2)));
-	FAIL_IF(push_inst(compiler, ITOFT | RA(TMP_REG2) | FC(TMP_FREG1)));
+	FAIL_IF(emit_int_to_float(compiler, 0, TMP_FREG1, TMP_REG2));
 	FAIL_IF(push_inst(compiler, cvt | FB(TMP_FREG1) | FC(dst_r)));
 	FAIL_IF(push_inst(compiler, add | FA(dst_r) | FB(dst_r) | FC(dst_r)));
 
@@ -2411,8 +2451,8 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 		/* ordered && a != b  <=>  (a < b) || (a > b). */
 		FAIL_IF(push_inst(compiler, CMPTLT | FA(src1) | FB(src2) | FC(TMP_FREG1)));
 		FAIL_IF(push_inst(compiler, CMPTLT | FA(src2) | FB(src1) | FC(TMP_FREG2)));
-		FAIL_IF(push_inst(compiler, FTOIT | FA(TMP_FREG1) | RC(OTHER_FLAG)));
-		FAIL_IF(push_inst(compiler, FTOIT | FA(TMP_FREG2) | RC(TMP_REG1)));
+		FAIL_IF(emit_float_to_int(compiler, 0, OTHER_FLAG, TMP_FREG1));
+		FAIL_IF(emit_float_to_int(compiler, 0, TMP_REG1, TMP_FREG2));
 		FAIL_IF(push_inst(compiler, BIS | RA(OTHER_FLAG) | RB(TMP_REG1) | RC(OTHER_FLAG)));
 		/* Normalize the 2.0 bit pattern to a clean 0/1. */
 		return push_inst(compiler, CMPULT | RA(TMP_ZERO) | RB(OTHER_FLAG) | RC(OTHER_FLAG));
@@ -2423,7 +2463,7 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_cmp(struct sljit_compiler *compile
 
 	FAIL_IF(push_inst(compiler, inst));
 	/* Move the boolean (2.0 or 0.0) result into OTHER_FLAG and normalize to 0/1. */
-	FAIL_IF(push_inst(compiler, FTOIT | FA(TMP_FREG1) | RC(OTHER_FLAG)));
+	FAIL_IF(emit_float_to_int(compiler, 0, OTHER_FLAG, TMP_FREG1));
 	return push_inst(compiler, CMPULT | RA(TMP_ZERO) | RB(OTHER_FLAG) | RC(OTHER_FLAG));
 }
 
@@ -2560,10 +2600,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset32(struct sljit_compiler *comp
 	u.value = value;
 
 	if (u.imm == 0)
-		return push_inst(compiler, ITOFS | RA(TMP_ZERO) | FC(freg));
+		return emit_int_to_float(compiler, 1, freg, TMP_ZERO);
 
 	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm, TMP_REG3));
-	return push_inst(compiler, ITOFS | RA(TMP_REG1) | FC(freg));
+	return emit_int_to_float(compiler, 1, freg, TMP_REG1);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *compiler,
@@ -2580,10 +2620,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 	u.value = value;
 
 	if (u.imm == 0)
-		return push_inst(compiler, ITOFT | RA(TMP_ZERO) | FC(freg));
+		return emit_int_to_float(compiler, 0, freg, TMP_ZERO);
 
 	FAIL_IF(load_immediate(compiler, TMP_REG1, u.imm, TMP_REG3));
-	return push_inst(compiler, ITOFT | RA(TMP_REG1) | FC(freg));
+	return emit_int_to_float(compiler, 0, freg, TMP_REG1);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compiler, sljit_s32 op,
@@ -2593,9 +2633,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 	CHECK(check_sljit_emit_fcopy(compiler, op, freg, reg));
 
 	if (GET_OPCODE(op) == SLJIT_COPY_TO_F64)
-		return push_inst(compiler, ((op & SLJIT_32) ? ITOFS : ITOFT) | RA(reg) | FC(freg));
+		return emit_int_to_float(compiler, op & SLJIT_32, freg, reg);
 
-	return push_inst(compiler, ((op & SLJIT_32) ? FTOIS : FTOIT) | FA(freg) | RC(reg));
+	return emit_float_to_int(compiler, op & SLJIT_32, reg, freg);
 }
 
 /* --------------------------------------------------------------------- */
