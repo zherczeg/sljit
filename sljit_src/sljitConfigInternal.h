@@ -788,7 +788,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void *code);
 #define SLJIT_TMP_OPT_REG SLJIT_TMP_R0
 #define SLJIT_TMP_FLAG_REG SLJIT_TMP_R3
 #define SLJIT_TMP_DEST_FREG SLJIT_TMP_FR0
-#define SLJIT_LOCALS_OFFSET_BASE 0
+/* One word is reserved at the bottom of the frame: CPUs without the FIX
+   extension have no register to register move between the integer and float
+   register files, so values are bounced through this slot instead. */
+#define SLJIT_LOCALS_OFFSET_BASE ((sljit_s32)sizeof(sljit_sw))
 #define SLJIT_MASKED_SHIFT 1
 #define SLJIT_MASKED_SHIFT32 1
 #define SLJIT_UPPER_BITS_SIGN_EXTENDED 1
