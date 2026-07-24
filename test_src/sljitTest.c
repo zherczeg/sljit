@@ -10104,12 +10104,12 @@ static void test80(void)
 	executable_code code;
 	struct sljit_compiler *compiler = sljit_create_compiler(NULL);
 	sljit_s32 i;
-	sljit_sw buf[23];
+	sljit_sw buf[24];
 
 	if (verbose)
 		printf("Run test80\n");
 
-	for (i = 0; i < 23; i++)
+	for (i = 0; i < 24; i++)
 		buf[i] = -1;
 
 	FAILED(!compiler, "cannot create compiler\n");
@@ -10247,6 +10247,10 @@ static void test80(void)
 	/* buf[22] */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 22 * sizeof(sljit_sw), SLJIT_R0, 0);
 
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 0x668);
+	/* buf[23] */
+	sljit_emit_op2_shift(compiler, SLJIT_ADD | SLJIT_SHL_IMM, SLJIT_MEM1(SLJIT_S0), 23 * sizeof(sljit_sw), SLJIT_R1, 0, SLJIT_IMM, -1, 3);
+
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);
@@ -10279,6 +10283,7 @@ static void test80(void)
 	FAILED(buf[20] != WCONST(0x2a964aa1b7586a8, 0x2a96479), "test80 case 21 failed\n");
 	FAILED(buf[21] != WCONST(0x7318850e471cdb28, 0x731883c0), "test80 case 22 failed\n");
 	FAILED(buf[22] != WCONST(0x2cf3d06c3f8f2223, 0x2cf3cb0f), "test80 case 23 failed\n");
+	FAILED(buf[23] != 0x660, "test 80 case 24 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
