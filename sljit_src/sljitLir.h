@@ -1167,7 +1167,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
 #define SLJIT_OP0_BASE			0
 
 /* Flags: - (does not modify flags)
-   Note: breakpoint instruction is not supported by all architectures (e.g. ppc)
+   Triggers a trap that could be intercepted by a debugger
+   Note: might not be supported by all architectures,
          It falls back to SLJIT_NOP in those cases. */
 #define SLJIT_BREAKPOINT		(SLJIT_OP0_BASE + 0)
 /* Flags: - (does not modify flags)

@@ -1422,6 +1422,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 	op = GET_OPCODE(op);
 	switch (op) {
 	case SLJIT_BREAKPOINT:
+		return push_inst(compiler, 0x7fe00008);
 	case SLJIT_NOP:
 		return push_inst(compiler, NOP);
 	case SLJIT_LMUL_UW:
