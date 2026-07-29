@@ -997,9 +997,9 @@ static void test_float9(void)
 	result = ((compiler->size - size3) == 1 || (compiler->size - size3) == 2) && ((size3 - size2) == 1 || (size3 - size2) == 2) && ((size2 - size1) == 1 || (size2 - size1) == 2);
 #elif (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
     /* In case of scheduling this expression must be recalculated */
-	result = ((compiler->size - size3) == 8*sizeof(sljit_s32)
-              && (size3 - size2) == 4*sizeof(sljit_s32)
-              && (size2 - size1) == 6*sizeof(sljit_s32));
+	result = ((compiler->size - size3) == 2*sizeof(sljit_s32)
+              && (size3 - size2) == 2*sizeof(sljit_s32)
+              && (size2 - size1) == 4*sizeof(sljit_s32));
 #elif !IS_X86
 	result = (compiler->size - size3) == (size3 - size2) && (size3 - size2) == (size2 - size1);
 #endif
