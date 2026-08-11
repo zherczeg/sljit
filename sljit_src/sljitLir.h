@@ -2027,11 +2027,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 
 /* The following flags are used by sljit_emit_mem() and sljit_emit_fmem(). */
 
-/* Load or stora data from an unaligned (byte aligned) address. */
+/* Load or store data from an unaligned (byte aligned) address. */
 #define SLJIT_MEM_UNALIGNED	0x000400
-/* Load or stora data from a 16 bit aligned address. */
+/* Load or store data from a 16 bit aligned address. */
 #define SLJIT_MEM_ALIGNED_16	0x000800
-/* Load or stora data from a 32 bit aligned address. */
+/* Load or store data from a 32 bit aligned address. */
 #define SLJIT_MEM_ALIGNED_32	0x001000
 
 /* The following flags are used by sljit_emit_mem_update(),
@@ -2736,8 +2736,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_st
 /* All JIT related code should be placed in the same context (library, binary, etc.). */
 
 /* Get the entry address of a given function (signed, unsigned result). */
-#define SLJIT_FUNC_ADDR(func_name)	(*(sljit_sw*)(void*)func_name)
-#define SLJIT_FUNC_UADDR(func_name)	(*(sljit_uw*)(void*)func_name)
+#define SLJIT_FUNC_ADDR(func_name)	(*(sljit_sw*)(sljit_uw)func_name)
+#define SLJIT_FUNC_UADDR(func_name)	(*(sljit_uw*)(sljit_uw)func_name)
 
 /* For powerpc64, the function pointers point to a context descriptor. */
 struct sljit_function_context {
@@ -2749,7 +2749,7 @@ struct sljit_function_context {
 /* Fill the context arguments using the addr and the function.
    If func_ptr is NULL, it will not be set to the address of context
    If addr is NULL, the function address also comes from the func pointer. */
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_uw addr, void* func);
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_uw addr, void (*func)(void));
 
 #endif /* !(defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL) */
 

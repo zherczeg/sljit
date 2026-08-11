@@ -2272,7 +2272,7 @@ struct regex_machine* regex_compile(const regex_char_t *regex_string, int length
 #ifndef SLJIT_INDIRECT_CALL
 		compiler_common.machine->u.init_match = (void*)(sljit_sw)sljit_get_label_addr(label);
 #else
-		sljit_set_function_context(&compiler_common.machine->u.init_match, &compiler_common.machine->context, sljit_get_label_addr(label), regex_compile);
+		sljit_set_function_context(&compiler_common.machine->u.init_match, &compiler_common.machine->context, sljit_get_label_addr(label), (void (*)(void))regex_compile);
 #endif
 #ifdef REGEX_MATCH_VERBOSE
 		if (compiler_common.flags & REGEX_MATCH_VERBOSE)

@@ -292,14 +292,14 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 3] = {
 #endif /* SLJIT_LITTLE_ENDIAN */
 
 #if (defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL)
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_uw addr, void* func)
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_uw addr, void (*func)(void))
 {
 	sljit_uw* ptrs;
 
 	if (func_ptr)
 		*func_ptr = (void*)context;
 
-	ptrs = (sljit_uw*)func;
+	ptrs = (sljit_uw*)(sljit_uw)func;
 	context->addr = addr ? addr : ptrs[0];
 	context->r2 = ptrs[1];
 	context->r11 = ptrs[2];
@@ -749,7 +749,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 		if (((sljit_sw)code_ptr) & 0x4)
 			code_ptr++;
 #endif /* SLJIT_CONFIG_PPC_64 */
-		sljit_set_function_context(NULL, (struct sljit_function_context*)code_ptr, (sljit_uw)code, (void*)sljit_generate_code);
+		sljit_set_function_context(NULL, (struct sljit_function_context*)code_ptr, (sljit_uw)code, (void (*)(void))sljit_generate_code);
 	}
 #endif /* SLJIT_INDIRECT_CALL */
 
