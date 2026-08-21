@@ -3745,6 +3745,7 @@ static void patch_jump(struct sljit_compiler *compiler,
             }
 
             orig_size = bundle_size_in_words(hash_bundle);
+            stepler_setup(compiler, &STEPLER);
 
             ctpr = hash_bundle->als[0] & 0xF;
             hash_bundle->res |= RES_ALS0;
@@ -4173,7 +4174,7 @@ static void substitute_return_addr(struct sljit_compiler *compiler,
                                    sljit_sw srcw)
 {
     sljit_s32 ip_reg = TMP_REG3;
-    BUNDLE_DECLARATION();
+    BUNDLE_SETUP();
 
     switch_ctpr(compiler);
     emit_copf2(compiler, bundle, E2K_SDISP, E2K_CTPR | SWITCH_CTPR, E2K_FAST_SYS_ENTRY_64);
@@ -5817,6 +5818,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
         if (BUNDLE_TRACKER.count) {
             /* optimize SLJIT_FAST_CALL, SLJIT_JUMP sequence,
                see Reserve place for LTS lower */
+            BUNDLE_CLOSE();     /* prevent wrong prev inst bundling */
             last_bundle = &BUNDLE_TRACKER.entries[BUNDLE_TRACKER.count-1].bundle;
             last_entry = &BUNDLE_TRACKER.entries[BUNDLE_TRACKER.count-1];
             if (!check_resource_multiple(compiler, last_bundle, RES_ALS0 | RES_ALS1 | RES_ALS2, 3)
