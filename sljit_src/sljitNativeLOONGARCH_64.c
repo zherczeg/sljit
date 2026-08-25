@@ -2251,7 +2251,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_src(struct sljit_compiler *comp
 			srcw &= 0x3;
 			if (SLJIT_UNLIKELY(srcw))
 				FAIL_IF(push_inst(compiler, SLLI_D | RD(TMP_REG1) | RJ(OFFS_REG(src)) | IMM_I12(srcw)));
-			FAIL_IF(push_inst(compiler, ADD_D | RD(TMP_REG1) | RJ(base) | RK(TMP_REG1)));
+			FAIL_IF(push_inst(compiler, ADD_D | RD(TMP_REG1) | RJ(base) | RK(!srcw ? OFFS_REG(src) : TMP_REG1)));
 		} else {
 			if (base && srcw <= I12_MAX && srcw >= I12_MIN)
 				return push_inst(compiler,PRELD | RJ(base) | IMM_I12(srcw));
