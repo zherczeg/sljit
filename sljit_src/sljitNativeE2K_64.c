@@ -380,6 +380,8 @@ static void emit_bundle_setup(struct sljit_compiler *compiler,
 static void emit_bundle_finalize(struct sljit_compiler *compiler,
                                  E2kBundle *bundle,
                                  sljit_u32 *target_addr);
+static sljit_s32 check_memory_fragment_crossing(struct sljit_compiler *compiler,
+                                                sljit_s32 target_diff_size);
 static sljit_s32 emit_op(struct sljit_compiler* compiler,
                          E2kBundle *bundle,
                          sljit_s32 opcode,
@@ -403,8 +405,10 @@ static sljit_s32 emit_op(struct sljit_compiler* compiler,
 
 #define BUNDLE_SETUP() \
         BUNDLE_DECLARATION(); \
-        BUNDLE_CLOSE(); \
-        emit_bundle_setup(compiler, bundle)
+        BUNDLE_CLOSE()
+
+/* Prevent lift in stepler */
+#define PREVENT_LIFT() BUNDLE_TRACKER.count = 0
 
 static SLJIT_INLINE sljit_uw check_resource(struct sljit_compiler *compiler,
                                             E2kBundle *bundle,
@@ -1632,69 +1636,69 @@ static void emit_copf2(struct sljit_compiler *compiler,
 #define emit_mrgc(compiler, bundle, als, pred, inv) \
   emit_cds(compiler, bundle, 2, als, pred, inv)
 
-#define ISRC1(src1) emit_src1(compiler, bundle, E2K_CONST,    src1)
-#define RSRC1(src1) emit_src1(compiler, bundle, E2K_REG,      src1)
-#define ISRC2(src2, mode) emit_src2(compiler, bundle, E2K_CONST,    src2, mode)
-#define RSRC2(src2) emit_src2(compiler, bundle, E2K_REG,      src2, DOUBLEWORD)
-#define RSRC3(src3) emit_src3(compiler, bundle, E2K_REG,      src3)
-#define RDST(dst)   emit_dst (compiler, bundle, E2K_REG,      dst)
-#define PDST(pred)  emit_pdst(compiler, bundle, E2K_REG_PRED, pred)
+#define ISRC1(bundle, src1) emit_src1(compiler, bundle, E2K_CONST,    src1)
+#define RSRC1(bundle, src1) emit_src1(compiler, bundle, E2K_REG,      src1)
+#define ISRC2(bundle, src2, mode) emit_src2(compiler, bundle, E2K_CONST,    src2, mode)
+#define RSRC2(bundle, src2) emit_src2(compiler, bundle, E2K_REG,      src2, DOUBLEWORD)
+#define RSRC3(bundle, src3) emit_src3(compiler, bundle, E2K_REG,      src3)
+#define RDST(bundle, dst)   emit_dst (compiler, bundle, E2K_REG,      dst)
+#define PDST(bundle, pred)  emit_pdst(compiler, bundle, E2K_REG_PRED, pred)
 
 #define emit_alopf1_rr(compiler, bundle, spec, op, src1, src2, dst, mode) \
-  emit_alopf1(compiler, bundle, spec, op, RSRC1(src1), RSRC2(src2), RDST(dst))
+  emit_alopf1(compiler, bundle, spec, op, RSRC1(bundle, src1), RSRC2(bundle, src2), RDST(bundle, dst))
 #define emit_alopf1_ir(compiler, bundle, spec, op, src1, src2, dst, mode) \
-  emit_alopf1(compiler, bundle, spec, op, ISRC1(src1), RSRC2(src2), RDST(dst))
+  emit_alopf1(compiler, bundle, spec, op, ISRC1(bundle, src1), RSRC2(bundle, src2), RDST(bundle, dst))
 #define emit_alopf1_ri(compiler, bundle, spec, op, src1, src2, dst, mode) \
-  emit_alopf1(compiler, bundle, spec, op, RSRC1(src1), ISRC2(src2, mode), RDST(dst))
+  emit_alopf1(compiler, bundle, spec, op, RSRC1(bundle, src1), ISRC2(bundle, src2, mode), RDST(bundle, dst))
 #define emit_alopf1_ii(compiler, bundle, spec, op, src1, src2, dst, mode) \
-  emit_alopf1(compiler, bundle, spec, op, ISRC1(src1), ISRC2(src2, mode), RDST(dst))
+  emit_alopf1(compiler, bundle, spec, op, ISRC1(bundle, src1), ISRC2(bundle, src2, mode), RDST(bundle, dst))
 
 #define emit_alopf2_i(compiler, bundle, spec, op, src2, dst, mode) \
-  emit_alopf2(compiler, bundle, spec, op, ISRC2(src2, mode), RDST(dst))
+  emit_alopf2(compiler, bundle, spec, op, ISRC2(bundle, src2, mode), RDST(bundle, dst))
 #define emit_alopf2_r(compiler, bundle, spec, op, src2, dst, mode) \
-  emit_alopf2(compiler, bundle, spec, op, RSRC2(src2), RDST(dst))
+  emit_alopf2(compiler, bundle, spec, op, RSRC2(bundle, src2), RDST(bundle, dst))
 
 #define emit_alopf3_rr(compiler, bundle, spec, op, src1, src2, src3, mode) \
-  emit_alopf3(compiler, bundle, spec, op, RSRC1(src1), RSRC2(src2), RSRC3(src3))
+  emit_alopf3(compiler, bundle, spec, op, RSRC1(bundle, src1), RSRC2(bundle, src2), RSRC3(bundle, src3))
 #define emit_alopf3_ir(compiler, bundle, spec, op, src1, src2, src3, mode) \
-  emit_alopf3(compiler, bundle, spec, op, ISRC1(src1), RSRC2(src2), RSRC3(src3))
+  emit_alopf3(compiler, bundle, spec, op, ISRC1(bundle, src1), RSRC2(bundle, src2), RSRC3(bundle, src3))
 #define emit_alopf3_ri(compiler, bundle, spec, op, src1, src2, src3, mode) \
-  emit_alopf3(compiler, bundle, spec, op, RSRC1(src1), ISRC2(src2, mode), RSRC3(src3))
+  emit_alopf3(compiler, bundle, spec, op, RSRC1(bundle, src1), ISRC2(bundle, src2, mode), RSRC3(bundle, src3))
 #define emit_alopf3_ii(compiler, bundle, spec, op, src1, src2, src3, mode) \
-  emit_alopf3(compiler, bundle, spec, op, ISRC1(src1), ISRC2(src2, mode), RSRC3(src3))
+  emit_alopf3(compiler, bundle, spec, op, ISRC1(bundle, src1), ISRC2(bundle, src2, mode), RSRC3(bundle, src3))
 
 #define emit_alopf7_rr(compiler, bundle, spec, op, src1, src2, pred, mode) \
-  emit_alopf7(compiler, bundle, spec, op, RSRC1(src1), RSRC2(src2), PDST(pred))
+  emit_alopf7(compiler, bundle, spec, op, RSRC1(bundle, src1), RSRC2(bundle, src2), PDST(bundle, pred))
 #define emit_alopf7_ri(compiler, bundle, spec, op, src1, src2, pred, mode) \
-  emit_alopf7(compiler, bundle, spec, op, RSRC1(src1), ISRC2(src2, mode), PDST(pred))
+  emit_alopf7(compiler, bundle, spec, op, RSRC1(bundle, src1), ISRC2(bundle, src2, mode), PDST(bundle, pred))
 #define emit_alopf7_ir(compiler, bundle, spec, op, src1, src2, pred, mode) \
-  emit_alopf7(compiler, bundle, spec, op, ISRC1(src1), RSRC2(src2), PDST(pred))
+  emit_alopf7(compiler, bundle, spec, op, ISRC1(bundle, src1), RSRC2(bundle, src2), PDST(bundle, pred))
 #define emit_alopf7_ii(compiler, bundle, spec, op, src1, src2, pred, mode) \
-  emit_alopf7(compiler, bundle, spec, op, ISRC1(src1), ISRC2(src2, mode), PDST(pred))
+  emit_alopf7(compiler, bundle, spec, op, ISRC1(bundle, src1), ISRC2(bundle, src2, mode), PDST(bundle, pred))
 
 #define emit_alopf8_r(compiler, bundle, spec, op, src2, pred, mode) \
-  emit_alopf8(compiler, bundle, spec, op, RSRC2(src2), PDST(pred))
+  emit_alopf8(compiler, bundle, spec, op, RSRC2(bundle, src2), PDST(bundle, pred))
 #define emit_alopf8_i(compiler, bundle, spec, op, src2, pred, mode) \
-  emit_alopf8(compiler, bundle, spec, op, ISRC2(src2, mode), PDST(pred))
+  emit_alopf8(compiler, bundle, spec, op, ISRC2(bundle, src2, mode), PDST(bundle, pred))
 
 #define emit_alopf12_i(compiler, bundle, spec, op, src2, dst, mode) \
-  emit_alopf12(compiler, bundle, spec, op, ISRC2(src2, mode), RDST(dst))
+  emit_alopf12(compiler, bundle, spec, op, ISRC2(bundle, src2, mode), RDST(bundle, dst))
 #define emit_alopf12_r(compiler, bundle, spec, op, src2, dst, mode) \
-  emit_alopf12(compiler, bundle, spec, op, RSRC2(src2), RDST(dst))
+  emit_alopf12(compiler, bundle, spec, op, RSRC2(bundle, src2), RDST(bundle, dst))
 
 #define emit_alopf11_rr(compiler, bundle, spec, op, src1, src2, dst, mode) \
-  emit_alopf11(compiler, bundle, spec, op, RSRC1(src1), RSRC2(src2), RDST(dst))
+  emit_alopf11(compiler, bundle, spec, op, RSRC1(bundle, src1), RSRC2(bundle, src2), RDST(bundle, dst))
 #define emit_alopf11_ir(compiler, bundle, spec, op, src1, src2, dst, mode) \
-  emit_alopf11(compiler, bundle, spec, op, ISRC1(src1), RSRC2(src2), RDST(dst))
+  emit_alopf11(compiler, bundle, spec, op, ISRC1(bundle, src1), RSRC2(bundle, src2), RDST(bundle, dst))
 #define emit_alopf11_ri(compiler, bundle, spec, op, src1, src2, dst, mode) \
-  emit_alopf11(compiler, bundle, spec, op, RSRC1(src1), ISRC2(src2, mode), RDST(dst))
+  emit_alopf11(compiler, bundle, spec, op, RSRC1(bundle, src1), ISRC2(bundle, src2, mode), RDST(bundle, dst))
 #define emit_alopf11_ii(compiler, bundle, spec, op, src1, src2, dst, mode) \
-  emit_alopf11(compiler, bundle, spec, op, ISRC1(src1), ISRC2(src2, mode), RDST(dst))
+  emit_alopf11(compiler, bundle, spec, op, ISRC1(bundle, src1), ISRC2(bundle, src2, mode), RDST(bundle, dst))
 
 #define emit_alopf21_rrr(compiler, bundle, spec, op, src1, src2, src3, dst, mode) \
-  emit_alopf21(compiler, bundle, spec, op, RSRC1(src1), RSRC2(src2), RSRC3(src3), RDST(dst))
+  emit_alopf21(compiler, bundle, spec, op, RSRC1(bundle, src1), RSRC2(bundle, src2), RSRC3(bundle, src3), RDST(bundle, dst))
 #define emit_alopf21_rir(compiler, bundle, spec, op, src1, src2, src3, dst, mode) \
-  emit_alopf21(compiler, bundle, spec, op, RSRC1(src1), ISRC2(src2, mode), RSRC3(src3), RDST(dst))
+  emit_alopf21(compiler, bundle, spec, op, RSRC1(bundle, src1), ISRC2(bundle, src2, mode), RSRC3(bundle, src3), RDST(bundle, dst))
 
 #define emit_nop(compiler, bundle, nops) \
   bundle->nop = nops
@@ -1712,16 +1716,16 @@ typedef struct Stepler {
     sljit_sw src2_list[STEPLER_WIDTH];
     sljit_sw src3_list[STEPLER_WIDTH];
     /* specify src type: reg or imm */
-    sljit_sw src1_is_reg_list[STEPLER_WIDTH];
-    sljit_sw src2_is_reg_list[STEPLER_WIDTH];
-    sljit_sw src3_is_reg_list[STEPLER_WIDTH];
+    sljit_s8 src1_is_reg_list[STEPLER_WIDTH];
+    sljit_s8 src2_is_reg_list[STEPLER_WIDTH];
+    sljit_s8 src3_is_reg_list[STEPLER_WIDTH];
     /* current data real len */
-    sljit_s32 len;
+    sljit_s8 len;
     /* mem ops management */
-    sljit_sw is_ld_list[STEPLER_WIDTH];
-    sljit_sw is_st_list[STEPLER_WIDTH];
-    sljit_s32 ld_len;
-    sljit_s32 st_len;
+    sljit_s8 is_ld_list[STEPLER_WIDTH];
+    sljit_s8 is_st_list[STEPLER_WIDTH];
+    sljit_s8 ld_len;
+    sljit_s8 st_len;
 } Stepler;
 
 /* Bundle Tracker.
@@ -1806,89 +1810,152 @@ static SLJIT_INLINE sljit_s32 stepler_check_op(struct sljit_compiler *compiler,
     sljit_s32 allowed = 1;
     sljit_s32 is_ld = 0;
     sljit_s32 is_st = 0;
+    sljit_s32 mem_size = 0;
     sljit_s32 idx = 0;
+
+    /* Prevent the imm from mimicking a reg */
     sljit_s32 src1_is_reg = ((src1 != -1) && ((emit_flags & REG_SRC1) > 0));
     sljit_s32 src2_is_reg = ((src2 != -1) && ((emit_flags & REG_SRC2) > 0));
     sljit_s32 src3_is_reg = ((src3 != -1) && ((emit_flags & REG_SRC3) > 0));
+    sljit_s32 stp_src1_is_reg = 0;
+    sljit_s32 stp_src2_is_reg = 0;
+    sljit_s32 stp_src3_is_reg = 0;
+    sljit_s32 dep_on_src1 = 0;
+    sljit_s32 dep_on_src2 = 0;
+    sljit_s32 dep_on_src3 = 0;
 
     if (!check_resource(compiler, bundle, e2kop[op].mask)) {
         allowed = 0;
     }
+    if (emit_flags & STEPLER_CHECK_RESOURCE_ONLY) {
+        return allowed;
+    }
 
-    if (!(emit_flags & STEPLER_CHECK_RESOURCE_ONLY)) {
-        if ((op >= E2K_LDb) && (op <= E2K_LDd)) {
-            is_ld = 1;
+    /* RAW check */
+    if (!(emit_flags & STEPLER_NO_RAW_CHECK)) {
+        for (idx = 0; idx < stepler->len; idx++) {
+            dep_on_src1 = src1_is_reg && (stepler->dst_list[idx] == src1);
+            dep_on_src2 = src2_is_reg && (stepler->dst_list[idx] == src2);
+            dep_on_src3 = src3_is_reg && (stepler->dst_list[idx] == src3);
+            if (dep_on_src1 || dep_on_src2 || dep_on_src3) {
+                allowed = 0;
+                break;
+            }
         }
-        if ((op >= E2K_STb) && (op <= E2K_STd)) {
+    }
+
+    /* dst conflict check */
+    #pragma loop count(3)
+    for (idx = stepler->len; idx > 0; idx--) {
+        if ((dst != -1) && (stepler->dst_list[idx-1] == dst)) {
+            allowed = 0;
+        }
+    }
+
+    /* Add stqp after vectorization support */
+    switch (op) {
+        case E2K_STb:
+            mem_size = 1;
             is_st = 1;
-        }
+            break;
+        case E2K_LDb:
+            mem_size = 1;
+            is_ld = 1;
+            break;
+        case E2K_STh:
+            mem_size = 2;
+            is_st = 1;
+            break;
+        case E2K_LDh:
+            mem_size = 2;
+            is_ld = 1;
+            break;
+        case E2K_STw:
+            mem_size = 4;
+            is_st = 1;
+            break;
+        case E2K_LDw:
+            mem_size = 4;
+            is_ld = 1;
+            break;
+        case E2K_STd:
+            mem_size = 8;
+            is_st = 1;
+            break;
+        case E2K_LDd:
+            mem_size = 8;
+            is_ld = 1;
+            break;
+        default:
+            break;
+    }
 
-        /* RAW check */
-        if (!(emit_flags & STEPLER_NO_RAW_CHECK)) {
-            for (idx = 0; idx < stepler->len; idx++) {
-                /* Prevent the imm from mimicking a reg */
-                if (((src1_is_reg) && (stepler->dst_list[idx] == src1))
-                    ||
-                    ((src2_is_reg) && (stepler->dst_list[idx] == src2))) {
-                    allowed = 0;
-                    break;
-                }
-                if (is_st) {
-                    if ((src3_is_reg) && (stepler->dst_list[idx] == src3)) {
+    /* Prevent antidependency break, also check memory crossing */
+    if (emit_flags & STEPLER_STRONG_RAW_CHECK) {
+        for (idx = 0; idx < stepler->len; idx++) {
+            stp_src1_is_reg = stepler->src1_is_reg_list[idx];
+            stp_src2_is_reg = stepler->src2_is_reg_list[idx];
+            stp_src3_is_reg = stepler->src3_is_reg_list[idx];
+            dep_on_src1 = (stp_src1_is_reg && (dst == stepler->src1_list[idx]));
+            dep_on_src2 = (stp_src2_is_reg && (dst == stepler->src2_list[idx]));
+            dep_on_src3 = (stp_src3_is_reg && (dst == stepler->src3_list[idx]));
+
+            /* antidependency */
+            if (dep_on_src1 || dep_on_src2 || dep_on_src3) {
+                allowed = 0;
+            }
+
+            /* Simple check for address aliasing.
+               Allow only same base and different indexes. */
+            if ((is_st || is_ld) && (stepler->is_ld_list[idx] || stepler->is_st_list[idx])) {
+                /* reg base, imm offset */
+                if (src1_is_reg && !src2_is_reg
+                        && stepler->src1_is_reg_list[idx]
+                        && !stepler->src2_is_reg_list[idx]) {
+                    if ((src1 != stepler->src1_list[idx])
+                            || ((src2 - stepler->src2_list[idx]) < mem_size)) {
                         allowed = 0;
-                        break;
                     }
-                }
-            }
-        }
-
-        /* no dst conflict */
-        #pragma loop count(3)
-        for (idx = stepler->len; idx > 0; idx--) {
-            if (stepler->len && (dst != -1) && (stepler->dst_list[idx-1] == dst)) {
-                allowed = 0;
-            }
-        }
-
-        /* Prevent lift as mix (strong RAW)*/
-        if (emit_flags & STEPLER_STRONG_RAW_CHECK) {
-            for (idx = 0; idx < stepler->len; idx++) {
-                if ((dst == stepler->src1_list[idx])
-                    ||
-                    (dst == stepler->src2_list[idx])
-                    ||
-                    (dst == stepler->src3_list[idx])) {
+                /* imm base, reg offset */
+                } else if (src2_is_reg && !src1_is_reg
+                         && stepler->src2_is_reg_list[idx]
+                         && !stepler->src1_is_reg_list[idx]) {
+                    if ((src2 != stepler->src2_list[idx])
+                            || ((src1 - stepler->src1_list[idx]) < mem_size)) {
+                        allowed = 0;
+                    }
+                } else {
                     allowed = 0;
                 }
             }
         }
+    }
 
-        /* In case of lift we should check stepler is not empty to prevent
-           wrong mixing */
-        if (emit_flags & STEPLER_CHECK_NON_EMPTY) {
-            if (!stepler->len) {
-                allowed = 0;
-            }
+    /* In case of lift we should check stepler is not empty to prevent
+       wrong mixing */
+    if (emit_flags & STEPLER_CHECK_NON_EMPTY) {
+        if (!stepler->len) {
+            allowed = 0;
         }
+    }
 
-        /* LTS resource */
-        if (bundle->f4 > 2) {
-            allowed = 0;
-        }
+    /* LTS resource */
+    if (bundle->f4 > 2) {
+        allowed = 0;
+    }
 
-        /* B.1.1 ST/LD restrictions */
-        if (is_st && stepler->ld_len && !(bundle->res & RES_ALS3)) {
-            allowed = 0;
-        }
-        if (is_st && stepler->ld_len && !(bundle->res & RES_ALS0)) {
-            allowed = 0;
-        }
-        if (is_ld && stepler->st_len && !(bundle->res & RES_ALS2)) {
-            allowed = 0;
-        }
-        if (is_ld && stepler->st_len && !(bundle->res & RES_ALS5)) {
-            allowed = 0;
-        }
+    /* B.1.1 ST/LD restrictions */
+    if (is_st && stepler->ld_len && !(bundle->res & RES_ALS3)) {
+        allowed = 0;
+    }
+    if (is_st && stepler->ld_len && !(bundle->res & RES_ALS0)) {
+        allowed = 0;
+    }
+    if (is_ld && stepler->st_len && !(bundle->res & RES_ALS2)) {
+        allowed = 0;
+    }
+    if (is_ld && stepler->st_len && !(bundle->res & RES_ALS5)) {
+        allowed = 0;
     }
 
     return allowed;
@@ -1936,9 +2003,9 @@ static SLJIT_INLINE sljit_s32 stepler_add_op(struct sljit_compiler *compiler,
     }
 
     /* src type */
-    stepler->src1_is_reg_list[len] = ((emit_flags & REG_SRC1) > 0);
-    stepler->src2_is_reg_list[len] = ((emit_flags & REG_SRC2) > 0);
-    stepler->src3_is_reg_list[len] = ((emit_flags & REG_SRC3) > 0);
+    stepler->src1_is_reg_list[len] = (sljit_s8)((emit_flags & REG_SRC1) > 0);
+    stepler->src2_is_reg_list[len] = (sljit_s8)((emit_flags & REG_SRC2) > 0);
+    stepler->src3_is_reg_list[len] = (sljit_s8)((emit_flags & REG_SRC3) > 0);
 
     stepler->len++;
     SLJIT_ASSERT(stepler->len <= STEPLER_WIDTH);
@@ -1986,13 +2053,15 @@ static sljit_s32 stepler_check_add_op(struct sljit_compiler *compiler,
     if (track_len && (emit_flags & STEPLER_ALLOW_LIFT) && (allowed == STEPLER_CURR_ALLOWED)) {
         prev_track_entry = &BUNDLE_TRACKER.entries[track_len-1];
         prev_bundle = &prev_track_entry->bundle;
-        /* We must prevent implicit RAW dependency, i.e.:
-           OK, here we can reuse register in bundle:
+        /* We must prevent implicit RAW dependency.
+           Signature: src1 src2 dst.
+
+           Here we can reuse register in bundle
            {
              add r0, r1, r2
-             add 10, 10, r0
+             add 10, 10, r0     ! <--- lift candidate
            }
-           FAIL, here register we create register dependency:
+           FAIL, here we create register dependency:
            {
              add 10, 10, r0
            }
@@ -2035,6 +2104,16 @@ static sljit_s32 stepler_check_add_op(struct sljit_compiler *compiler,
             }
             /* prevent mix with mov addr */
             if (FORCING_JUMP_FOUND(prev_track_entry)) {
+                allowed = STEPLER_CURR_ALLOWED;
+            }
+            /* Prevent memory crossing, fix a lot of rare bugs...
+               We dont know real diff, so use the max theoretical diff in words:
+               - full LTS  = 2
+               - full hole = 1
+               - ALS + ALE = 2
+               - align just in case = 1
+               - align to 2' power -> 8 */
+            if (check_memory_fragment_crossing(compiler, 8)) {
                 allowed = STEPLER_CURR_ALLOWED;
             }
         }
@@ -2394,7 +2473,7 @@ static SLJIT_INLINE void emit_lift_inst(struct sljit_compiler *compiler,
     return;
 }
 
-/* Preven buf crossing due to new fragment is separated memory block.
+/* Prevent buf crossing due to new fragment is separated memory block.
    Bundles of different memory blocks can't be mixed. */
 static SLJIT_INLINE
 sljit_s32 check_memory_fragment_crossing(struct sljit_compiler *compiler,
@@ -2972,7 +3051,7 @@ static SLJIT_INLINE sljit_s32 emit_op(struct sljit_compiler* compiler,
             switch (src_type) {
                 case REG_SRC1:
                     als_idx = emit_alopf16(compiler, bundle, 0, opcode,
-                                           (sljit_s32)src1, RDST(dstr));
+                                           (sljit_s32)src1, RDST(bundle, dstr));
                     break;
                 default:
                     SLJIT_UNREACHABLE();
@@ -5536,7 +5615,6 @@ struct sljit_label* sljit_emit_label(struct sljit_compiler *compiler)
 
     label->size = compiler->size;
 
-    BUNDLE_TRACKER.count = 0;   /* prevent lift here */
     return label;
 }
 
@@ -5600,6 +5678,7 @@ struct sljit_label* sljit_emit_aligned_label(struct sljit_compiler *compiler,
         PTR_FAIL_IF(!next_label);
     }
 
+    PREVENT_LIFT();
     return label;
 }
 
@@ -5815,10 +5894,18 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
         neg = emit_flag_into_pred(compiler, flag);
         emit_ct_full(compiler, E2K_CTPR | SWITCH_CTPR, E2K_PRED | FLAG_PREG, neg);
     } else {
-        if (BUNDLE_TRACKER.count) {
-            /* optimize SLJIT_FAST_CALL, SLJIT_JUMP sequence,
-               see Reserve place for LTS lower */
-            BUNDLE_CLOSE();     /* prevent wrong prev inst bundling */
+        /* - Only basic jumps to save logic
+           - Prevent missing ops between FAST_CALL and JUMP */
+        if (!STEPLER.len && (flag == SLJIT_JUMP) && BUNDLE_TRACKER.count) {
+            /* Optimize SLJIT_FAST_CALL, SLJIT_JUMP sequence.
+               Before:
+                 Jump to FAST_ENTER
+                 Return
+                 Jump to jump_addr
+               After:
+                 Jump to FAST_ENTER
+                 Return to jump_addr
+               See Reserve place for LTS lower */
             last_bundle = &BUNDLE_TRACKER.entries[BUNDLE_TRACKER.count-1].bundle;
             last_entry = &BUNDLE_TRACKER.entries[BUNDLE_TRACKER.count-1];
             if (!check_resource_multiple(compiler, last_bundle, RES_ALS0 | RES_ALS1 | RES_ALS2, 3)
@@ -5833,9 +5920,10 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
                 last_bundle->als[1] = 0;
                 last_bundle->als[2] = 0;
                 last_bundle->f1 -= 3;
-                emit_op(compiler, last_bundle, E2K_ADDd, REG_ZERO, 0, -1, 0, TMP_REG3,
-                        DOUBLEWORD | FORCE_LTS);
+                emit_alopf1_ii(compiler, last_bundle, 0, E2K_ADDd, 0, -1, TMP_REG3, DOUBLEWORD | FORCE_LTS);
+                stepler_add_op(compiler, &last_entry->stepler, REG_ZERO, E2K_ADDd, 0, -1, -1, TMP_REG3);
                 emit_bundle_finalize(compiler, last_bundle, last_entry->start_addr);
+                stepler_setup(compiler, &last_entry->stepler);
             } else {
                 last_bundle = NULL;
             }
@@ -5848,7 +5936,7 @@ struct sljit_jump* sljit_emit_jump(struct sljit_compiler *compiler, sljit_s32 ty
             if (flag == SLJIT_FAST_CALL) {
                 /* Save next IP after ct */
                 emit_op(compiler, bundle, E2K_RRd, REG_SRC1, nip, 0, 0, TMP_REG3, DOUBLEWORD);
-                /* Reserve place for LTS */
+                /* Reserve place for LTS for optimization upper */
                 emit_op(compiler, bundle, E2K_ADDd, REG_ZERO | STEPLER_CHECK_RESOURCE_ONLY, 0, 0, 0,
                         JUMP_REG | E2K_EMPTY, DOUBLEWORD);
                 emit_op(compiler, bundle, E2K_ADDd, REG_ZERO | STEPLER_CHECK_RESOURCE_ONLY, 0, 0, 0,
@@ -6410,7 +6498,7 @@ struct sljit_const* sljit_emit_const(struct sljit_compiler *compiler,
     }
 
     BUNDLE_CLOSE();
-    BUNDLE_TRACKER.count = 0;   /* prevent lift */
+    PREVENT_LIFT();
     return const_;
 }
 
@@ -6460,7 +6548,7 @@ struct sljit_jump* sljit_emit_op_addr(struct sljit_compiler *compiler,
     }
 
     BUNDLE_CLOSE();
-    BUNDLE_TRACKER.count = 0;   /* prevent lift */
+    PREVENT_LIFT();
     return jump;
 }
 
