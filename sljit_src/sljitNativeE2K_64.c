@@ -249,6 +249,9 @@ typedef enum {
 #define SXT_EXTEND_16 0x1
 #define SXT_EXTEND_32 0x2
 
+/* Choose between static and dynamic jump */
+#define INT31_MAX 0x3FFFFFFF
+#define JUMP_IS_SHORT(dst, src) (labs(dst - src) < INT31_MAX)
 
 /* + zero */
 static const sljit_u8 reg_map[E2K_REG_NUMBER + 1] = {
@@ -3785,7 +3788,7 @@ static void patch_jump(struct sljit_compiler *compiler,
 
     if (cs0_off) {
         /* update disp in disp instruction, rare case */
-        SLJIT_ASSERT((((addr ^ target) >> 3) >> 28) == 0);
+        SLJIT_ASSERT(JUMP_IS_SHORT(target, addr));
         start_addr = (void *)(addr + cs0_off);
         end_addr   = start_addr + sizeof(sljit_s32);
 
@@ -3832,7 +3835,7 @@ static void patch_jump(struct sljit_compiler *compiler,
             hash_bundle->f1--;
             hash_bundle->f4 -= 2;
 
-            if ((((addr ^ target) >> 3) >> 28) == 0) {
+            if (JUMP_IS_SHORT(target, addr)) {
                 /* replace movtd by disp */
                 disp = (sljit_s32)(target - addr);
                 emit_copf2(compiler, hash_bundle, E2K_DISP, ctpr | E2K_CTPR, disp);
