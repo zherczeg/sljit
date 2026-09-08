@@ -4129,10 +4129,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_mem(struct sljit_compiler *compile
 	sljit_s32 reg,
 	sljit_s32 mem, sljit_sw memw)
 {
-	sljit_s32 op = type & 0xff;
-	sljit_s32 flags = 0;
 	sljit_ins ins;
 #if !(defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)
+	sljit_s32 op = type & 0xff;
+	sljit_s32 flags = 0;
 	sljit_ins ins_right;
 #endif /* !(SLJIT_MIPS_REV >= 6) */
 
@@ -4287,7 +4287,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 	CHECK_ERROR();
 	CHECK(check_sljit_emit_fmem(compiler, type, freg, mem, memw));
 
-	FAIL_IF(update_mem_addr(compiler, &mem, &memw, SIMM_MAX - (type & SLJIT_32) ? 3 : 7));
+	FAIL_IF(update_mem_addr(compiler, &mem, &memw, SIMM_MAX - ((type & SLJIT_32) ? 3 : 7)));
 	SLJIT_ASSERT(FAST_IS_REG(mem) && mem != TMP_REG2);
 
 	if (type & SLJIT_MEM_STORE) {
