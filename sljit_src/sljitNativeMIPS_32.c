@@ -35,12 +35,10 @@ static sljit_s32 emit_copysign(struct sljit_compiler *compiler, sljit_s32 op,
 
 	if (!is_32) {
 		switch (cpu_feature_list & CPU_FEATURE_FR) {
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 		case CPU_FEATURE_FR:
 			mfhc = MFHC1;
 			mthc = MTHC1;
 			break;
-#endif /* SLJIT_MIPS_REV >= 2 */
 		default:
 			src1_r |= (1 << 11);
 			src2_r |= (1 << 11);
@@ -115,10 +113,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fset64(struct sljit_compiler *comp
 
 	FAIL_IF(push_inst(compiler, MTC1 | (u.bin.lo != 0 ? T(TMP_REG1) : TA(0)) | FS(freg), MOVABLE_INS));
 	switch (cpu_feature_list & CPU_FEATURE_FR) {
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 	case CPU_FEATURE_FR:
 		return push_inst(compiler, MTHC1 | (u.bin.hi != 0 ? T(TMP_REG2) : TA(0)) | FS(freg), MOVABLE_INS);
-#endif /* SLJIT_MIPS_REV >= 2 */
 	default:
 		FAIL_IF(push_inst(compiler, MTC1 | (u.bin.hi != 0 ? T(TMP_REG2) : TA(0)) | FS(freg) | (1 << 11), MOVABLE_INS));
 		break;
@@ -153,24 +149,20 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fcopy(struct sljit_compiler *compi
 			FAIL_IF(push_inst(compiler, MFC1 | inst, DR(reg2)));
 
 		inst = FS(freg) | (1 << 11);
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 		if (cpu_feature_list & CPU_FEATURE_FR) {
 			mthc = MTHC1;
 			mfhc = MFHC1;
 			inst = FS(freg);
 		}
-#endif /* SLJIT_MIPS_REV >= 2 */
 	}
 
 	inst |= T(reg);
 	if (!is_32 && !reg2) {
 		switch (cpu_feature_list & CPU_FEATURE_FR) {
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 		case CPU_FEATURE_FR:
 			mthc = MTHC1;
 			mfhc = MFHC1;
 			break;
-#endif /* SLJIT_MIPS_REV >= 2 */
 		default:
 			inst |= (1 << 11);
 			break;
@@ -291,11 +283,9 @@ static sljit_s32 call_with_args(struct sljit_compiler *compiler, sljit_s32 arg_t
 				 * and its starting offset must be 8 because of alignment. */
 				SLJIT_ASSERT((*offsets_ptr >> 2) == 2);
 				switch (cpu_feature_list & CPU_FEATURE_FR) {
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 				case CPU_FEATURE_FR:
 					prev_ins = MFHC1 | f64_hi | FS(float_arg_count);
 					break;
-#endif /* SLJIT_MIPS_REV >= 2 */
 				default:
 					prev_ins = MFC1 | f64_hi | FS(float_arg_count) | (1 << 11);
 					break;

@@ -257,9 +257,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define LWR		(HI(38))
 #define LWC1		(HI(49))
 #define MFC1		(HI(17))
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 #define MFHC1		(HI(17) | (3 << 21))
-#endif /* SLJIT_MIPS_REV >= 2 */
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)
 #define MOD		(HI(0) | (3 << 6) | LO(26))
 #define MODU		(HI(0) | (3 << 6) | LO(27))
@@ -268,9 +266,7 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #define MFLO		(HI(0) | LO(18))
 #endif /* SLJIT_MIPS_REV >= 6 */
 #define MTC1		(HI(17) | (4 << 21))
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 #define MTHC1		(HI(17) | (7 << 21))
-#endif /* SLJIT_MIPS_REV >= 2 */
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)
 #define MUH		(HI(0) | (3 << 6) | LO(24))
 #define MUHU		(HI(0) | (3 << 6) | LO(25))
@@ -442,18 +438,17 @@ static void get_cpu_features(void)
 #endif /* SLJIT_MIPS_REV >= 5 */
 #else
 		sljit_s32 flag = -1;
-#ifndef FR_GET_FP_MODE
-		sljit_f64 zero = 0.0;
-#else /* PR_GET_FP_MODE */
+#ifdef PR_GET_FP_MODE
 		flag = prctl(PR_GET_FP_MODE);
 
-		if (flag > 0)
+		if ((flag & (PR_FP_MODE_FR | PR_FP_MODE_FRE)) == PR_FP_MODE_FR)
 			feature_list |= CPU_FEATURE_FR;
-#endif /* FP_GET_PR_MODE */
+#endif /* PR_GET_FP_MODE */
 #if ((defined(SLJIT_DETECT_FR) && SLJIT_DETECT_FR == 2) \
 	|| (!defined(PR_GET_FP_MODE) && (!defined(SLJIT_DETECT_FR) || SLJIT_DETECT_FR >= 1))) \
 	&& (defined(__GNUC__) && (defined(__mips) && __mips >= 2))
 		if (flag < 0) {
+			sljit_f64 zero = 0.0;
 			__asm__ (".set oddspreg\n"
 				"lwc1 $f17, %0\n"
 				"ldc1 $f16, %1\n"
@@ -871,7 +866,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_has_cpu_feature(sljit_s32 feature_type)
 		if (!cpu_feature_list)
 			get_cpu_features();
 
-		return (cpu_feature_list & CPU_FEATURE_FR) != 0;
+		return (cpu_feature_list & (CPU_FEATURE_FPU | CPU_FEATURE_FR)) == CPU_FEATURE_FPU;
 #endif /* SLJIT_CONFIG_MIPS_32 && SLJIT_IS_FPU_AVAILABLE */
 	case SLJIT_HAS_FPU:
 		if (!cpu_feature_list)
@@ -1088,11 +1083,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_enter(struct sljit_compiler *compi
 			} else if (arg_count < 4) {
 				FAIL_IF(push_inst(compiler, MTC1 | TA(4 + arg_count) | FS(float_arg_count), MOVABLE_INS));
 				switch (cpu_feature_list & CPU_FEATURE_FR) {
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 				case CPU_FEATURE_FR:
 					FAIL_IF(push_inst(compiler, MTHC1 | TA(5 + arg_count) | FS(float_arg_count), MOVABLE_INS));
 					break;
-#endif /* SLJIT_MIPS_REV >= 2 */
 				default:
 					FAIL_IF(push_inst(compiler, MTC1 | TA(5 + arg_count) | FS(float_arg_count) | (1 << 11), MOVABLE_INS));
 					break;
@@ -3072,11 +3065,9 @@ static SLJIT_INLINE sljit_s32 sljit_emit_fop1_conv_f64_from_uw(struct sljit_comp
 		FAIL_IF(push_inst(compiler, LUI | T(TMP_REG2) | IMM(0x41e0), UNMOVABLE_INS));
 		FAIL_IF(push_inst(compiler, MTC1 | TA(0) | FS(TMP_FREG2), UNMOVABLE_INS));
 		switch (cpu_feature_list & CPU_FEATURE_FR) {
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 		case CPU_FEATURE_FR:
 			FAIL_IF(push_inst(compiler, MTHC1 | T(TMP_REG2) | FS(TMP_FREG2), UNMOVABLE_INS));
 			break;
-#endif /* SLJIT_MIPS_REV >= 2 */
 		default:
 			FAIL_IF(push_inst(compiler, MTC1 | T(TMP_REG2) | FS(TMP_FREG2) | (1 << 11), UNMOVABLE_INS));
 #if !defined(SLJIT_MIPS_REV) || SLJIT_MIPS_REV <= 1
@@ -4308,11 +4299,9 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 		FAIL_IF(push_inst(compiler, SWL | S(mem) | T(TMP_REG2) | IMM_F64_FIRST_LEFT(memw), MOVABLE_INS));
 		FAIL_IF(push_inst(compiler, SWR | S(mem) | T(TMP_REG2) | IMM_F64_FIRST_RIGHT(memw), MOVABLE_INS));
 		switch (cpu_feature_list & CPU_FEATURE_FR) {
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 		case CPU_FEATURE_FR:
 			FAIL_IF(push_inst(compiler, MFHC1 | T(TMP_REG2) | FS(freg), DR(TMP_REG2)));
 			break;
-#endif /* SLJIT_MIPS_REV >= 2 */
 		default:
 			FAIL_IF(push_inst(compiler, MFC1 | T(TMP_REG2) | FS(freg) | (1 << 11), DR(TMP_REG2)));
 #if !defined(SLJIT_MIPS_REV) || SLJIT_MIPS_REV <= 1
@@ -4352,10 +4341,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fmem(struct sljit_compiler *compil
 	FAIL_IF(push_inst(compiler, LWL | S(mem) | T(TMP_REG2) | IMM_F64_SECOND_LEFT(memw), DR(TMP_REG2)));
 	FAIL_IF(push_inst(compiler, LWR | S(mem) | T(TMP_REG2) | IMM_F64_SECOND_RIGHT(memw), DR(TMP_REG2)));
 	switch (cpu_feature_list & CPU_FEATURE_FR) {
-#if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 	case CPU_FEATURE_FR:
 		return push_inst(compiler, MTHC1 | T(TMP_REG2) | FS(freg), MOVABLE_INS);
-#endif /* SLJIT_MIPS_REV >= 2 */
 	default:
 		FAIL_IF(push_inst(compiler, MTC1 | T(TMP_REG2) | FS(freg) | (1 << 11), MOVABLE_INS));
 		break;
