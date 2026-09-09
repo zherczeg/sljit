@@ -438,6 +438,7 @@ static void get_cpu_features(void)
 #endif /* SLJIT_MIPS_REV >= 5 */
 #else
 		sljit_s32 flag = -1;
+		(void)flag;
 #ifdef PR_GET_FP_MODE
 		flag = prctl(PR_GET_FP_MODE);
 
