@@ -147,7 +147,7 @@ extern "C" {
 #endif
 
 /***********************************************************/
-/* Intel Control-flow Enforcement Technology (CET) spport. */
+/* Intel Control-flow Enforcement Technology (CET) support.*/
 /***********************************************************/
 
 #ifdef SLJIT_CONFIG_X86
@@ -423,9 +423,15 @@ typedef double sljit_f64;
 #define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
 #define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_ZERO
 #elif (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS)
+#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)
+#define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
+#define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_ZERO
+#else /* SLJIT_MIPS_REV < 6 */
 #define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
 #define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MAX_INT
 #define SLJIT_CONV_NAN_FLOAT SLJIT_CONV_RESULT_MAX_INT
+#endif /* SLJIT_MIPS_REV >= 6 */
 #elif (defined SLJIT_CONFIG_PPC && SLJIT_CONFIG_PPC)
 #define SLJIT_CONV_MAX_FLOAT SLJIT_CONV_RESULT_MAX_INT
 #define SLJIT_CONV_MIN_FLOAT SLJIT_CONV_RESULT_MIN_INT
