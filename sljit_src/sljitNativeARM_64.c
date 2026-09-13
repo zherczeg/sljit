@@ -32,7 +32,7 @@
 
 SLJIT_API_FUNC_ATTRIBUTE const char* sljit_get_platform_name(void)
 {
-	return "ARM-64" ARM_ATOMIC_INFO SLJIT_CPUINFO;
+	return "ARM" ARM_ATOMIC_INFO SLJIT_CPUINFO;
 }
 
 /* Length of an instruction word */
