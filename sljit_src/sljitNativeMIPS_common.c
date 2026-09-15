@@ -345,10 +345,13 @@ static const sljit_u8 freg_map[SLJIT_NUMBER_OF_FLOAT_REGISTERS + 4] = {
 #endif /* SLJIT_MIPS_REV >= 6 */
 #if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)
 #define PREF		(HI(31) | LO(53))
-#define PREF_OFFSET(offset)	(((sljit_ins)(offset) & 0x1ff) << 7)
 #else /* SLJIT_MIPS_REV < 6 */
-#define PREF		(HI(51))
+#if (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64) || \
+    ((defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) && \
+     (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 2))
 #define PREFX		(HI(19) | LO(15))
+#endif /* mips64 || mips32r2 */
+#define PREF		(HI(51))
 #endif /* SLJIT_MIPS_REV >= 6 */
 #if defined(SLJIT_MIPS_REV) && SLJIT_MIPS_REV >= 2
 #define SEB		(HI(31) | (16 << 6) | LO(32))
@@ -2532,15 +2535,28 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op0(struct sljit_compiler *compile
 static sljit_s32 emit_prefetch(struct sljit_compiler *compiler,
         sljit_s32 src, sljit_sw srcw)
 {
-#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)
-	sljit_s32 base = src & REG_MASK;
-	sljit_s32 offset_reg;
+	const sljit_s32 base = src & REG_MASK;
+	sljit_s32 index;
+
+#ifdef PREFX
+	sljit_s32 use_prefx = (cpu_feature_list & CPU_FEATURE_FPU) != 0;
+#endif
 
 	if (!(src & OFFS_REG_MASK)) {
+#if (defined SLJIT_MIPS_REV && SLJIT_MIPS_REV >= 6)
 		if (srcw <= 0xff && srcw >= -0x100)
-			return push_inst(compiler, PREF | S(base) | PREF_OFFSET(srcw), MOVABLE_INS);
+			return push_inst(compiler, PREF | S(base) | (((sljit_ins)srcw & 0x1ff) << 7), MOVABLE_INS);
+#else
+		if (srcw <= SIMM_MAX && srcw >= SIMM_MIN)
+			return push_inst(compiler, PREF | S(base) | IMM(srcw), MOVABLE_INS);
+#endif /* SLJIT_MIPS_REV >= 6 */
 
 		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), srcw));
+
+#ifdef PREFX
+		if (use_prefx)
+			return push_inst(compiler, PREFX | S(base) | T(TMP_REG1), MOVABLE_INS);
+#endif
 
 		if (base != 0)
 			FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(TMP_REG1) | D(TMP_REG1), DR(TMP_REG1)));
@@ -2549,37 +2565,30 @@ static sljit_s32 emit_prefetch(struct sljit_compiler *compiler,
 	}
 
 	srcw &= 0x3;
-	offset_reg = OFFS_REG(src);
+	index = OFFS_REG(src);
 
-	if (SLJIT_UNLIKELY(srcw != 0)) {
-		FAIL_IF(push_inst(compiler, SLL_W | T(offset_reg) | D(TMP_REG1) | SH_IMM(srcw), DR(TMP_REG1)));
-		offset_reg = TMP_REG1;
+	if (srcw != 0) {
+		FAIL_IF(push_inst(compiler, SLL_W | T(index) | D(TMP_REG1) | SH_IMM(srcw), DR(TMP_REG1)));
+
+#ifdef PREFX
+		if (use_prefx)
+			return push_inst(compiler, PREFX | S(base) | T(TMP_REG1), MOVABLE_INS);
+#endif
+
+		index = TMP_REG1;
 	}
+
+#ifdef PREFX
+	if (use_prefx)
+		return push_inst(compiler, PREFX | S(base) | T(index), MOVABLE_INS);
+#endif
 
 	if (base != 0) {
-		FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(offset_reg) | D(TMP_REG1), DR(TMP_REG1)));
-		offset_reg = TMP_REG1;
+		FAIL_IF(push_inst(compiler, ADDU_W | S(base) | T(index) | D(TMP_REG1), DR(TMP_REG1)));
+		index = TMP_REG1;
 	}
 
-	return push_inst(compiler, PREF | S(offset_reg), MOVABLE_INS);
-#else /* SLJIT_MIPS_REV < 6 */
-	if (!(src & OFFS_REG_MASK)) {
-		if (srcw <= SIMM_MAX && srcw >= SIMM_MIN)
-			return push_inst(compiler, PREF | S(src & REG_MASK) | IMM(srcw), MOVABLE_INS);
-
-		FAIL_IF(load_immediate(compiler, DR(TMP_REG1), srcw));
-		return push_inst(compiler, PREFX | S(src & REG_MASK) | T(TMP_REG1), MOVABLE_INS);
-	}
-
-	srcw &= 0x3;
-
-	if (SLJIT_UNLIKELY(srcw != 0)) {
-		FAIL_IF(push_inst(compiler, SLL_W | T(OFFS_REG(src)) | D(TMP_REG1) | SH_IMM(srcw), DR(TMP_REG1)));
-		return push_inst(compiler, PREFX | S(src & REG_MASK) | T(TMP_REG1), MOVABLE_INS);
-	}
-
-	return push_inst(compiler, PREFX | S(src & REG_MASK) | T(OFFS_REG(src)), MOVABLE_INS);
-#endif /* SLJIT_MIPS_REV >= 6 */
+	return push_inst(compiler, PREF | S(index), MOVABLE_INS);
 }
 #endif /* SLJIT_MIPS_REV >= 1 */
 
