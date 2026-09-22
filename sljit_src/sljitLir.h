@@ -2717,11 +2717,30 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(slj
 SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_free_stack(struct sljit_stack *stack, void *allocator_data);
 
 /* Can be used to increase (extend) or decrease (shrink) the stack
-   memory area. Returns with new_start if successful and NULL otherwise.
-   It always fails if new_start is less than min_start or greater or equal
-   than end fields. The fields of the stack are not changed if the returned
-   value is NULL (the current memory content is never lost). */
-SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_stack *stack, sljit_u8 *new_start);
+   memory area. The new start location inside the stack memory area
+   is passed in the new_start argument. If the operation is successful,
+   the returned value contains the start location. The start field of
+   the stack object is also set to this value. In case of an error, the
+   stack object is not changed, and the returned value is NULL.
+   The function always fails if new_start is less than min_start or
+   greater than end fields of the stack object.
+
+   When extra_allocation is equal to 0:
+     The returned value is always equal to new_start if
+     the operation is successful.
+
+   When extra_allocation is greater than 0:
+     Returns with a new stack start location, if the operation is
+     successful. The start location is computed using an allocator
+     dependent alignment value. The alignment value is always a power
+     of 2 (usually eqauls to the page size of the operating system).
+
+       alignUp(x): returns ((x + (alignment - 1)) & ~(alignment - 1))
+       alignDown(x): returns (x & ~(alignment - 1))
+       start_location: max(alignDown(alignUp(new_start) - extra_allocation), min_start)
+
+       Note: min_start <= start_location <= new_start */
+SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_stack *stack, sljit_u8 *new_start, sljit_uw extra_allocation);
 
 #endif /* (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) */
 
