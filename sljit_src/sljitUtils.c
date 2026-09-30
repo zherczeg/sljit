@@ -246,7 +246,7 @@ SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_free_stack(struct sljit_stack *st
 {
 	sljit_uw page_size = get_page_alignment() + 1;
 	SLJIT_UNUSED_ARG(allocator_data);
-	VirtualFree((void*)stack->min_start - page_size, 0, MEM_RELEASE);
+	VirtualFree((void*)(stack->min_start - page_size), 0, MEM_RELEASE);
 	SLJIT_FREE(stack, allocator_data);
 }
 
@@ -315,8 +315,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(slj
 	stack->min_start = (sljit_u8 *)ptr + page_size;
 	stack->end = (sljit_u8 *)ptr + max_size - page_size;
 	stack->start = stack->end - start_size;
-	mprotect(ptr, page_size, PROT_NONE);
-	mprotect(stack->end, page_size, PROT_NONE);
+	if (mprotect(ptr, page_size, PROT_NONE) != 0 || mprotect(stack->end, page_size, PROT_NONE) != 0) {
+		sljit_free_stack(stack, allocator_data);
+		return NULL;
+	}
 #endif /* _WIN32 */
 
 	stack->top = stack->end;
