@@ -1178,7 +1178,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
 #define SLJIT_OP0_BASE			0
 
 /* Flags: - (does not modify flags)
-   Note: breakpoint instruction is not supported by all architectures (e.g. ppc)
+   Triggers a trap that could be intercepted by a debugger
+   Note: might not be supported by all architectures,
          It falls back to SLJIT_NOP in those cases. */
 #define SLJIT_BREAKPOINT		(SLJIT_OP0_BASE + 0)
 /* Flags: - (does not modify flags)
@@ -1479,7 +1480,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_shift_into(struct sljit_compiler *
 
 /* The following options are used by sljit_emit_op2_shift. */
 
+/* The src2 argument is shifted left by an immedate value. */
 #define SLJIT_SHL_IMM			(1 << 9)
+/* When src2 argument is a register, its value is undefined after the operation. */
+#define SLJIT_SRC2_UNDEFINED		(1 << 10)
 
 /* Emits an addition operation, where the second argument is shifted by a value.
 
@@ -1769,7 +1773,10 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_label* sljit_emit_aligned_label(struct slj
 #define SLJIT_SET_OVERFLOW		SLJIT_SET(SLJIT_OVERFLOW)
 #define SLJIT_NOT_OVERFLOW		11
 
-/* Unlike other flags, sljit_emit_jump may destroy the carry flag. */
+/* Unlike other comparison types, sljit_emit_jump may destroy zero flag
+   when carry flag is specified (powerpc limitation). Furthermore,
+   SLJIT_CARRY represents that the first operand is unsigned less than
+   the second operand after an SLJIT_SUB / SLJIT_SUBC operation. */
 #define SLJIT_CARRY			12
 #define SLJIT_SET_CARRY			SLJIT_SET(SLJIT_CARRY)
 #define SLJIT_NOT_CARRY			13
@@ -1979,11 +1986,19 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
    src1 must be valid operand
 
    Note: if src1 is a memory operand, its value
-         might be loaded even if the condition is false.
+         might be loaded even if the condition is false
 
-   Note: when SLJIT_COMPARE_SELECT is specified, the updated
-         flags might not represent the result of a normal compare
-         operation, hence flags are unspecified after the operation
+   Note: when SLJIT_COMPARE_SELECT is specified, the status flag
+         bits might not represent the result of a normal compare
+         operation, hence flags are not specified after the operation
+
+   Note: if sljit_has_cpu_feature(SLJIT_HAS_CMOV) returns with a non-zero value:
+         (a) conditional register move (dst_reg==src2_reg, src1 is register)
+             can be performed using a single instruction, except on RISCV,
+             where three instructions are needed
+         (b) conditional clearing (dst_reg==src2_reg, src1==SLJIT_IMM,
+             src1w==0) can be performed using a single instruction,
+             except on x86, where two instructions are needed
 
    Flags:
      When SLJIT_COMPARE_SELECT is NOT specified: - (does not modify flags)
@@ -2023,11 +2038,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fselect(struct sljit_compiler *com
 
 /* The following flags are used by sljit_emit_mem() and sljit_emit_fmem(). */
 
-/* Load or stora data from an unaligned (byte aligned) address. */
+/* Load or store data from an unaligned (byte aligned) address. */
 #define SLJIT_MEM_UNALIGNED	0x000400
-/* Load or stora data from a 16 bit aligned address. */
+/* Load or store data from a 16 bit aligned address. */
 #define SLJIT_MEM_ALIGNED_16	0x000800
-/* Load or stora data from a 32 bit aligned address. */
+/* Load or store data from a 32 bit aligned address. */
 #define SLJIT_MEM_ALIGNED_32	0x001000
 
 /* The following flags are used by sljit_emit_mem_update(),
@@ -2713,11 +2728,30 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_stack* SLJIT_FUNC sljit_allocate_stack(slj
 SLJIT_API_FUNC_ATTRIBUTE void SLJIT_FUNC sljit_free_stack(struct sljit_stack *stack, void *allocator_data);
 
 /* Can be used to increase (extend) or decrease (shrink) the stack
-   memory area. Returns with new_start if successful and NULL otherwise.
-   It always fails if new_start is less than min_start or greater or equal
-   than end fields. The fields of the stack are not changed if the returned
-   value is NULL (the current memory content is never lost). */
-SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_stack *stack, sljit_u8 *new_start);
+   memory area. The new start location inside the stack memory area
+   is passed in the new_start argument. If the operation is successful,
+   the returned value contains the start location. The start field of
+   the stack object is also set to this value. In case of an error, the
+   stack object is not changed, and the returned value is NULL.
+   The function always fails if new_start is less than min_start or
+   greater than end fields of the stack object.
+
+   When extra_allocation is equal to 0:
+     The returned value is always equal to new_start if
+     the operation is successful.
+
+   When extra_allocation is greater than 0:
+     Returns with a new stack start location, if the operation is
+     successful. The start location is computed using an allocator
+     dependent alignment value. The alignment value is always a power
+     of 2 (usually eqauls to the page size of the operating system).
+
+       alignUp(x): returns ((x + (alignment - 1)) & ~(alignment - 1))
+       alignDown(x): returns (x & ~(alignment - 1))
+       start_location: max(alignDown(alignUp(new_start) - extra_allocation), min_start)
+
+       Note: min_start <= start_location <= new_start */
+SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_stack *stack, sljit_u8 *new_start, sljit_uw extra_allocation);
 
 #endif /* (defined SLJIT_UTIL_STACK && SLJIT_UTIL_STACK) */
 
@@ -2732,8 +2766,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_u8 *SLJIT_FUNC sljit_stack_resize(struct sljit_st
 /* All JIT related code should be placed in the same context (library, binary, etc.). */
 
 /* Get the entry address of a given function (signed, unsigned result). */
-#define SLJIT_FUNC_ADDR(func_name)	(*(sljit_sw*)(void*)func_name)
-#define SLJIT_FUNC_UADDR(func_name)	(*(sljit_uw*)(void*)func_name)
+#define SLJIT_FUNC_ADDR(func_name)	(*(sljit_sw*)(sljit_uw)func_name)
+#define SLJIT_FUNC_UADDR(func_name)	(*(sljit_uw*)(sljit_uw)func_name)
 
 /* For powerpc64, the function pointers point to a context descriptor. */
 struct sljit_function_context {
@@ -2745,7 +2779,7 @@ struct sljit_function_context {
 /* Fill the context arguments using the addr and the function.
    If func_ptr is NULL, it will not be set to the address of context
    If addr is NULL, the function address also comes from the func pointer. */
-SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_uw addr, void* func);
+SLJIT_API_FUNC_ATTRIBUTE void sljit_set_function_context(void** func_ptr, struct sljit_function_context* context, sljit_uw addr, void (*func)(void));
 
 #endif /* !(defined SLJIT_INDIRECT_CALL && SLJIT_INDIRECT_CALL) */
 
