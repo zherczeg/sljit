@@ -10602,7 +10602,7 @@ static void test82(void)
 	successful_tests++;
 }
 
-static void test82(void)
+static void test83(void)
 {
 	/* Test jump after fast call. Check for jump preparation mix. */
 	executable_code codeA;
@@ -10616,7 +10616,7 @@ static void test82(void)
 	sljit_up buf[2];
 
 	if (verbose)
-		printf("Run test82\n");
+		printf("Run test83\n");
 
 	buf[0] = 0;
 	buf[1] = 0;
@@ -10656,12 +10656,12 @@ static void test82(void)
 	CHECK(compiler);
 	sljit_free_compiler(compiler);
 
-	FAILED(codeA.func0() != 1, "test82 case 1 failed\n");
+	FAILED(codeA.func0() != 1, "test83 case 1 failed\n");
 	sljit_free_code(codeA.code, NULL);
 	successful_tests++;
 }
 
-static void test83(void)
+static void test84(void)
 {
 	/* Filling bundle with multiple stores. */
 	executable_code code;
@@ -10670,7 +10670,7 @@ static void test83(void)
 	sljit_s32 i;
 
 	if (verbose)
-		printf("Run test83\n");
+		printf("Run test84\n");
 
 	FAILED(!compiler, "cannot create compiler\n");
 
@@ -10698,11 +10698,11 @@ static void test83(void)
 	sljit_free_compiler(compiler);
 
 	code.func1((sljit_sw)&buf);
-	FAILED(buf[1] != 9999, "test83 case 1 failed\n");
-	FAILED(buf[2] != 8888, "test83 case 2 failed\n");
-	FAILED(buf[3] != 7777, "test83 case 3 failed\n");
-	FAILED(buf[4] != 6666, "test83 case 4 failed\n");
-	FAILED(buf[5] != 5555, "test83 case 5 failed\n");
+	FAILED(buf[1] != 9999, "test84 case 1 failed\n");
+	FAILED(buf[2] != 8888, "test84 case 2 failed\n");
+	FAILED(buf[3] != 7777, "test84 case 3 failed\n");
+	FAILED(buf[4] != 6666, "test84 case 4 failed\n");
+	FAILED(buf[5] != 5555, "test84 case 5 failed\n");
 
 	sljit_free_code(code.code, NULL);
 	successful_tests++;
@@ -10811,6 +10811,7 @@ int sljit_test(int argc, char* argv[])
 	test81();
 	test82();
 	test83();
+	test84();
 
 	if (verbose)
 		printf("---- Call tests ----\n");
@@ -10899,7 +10900,7 @@ int sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
-#	define TEST_COUNT 139
+#	define TEST_COUNT 140
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

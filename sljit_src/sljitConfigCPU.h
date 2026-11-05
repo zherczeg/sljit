@@ -267,4 +267,6 @@
 #undef SLJIT_CONFIG_ARM_64
 #define SLJIT_CONFIG_UNSUPPORTED 1
 
+#endif
+
 #endif /* SLJIT_CONFIG_CPU_H_ */
