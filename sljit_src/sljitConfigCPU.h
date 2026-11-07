@@ -254,12 +254,4 @@
 
 #endif /* !defined(SLJIT_BIG_ENDIAN) && !defined(SLJIT_LITTLE_ENDIAN) */
 
-#if (defined(SLJIT_CONFIG_ARM_64) && SLJIT_CONFIG_ARM_64) \
-	&& (defined(SLJIT_BIG_ENDIAN) && SLJIT_BIG_ENDIAN)
-
-#undef SLJIT_CONFIG_ARM_64
-#define SLJIT_CONFIG_UNSUPPORTED 1
-
-#endif
-
 #endif /* SLJIT_CONFIG_CPU_H_ */
