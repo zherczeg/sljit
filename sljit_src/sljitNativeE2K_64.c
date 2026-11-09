@@ -2836,7 +2836,7 @@ static SLJIT_INLINE sljit_s32 emit_op(struct sljit_compiler* compiler,
     sljit_u32 format, src_dst_mask, src_type;
     sljit_u32 src1u32, src1r, src3r, dstr;
     sljit_sw src2r;
-    sljit_s32 als_idx;
+    sljit_s32 als_idx = 0;
     sljit_s32 stepler_bundle_size, stepler_bundle_diff, stepler_bundle_idx;
 
     if ((dst != -1)
