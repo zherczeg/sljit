@@ -2471,14 +2471,14 @@ static void test24(void)
 	SET_NEXT_BYTE(SLJIT_EQUAL);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
-	sljit_emit_op2(compiler, SLJIT_ASHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 0);
+	sljit_emit_op2(compiler, SLJIT_ASHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 1);
 	/* buf[30] */
 	SET_NEXT_BYTE(SLJIT_EQUAL);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 1);
 	sljit_emit_op2(compiler, SLJIT_LSHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 0xffffc0);
 	/* buf[31] */
 	SET_NEXT_BYTE(SLJIT_NOT_EQUAL);
-	sljit_emit_op1(compiler, SLJIT_MOV, shift_reg, 0, SLJIT_IMM, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, shift_reg, 0, SLJIT_IMM, 1);
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
 	sljit_emit_op2(compiler, SLJIT_ASHR | SLJIT_SET_Z, SLJIT_R0, 0, SLJIT_R0, 0, shift_reg, 0);
 	/* buf[32] */
@@ -3986,6 +3986,16 @@ static void test37(void)
 		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) << 21)
 		| ((sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) << 16)
 		| (sljit_u32)sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG);
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
+#elif (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    /* HS */
+    inst = 0x4000001;
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
+	/* addd,0 dr1, dr2, dr0 */
+    inst = (0x11 << 24)
+           | (sljit_u32)((sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S0) | 0x80) << 16)
+           | (sljit_u32)((sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_S1) | 0x80) << 8)
+           | (sljit_u32)((sljit_get_register_index(SLJIT_GP_REGISTER, SLJIT_RETURN_REG) | 0x80));
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #else
 	inst = 0;
@@ -8000,7 +8010,11 @@ static void test69(void)
 	struct sljit_compiler *compiler;
 	struct sljit_label *label;
 	struct sljit_jump *jump;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[11];
+#else
 	sljit_u8 supported[11];
+#endif
 	sljit_sw buf[52];
 	sljit_s32 i;
 
@@ -8413,7 +8427,11 @@ static void test69(void)
 		FAILED(buf[8] != 97, "test69 case 11 failed\n");
 	}
 	if (supported[3]) {
+#if defined(__LCC__) && defined(__MCST__)
+		FAILED(*(sljit_u16*)(buf + 9) != (sljit_u16)((sljit_sw)buf + 9), "test69 case 12 failed\n");
+#else
 		FAILED(*(sljit_u16*)(buf + 9) != (sljit_u16)(sljit_sw)(buf + 9), "test69 case 12 failed\n");
+#endif
 		FAILED(((sljit_u8*)(buf + 9))[2] != 0x55, "test69 case 13 failed\n");
 		FAILED(buf[10] != 17897, "test69 case 14 failed\n");
 		FAILED(buf[11] != (sljit_sw)(buf + 9), "test69 case 15 failed\n");
@@ -9342,7 +9360,11 @@ static void test75(void)
 	executable_code code;
 	struct sljit_compiler *compiler;
 	struct sljit_label *label;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[2];
+#else
 	sljit_u8 supported[2];
+#endif
 	sljit_sw buf[23];
 	sljit_s32 i;
 
@@ -10580,11 +10602,118 @@ static void test82(void)
 	successful_tests++;
 }
 
+static void test83(void)
+{
+	/* Test jump after fast call. Check for jump preparation mix. */
+	executable_code codeA;
+	struct sljit_compiler* compiler;
+	struct sljit_jump* jump0;
+	struct sljit_jump* jump1;
+	struct sljit_jump* jump_back;
+	struct sljit_label* label0;
+	struct sljit_label* label_jump;
+	struct sljit_label* label_fast_call;
+	sljit_up buf[2];
+
+	if (verbose)
+		printf("Run test83\n");
+
+	buf[0] = 0;
+	buf[1] = 0;
+
+	compiler = sljit_create_compiler(NULL);
+	FAILED(!compiler, "cannot create compiler\n");
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS0(W), 3, 3, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 0);
+
+	/* jump chain */
+	jump0 = sljit_emit_jump(compiler, SLJIT_FAST_CALL);
+	jump1 = sljit_emit_jump(compiler, SLJIT_JUMP);
+	sljit_set_target(sljit_emit_jump(compiler, SLJIT_FAST_CALL), 0);
+	sljit_set_target( sljit_emit_jump(compiler, SLJIT_JUMP), 0);
+	/* return */
+	label0 = sljit_emit_label(compiler);
+	sljit_emit_return(compiler, SLJIT_MOV, SLJIT_R0, 0);
+
+	/* SLJIT_JUMP target */
+	label_jump = sljit_emit_label(compiler);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_R2, 0);
+	jump_back = sljit_emit_jump(compiler, SLJIT_JUMP);
+
+	/* SLJIT_FAST_CALL target */
+	label_fast_call = sljit_emit_label(compiler);
+	sljit_emit_op0(compiler, SLJIT_ENDBR);
+	sljit_emit_op_dst(compiler, SLJIT_FAST_ENTER, SLJIT_R1, 0);
+	sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_IMM, 1);
+	sljit_emit_op_src(compiler, SLJIT_FAST_RETURN, SLJIT_R1, 0);
+
+	sljit_set_label(jump0, label_fast_call);
+	sljit_set_label(jump1, label_jump);
+	sljit_set_label(jump_back, label0);
+
+	codeA.code = sljit_generate_code(compiler, 0, NULL);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	FAILED(codeA.func0() != 1, "test83 case 1 failed\n");
+	sljit_free_code(codeA.code, NULL);
+	successful_tests++;
+}
+
+static void test84(void)
+{
+	/* Filling bundle with multiple stores. */
+	executable_code code;
+	struct sljit_compiler* compiler = sljit_create_compiler(NULL);
+	sljit_sw buf[6];
+	sljit_s32 i;
+
+	if (verbose)
+		printf("Run test84\n");
+
+	FAILED(!compiler, "cannot create compiler\n");
+
+	for (i = 0; i < 5; i++)
+		buf[i] = 0;
+
+	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 3, 2, 0);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, 9999);
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_IMM, 8888);
+	/* buf[1] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_sw), SLJIT_R0, 0);
+	/* buf[2] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 2*sizeof(sljit_sw), SLJIT_R1, 0);
+	/* buf[3] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 3*sizeof(sljit_sw), SLJIT_IMM, 7777);
+	/* buf[4] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 4*sizeof(sljit_sw), SLJIT_IMM, 6666);
+	/* buf[5] */
+	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_S0), 5*sizeof(sljit_sw), SLJIT_IMM, 5555);
+
+	sljit_emit_return_void(compiler);
+
+	code.code = sljit_generate_code(compiler, 0, NULL);
+	CHECK(compiler);
+	sljit_free_compiler(compiler);
+
+	code.func1((sljit_sw)&buf);
+	FAILED(buf[1] != 9999, "test84 case 1 failed\n");
+	FAILED(buf[2] != 8888, "test84 case 2 failed\n");
+	FAILED(buf[3] != 7777, "test84 case 3 failed\n");
+	FAILED(buf[4] != 6666, "test84 case 4 failed\n");
+	FAILED(buf[5] != 5555, "test84 case 5 failed\n");
+
+	sljit_free_code(code.code, NULL);
+	successful_tests++;
+}
+
 #include "sljitTestCall.h"
 #include "sljitTestFloat.h"
 #include "sljitTestSimd.h"
 #include "sljitTestBuffers.h"
 #include "sljitTestSerialize.h"
+
 
 int sljit_test(int argc, char* argv[])
 {
@@ -10681,6 +10810,8 @@ int sljit_test(int argc, char* argv[])
 	test80();
 	test81();
 	test82();
+	test83();
+	test84();
 
 	if (verbose)
 		printf("---- Call tests ----\n");
@@ -10769,7 +10900,7 @@ int sljit_test(int argc, char* argv[])
 	sljit_free_unused_memory_exec();
 #endif /* SLJIT_EXECUTABLE_ALLOCATOR */
 
-#	define TEST_COUNT 138
+#	define TEST_COUNT 140
 
 	printf("SLJIT tests: ");
 	if (successful_tests == TEST_COUNT)

@@ -53,6 +53,7 @@ SLJIT_LIR_FILES = $(SRCDIR)/sljitLir.c $(SRCDIR)/sljitUtils.c \
 	$(SRCDIR)/sljitNativeRISCV_common.c $(SRCDIR)/sljitNativeRISCV_32.c $(SRCDIR)/sljitNativeRISCV_64.c \
 	$(SRCDIR)/sljitNativeALPHA_64.c \
 	$(SRCDIR)/sljitNativeS390X.c $(SRCDIR)/sljitNativeLOONGARCH_64.c \
+	$(SRCDIR)/sljitNativeE2K_64.c \
 	$(SRCDIR)/sljitNativeX86_common.c $(SRCDIR)/sljitNativeX86_32.c $(SRCDIR)/sljitNativeX86_64.c
 
 .PHONY: all clean examples

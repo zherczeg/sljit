@@ -51,7 +51,11 @@ static void simd_set(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
 	} while (--length != 0);
 }
 
+#if defined(__LCC__) && defined(__MCST__)
+static sljit_s32 check_simd_mov(sljit_u8* buf, sljit_s32 start, sljit_s32 length)
+#else
 static sljit_s32 check_simd_mov(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
+#endif
 {
 	if (buf[-1] != 0xaa || buf[length] != 0xaa)
 		return 0;
@@ -76,7 +80,11 @@ static void test_simd1(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[2];
+#else
 	sljit_u8 supported[2];
+#endif
 	sljit_u8* buf;
 	sljit_u8 data[63 + 880];
 	sljit_s32 vs0 = SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS > 0 ? SLJIT_VS0 : SLJIT_VR5;
@@ -308,7 +316,11 @@ static void test_simd2(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[1];
+#else
 	sljit_u8 supported[1];
+#endif
 	sljit_u8* buf;
 	sljit_u8 data[63 + 576];
 	sljit_f64 tmp[1];
@@ -737,7 +749,11 @@ static void test_simd3(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[1];
+#else
 	sljit_u8 supported[1];
+#endif
 	sljit_u8* buf;
 	sljit_u8 data[63 + 768];
 	sljit_s32 vs0 = SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS > 0 ? SLJIT_VS0 : SLJIT_VR5;
@@ -1036,7 +1052,11 @@ static void test_simd4(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[1];
+#else
 	sljit_u8 supported[1];
+#endif
 	sljit_u8* buf;
 	sljit_u8 data[63 + 992];
 	sljit_s32 vs0 = SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS > 0 ? SLJIT_VS0 : SLJIT_VR5;
@@ -1349,7 +1369,11 @@ static void test_simd5(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[1];
+#else
 	sljit_u8 supported[1];
+#endif
 	sljit_u8* buf;
 	sljit_u8 data[63 + 672];
 	sljit_s32 vs0 = SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS > 0 ? SLJIT_VS0 : SLJIT_VR5;
@@ -1714,7 +1738,11 @@ static void test_simd6(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[2];
+#else
 	sljit_u8 supported[2];
+#endif
 	sljit_u8* buf;
 	sljit_u8 data[63 + 1088];
 	sljit_s32 vs0 = SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS > 0 ? SLJIT_VS0 : SLJIT_VR5;
@@ -2069,7 +2097,11 @@ static void test_simd7(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[2];
+#else
 	sljit_u8 supported[2];
+#endif
 	sljit_u8* buf;
 	sljit_u8 data[63 + 320];
 	sljit_s32 vs0 = SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS > 0 ? SLJIT_VS0 : SLJIT_VR5;
@@ -2270,7 +2302,11 @@ static void test_simd8(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[2];
+#else
 	sljit_u8 supported[2];
+#endif
 	sljit_u8* buf;
 	sljit_u8 data[63 + 1024];
 	sljit_s32 vs0 = SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS > 0 ? SLJIT_VS1 : SLJIT_VR5;
@@ -2543,7 +2579,11 @@ static void test_simd10(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
+#if defined(__LCC__) && defined(__MCST__)
+	sljit_s32 supported[1];
+#else
 	sljit_u8 supported[1];
+#endif
 	sljit_u8* buf;
 	sljit_u8 data[63 + 288];
 	sljit_s32 vs0 = SLJIT_NUMBER_OF_SAVED_VECTOR_REGISTERS > 0 ? SLJIT_VS1 : SLJIT_VR5;

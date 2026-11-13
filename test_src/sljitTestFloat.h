@@ -439,6 +439,16 @@ static void test_float4(void)
 		| ((sljit_u32)sljit_get_register_index(SLJIT_FLOAT_REGISTER, SLJIT_FR1) << 16)
 		| (sljit_u32)sljit_get_register_index(SLJIT_FLOAT_REGISTER, SLJIT_FR0);
 	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
+#elif (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    /* HS */
+    inst = 0x4000001;
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
+	/* faddd,0 fr0, fr1, dr0 */
+    inst = (0x31 << 24)
+           | (sljit_u32)((sljit_get_register_index(SLJIT_FLOAT_REGISTER, SLJIT_FR0) | 0x80) << 16)
+           | (sljit_u32)((sljit_get_register_index(SLJIT_FLOAT_REGISTER, SLJIT_FR1) | 0x80) << 8)
+           | (sljit_u32)((sljit_get_register_index(SLJIT_FLOAT_REGISTER, SLJIT_FR0) | 0x80));
+	sljit_emit_op_custom(compiler, &inst, sizeof(sljit_u32));
 #endif
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), 2 * sizeof(sljit_f64), SLJIT_FR0, 0);
 	sljit_emit_return_void(compiler);
@@ -992,6 +1002,11 @@ static void test_float9(void)
 	result = (compiler->size - size3) == 2 && (size3 - size2) == 1 && (size2 - size1) == 2;
 #elif (defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV)
 	result = ((compiler->size - size3) == 1 || (compiler->size - size3) == 2) && ((size3 - size2) == 1 || (size3 - size2) == 2) && ((size2 - size1) == 1 || (size2 - size1) == 2);
+#elif (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    /* In case of scheduling this expression must be recalculated */
+	result = ((compiler->size - size3) == 2*sizeof(sljit_s32)
+              && (size3 - size2) == 2*sizeof(sljit_s32)
+              && (size2 - size1) == 4*sizeof(sljit_s32));
 #elif !IS_X86
 	result = (compiler->size - size3) == (size3 - size2) && (size3 - size2) == (size2 - size1);
 #endif
@@ -1038,7 +1053,12 @@ static void test_float10(void)
 	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR(i), 0, SLJIT_MEM1(SLJIT_S0), 0);
 
+/* The e2k architecture has a non-standard calling convention */
+#if (defined(SLJIT_CONFIG_E2K) && SLJIT_CONFIG_E2K)
+	jump = sljit_emit_call(compiler, SLJIT_CALL_REG_ARG, SLJIT_ARGS0V());
+#else
 	jump = sljit_emit_call(compiler, SLJIT_CALL, SLJIT_ARGS0V());
+#endif /* SLJIT_CONFIG_E2K */
 	/* SLJIT_FR0 contains the first value. */
 	for (i = 1; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
 		sljit_emit_fop2(compiler, SLJIT_ADD_F64, SLJIT_FR0, 0, SLJIT_FR0, 0, SLJIT_FR(i), 0);
@@ -1047,7 +1067,11 @@ static void test_float10(void)
 	sljit_emit_return_void(compiler);
 
 	sljit_set_label(jump, sljit_emit_label(compiler));
+#if (defined(SLJIT_CONFIG_E2K) && SLJIT_CONFIG_E2K)
+	sljit_emit_enter(compiler, SLJIT_ENTER_REG_ARG, SLJIT_ARGS0V(), 1 | SLJIT_ENTER_FLOAT(SLJIT_NUMBER_OF_FLOAT_REGISTERS), 0, 0);
+#else
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS0V(), 1 | SLJIT_ENTER_FLOAT(SLJIT_NUMBER_OF_FLOAT_REGISTERS), 0, 0);
+#endif /* SLJIT_CONFIG_E2K */
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)&buf[1]);
 	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR(i), 0, SLJIT_MEM1(SLJIT_R0), 0);
@@ -1077,7 +1101,11 @@ static void test_float10(void)
 	for (i = 0; i < SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS; i++)
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FS(i), 0, SLJIT_MEM1(SLJIT_S0), 0);
 
+#if (defined(SLJIT_CONFIG_E2K) && SLJIT_CONFIG_E2K)
+	jump = sljit_emit_call(compiler, SLJIT_CALL_REG_ARG, SLJIT_ARGS0V());
+#else
 	jump = sljit_emit_call(compiler, SLJIT_CALL, SLJIT_ARGS0V());
+#endif /* SLJIT_CONFIG_E2K */
 	/* SLJIT_FR0 contains the first value. */
 	for (i = 1; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
 		sljit_emit_fop2(compiler, SLJIT_ADD_F64, SLJIT_FR0, 0, SLJIT_FR0, 0, SLJIT_FR(i), 0);
@@ -1086,7 +1114,12 @@ static void test_float10(void)
 	sljit_emit_return_void(compiler);
 
 	sljit_set_label(jump, sljit_emit_label(compiler));
+#if (defined(SLJIT_CONFIG_E2K) && SLJIT_CONFIG_E2K)
+	sljit_emit_enter(compiler, SLJIT_ENTER_REG_ARG, SLJIT_ARGS0V(), 1 | SLJIT_ENTER_FLOAT(SLJIT_NUMBER_OF_FLOAT_REGISTERS), 0, 0);
+#else
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS0V(), 1 | SLJIT_ENTER_FLOAT(SLJIT_NUMBER_OF_FLOAT_REGISTERS), 0, 0);
+#endif /* SLJIT_CONFIG_E2K */
+
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, (sljit_sw)&buf[1]);
 	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR(i), 0, SLJIT_MEM1(SLJIT_R0), 0);
@@ -1525,7 +1558,11 @@ static void test_float13(void)
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR(i), 0, SLJIT_FR0, 0);
 
 	sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_S1, 0);
+#if (defined(SLJIT_CONFIG_E2K) && SLJIT_CONFIG_E2K)
+	jump = sljit_emit_call(compiler, SLJIT_CALL_REG_ARG, SLJIT_ARGS0V());
+#else
 	jump = sljit_emit_call(compiler, SLJIT_CALL, SLJIT_ARGS1V(W));
+#endif /* SLJIT_CONFIG_E2K */
 
 	for (i = 0; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_MEM1(SLJIT_S0), i * (sljit_sw)sizeof(sljit_f64), SLJIT_FR(i), 0);
@@ -1533,13 +1570,25 @@ static void test_float13(void)
 
 	/* Called function. */
 	sljit_set_label(jump, sljit_emit_label(compiler));
+#if (defined(SLJIT_CONFIG_E2K) && SLJIT_CONFIG_E2K)
+	sljit_emit_enter(compiler, SLJIT_ENTER_REG_ARG, SLJIT_ARGS0V(), 0 | SLJIT_ENTER_FLOAT(SLJIT_NUMBER_OF_FLOAT_REGISTERS), 1, 0);
+#else
 	sljit_emit_enter(compiler, 0, SLJIT_ARGS1V(P), 0 | SLJIT_ENTER_FLOAT(SLJIT_NUMBER_OF_FLOAT_REGISTERS), 1, 0);
+#endif /* SLJIT_CONFIG_E2K */
 
+#if (defined(SLJIT_CONFIG_E2K) && SLJIT_CONFIG_E2K)
+	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_S1), sizeof(sljit_f64));
+#else
 	sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR0, 0, SLJIT_MEM1(SLJIT_S0), sizeof(sljit_f64));
+#endif /* SLJIT_CONFIG_E2K */
 	for (i = 1; i < SLJIT_NUMBER_OF_FLOAT_REGISTERS; i++)
 		sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR(i), 0, SLJIT_FR0, 0);
 
+#if (defined(SLJIT_CONFIG_E2K) && SLJIT_CONFIG_E2K)
+	sljit_set_context(compiler, SLJIT_ENTER_REG_ARG, SLJIT_ARGS0V(), 0 | SLJIT_ENTER_FLOAT(SLJIT_NUMBER_OF_FLOAT_REGISTERS), 1, 0);
+#else
 	sljit_set_context(compiler, 0, SLJIT_ARGS1V(P), 0 | SLJIT_ENTER_FLOAT(SLJIT_NUMBER_OF_FLOAT_REGISTERS), 1, 0);
+#endif
 	sljit_emit_return_void(compiler);
 
 	code.code = sljit_generate_code(compiler, 0, NULL);

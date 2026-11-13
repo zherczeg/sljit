@@ -328,6 +328,14 @@ struct sljit_extended_label {
 
 #endif /* SLJIT_CONFIG_LOONGARCH */
 
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+/* SLJIT_REWRITABLE_JUMP is 0x10000. */
+/* Flags info in low bits */
+#   define IS_DISP          0x400
+#   define IS_PREPARED      0x40000
+#	define JUMP_MAX_SIZE	((sljit_uw)4*32)
+#endif /* SLJIT_CONFIG_E2K */
+
 /* Stack management. */
 
 #define GET_SAVED_REGISTERS_SIZE(scratches, saveds, extra) \
@@ -483,6 +491,11 @@ static sljit_s32 compiler_initialized = 0;
 static void init_compiler(void);
 #endif /* SLJIT_CONFIG_X86 || SLJIT_CONFIG_RISCV */
 
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+static void e2k_private_init(struct sljit_compiler *compiler);
+static void e2k_private_free(struct sljit_compiler *compiler);
+#endif /* SLJIT_CONFIG_E2K */
+
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allocator_data)
 {
 	struct sljit_compiler *compiler = (struct sljit_compiler*)SLJIT_MALLOC(sizeof(struct sljit_compiler), allocator_data);
@@ -563,6 +576,12 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_compiler* sljit_create_compiler(void *allo
 	compiler->delay_slot = UNMOVABLE_INS;
 #endif /* SLJIT_CONFIG_MIPS */
 
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+	e2k_private_init(compiler);
+	compiler->ctpr = 1;
+	compiler->tmp = SLJIT_TMP_R2;
+#endif /* SLJIT_CONFIG_E2K */
+
 #if (defined SLJIT_ARGUMENT_CHECKS && SLJIT_ARGUMENT_CHECKS) \
 		|| (defined SLJIT_DEBUG && SLJIT_DEBUG)
 	SLJIT_ASSERT(compiler->last_flags == 0 && compiler->logical_local_size == 0);
@@ -612,6 +631,11 @@ SLJIT_API_FUNC_ATTRIBUTE void sljit_free_compiler(struct sljit_compiler *compile
 #if (defined SLJIT_CONFIG_ARM_V6 && SLJIT_CONFIG_ARM_V6)
 	SLJIT_FREE(compiler->cpool, allocator_data);
 #endif /* SLJIT_CONFIG_ARM_V6 */
+
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+	e2k_private_free(compiler);
+#endif /* SLJIT_CONFIG_E2K */
+
 	SLJIT_FREE(compiler, allocator_data);
 }
 
@@ -3497,10 +3521,13 @@ static void sljit_reset_read_only_buffers(struct sljit_read_only_buffer *buffers
 #	include "sljitNativeLOONGARCH_64.c"
 #elif (defined SLJIT_CONFIG_ALPHA && SLJIT_CONFIG_ALPHA)
 #	include "sljitNativeALPHA_64.c"
+#elif (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+#	include "sljitNativeE2K_64.c"
 #endif /* SLJIT_CONFIG_X86 */
 
 #include "sljitSerialize.c"
 
+#if !(defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
 static SLJIT_INLINE sljit_s32 emit_mov_before_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
 {
 #if (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
@@ -3515,9 +3542,11 @@ static SLJIT_INLINE sljit_s32 emit_mov_before_return(struct sljit_compiler *comp
 	SLJIT_SKIP_CHECKS(compiler);
 	return sljit_emit_op1(compiler, op, SLJIT_RETURN_REG, 0, src, srcw);
 }
+#endif /* SLJIT_CONFIG_E2K */
 
 #if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) \
-	&& !((defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) && defined __SOFTFP__)
+	&& !((defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) && defined __SOFTFP__) \
+	&& !((defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K))
 
 static SLJIT_INLINE sljit_s32 emit_fmov_before_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
 {
@@ -3530,6 +3559,7 @@ static SLJIT_INLINE sljit_s32 emit_fmov_before_return(struct sljit_compiler *com
 
 #endif /* !SLJIT_CONFIG_X86_32 && !(SLJIT_CONFIG_ARM_32 && __SOFTFP__) */
 
+#if !(defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
 SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *compiler, sljit_s32 op, sljit_s32 src, sljit_sw srcw)
 {
 	CHECK_ERROR();
@@ -3544,6 +3574,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return(struct sljit_compiler *comp
 	SLJIT_SKIP_CHECKS(compiler);
 	return sljit_emit_return_void(compiler);
 }
+#endif /* SLJIT_CONFIG_E2K */
 
 #if !(defined SLJIT_CONFIG_X86 && SLJIT_CONFIG_X86) \
 	&& !(defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
@@ -3567,7 +3598,8 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fop2r(struct sljit_compiler *compi
 
 #if !(defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
 	&& !(defined SLJIT_CONFIG_RISCV && SLJIT_CONFIG_RISCV) \
-	&& !(defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH)
+	&& !(defined SLJIT_CONFIG_LOONGARCH && SLJIT_CONFIG_LOONGARCH) \
+	&& !(defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
 
 SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_cmp(struct sljit_compiler *compiler, sljit_s32 type,
 	sljit_s32 src1, sljit_sw src1w,

@@ -624,6 +624,13 @@ struct sljit_compiler {
 	sljit_sw cache_argw;
 #endif /* SLJIT_CONFIG_LOONGARCH */
 
+#if (defined SLJIT_CONFIG_E2K && SLJIT_CONFIG_E2K)
+    /* optimization requires global compiler data */
+    void* e2k_private;
+    sljit_s32 ctpr;
+    sljit_s32 tmp;
+#endif /* SLJIT_CONFIG_E2K */
+
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE)
 	FILE* verbose;
 #endif /* SLJIT_VERBOSE */
@@ -1037,6 +1044,10 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_return_to(struct sljit_compiler *c
            [reg+reg] is supported
            Write-back is not supported
    loongarch:  [reg+imm], -2048 <= imm <= 2047
+           [reg+reg] is supported
+           Write-back is not supported
+   e2k:    [reg+imm], -2^47 <= imm <= 2^47
+           [imm], -2^47 <= imm <= 2^47
            [reg+reg] is supported
            Write-back is not supported
 */

@@ -47,6 +47,7 @@
 /* #define SLJIT_CONFIG_S390X 1 */
 /* #define SLJIT_CONFIG_LOONGARCH_64 */
 /* #define SLJIT_CONFIG_ALPHA_64 1 */
+/* #define SLJIT_CONFIG_E2K_64 */
 
 /* #define SLJIT_CONFIG_AUTO 1 */
 /* #define SLJIT_CONFIG_UNSUPPORTED 1 */
@@ -70,6 +71,7 @@
 	+ (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
 	+ (defined SLJIT_CONFIG_LOONGARCH_64 && SLJIT_CONFIG_LOONGARCH_64) \
 	+ (defined SLJIT_CONFIG_ALPHA_64 && SLJIT_CONFIG_ALPHA_64) \
+	+ (defined SLJIT_CONFIG_E2K_64 && SLJIT_CONFIG_E2K_64) \
 	+ (defined SLJIT_CONFIG_AUTO && SLJIT_CONFIG_AUTO) \
 	+ (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED) >= 2
 #error "Multiple architectures are selected"
@@ -90,6 +92,7 @@
 	&& !(defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
 	&& !(defined SLJIT_CONFIG_LOONGARCH_64 && SLJIT_CONFIG_LOONGARCH_64) \
 	&& !(defined SLJIT_CONFIG_ALPHA_64 && SLJIT_CONFIG_ALPHA_64) \
+	&& !(defined SLJIT_CONFIG_E2K_64 && SLJIT_CONFIG_E2K_64) \
 	&& !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED) \
 	&& !(defined SLJIT_CONFIG_AUTO && SLJIT_CONFIG_AUTO)
 #if defined SLJIT_CONFIG_AUTO && !SLJIT_CONFIG_AUTO
@@ -139,6 +142,8 @@
 #define SLJIT_CONFIG_S390X 1
 #elif defined(__alpha__)
 #define SLJIT_CONFIG_ALPHA_64 1
+#elif defined (__e2k__)
+#define SLJIT_CONFIG_E2K_64 1
 #else
 /* Unsupported architecture */
 #define SLJIT_CONFIG_UNSUPPORTED 1
@@ -190,6 +195,8 @@
 #define SLJIT_CONFIG_LOONGARCH 1
 #elif (defined SLJIT_CONFIG_ALPHA_64 && SLJIT_CONFIG_ALPHA_64)
 #define SLJIT_CONFIG_ALPHA 1
+#elif (defined SLJIT_CONFIG_E2K_64 && SLJIT_CONFIG_E2K_64)
+#define SLJIT_CONFIG_E2K 1
 #endif
 
 /*************************/
