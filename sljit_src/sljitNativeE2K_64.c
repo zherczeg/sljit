@@ -6612,12 +6612,10 @@ void sljit_set_const(sljit_uw addr,
         /* Possible bug here because we cant sure dst was reg.
            Using 9bit value for 8bit operation is bad idea... */
 
-        /* Get sign of current constant. */
-        if (((new_constant >> 8) & 0x1) == 1) {
-            new_constant = 0xFFFFFFFFFFFFFF00 | new_constant;
-        } else {
-            new_constant = new_constant & 0xFF;
-        }
+        /* Extend by a sign of current constant. The compiler transforms this into
+           just a single "getfd" operation, rather than a chain of operations. */
+        new_constant = (sljit_uw) (new_constant << (sizeof(sljit_sw)*8 - 9));
+        new_constant = (sljit_sw) (new_constant >> (sizeof(sljit_sw)*8 - 9));
         new_constant_16 = (sljit_s16)(new_constant & 0xFFFF);
         const_size = sizeof(sljit_s16);
         break;
