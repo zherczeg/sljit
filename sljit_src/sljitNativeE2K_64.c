@@ -234,17 +234,17 @@ typedef enum {
 } E2kOpT;
 
 /* Reg coding */
-#define R(reg) reg | 0x80
+#define R(reg) (reg | 0x80)
 #define B(reg) reg
 #define R0_OFFSET 8     /* r0 start index in reg_map */
 #define nip 0x82
 #define cr0_hi 0x51
 
 /* Imm coding */
-#define CONST4(i)  i | 0xc0
-#define CONST16(i) i | 0xd0
-#define CONST32(i) i | 0xd8
-#define CONST64(i) i | 0xdc
+#define CONST4(i)  (i | 0xc0)
+#define CONST16(i) (i | 0xd0)
+#define CONST32(i) (i | 0xd8)
+#define CONST64(i) (i | 0xdc)
 #define SXT_EXTEND_8  0x0
 #define SXT_EXTEND_16 0x1
 #define SXT_EXTEND_32 0x2
@@ -2683,6 +2683,9 @@ static void emit_bundle_finalize(struct sljit_compiler *compiler,
 {
     sljit_u32 *inst;
     sljit_u16 *inst16;
+    sljit_u16 *inst16_start;
+    sljit_u16 *inst16_p;
+    sljit_u16 inst16_tmp;
     sljit_u32 *bundle_addr;
     sljit_u32 used_lts;
     sljit_s32 i;
@@ -2758,19 +2761,24 @@ static void emit_bundle_finalize(struct sljit_compiler *compiler,
     /* --- f2 ---------------------------------------------------------------*/
 
     /* --- f3 ---------------------------------------------------------------*/
-    /* ALES[0-1,3-4], 16-bit */
+    /* ALES[0-1,3-4], 16-bit. */
     inst16 = (sljit_u16 *)inst;
-
-    /* Decoder works with full words, so we should write padding as lower
-       half-word, before ales. */
-    if (half_pad) *inst16++ = 0;    /* Align */
+    inst16_start = inst16;
 
     if (hs_ales & 0x01) *inst16++ = bundle->ales[0];
     if (hs_ales & 0x02) *inst16++ = bundle->ales[1];
     if (hs_ales & 0x08) *inst16++ = bundle->ales[3];
     if (hs_ales & 0x10) *inst16++ = bundle->ales[4];
-    inst = (sljit_u32*)inst16;
+    if (half_pad) *inst16++ = 0;
 
+    /* Repack halfsyls as syls. */
+    for (inst16_p = inst16_start; inst16_p < inst16; inst16_p += 2) {
+        inst16_tmp = inst16_p[0];
+        inst16_p[0] = inst16_p[1];
+        inst16_p[1] = inst16_tmp;
+    }
+
+    inst = (sljit_u32*)inst16;
     if (hs_lng != lng) *inst++ = 0; /* Align */
     /* --- f3 ---------------------------------------------------------------*/
 
