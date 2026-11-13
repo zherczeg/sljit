@@ -8010,7 +8010,7 @@ static void test69(void)
 	struct sljit_compiler *compiler;
 	struct sljit_label *label;
 	struct sljit_jump *jump;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[11];
 #else
 	sljit_u8 supported[11];
@@ -8427,7 +8427,7 @@ static void test69(void)
 		FAILED(buf[8] != 97, "test69 case 11 failed\n");
 	}
 	if (supported[3]) {
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 		FAILED(*(sljit_u16*)(buf + 9) != (sljit_u16)((sljit_sw)buf + 9), "test69 case 12 failed\n");
 #else
 		FAILED(*(sljit_u16*)(buf + 9) != (sljit_u16)(sljit_sw)(buf + 9), "test69 case 12 failed\n");
@@ -9360,7 +9360,7 @@ static void test75(void)
 	executable_code code;
 	struct sljit_compiler *compiler;
 	struct sljit_label *label;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[2];
 #else
 	sljit_u8 supported[2];

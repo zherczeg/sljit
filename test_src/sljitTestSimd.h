@@ -51,7 +51,7 @@ static void simd_set(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
 	} while (--length != 0);
 }
 
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 static sljit_s32 check_simd_mov(sljit_u8* buf, sljit_s32 start, sljit_s32 length)
 #else
 static sljit_s32 check_simd_mov(sljit_u8* buf, sljit_u8 start, sljit_s32 length)
@@ -80,7 +80,7 @@ static void test_simd1(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[2];
 #else
 	sljit_u8 supported[2];
@@ -316,7 +316,7 @@ static void test_simd2(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[1];
 #else
 	sljit_u8 supported[1];
@@ -749,7 +749,7 @@ static void test_simd3(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[1];
 #else
 	sljit_u8 supported[1];
@@ -1052,7 +1052,7 @@ static void test_simd4(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[1];
 #else
 	sljit_u8 supported[1];
@@ -1369,7 +1369,7 @@ static void test_simd5(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[1];
 #else
 	sljit_u8 supported[1];
@@ -1738,7 +1738,7 @@ static void test_simd6(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[2];
 #else
 	sljit_u8 supported[2];
@@ -2097,7 +2097,7 @@ static void test_simd7(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[2];
 #else
 	sljit_u8 supported[2];
@@ -2302,7 +2302,7 @@ static void test_simd8(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[2];
 #else
 	sljit_u8 supported[2];
@@ -2579,7 +2579,7 @@ static void test_simd10(void)
 	struct sljit_compiler* compiler;
 	sljit_s32 options = 0;
 	sljit_s32 i, type;
-#ifdef __LCC__
+#if defined(__LCC__) && defined(__MCST__)
 	sljit_s32 supported[1];
 #else
 	sljit_u8 supported[1];
