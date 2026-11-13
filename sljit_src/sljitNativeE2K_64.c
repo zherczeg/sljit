@@ -3679,9 +3679,11 @@ static SLJIT_INLINE sljit_s32 get_cs0_offset(sljit_u32 *hs_addr)
 
     sljit_u32 cs0_off = 0;          /* in words */
     sljit_u32 *code_word_ptr;
-    sljit_u32 code_word;
-    sljit_u32 mdl = ((*hs_addr) & 0xF) + 1;
-    sljit_u32 mdl_end = (sljit_u32)(mdl * sizeof(sljit_s32));
+    sljit_u32 code_word, mdl, mdl_end;
+    E2kHS hs;
+    hs.i = *hs_addr;
+    mdl = hs.fields.mdl + 1;
+    mdl_end = (sljit_u32)(mdl * sizeof(sljit_s32));
 
     /* check for CS0 (DISP) in HS*/
     if (!(*hs_addr & 0x00004000)) {
@@ -3729,11 +3731,15 @@ static SLJIT_INLINE sljit_s32 get_lts_offset(sljit_u32 *hs_addr,
     sljit_s32 lts_off;              /* in words */
     sljit_s32 als;
     sljit_s32 lts_idx;
-    sljit_s32 pl = ((*hs_addr) >> 18) & 0x3;
-    sljit_s32 cd = ((*hs_addr) >> 16) & 0x3;
-    sljit_s32 lng = ((*hs_addr) >> 4) & 0x7;
-    sljit_s32 s = ((*hs_addr) >> 12) & 0x1;
-    sljit_s32 len = (sljit_s32)(2 * (lng + 1));
+    E2kHS hs;
+    sljit_s32 pl, cd, lng, s, len;
+
+    hs.i = *hs_addr;
+    pl = hs.fields.pls;
+    cd = hs.fields.cds;
+    lng = hs.fields.lng;
+    s = hs.fields.x_s_sw & 0x2;
+    len = (sljit_s32)(2 * (lng + 1));
 
     if (als_idx != -1) {
         if (s) {
