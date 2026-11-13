@@ -5391,7 +5391,7 @@ sljit_s32 sljit_emit_fop1(struct sljit_compiler *compiler,
         break;
     case SLJIT_CMP_F64:                     /* and SLJIT_CMP_F32 */
         CHECK(check_sljit_emit_fop1_cmp(compiler, op, dst, dstw, src, srcw));
-        e2kopc = mode32 ? E2K_FCMPODsf : E2K_FCMPODdf;
+        e2kopc = mode32 ? E2K_FCMPUDsf : E2K_FCMPUDdf;
         signature_switcher2(compiler, e2kopc, FLAG_REG, 0, fdst, dstw,
                             fsrc, srcw, mode);
         break;
