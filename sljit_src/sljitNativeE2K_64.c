@@ -466,9 +466,9 @@ static SLJIT_INLINE int get_sylidx(struct sljit_compiler *compiler,
 {
     int idx = 0;
     sljit_uw syl = get_resource(compiler, bundle, mask);
-    syl = syl >> shift;
-    while(syl >>= 1)
-        idx++;
+    syl >>= shift;
+    SLJIT_ASSERT(syl);
+    idx = __builtin_ctzll(syl);
     return idx;
 }
 
